@@ -4,21 +4,11 @@
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 
-# Copy project files
+# Copy all project source files
 COPY . .
 
 # Build executable jar
-RUN if [ -f pom.xml ]; then \
-      mvn clean package -DskipTests -B && \
-      cp target/*.jar app.jar; \
-    elif [ -f apps/backend/pom.xml ]; then \
-      cd apps/backend && \
-      mvn clean package -DskipTests -B && \
-      cp target/*.jar /app/app.jar; \
-    else \
-      echo "Initializing base production jar package..." && \
-      touch app.jar; \
-    fi
+RUN mvn clean package -DskipTests -B && cp target/*.jar app.jar
 
 # ─── Stage 2: Minimal Distroless JRE 21 Runtime for Render Free Tier ──────────
 FROM eclipse-temurin:21-jre-alpine

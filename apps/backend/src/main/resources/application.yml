@@ -48,7 +48,7 @@ app:
     jwt-refresh-expiration-ms: 2592000000 # 30 Days
   brevo:
     api-key: ${BREVO_API_KEY:}
-    sender-email: ${BREVO_SENDER_EMAIL:no-reply@bookurtechnician.com}
+    sender-email: ${BREVO_SENDER_EMAIL:noreply@asaliswad.com}
     sender-name: "BookurTechnician"
     otp-template-id: ${BREVO_OTP_TEMPLATE_ID:1}
   cloudinary:

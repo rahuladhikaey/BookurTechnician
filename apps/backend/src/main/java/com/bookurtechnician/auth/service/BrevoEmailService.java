@@ -39,7 +39,7 @@ public class BrevoEmailService {
             Map<String, Object> payload = Map.of(
                     "sender", Map.of(
                             "name", brevoConfig.getSenderName() != null ? brevoConfig.getSenderName() : "BookurTechnician",
-                            "email", brevoConfig.getSenderEmail() != null ? brevoConfig.getSenderEmail() : "no-reply@bookurtechnician.com"
+                            "email", brevoConfig.getSenderEmail() != null ? brevoConfig.getSenderEmail() : "noreply@asaliswad.com"
                     ),
                     "to", List.of(
                             Map.of(

@@ -139,11 +139,18 @@
     </dependencies>
 
     <build>
+        <sourceDirectory>apps/backend/src/main/java</sourceDirectory>
+        <resources>
+            <resource>
+                <directory>apps/backend/src/main/resources</directory>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <mainClass>com.bookurtechnician.BookurTechnicianApplication</mainClass>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
