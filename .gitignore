@@ -1,0 +1,49 @@
+# ─── Large Binary & Build Outputs (GitHub 100MB Limit) ─────────────────────────
+build_outputs/
+*.apk
+*.aab
+
+# ─── Secrets & Environment ───────────────────────────────────────────────────
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.jks
+*.keystore
+
+# ─── Node & Web ──────────────────────────────────────────────────────────────
+node_modules/
+dist/
+build/
+.npm/
+
+# ─── Java & Maven ─────────────────────────────────────────────────────────────
+target/
+*.jar
+*.war
+*.class
+.mvn/wrapper/maven-wrapper.jar
+
+# ─── Flutter & Dart ───────────────────────────────────────────────────────────
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+android/.gradle/
+android/app/build/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+
+# ─── Gradle & Android SDK ─────────────────────────────────────────────────────
+.gradle/
+captures/
+*.hprof
+
+# ─── IDE & OS ────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*.log

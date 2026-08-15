@@ -1,0 +1,22 @@
+import 'package:dio/dio.dart';
+import 'interceptors.dart';
+import '../security/secure_storage.dart';
+
+class DioClient {
+  final Dio dio;
+
+  DioClient(SecureStorage storage) : dio = Dio() {
+    dio.options = BaseOptions(
+      baseUrl: 'https://api.bookurtechnician.com/v1',
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      contentType: Headers.jsonContentType,
+    );
+
+    dio.interceptors.addAll([
+      AuthInterceptor(storage),
+      ErrorInterceptor(),
+      LoggingInterceptor(),
+    ]);
+  }
+}

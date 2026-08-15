@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Booking",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^BT-[0-9]{6}$"
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "price": { "type": "number" }
+        },
+        "required": ["id", "name", "price"]
+      }
+    },
+    "date": {
+      "type": "string"
+    },
+    "timeSlot": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "CONFIRMED",
+        "TECH_ASSIGNED",
+        "TECH_ACCEPTED",
+        "TECH_ON_THE_WAY",
+        "TECH_ARRIVED",
+        "SERVICE_STARTED",
+        "FORWARDED",
+        "COMPLETED",
+        "CANCELLED"
+      ]
+    },
+    "otp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}$"
+    },
+    "addOns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "price": { "type": "number" },
+          "isApproved": { "type": "boolean" },
+          "reason": { "type": "string" }
+        },
+        "required": ["id", "name", "price", "isApproved"]
+      }
+    }
+  },
+  "required": ["id", "services", "date", "timeSlot", "status", "otp"]
+}

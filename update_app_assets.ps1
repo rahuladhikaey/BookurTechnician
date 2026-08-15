@@ -1,0 +1,113 @@
+# update_app_assets.ps1
+# PowerShell script to update launcher icons and names for both BookUrTechnician apps.
+
+$LogoPath = "C:\Users\RAHUL\.gemini\antigravity-ide\brain\42482ad2-8d64-459c-98f4-5eaeba6a22b1\media__1786634285252.png"
+$AppLabel = "bookurtechnician"
+
+Write-Host "==================================================" -ForegroundColor Cyan
+Write-Host "     Updating App Logo & Name to: $AppLabel" -ForegroundColor Cyan
+Write-Host "==================================================" -ForegroundColor Cyan
+
+# Load System.Drawing for high-quality resizing
+Add-Type -AssemblyName System.Drawing
+
+if (-not (Test-Path $LogoPath)) {
+    Write-Error "Could not find logo image at: $LogoPath"
+    exit 1
+}
+
+$Image = [System.Drawing.Image]::FromFile($LogoPath)
+
+# Dictionary of resolutions
+$Sizes = @{
+    "mipmap-mdpi"    = 48
+    "mipmap-hdpi"    = 72
+    "mipmap-xhdpi"   = 96
+    "mipmap-xxhdpi"  = 144
+    "mipmap-xxxhdpi" = 192
+}
+
+function Resize-And-Save {
+    param(
+        [System.Drawing.Image]$SrcImage,
+        [int]$Size,
+        [string]$DestPath
+    )
+    $DestDir = [System.IO.Path]::GetDirectoryName($DestPath)
+    if (-not (Test-Path $DestDir)) {
+        New-Item -ItemType Directory -Path $DestDir -Force | Out-Null
+    }
+    
+    $DestImage = New-Object System.Drawing.Bitmap($Size, $Size)
+    $Graphics = [System.Drawing.Graphics]::FromImage($DestImage)
+    
+    # Configure high-quality rendering options
+    $Graphics.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceCopy
+    $Graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+    $Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+    $Graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+    
+    $Rect = New-Object System.Drawing.Rectangle(0, 0, $Size, $Size)
+    $Graphics.DrawImage($SrcImage, $Rect, 0, 0, $SrcImage.Width, $SrcImage.Height, [System.Drawing.GraphicsUnit]::Pixel)
+    
+    # Save as PNG
+    $DestImage.Save($DestPath, [System.Drawing.Imaging.ImageFormat]::Png)
+    
+    $Graphics.Dispose()
+    $DestImage.Dispose()
+}
+
+# 1. Update Customer App Assets
+$CustResDir = "apps\customer_app\app\src\main\res"
+Write-Host "Updating Customer App Launcher Icons..." -ForegroundColor Yellow
+foreach ($Folder in $Sizes.Keys) {
+    $Size = $Sizes[$Folder]
+    $TargetFolder = Join-Path $CustResDir $Folder
+    
+    # Delete XML adaptive launcher icon overrides so the system uses the PNG
+    Remove-Item (Join-Path $TargetFolder "ic_launcher.xml") -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $TargetFolder "ic_launcher_round.xml") -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $TargetFolder "ic_launcher_background.xml") -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $TargetFolder "ic_launcher_foreground.xml") -ErrorAction SilentlyContinue
+    
+    # Save new PNG launcher icons
+    Resize-And-Save $Image $Size (Join-Path $TargetFolder "ic_launcher.png")
+    Resize-And-Save $Image $Size (Join-Path $TargetFolder "ic_launcher_round.png")
+}
+
+# Update Customer App Name in strings.xml
+$CustStringsPath = "apps\customer_app\app\src\main\res\values\strings.xml"
+if (Test-Path $CustStringsPath) {
+    Write-Host "Updating Customer App Name in strings.xml..." -ForegroundColor Yellow
+    [xml]$xml = Get-Content $CustStringsPath
+    $xml.resources.string | Where-Object { $_.name -eq "app_name" } | ForEach-Object { $_.InnerText = $AppLabel }
+    $xml.Save($CustStringsPath)
+}
+
+# 2. Update Technician App Assets
+$TechResDir = "apps\technician_app\android\app\src\main\res"
+Write-Host "Updating Technician App Launcher Icons..." -ForegroundColor Yellow
+foreach ($Folder in $Sizes.Keys) {
+    $Size = $Sizes[$Folder]
+    $TargetFolder = Join-Path $TechResDir $Folder
+    
+    Remove-Item (Join-Path $TargetFolder "ic_launcher.xml") -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $TargetFolder "ic_launcher_round.xml") -ErrorAction SilentlyContinue
+    
+    Resize-And-Save $Image $Size (Join-Path $TargetFolder "ic_launcher.png")
+    Resize-And-Save $Image $Size (Join-Path $TargetFolder "ic_launcher_round.png")
+}
+
+# Update Technician App Name in AndroidManifest.xml
+$TechManifestPath = "apps\technician_app\android\app\src\main\AndroidManifest.xml"
+if (Test-Path $TechManifestPath) {
+    Write-Host "Updating Technician App Name in AndroidManifest.xml..." -ForegroundColor Yellow
+    $ManifestContent = Get-Content $TechManifestPath -Raw
+    $ManifestContent = $ManifestContent -replace 'android:label="[^"]*"', ('android:label="' + $AppLabel + '"')
+    Set-Content $TechManifestPath $ManifestContent -NoNewline
+}
+
+$Image.Dispose()
+Write-Host "SUCCESS: App names and icons updated successfully!" -ForegroundColor Green
+Write-Host "Please rebuild using .\build_apks.ps1 to apply the changes." -ForegroundColor Green

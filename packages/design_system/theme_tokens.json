@@ -1,0 +1,43 @@
+{
+  "name": "Book Technician Blue & White Design System",
+  "version": "2.0.0",
+  "colors": {
+    "primaryBlue": "#17399A",
+    "deepNavy": "#0B1F63",
+    "primaryLightBlue": "#E8EEFF",
+    "white": "#FFFFFF",
+    "primaryText": "#0B1635",
+    "secondaryText": "#667085",
+    "border": "#E5E7EB",
+    "success": "#16A34A",
+    "warning": "#F59E0B",
+    "error": "#DC2626",
+    "background": "#FFFFFF",
+    "surface": "#FFFFFF",
+    "card": "#FFFFFF",
+    "inputBg": "#F8FAFC"
+  },
+  "spacing": {
+    "xxs": 4.0,
+    "xs": 8.0,
+    "s": 12.0,
+    "m": 16.0,
+    "l": 20.0,
+    "xl": 24.0,
+    "xxl": 32.0
+  },
+  "radius": {
+    "xs": 4.0,
+    "s": 8.0,
+    "m": 12.0,
+    "l": 16.0,
+    "xl": 20.0,
+    "xxl": 28.0,
+    "full": 9999.0
+  },
+  "shadows": {
+    "card": "0 2px 8px rgba(11, 31, 99, 0.06)",
+    "modal": "0 10px 25px rgba(11, 31, 99, 0.12)",
+    "banner": "0 4px 20px rgba(23, 57, 154, 0.15)"
+  }
+}
