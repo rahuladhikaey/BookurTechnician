@@ -1,0 +1,28 @@
+services:
+  # ─── PostgreSQL 16 with PostGIS Extension ──────────────────
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: bookurtechnician-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: bookurtechnician_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # ─── Redis 7 In-Memory Cache & Message Broker ──────────────
+  redis:
+    image: redis:7-alpine
+    container_name: bookurtechnician-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:
