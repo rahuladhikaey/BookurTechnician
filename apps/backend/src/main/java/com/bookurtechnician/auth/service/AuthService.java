@@ -56,16 +56,16 @@ public class AuthService {
             user.setPhone(dto.getPhone().trim());
         }
         user.setEmailVerified(true);
-        user = userRepository.save(user);
+        final User savedUser = userRepository.save(user);
 
         // Update profile status
         int completionScore = 100;
-        if (user.getRole() == Role.CUSTOMER) {
-            CustomerProfile profile = customerProfileRepository.findByUser(user)
+        if (savedUser.getRole() == Role.CUSTOMER) {
+            CustomerProfile profile = customerProfileRepository.findByUser(savedUser)
                     .orElseGet(() -> {
                         CustomerProfile newProfile = CustomerProfile.builder()
-                                .user(user)
-                                .hasValidName(user.getFullName() != null && !user.getFullName().isBlank())
+                                .user(savedUser)
+                                .hasValidName(savedUser.getFullName() != null && !savedUser.getFullName().isBlank())
                                 .hasVerifiedPhone(true)
                                 .hasVerifiedEmail(true)
                                 .build();
@@ -74,7 +74,7 @@ public class AuthService {
                     });
 
             profile.setHasVerifiedEmail(true);
-            if (user.getFullName() != null && !user.getFullName().isBlank()) {
+            if (savedUser.getFullName() != null && !savedUser.getFullName().isBlank()) {
                 profile.setHasValidName(true);
             }
             profile.recalculateScore();
@@ -83,19 +83,19 @@ public class AuthService {
         }
 
         // Generate JWT Access and Refresh tokens
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole().name());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
+        String accessToken = jwtTokenProvider.generateAccessToken(savedUser.getId(), savedUser.getEmail(), savedUser.getRole().name());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(savedUser.getId());
 
         return AuthDtos.AuthResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .user(AuthDtos.UserSummaryDto.builder()
-                        .id(user.getId())
-                        .email(user.getEmail())
-                        .phone(user.getPhone())
-                        .fullName(user.getFullName())
-                        .role(user.getRole())
+                        .id(savedUser.getId())
+                        .email(savedUser.getEmail())
+                        .phone(savedUser.getPhone())
+                        .fullName(savedUser.getFullName())
+                        .role(savedUser.getRole())
                         .profileCompleted(completionScore == 100)
                         .profileCompletionPercentage(completionScore)
                         .build())
