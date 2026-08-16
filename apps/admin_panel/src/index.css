@@ -11,39 +11,39 @@
    ========================================================================== */
 
 :root {
-  --primary: #2146A8;
-  --primary-dark: #17357F;
-  --primary-light: #EEF3FF;
-  --primary-hover: #1c3d94;
+  --primary: #1E40AF;
+  --primary-dark: #1D3FAF;
+  --primary-light: #F1F5F9;
+  --primary-hover: #1D3FAF;
   
-  --bg-main: #F8FAFC;
+  --bg-main: #FFFFFF;
   --bg-white: #FFFFFF;
-  --bg-sidebar: #2146A8;
-  --bg-sidebar-dark: #17357F;
+  --bg-sidebar: #1E40AF;
+  --bg-sidebar-dark: #1D3FAF;
   
-  --text-main: #111827;
-  --text-secondary: #667085;
-  --text-muted: #9CA3AF;
+  --text-main: #000000;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
   --text-white: #FFFFFF;
   
-  --border-color: #D9E2F2;
-  --border-light: #EEF3FF;
+  --border-color: #E2E8F0;
+  --border-light: #F1F5F9;
   
   /* Flat Status Colors */
-  --badge-confirmed-bg: #EEF3FF;
-  --badge-confirmed-text: #2146A8;
+  --badge-confirmed-bg: #EFF6FF;
+  --badge-confirmed-text: #1E40AF;
   
-  --badge-completed-bg: #E8F7EE;
+  --badge-completed-bg: #ECFDF5;
   --badge-completed-text: #15803D;
   
-  --badge-cancelled-bg: #FEE2E2;
+  --badge-cancelled-bg: #FEF2F2;
   --badge-cancelled-text: #DC2626;
   
-  --badge-pending-bg: #FEF3C7;
+  --badge-pending-bg: #FFFBEB;
   --badge-pending-text: #D97706;
 
-  --badge-info-bg: #E0F2FE;
-  --badge-info-text: #0369A1;
+  --badge-info-bg: #EFF6FF;
+  --badge-info-text: #1E40AF;
 
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --radius-sm: 4px;

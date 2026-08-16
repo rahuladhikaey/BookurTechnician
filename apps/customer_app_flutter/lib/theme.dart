@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 
-// ─── BOOKURTECHNICIAN OFFICIAL ROYAL BLUE + BLACK COLOR SYSTEM ───────────────
+// ─── BOOKURTECHNICIAN OFFICIAL STRICT ROYAL BLUE + BLACK + WHITE COLOR SYSTEM ───
 
 // Primary Brand Colors
-const Color kBrandPrimary = Color(0xFF2146A8);      // Official Royal Blue
-const Color kDeepRoyalBlue = Color(0xFF17357F);     // Deep Royal Blue
-const Color kBlack = Color(0xFF000000);             // Pure Black
-const Color kWhite = Color(0xFFFFFFFF);             // Pure White
-const Color kLightBlueTint = Color(0xFFEEF3FF);     // Light Blue Tint (Containers/Active States)
-const Color kTextDark = Color(0xFF111827);          // Text Dark / Headings
-const Color kSecondaryText = Color(0xFF667085);     // Secondary Gray Text
-const Color kBorderColor = Color(0xFFE4E7EC);       // Subtle Outline Border
-const Color kBackgroundLight = Color(0xFFF8FAFC);   // Light Background Tint
+const Color kBrandPrimary = Color(0xFF1E40AF);      // Primary Royal Blue (#1E40AF)
+const Color kDeepRoyalBlue = Color(0xFF1D3FAF);     // Deep Royal Blue (#1D3FAF)
+const Color kBlack = Color(0xFF000000);             // Pure Black (#000000)
+const Color kWhite = Color(0xFFFFFFFF);             // Pure White (#FFFFFF)
+const Color kLightBlueTint = Color(0xFFF1F5F9);     // Neutral Surface Highlight (#F1F5F9)
+const Color kTextDark = Color(0xFF000000);          // Primary Black Text (#000000)
+const Color kSecondaryText = Color(0xFF475569);     // Secondary Text (#475569)
+const Color kBorderColor = Color(0xFFE2E8F0);       // Subtle Outline Border (#E2E8F0)
+const Color kBackgroundLight = Color(0xFFFFFFFF);   // Pure White Background (#FFFFFF)
 
 // Semantic Status Colors (Retained for Universal Clarity)
 const Color kSuccessGreen = Color(0xFF16A34A);      // Success Green
@@ -22,9 +22,9 @@ const Color kErrorRed = Color(0xFFDC2626);          // Error Red
 const Color kDeepNavy = kDeepRoyalBlue;
 const Color kLightBlue = kLightBlueTint;
 const Color kPrimaryText = kTextDark;
-const Color kBrandSecondary = kLightBlueTint;
+const Color kBrandSecondary = kBlack;
 const Color kCardWhite = kWhite;
-const Color kTextNavy = kTextDark;
+const Color kTextNavy = kBlack;
 const Color kTextGray = kSecondaryText;
 const Color kGreenSuccess = kSuccessGreen;
 const Color kYellowWarning = kWarningAmber;
@@ -40,19 +40,19 @@ ThemeData buildAppTheme() {
       surface: kWhite,
       onPrimary: kWhite,
       onSecondary: kWhite,
-      onSurface: kTextDark,
+      onSurface: kBlack,
       outline: kBorderColor,
       error: kErrorRed,
     ),
     fontFamily: 'Inter',
     appBarTheme: const AppBarTheme(
       backgroundColor: kWhite,
-      foregroundColor: kTextDark,
+      foregroundColor: kBlack,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
       titleTextStyle: TextStyle(
-        color: kTextDark,
+        color: kBlack,
         fontWeight: FontWeight.w800,
         fontSize: 17,
         letterSpacing: -0.3,
@@ -98,7 +98,7 @@ ThemeData buildAppTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: kBackgroundLight,
+      fillColor: const Color(0xFFF8FAFC),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: kBorderColor),
@@ -166,7 +166,7 @@ ThemeData buildAppTheme() {
 
 // ─── REUSABLE DESIGN SYSTEM COMPONENTS ──────────────────────────────────────
 
-/// Official Primary Action Button (Royal Blue + Black treatment, White text)
+/// Official Primary Action Button (Royal Blue, White text)
 class BTPrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -314,7 +314,7 @@ class BTStatusBadge extends StatelessWidget {
       BTStatusBadge(label: text, backgroundColor: const Color(0xFFFEF3C7), textColor: kWarningAmber);
 
   factory BTStatusBadge.info(String text) =>
-      BTStatusBadge(label: text, backgroundColor: kLightBlueTint, textColor: kBrandPrimary);
+      BTStatusBadge(label: text, backgroundColor: const Color(0xFFEFF6FF), textColor: kBrandPrimary);
 
   factory BTStatusBadge.error(String text) =>
       BTStatusBadge(label: text, backgroundColor: const Color(0xFFFEE2E2), textColor: kErrorRed);

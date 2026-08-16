@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 
-// ─── BOOKURTECHNICIAN TECHNICIAN APP — ROYAL BLUE + BLACK COLOR SYSTEM ─────────
+// ─── BOOKURTECHNICIAN TECHNICIAN APP — STRICT ROYAL BLUE + BLACK COLOR SYSTEM ───
 
 class AppColors {
   // Core Brand Colors
-  static const Color primary = Color(0xFF2146A8);        // Official Royal Blue (#2146A8)
-  static const Color primaryDark = Color(0xFF17357F);    // Deep Royal Blue (#17357F)
-  static const Color primaryLight = Color(0xFFEEF3FF);   // Light Blue Tint (#EEF3FF)
+  static const Color primary = Color(0xFF1E40AF);        // Primary Royal Blue (#1E40AF)
+  static const Color primaryDark = Color(0xFF1D3FAF);    // Deep Royal Blue (#1D3FAF)
+  static const Color primaryLight = Color(0xFFF1F5F9);   // Neutral Light Surface (#F1F5F9)
   static const Color black = Color(0xFF000000);          // Black (#000000)
   static const Color background = Color(0xFFFFFFFF);     // Clean White Surface (#FFFFFF)
   static const Color card = Color(0xFFFFFFFF);           // White Card (#FFFFFF)
   
   // Text Colors
-  static const Color textPrimary = Color(0xFF111827);    // Primary Heading & Dark Text (#111827)
-  static const Color textSecondary = Color(0xFF667085);  // Muted Secondary Text (#667085)
+  static const Color textPrimary = Color(0xFF000000);    // Black Text (#000000)
+  static const Color textSecondary = Color(0xFF475569);  // Secondary Slate Text (#475569)
   
   // Borders & Accents
-  static const Color border = Color(0xFFE4E7EC);         // Subtle Border Outline (#E4E7EC)
+  static const Color border = Color(0xFFE2E8F0);         // Subtle Border Outline (#E2E8F0)
   
   // Functional Status Colors (Universal Recognition)
   static const Color success = Color(0xFF16A34A);        // Functional Green (#16A34A)

@@ -301,14 +301,14 @@ class _LogoPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     
-    // Draw diagonal background split: top-left is light cyan, bottom-right is dark teal/blue
-    final paintLight = Paint()..color = const Color(0xFF19B5D5);
-    final paintDark = Paint()..color = const Color(0xFF077E9B);
+    // Draw diagonal background split: Royal Blue and Deep Royal Blue
+    final paintLight = Paint()..color = const Color(0xFF1E40AF);
+    final paintDark = Paint()..color = const Color(0xFF1D3FAF);
     
-    // Fill the entire canvas with the light cyan color
+    // Fill the entire canvas with the Royal Blue color
     canvas.drawRect(Rect.fromLTWH(0, 0, w, h), paintLight);
     
-    // Draw bottom-right region with the dark teal/blue
+    // Draw bottom-right region with Deep Royal Blue
     final pathBg = Path()
       ..moveTo(0, h)
       ..lineTo(w, h)
@@ -420,9 +420,9 @@ class _LogoPainter extends CustomPainter {
     logoText = Path.combine(PathOperation.union, logoText, wrench);
     logoText = Path.combine(PathOperation.union, logoText, connector);
     
-    // Draw diagonal long shadow
+    // Draw diagonal subtle shadow
     final paintShadow = Paint()
-      ..color = const Color(0x80055A6F)
+      ..color = const Color(0x33000000)
       ..style = PaintingStyle.fill;
       
     for (double i = 1.0; i <= 4.0; i += 1.0) {
@@ -1161,7 +1161,7 @@ class _ShieldPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     final shieldPaint = Paint()
-      ..color = const Color(0xFF06B6D4)
+      ..color = const Color(0xFF1E40AF)
       ..style = PaintingStyle.fill;
     final linePaint = Paint()
       ..color = Colors.white
