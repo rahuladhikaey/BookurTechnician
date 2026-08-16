@@ -93,45 +93,69 @@ class JobStateNotifier extends StateNotifier<JobState> {
 
   // Toggle Shift online/offline
   Future<void> toggleShift(bool online) async {
-    state = state.copyWith(isShiftOnline: online, isLoading: true);
+    state = state.copyWith(isLoading: true);
 
     try {
-      Position? currentPosition;
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
-        state = state.copyWith(isGpsGranted: true);
-        try {
-          currentPosition = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-            timeLimit: const Duration(seconds: 10),
-          );
-        } catch (_) {}
-      } else {
-        state = state.copyWith(isGpsGranted: false);
-      }
-
-      // Notify backend of online/offline status + real GPS fix
-      await _dioClient.dio.post('/technician/online-status', data: {
-        'online': online,
-        'latitude': currentPosition?.latitude,
-        'longitude': currentPosition?.longitude,
-      });
-
       if (online) {
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          state = state.copyWith(
+            isLoading: false,
+            isGpsGranted: false,
+            errorMessage: 'GPS is disabled. Please turn on device location to go ONLINE.',
+          );
+          return;
+        }
+
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+
+        if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
+          state = state.copyWith(
+            isLoading: false,
+            isGpsGranted: false,
+            errorMessage: 'Location permission required to go ONLINE.',
+          );
+          return;
+        }
+
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 12),
+        );
+
+        state = state.copyWith(isGpsGranted: true);
+
+        // Notify backend of online status + real GPS fix
+        await _dioClient.dio.post('/technician/online-status', data: {
+          'online': true,
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+        });
+
         _startProposalPolling();
+        state = state.copyWith(isLoading: false, isShiftOnline: true, errorMessage: null);
       } else {
+        // Going offline
         _stopProposalPolling();
         _stopLiveLocationStream();
-      }
 
-      state = state.copyWith(isLoading: false, isShiftOnline: online);
+        try {
+          await _dioClient.dio.post('/technician/online-status', data: {
+            'online': false,
+          });
+        } catch (_) {}
+
+        state = state.copyWith(isLoading: false, isShiftOnline: false, errorMessage: null);
+      }
     } catch (e) {
       debugPrint('Error toggling online status: $e');
-      state = state.copyWith(isLoading: false, errorMessage: 'Failed to update shift status.');
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Failed to update shift status: $e',
+      );
     }
   }
 
@@ -176,13 +200,17 @@ class JobStateNotifier extends StateNotifier<JobState> {
               ? (first['estimatedEarnings'] as num).toDouble()
               : (booking['technicianPayoutAmount'] as num?)?.toDouble() ?? 450.0;
           final String area = address != null ? '${address['area'] ?? ''}, ${address['city'] ?? ''}' : 'Customer Location';
+          double? custLat = (address?['latitude'] as num?)?.toDouble();
+          double? custLng = (address?['longitude'] as num?)?.toDouble();
 
           final proposedJob = TechJob(
             id: bookingId,
             title: '$title ($bookingCode)',
             price: price,
-            customerName: 'Customer',
+            customerName: booking['customer']?['fullName'] ?? 'Customer',
             customerAddress: area,
+            customerLatitude: custLat,
+            customerLongitude: custLng,
             status: TechJobStatus.accepted,
           );
 

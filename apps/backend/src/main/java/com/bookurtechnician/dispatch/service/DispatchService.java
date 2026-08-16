@@ -68,9 +68,10 @@ public class DispatchService {
         double lat = booking.getAddress().getCoordinates().getY();
         double lng = booking.getAddress().getCoordinates().getX();
 
-        // Query PostGIS for all online verified technicians within 10 KM, ordered by spatial distance ASC
+        // Query PostGIS for all online verified technicians within 10 KM with fresh GPS fixes, ordered by spatial distance ASC
+        java.time.Instant freshnessCutoff = Instant.now().minus(java.time.Duration.ofMinutes(30));
         List<TechnicianProfile> nearbyTechnicians = technicianProfileRepository.findNearbyAvailableTechnicians(
-                lat, lng, DISPATCH_RADIUS_METERS, 20
+                lat, lng, DISPATCH_RADIUS_METERS, freshnessCutoff, 20
         );
 
         // Find the first closest technician who hasn't already been sent a proposal for this booking

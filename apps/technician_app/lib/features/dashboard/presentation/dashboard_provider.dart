@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -274,14 +275,19 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
     });
   }
 
-  /// ─── AUTOMATIC GPS LOCATION ACCESS ON ONLINE TOGGLE ───────────────────────
-  Future<void> toggleOnline(bool val) async {
+  /// ─── AUTOMATIC REAL GPS LOCATION ACCESS ON ONLINE TOGGLE ───────────────────────
+  Future<bool> toggleOnline(bool val) async {
     HapticFeedback.mediumImpact();
-    state = state.copyWith(isOnline: val);
 
     if (val) {
-      // Automatically fetch current GPS location upon going online
-      await fetchAndUpdateLocation();
+      // Automatically fetch current device GPS location upon going online
+      final success = await fetchAndUpdateLocation();
+      if (!success) {
+        state = state.copyWith(isOnline: false);
+        return false;
+      }
+
+      state = state.copyWith(isOnline: true);
       try {
         final dioClient = DioClient(SecureStorage());
         await dioClient.dio.post('/technician/online-status', data: {
@@ -289,22 +295,38 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
           'latitude': state.currentLatitude,
           'longitude': state.currentLongitude,
         });
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Backend online status update error: $e');
+      }
+      return true;
     } else {
-      // Going offline rejects pending proposals
+      // Going offline rejects pending proposals and deregisters from Redis GEO
+      state = state.copyWith(isOnline: false);
       rejectProposal();
       try {
         final dioClient = DioClient(SecureStorage());
         await dioClient.dio.post('/technician/online-status', data: {
           'online': false,
         });
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Backend offline status update error: $e');
+      }
+      return true;
     }
   }
 
-  Future<void> fetchAndUpdateLocation() async {
+  Future<bool> fetchAndUpdateLocation() async {
     state = state.copyWith(isFetchingLocation: true);
     try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        state = state.copyWith(
+          isFetchingLocation: false,
+          currentLocationAddress: 'GPS Disabled. Please enable Location Services.',
+        );
+        return false;
+      }
+
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -313,30 +335,29 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
         final position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
+          timeLimit: const Duration(seconds: 10),
         );
         state = state.copyWith(
           currentLatitude: position.latitude,
           currentLongitude: position.longitude,
-          currentLocationAddress: 'GPS: ${position.latitude.toStringAsFixed(4)}° N, ${position.longitude.toStringAsFixed(4)}° E (Bengaluru)',
+          currentLocationAddress: 'GPS: ${position.latitude.toStringAsFixed(5)}°, ${position.longitude.toStringAsFixed(5)}°',
           isFetchingLocation: false,
         );
+        return true;
       } else {
-        // Fallback default mock coordinates if permission was denied
         state = state.copyWith(
-          currentLatitude: 12.9716,
-          currentLongitude: 77.5946,
-          currentLocationAddress: 'Bellary Road, Bengaluru (Simulated)',
           isFetchingLocation: false,
+          currentLocationAddress: 'Location Permission Denied',
         );
+        return false;
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Location acquisition error: $e');
       state = state.copyWith(
-        currentLatitude: 12.9716,
-        currentLongitude: 77.5946,
-        currentLocationAddress: 'Bellary Road, Bengaluru',
         isFetchingLocation: false,
+        currentLocationAddress: 'Could not fetch GPS fix',
       );
+      return false;
     }
   }
 

@@ -20,6 +20,8 @@ class TechJob {
   final String? otp;
   final List<AddOnWork> addOns;
   final ForwardDetails? forwardDetails;
+  final double? customerLatitude;
+  final double? customerLongitude;
   final double? techLatitude;
   final double? techLongitude;
   final int? currentPathIndex;
@@ -34,6 +36,8 @@ class TechJob {
     this.otp,
     this.addOns = const [],
     this.forwardDetails,
+    this.customerLatitude,
+    this.customerLongitude,
     this.techLatitude,
     this.techLongitude,
     this.currentPathIndex,
@@ -49,6 +53,8 @@ class TechJob {
     String? otp,
     List<AddOnWork>? addOns,
     ForwardDetails? forwardDetails,
+    double? customerLatitude,
+    double? customerLongitude,
     double? techLatitude,
     double? techLongitude,
     int? currentPathIndex,
@@ -63,6 +69,8 @@ class TechJob {
       otp: otp ?? this.otp,
       addOns: addOns ?? this.addOns,
       forwardDetails: forwardDetails ?? this.forwardDetails,
+      customerLatitude: customerLatitude ?? this.customerLatitude,
+      customerLongitude: customerLongitude ?? this.customerLongitude,
       techLatitude: techLatitude ?? this.techLatitude,
       techLongitude: techLongitude ?? this.techLongitude,
       currentPathIndex: currentPathIndex ?? this.currentPathIndex,

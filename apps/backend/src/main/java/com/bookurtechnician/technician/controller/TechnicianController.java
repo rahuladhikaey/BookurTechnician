@@ -150,10 +150,25 @@ public class TechnicianController {
                 .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
 
         if (dto.getLatitude() != null && dto.getLongitude() != null) {
+            validateCoordinates(dto.getLatitude(), dto.getLongitude());
+
             Point point = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
             profile.setCurrentLocation(point);
             profile.setLocationUpdatedAt(Instant.now());
             profileRepository.save(profile);
+
+            // Sync with Redis GEO index if online
+            if (profile.isOnline()) {
+                try {
+                    redisTemplate.opsForGeo().add(
+                            "tech:locations",
+                            new org.springframework.data.geo.Point(dto.getLongitude(), dto.getLatitude()),
+                            profile.getId().toString()
+                    );
+                } catch (Exception ex) {
+                    log.warn("Redis GEO live sync warning: {}", ex.getMessage());
+                }
+            }
 
             // Broadcast real GPS coordinate to customer live tracking screen
             if (dto.getBookingId() != null) {
@@ -185,31 +200,51 @@ public class TechnicianController {
         TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
 
-        profile.setOnline(dto.isOnline());
+        if (dto.isOnline()) {
+            if (dto.getLatitude() == null || dto.getLongitude() == null) {
+                throw new com.bookurtechnician.common.exception.BadRequestException("Valid GPS coordinates are strictly required to go ONLINE.");
+            }
+            validateCoordinates(dto.getLatitude(), dto.getLongitude());
 
-        if (dto.getLatitude() != null && dto.getLongitude() != null) {
             Point point = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
             profile.setCurrentLocation(point);
             profile.setLocationUpdatedAt(Instant.now());
+            profile.setOnline(true);
 
             // Cache ephemeral coordinate in Redis GEO
             try {
-                if (dto.isOnline()) {
-                    redisTemplate.opsForGeo().add(
-                            "tech:locations",
-                            new org.springframework.data.geo.Point(dto.getLongitude(), dto.getLatitude()),
-                            profile.getId().toString()
-                    );
-                } else {
-                    redisTemplate.opsForZSet().remove("tech:locations", profile.getId().toString());
-                }
+                redisTemplate.opsForGeo().add(
+                        "tech:locations",
+                        new org.springframework.data.geo.Point(dto.getLongitude(), dto.getLatitude()),
+                        profile.getId().toString()
+                );
             } catch (Exception ex) {
                 log.warn("Redis GEO coordinate caching warning: {}", ex.getMessage());
+            }
+        } else {
+            profile.setOnline(false);
+            try {
+                redisTemplate.opsForZSet().remove("tech:locations", profile.getId().toString());
+            } catch (Exception ex) {
+                log.warn("Redis GEO removal warning: {}", ex.getMessage());
             }
         }
 
         profile = profileRepository.save(profile);
         return ResponseEntity.ok(ApiResponse.success(profile, dto.isOnline() ? "You are now ONLINE" : "You are now OFFLINE"));
+    }
+
+    private void validateCoordinates(Double latitude, Double longitude) {
+        if (latitude != null) {
+            if (latitude.isNaN() || latitude.isInfinite() || latitude < -90.0 || latitude > 90.0) {
+                throw new com.bookurtechnician.common.exception.BadRequestException("Invalid latitude: must be between -90.0 and +90.0");
+            }
+        }
+        if (longitude != null) {
+            if (longitude.isNaN() || longitude.isInfinite() || longitude < -180.0 || longitude > 180.0) {
+                throw new com.bookurtechnician.common.exception.BadRequestException("Invalid longitude: must be between -180.0 and +180.0");
+            }
+        }
     }
 
     @PostMapping("/upi-settings")

@@ -27,6 +27,7 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
         WHERE t.is_online = true
           AND t.kyc_status = 'VERIFIED'
           AND t.current_location IS NOT NULL
+          AND (t.location_updated_at IS NOT NULL AND t.location_updated_at >= :freshnessCutoff)
           AND ST_DWithin(
                 t.current_location::geography,
                 ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
@@ -42,6 +43,7 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
             @Param("lat") double lat,
             @Param("lng") double lng,
             @Param("radiusMeters") double radiusMeters,
+            @Param("freshnessCutoff") java.time.Instant freshnessCutoff,
             @Param("limitCount") int limitCount
     );
 

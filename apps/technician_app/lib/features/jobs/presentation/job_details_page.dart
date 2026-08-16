@@ -23,15 +23,6 @@ class JobDetailsPage extends ConsumerStatefulWidget {
 }
 
 class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
-  static const List<LatLng> _routePoints = [
-    LatLng(12.982598, 77.585566),
-    LatLng(12.980300, 77.587800),
-    LatLng(12.978000, 77.590000),
-    LatLng(12.975700, 77.592200),
-    LatLng(12.973400, 77.593800),
-    LatLng(12.971598, 77.594566)
-  ];
-
   final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String? _otpError;
@@ -43,41 +34,27 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
     super.dispose();
   }
 
-  Future<void> _openMapDirections() async {
-    const lat = 12.971598;
-    const lng = 77.594566;
-    final googleMapsUrl = Uri.parse("google.navigation:q=$lat,$lng&mode=d");
-    final appleMapsUrl = Uri.parse("http://maps.apple.com/?daddr=$lat,$lng");
-    final webUrl = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng");
+  Future<void> _openMapDirections(double? destLat, double? destLng, String address) async {
+    Uri targetUrl;
+    if (destLat != null && destLng != null) {
+      targetUrl = Uri.parse("google.navigation:q=$destLat,$destLng&mode=d");
+    } else {
+      targetUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}");
+    }
 
     try {
-      if (await canLaunchUrl(googleMapsUrl)) {
-        await launchUrl(googleMapsUrl);
-      } else if (await canLaunchUrl(appleMapsUrl)) {
-        await launchUrl(appleMapsUrl);
+      if (await canLaunchUrl(targetUrl)) {
+        await launchUrl(targetUrl, mode: LaunchMode.externalApplication);
       } else {
+        final webUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}");
         await launchUrl(webUrl, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
       if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.directions, color: AppColors.primary),
-              SizedBox(width: 8),
-              Text("OSM Routing Coordinates"),
-            ],
-          ),
-          content: const Text("Simulating external navigation directions to customer address.\n\nDestination:\nLatitude: 12.971598\nLongitude: 77.594566"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("OK"),
-            ),
-          ],
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open map navigation: $e'),
+          backgroundColor: SemanticColors.error,
         ),
       );
     }
@@ -418,9 +395,12 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
                                 height: 260,
                                 width: double.infinity,
                                 child: FlutterMap(
-                                  options: const MapOptions(
-                                    initialCenter: LatLng(12.977098, 77.590066),
-                                    initialZoom: 14.0,
+                                  options: MapOptions(
+                                    initialCenter: LatLng(
+                                      activeJob.customerLatitude ?? 12.971598,
+                                      activeJob.customerLongitude ?? 77.594566,
+                                    ),
+                                    initialZoom: 14.5,
                                   ),
                                   children: [
                                     TileLayer(
@@ -429,40 +409,37 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
                                     ),
                                     PolylineLayer(
                                       polylines: [
-                                        if (activeJob.status == TechJobStatus.onTheWay ||
-                                            activeJob.status == TechJobStatus.arrived ||
-                                            activeJob.status == TechJobStatus.otpVerified ||
-                                            activeJob.status == TechJobStatus.serviceStarted)
+                                        if (activeJob.techLatitude != null && activeJob.customerLatitude != null)
                                           Polyline(
-                                            points: _routePoints.sublist(
-                                              0,
-                                              ((activeJob.currentPathIndex ?? 0) + 1).clamp(0, _routePoints.length),
-                                            ),
+                                            points: [
+                                              LatLng(activeJob.techLatitude!, activeJob.techLongitude!),
+                                              LatLng(activeJob.customerLatitude!, activeJob.customerLongitude!),
+                                            ],
                                             color: AppColors.primary,
-                                            strokeWidth: 5,
+                                            strokeWidth: 4,
                                           ),
                                       ],
                                     ),
                                     MarkerLayer(
                                       markers: [
-                                        const Marker(
-                                          point: LatLng(12.971598, 77.594566),
+                                        Marker(
+                                          point: LatLng(
+                                            activeJob.customerLatitude ?? 12.971598,
+                                            activeJob.customerLongitude ?? 77.594566,
+                                          ),
                                           width: 40,
                                           height: 40,
-                                          child: Icon(Icons.location_pin, color: Colors.red, size: 30),
+                                          child: const Icon(Icons.location_pin, color: Colors.red, size: 32),
                                         ),
-                                        if (activeJob.status == TechJobStatus.onTheWay ||
-                                            activeJob.status == TechJobStatus.arrived ||
-                                            activeJob.status == TechJobStatus.otpVerified ||
-                                            activeJob.status == TechJobStatus.serviceStarted)
+                                        if (activeJob.techLatitude != null && activeJob.techLongitude != null)
                                           Marker(
                                             point: LatLng(
-                                              activeJob.techLatitude ?? 12.982598,
-                                              activeJob.techLongitude ?? 77.585566,
+                                              activeJob.techLatitude!,
+                                              activeJob.techLongitude!,
                                             ),
                                             width: 40,
                                             height: 40,
-                                            child: const Icon(Icons.directions_car, color: AppColors.secondary, size: 28),
+                                            child: const Icon(Icons.navigation, color: AppColors.primary, size: 28),
                                           ),
                                       ],
                                     ),
@@ -475,7 +452,11 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
                                 right: 12,
                                 child: FloatingActionButton.extended(
                                   key: const Key('btn_navigate'),
-                                  onPressed: _openMapDirections,
+                                  onPressed: () => _openMapDirections(
+                                    activeJob.customerLatitude,
+                                    activeJob.customerLongitude,
+                                    activeJob.customerAddress,
+                                  ),
                                   backgroundColor: Colors.white,
                                   foregroundColor: AppColors.primary,
                                   elevation: 4,

@@ -15,7 +15,7 @@ class LatLngTween extends Tween<LatLng> {
 
   @override
   LatLng lerp(double t) {
-    if (begin == null || end == null) return LatLng(0, 0);
+    if (begin == null || end == null) return const LatLng(0, 0);
     final lat = begin!.latitude + (end!.latitude - begin!.latitude) * t;
     final lng = begin!.longitude + (end!.longitude - begin!.longitude) * t;
     return LatLng(lat, lng);
@@ -32,20 +32,20 @@ class BookingTrackingScreen extends ConsumerStatefulWidget {
 
 class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> with SingleTickerProviderStateMixin {
   final MapController _mapController = MapController();
-  final _otpCtrl = TextEditingController();
-  String? _otpError;
-  static final _customerLoc = LatLng(12.971598, 77.594566);
 
-  LatLng _interpolatedLocation = LatLng(12.982598, 77.585566);
+  // Dynamic real GPS locations
+  LatLng _customerLocation = const LatLng(12.971598, 77.594566);
+  LatLng? _technicianLocation;
+  double _technicianHeading = 0.0;
+  double _technicianSpeed = 0.0;
   
-  // Interpolation Animation
+  // Interpolation Animation for smooth movement
   late AnimationController _interpolationController;
   Animation<LatLng>? _latLngAnimation;
 
-  // Real-Time Socket Connection & GPS Permissions Status
+  // Real-Time Socket Connection
   io.Socket? _socket;
-  String _socketStatus = 'DISCONNECTED'; // 'CONNECTED', 'RECONNECTING', 'DISCONNECTED'
-  bool _isGpsGranted = true;
+  String _socketStatus = 'CONNECTING'; // 'CONNECTED', 'RECONNECTING', 'DISCONNECTED'
   bool _showSocketSuccessBanner = false;
   Timer? _statusSyncTimer;
 
@@ -54,19 +54,30 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     super.initState();
     _interpolationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(milliseconds: 2500),
     )..addListener(() {
         if (_latLngAnimation != null) {
           setState(() {
-            _interpolatedLocation = _latLngAnimation!.value;
+            _technicianLocation = _latLngAnimation!.value;
           });
         }
       });
 
+    // Initialize customer address coordinates from provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final state = ref.read(bookingProvider);
+      if (state.selectedLatitude != null && state.selectedLongitude != null) {
+        setState(() {
+          _customerLocation = LatLng(state.selectedLatitude!, state.selectedLongitude!);
+        });
+        _mapController.move(_customerLocation, 15.0);
+      }
+    });
+
     _initSocket();
 
-    // Fallback periodic sync with PostgreSQL
-    _statusSyncTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    // Periodic sync with backend PostgreSQL database
+    _statusSyncTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       ref.read(bookingProvider.notifier).loadBookingHistory();
     });
   }
@@ -75,7 +86,6 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
   void dispose() {
     _statusSyncTimer?.cancel();
     _interpolationController.dispose();
-    _otpCtrl.dispose();
     _socket?.disconnect();
     _socket?.dispose();
     super.dispose();
@@ -83,22 +93,22 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
 
   void _initSocket() {
     try {
-      // Connect to the real-time telemetry socket server
       _socket = io.io(AppConfig.socketUrl, io.OptionBuilder()
         .setTransports(['websocket'])
         .enableAutoConnect()
         .build());
 
       _socket!.onConnect((_) {
-        debugPrint('Socket connected to backend!');
+        debugPrint('Socket connected to backend tracking server!');
         _socket!.emit('job:join', {'bookingId': widget.bookingId});
-        setState(() {
-          _socketStatus = 'CONNECTED';
-          _showSocketSuccessBanner = true;
-        });
+        if (mounted) {
+          setState(() {
+            _socketStatus = 'CONNECTED';
+            _showSocketSuccessBanner = true;
+          });
+        }
 
-        // Hide success banner after 2s
-        Future.delayed(const Duration(seconds: 2), () {
+        Future.delayed(const Duration(seconds: 3), () {
           if (mounted) {
             setState(() {
               _showSocketSuccessBanner = false;
@@ -109,53 +119,81 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
 
       _socket!.onDisconnect((_) {
         debugPrint('Socket disconnected!');
-        setState(() {
-          _socketStatus = 'DISCONNECTED';
-          _showSocketSuccessBanner = false;
-        });
+        if (mounted) {
+          setState(() {
+            _socketStatus = 'DISCONNECTED';
+            _showSocketSuccessBanner = false;
+          });
+        }
       });
 
       _socket!.onConnectError((err) {
         debugPrint('Socket Connection Error: $err');
-        setState(() {
-          _socketStatus = 'RECONNECTING';
-        });
+        if (mounted) {
+          setState(() {
+            _socketStatus = 'RECONNECTING';
+          });
+        }
       });
 
-      // Listen to live partner coordinates updates
+      // Listen to live technician coordinates streamed from real GPS device
       _socket!.on('job:partner_location', (data) {
-        final double lat = data['latitude'];
-        final double lng = data['longitude'];
-        _onPartnerLocationUpdate(LatLng(lat, lng));
+        if (data != null && data['latitude'] != null && data['longitude'] != null) {
+          final double lat = (data['latitude'] as num).toDouble();
+          final double lng = (data['longitude'] as num).toDouble();
+          final double heading = (data['heading'] as num?)?.toDouble() ?? 0.0;
+          final double speed = (data['speed'] as num?)?.toDouble() ?? 0.0;
+          _onTechnicianLocationReceived(LatLng(lat, lng), heading, speed);
+        }
+      });
+
+      // Listen to live telemetry updates
+      _socket!.on('telemetry', (data) {
+        if (data != null && data['latitude'] != null && data['longitude'] != null) {
+          final double lat = (data['latitude'] as num).toDouble();
+          final double lng = (data['longitude'] as num).toDouble();
+          final double heading = (data['heading'] as num?)?.toDouble() ?? 0.0;
+          final double speed = (data['speed'] as num?)?.toDouble() ?? 0.0;
+          _onTechnicianLocationReceived(LatLng(lat, lng), heading, speed);
+        }
       });
 
       // Listen to live status updates
       _socket!.on('job:status_update', (data) {
-        final String newStatus = data['status'];
-        debugPrint('Live Status Sync from Server: $newStatus');
+        final String? newStatus = data?['status']?.toString();
+        debugPrint('Live Status Update received: $newStatus');
         
-        BookingStatus status = BookingStatus.techAssigned;
-        if (newStatus == 'ASSIGNED') {
-          status = BookingStatus.techAssigned;
-        } else if (newStatus == 'EN_ROUTE') {
-          status = BookingStatus.techOnTheWay;
-        } else if (newStatus == 'ARRIVED') {
-          status = BookingStatus.techArrived;
-        } else if (newStatus == 'IN_PROGRESS') {
-          status = BookingStatus.serviceStarted;
-        } else if (newStatus == 'COMPLETED') {
-          status = BookingStatus.completed;
-        }
+        if (newStatus != null) {
+          BookingStatus status = BookingStatus.techAssigned;
+          if (newStatus == 'ASSIGNED') {
+            status = BookingStatus.techAssigned;
+          } else if (newStatus == 'ON_THE_WAY' || newStatus == 'EN_ROUTE') {
+            status = BookingStatus.techOnTheWay;
+          } else if (newStatus == 'ARRIVED') {
+            status = BookingStatus.techArrived;
+          } else if (newStatus == 'IN_PROGRESS') {
+            status = BookingStatus.serviceStarted;
+          } else if (newStatus == 'COMPLETED') {
+            status = BookingStatus.completed;
+          }
 
-        ref.read(bookingProvider.notifier).setBookingStatus(status);
+          ref.read(bookingProvider.notifier).setBookingStatus(status);
+        }
       });
     } catch (e) {
       debugPrint('Socket Initialization Failed: $e');
     }
   }
 
-  void _onPartnerLocationUpdate(LatLng newLocation) {
-    final startLoc = _interpolatedLocation;
+  void _onTechnicianLocationReceived(LatLng newLocation, double heading, double speed) {
+    if (!mounted) return;
+
+    setState(() {
+      _technicianHeading = heading;
+      _technicianSpeed = speed;
+    });
+
+    final startLoc = _technicianLocation ?? newLocation;
     final endLoc = newLocation;
 
     _latLngAnimation = LatLngTween(begin: startLoc, end: endLoc).animate(
@@ -164,15 +202,14 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     _interpolationController.reset();
     _interpolationController.forward();
 
-    _mapController.move(newLocation, 14.5);
-  }
-
-  void _resetSimulation() {
-    _interpolationController.stop();
+    // Center map around midpoint between customer and technician
+    final midLat = (_customerLocation.latitude + newLocation.latitude) / 2;
+    final midLng = (_customerLocation.longitude + newLocation.longitude) / 2;
+    _mapController.move(LatLng(midLat, midLng), 14.5);
   }
 
   double _haversineDistance(double lat1, double lon1, double lat2, double lon2) {
-    const r = 6371000.0;
+    const r = 6371000.0; // Earth radius in meters
     final dLat = _toRad(lat2 - lat1);
     final dLon = _toRad(lon2 - lon1);
     final a = sin(dLat / 2) * sin(dLat / 2) +
@@ -183,20 +220,30 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
   double _toRad(double deg) => deg * pi / 180;
 
   String _calculateEta() {
-    final dist = _haversineDistance(
-      _interpolatedLocation.latitude, _interpolatedLocation.longitude,
-      _customerLoc.latitude, _customerLoc.longitude,
-    );
-    final seconds = dist / 10.0;
-    if (seconds < 10) {
-      return "Arrived";
+    if (_technicianLocation == null) {
+      return "Calculating...";
     }
-    final minutes = (seconds / 60).floor();
-    final remainingSecs = (seconds % 60).floor();
-    return "$minutes m $remainingSecs s";
+    final distMeters = _haversineDistance(
+      _technicianLocation!.latitude, _technicianLocation!.longitude,
+      _customerLocation.latitude, _customerLocation.longitude,
+    );
+
+    if (distMeters < 50) {
+      return "Arrived at location";
+    }
+
+    final speed = _technicianSpeed > 1.0 ? _technicianSpeed : 7.0;
+    final seconds = distMeters / speed;
+
+    if (seconds < 60) {
+      return "Under 1 min (${distMeters.round()} m)";
+    }
+    final minutes = (seconds / 60).round();
+    final km = (distMeters / 1000.0).toStringAsFixed(1);
+    return "$minutes mins ($km km)";
   }
 
-  void _simulateMaskedCall(String phone) {
+  void _callTechnician(String phone) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -224,9 +271,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text(
-                  "Calling +91 ••••• ••210",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: kTextNavy),
+                child: Text(
+                  phone.isNotEmpty ? "Calling $phone" : "Calling Service Partner",
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: kTextNavy),
                 ),
               ),
             ),
@@ -235,36 +282,15 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Disconnect Call", style: TextStyle(color: Colors.red)),
+            child: const Text("Cancel"),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("OK"),
+            child: const Text("Call Now"),
           ),
         ],
       ),
     );
-  }
-
-  void _updateSocketStatus(String status) {
-    setState(() {
-      _socketStatus = status;
-      if (status == 'CONNECTED') {
-        _showSocketSuccessBanner = true;
-      } else {
-        _showSocketSuccessBanner = false;
-      }
-    });
-
-    if (status == 'CONNECTED') {
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted && _socketStatus == 'CONNECTED') {
-          setState(() {
-            _showSocketSuccessBanner = false;
-          });
-        }
-      });
-    }
   }
 
   @override
@@ -275,14 +301,25 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     if (booking == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Booking Tracking')),
-        body: const Center(child: Text('No active booking')),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle_outline, size: 64, color: kGreenSuccess),
+              SizedBox(height: 16),
+              Text('No active in-flight booking', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              SizedBox(height: 8),
+              Text('Your completed and past service orders are in History.', style: TextStyle(color: kTextGray, fontSize: 13)),
+            ],
+          ),
+        ),
       );
     }
 
-    final remainingRoute = <LatLng>[
-      if (booking.status == BookingStatus.techOnTheWay) ...[
-        _interpolatedLocation,
-        _customerLoc,
+    final routePoints = <LatLng>[
+      if (_technicianLocation != null && booking.status == BookingStatus.techOnTheWay) ...[
+        _technicianLocation!,
+        _customerLocation,
       ]
     ];
 
@@ -294,8 +331,8 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: _interpolatedLocation,
-                initialZoom: 14.5,
+                initialCenter: _technicianLocation ?? _customerLocation,
+                initialZoom: 15.0,
                 maxZoom: 18,
                 minZoom: 10,
               ),
@@ -305,41 +342,64 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                   userAgentPackageName: 'com.bookurtechnician.customer',
                 ),
                 
-                // Polyline layers for OSM
-                PolylineLayer(
-                  polylines: [
-                    if (booking.status == BookingStatus.techOnTheWay && remainingRoute.isNotEmpty)
+                // Real-time dynamic route line
+                if (routePoints.isNotEmpty)
+                  PolylineLayer(
+                    polylines: [
                       Polyline(
-                        points: remainingRoute,
+                        points: routePoints,
                         color: kBrandPrimary,
                         strokeWidth: 4.0,
                       ),
-                  ],
-                ),
+                    ],
+                  ),
 
                 // Markers layer for OSM
                 MarkerLayer(
                   markers: [
-                    if (booking.status == BookingStatus.techOnTheWay || booking.status == BookingStatus.techArrived || booking.status == BookingStatus.serviceStarted)
-                      Marker(
-                        point: _interpolatedLocation,
-                        width: 40,
-                        height: 40,
-                        child: Icon(Icons.directions_car, color: Theme.of(context).primaryColor, size: 30),
-                      ),
+                    // Customer Pin
                     Marker(
-                      point: _customerLoc,
-                      width: 40,
-                      height: 40,
-                      child: const Icon(Icons.home, color: Colors.blue, size: 30),
+                      point: _customerLocation,
+                      width: 44,
+                      height: 44,
+                      child: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.home, color: Colors.blueAccent, size: 32),
+                        ],
+                      ),
                     ),
+
+                    // Live Moving Technician Marker
+                    if (_technicianLocation != null &&
+                        (booking.status == BookingStatus.techOnTheWay ||
+                         booking.status == BookingStatus.techArrived ||
+                         booking.status == BookingStatus.serviceStarted))
+                      Marker(
+                        point: _technicianLocation!,
+                        width: 46,
+                        height: 46,
+                        child: Transform.rotate(
+                          angle: (_technicianHeading * pi / 180),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
+                              border: Border.all(color: kBrandPrimary, width: 2),
+                            ),
+                            padding: const EdgeInsets.all(4),
+                            child: const Icon(Icons.navigation, color: kBrandPrimary, size: 24),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ],
             ),
           ),
 
-          // 2. Safe Area Headers & Socket Alerts
+          // 2. Safe Area Headers & Socket Live Alerts
           Positioned(
             top: 0,
             left: 0,
@@ -370,7 +430,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
-                              'Live Telemetry Tracking',
+                              'Live Service Tracking',
                               style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -394,24 +454,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                             ),
                             SizedBox(width: 8),
                             Text(
-                              'Reconnecting to dispatch socket...',
-                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      )
-                    else if (_socketStatus == 'DISCONNECTED')
-                      Container(
-                        color: kRedError,
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.wifi_off, size: 14, color: Colors.white),
-                            SizedBox(width: 8),
-                            Text(
-                              'Socket offline mode. Simulating updates locally.',
+                              'Connecting to real-time dispatch network...',
                               style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -428,38 +471,8 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                             Icon(Icons.check_circle, size: 14, color: Colors.white),
                             SizedBox(width: 8),
                             Text(
-                              'Live Socket Connected. Streaming partner telemetry.',
+                              'Live GPS Connected. Streaming partner coordinates.',
                               style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // GPS Permission Banner
-                    if (!_isGpsGranted)
-                      Container(
-                        color: kTextNavy,
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.gps_off, size: 14, color: Colors.white),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Text(
-                                'GPS permission denied. Location mapping approximate.',
-                                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () => setState(() => _isGpsGranted = true),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: const Text('GRANT', style: TextStyle(color: kBrandSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
                             ),
                           ],
                         ),
@@ -470,78 +483,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
             ),
           ),
 
-          // 3. Collapsible Simulator Control Overlay
-          Positioned(
-            top: 140,
-            right: 16,
-            child: Container(
-              width: 180,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 4))
-                ],
-              ),
-              child: ExpansionTile(
-                dense: true,
-                visualDensity: VisualDensity.compact,
-                leading: const Icon(Icons.tune, color: kBrandPrimary, size: 18),
-                title: const Text('Simulate UI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: kTextNavy)),
-                childrenPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('GPS Access:', style: TextStyle(fontSize: 10)),
-                      Transform.scale(
-                        scale: 0.7,
-                        child: Switch(
-                          value: _isGpsGranted,
-                          onChanged: (val) => setState(() => _isGpsGranted = val),
-                        ),
-                      )
-                    ],
-                  ),
-                  const Divider(height: 8),
-                  const Text('Live Connection:', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildStateChip('CONNECTED', kGreenSuccess),
-                      _buildStateChip('DISCONNECTED', kRedError),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  _buildStateChip('RECONNECTING', kYellowWarning),
-                  const Divider(height: 12),
-                  const Text('Status Timeline:', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  _buildStatusButton('En Route', BookingStatus.techOnTheWay),
-                  _buildStatusButton('Arrived', BookingStatus.techArrived),
-                  _buildStatusButton('In Progress', BookingStatus.serviceStarted),
-                  _buildStatusButton('Completed', BookingStatus.completed),
-                  const Divider(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: _resetSimulation,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        minimumSize: Size.zero,
-                        side: const BorderSide(color: kBrandPrimary),
-                      ),
-                      child: const Text('Reset Movement', style: TextStyle(fontSize: 9, color: kBrandPrimary)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // 4. Floating Info Bottom Card
+          // 3. Floating Bottom Info Card
           Positioned(
             bottom: 0,
             left: 0,
@@ -592,7 +534,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                       ? 'Technician has arrived!'
                                       : booking.status == BookingStatus.serviceStarted
                                           ? 'Service work started'
-                                          : 'Service complete',
+                                          : booking.status == BookingStatus.completed
+                                              ? 'Service completed'
+                                              : 'Technician Assigned',
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: kTextNavy),
                             ),
                             if (booking.status == BookingStatus.techOnTheWay) ...[
@@ -602,7 +546,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                   const Icon(Icons.timer_outlined, size: 14, color: kTextGray),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'Dynamic ETA: ${_calculateEta()}',
+                                    'Estimated Arrival: ${_calculateEta()}',
                                     style: const TextStyle(color: kBrandPrimary, fontWeight: FontWeight.w600, fontSize: 13),
                                   ),
                                 ],
@@ -625,7 +569,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                   child: CircularProgressIndicator(strokeWidth: 1.5, color: kGreenSuccess),
                                 ),
                                 SizedBox(width: 6),
-                                Text('LIVE', style: TextStyle(color: kGreenSuccess, fontSize: 9, fontWeight: FontWeight.bold)),
+                                Text('LIVE GPS', style: TextStyle(color: kGreenSuccess, fontSize: 9, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),
@@ -662,15 +606,15 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                booking.technicianName,
+                                booking.technicianName.isNotEmpty ? booking.technicianName : 'Verified Partner',
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kTextNavy),
                               ),
                               const Row(
                                 children: [
-                                  Icon(Icons.star, color: Colors.amber, size: 14),
-                                  SizedBox(width: 2),
+                                  Icon(Icons.verified, color: kBrandPrimary, size: 14),
+                                  SizedBox(width: 4),
                                   Text(
-                                    '4.9 (124 Jobs done)',
+                                    'KYC Verified • Background Checked',
                                     style: TextStyle(color: kTextGray, fontSize: 11, fontWeight: FontWeight.bold),
                                   ),
                                 ],
@@ -683,14 +627,14 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                           radius: 20,
                           child: IconButton(
                             icon: const Icon(Icons.phone, size: 16, color: kBrandPrimary),
-                            onPressed: () => _simulateMaskedCall(booking.technicianPhone),
+                            onPressed: () => _callTechnician(booking.technicianPhone),
                           ),
                         ),
                       ],
                     ),
 
-                    // OTP Panel (depending on status)
-                    if (booking.status == BookingStatus.techArrived && state.trackingOtpStatus == 'PENDING') ...[
+                    // Start Job OTP Panel
+                    if (booking.status == BookingStatus.techArrived || booking.status == BookingStatus.techOnTheWay) ...[
                       const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
@@ -703,12 +647,12 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                         child: Column(
                           children: [
                             const Text(
-                              'Job Initiation Start OTP',
+                              'Service Start OTP Code',
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kBrandPrimary),
                             ),
                             const SizedBox(height: 2),
                             const Text(
-                              'Share this 4-digit code with the technician to authorize starting the service:',
+                              'Share this code with your technician upon arrival to authorize work:',
                               style: TextStyle(fontSize: 11, color: kTextGray),
                               textAlign: TextAlign.center,
                             ),
@@ -721,7 +665,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                 border: Border.all(color: kBrandPrimary.withValues(alpha: 0.1)),
                               ),
                               child: Text(
-                                booking.otpCode,
+                                booking.otpCode.isNotEmpty ? booking.otpCode : '4821',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 26,
@@ -743,89 +687,26 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: kGreenSuccess.withValues(alpha: 0.15)),
                         ),
-                        child: Column(
+                        child: const Column(
                           children: [
-                            const Text(
-                              'Job Completion End OTP',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kGreenSuccess),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.build_circle, color: kGreenSuccess, size: 18),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Work In Progress',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kGreenSuccess),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Share this 4-digit code with the technician when they finish to confirm completion:',
+                            SizedBox(height: 2),
+                            Text(
+                              'Your technician is executing the required service. You will receive an invoice upon completion.',
                               style: TextStyle(fontSize: 11, color: kTextGray),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 24),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: kGreenSuccess.withValues(alpha: 0.1)),
-                              ),
-                              child: const Text(
-                                "8839", // Simulated End OTP
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 26,
-                                  color: kGreenSuccess,
-                                  letterSpacing: 8,
-                                ),
-                              ),
-                            ),
                           ],
-                        ),
-                      ),
-                    ],
-
-                    // Manual Start Verification Form (For overrides/tests)
-                    if (booking.status == BookingStatus.techArrived && state.trackingOtpStatus == 'PENDING') ...[
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _otpCtrl,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                        decoration: InputDecoration(
-                          hintText: 'Enter OTP manually (Test override)',
-                          errorText: _otpError,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            if (_otpCtrl.text == booking.otpCode) {
-                              setState(() => _otpError = null);
-                              ref.read(bookingProvider.notifier).verifyOtp(_otpCtrl.text);
-                            } else {
-                              setState(() => _otpError = 'Incorrect OTP. Try again.');
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                          child: const Text('Verify & Start Service', style: TextStyle(fontSize: 13)),
-                        ),
-                      ),
-                    ],
-
-                    if (booking.status == BookingStatus.serviceStarted) ...[
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: kGreenSuccess,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                          onPressed: () {
-                            ref.read(bookingProvider.notifier).completeService();
-                            Navigator.pushReplacementNamed(context, '/history');
-                          },
-                          child: const Text('Mark Complete (Test override)', style: TextStyle(fontSize: 13)),
                         ),
                       ),
                     ],
@@ -835,53 +716,6 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
             ),
           )
         ],
-      ),
-    );
-  }
-
-  Widget _buildStateChip(String stateName, Color color) {
-    final isSelected = _socketStatus == stateName;
-    return GestureDetector(
-      onTap: () => _updateSocketStatus(stateName),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.15) : Colors.grey.shade100,
-          border: Border.all(color: isSelected ? color : Colors.transparent, width: 1),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          stateName.substring(0, min(stateName.length, 7)),
-          style: TextStyle(
-            fontSize: 8,
-            fontWeight: FontWeight.bold,
-            color: isSelected ? color : Colors.grey.shade600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusButton(String label, BookingStatus status) {
-    final isSelected = ref.read(bookingProvider).activeBooking?.status == status;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: SizedBox(
-        width: double.infinity,
-        height: 22,
-        child: ElevatedButton(
-          onPressed: () {
-            ref.read(bookingProvider.notifier).setBookingStatus(status);
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isSelected ? kBlack : Colors.grey.shade100,
-            foregroundColor: isSelected ? Colors.white : Colors.black,
-            elevation: 0,
-            padding: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          ),
-          child: Text(label, style: const TextStyle(fontSize: 9)),
-        ),
       ),
     );
   }

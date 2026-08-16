@@ -328,23 +328,29 @@ class _ServiceExecutionPageState extends ConsumerState<ServiceExecutionPage> {
                     height: 180,
                     width: double.infinity,
                     child: FlutterMap(
-                      options: const MapOptions(
-                        initialCenter: LatLng(12.971598, 77.594566),
+                      options: MapOptions(
+                        initialCenter: LatLng(
+                          activeJob.customerLatitude ?? 12.971598,
+                          activeJob.customerLongitude ?? 77.594566,
+                        ),
                         initialZoom: 15.0,
-                        interactionOptions: InteractionOptions(flags: InteractiveFlag.none),
+                        interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
                       ),
                       children: [
                         TileLayer(
                           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                           userAgentPackageName: 'com.bookurtechnician.technician',
                         ),
-                        const MarkerLayer(
+                        MarkerLayer(
                           markers: [
                             Marker(
-                              point: LatLng(12.971598, 77.594566),
-                              width: 30,
-                              height: 30,
-                              child: Icon(Icons.location_pin, color: Colors.red, size: 24),
+                              point: LatLng(
+                                activeJob.customerLatitude ?? 12.971598,
+                                activeJob.customerLongitude ?? 77.594566,
+                              ),
+                              width: 34,
+                              height: 34,
+                              child: const Icon(Icons.location_pin, color: Colors.red, size: 28),
                             ),
                           ],
                         ),

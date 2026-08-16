@@ -36,20 +36,25 @@ class AppState {
   final String selectedAddressTitle;
   final String selectedAddressType;
 
+  final double? selectedLatitude;
+  final double? selectedLongitude;
+
   const AppState({
     this.isGuest = false,
     required this.profile,
     this.selectedScheduleDate = 'Tomorrow',
     this.selectedScheduleSlot = '3:00 PM – 4:00 PM',
-    this.selectedAddressTitle = 'Flat 402, Royal Palms, Bellary Road, Bengaluru',
+    this.selectedAddressTitle = 'Select Service Location',
     this.selectedAddressType = 'Home',
+    this.selectedLatitude,
+    this.selectedLongitude,
     this.categories = const [],
     this.isCatalogLoading = false,
     this.heroBanners = const [],
     this.spotlightBanners = const [],
     this.isBannersLoading = false,
     this.cartItems = const [],
-    this.address = 'Flat 402, Royal Palms, Bellary Road, Bengaluru',
+    this.address = 'Select Service Location',
     this.couponCode = '',
     this.baseCost = 0.0,
     this.visitFee = 99.0,
@@ -77,6 +82,8 @@ class AppState {
     String? selectedScheduleSlot,
     String? selectedAddressTitle,
     String? selectedAddressType,
+    double? selectedLatitude,
+    double? selectedLongitude,
     List<Category>? categories,
     bool? isCatalogLoading,
     List<PromotionalBanner>? heroBanners,
@@ -107,6 +114,8 @@ class AppState {
       selectedScheduleSlot: selectedScheduleSlot ?? this.selectedScheduleSlot,
       selectedAddressTitle: selectedAddressTitle ?? this.selectedAddressTitle,
       selectedAddressType: selectedAddressType ?? this.selectedAddressType,
+      selectedLatitude: selectedLatitude ?? this.selectedLatitude,
+      selectedLongitude: selectedLongitude ?? this.selectedLongitude,
       categories: categories ?? this.categories,
       isCatalogLoading: isCatalogLoading ?? this.isCatalogLoading,
       heroBanners: heroBanners ?? this.heroBanners,
@@ -303,6 +312,16 @@ class BookingNotifier extends StateNotifier<AppState> {
     );
   }
 
+  /// Update selected service address with real GPS coordinates
+  void updateAddress(String address, {double? latitude, double? longitude}) {
+    state = state.copyWith(
+      address: address,
+      selectedAddressTitle: address,
+      selectedLatitude: latitude,
+      selectedLongitude: longitude,
+    );
+  }
+
   Future<void> _loadCatalog() async {
     state = state.copyWith(isCatalogLoading: true);
     try {
@@ -388,13 +407,6 @@ class BookingNotifier extends StateNotifier<AppState> {
       address: address,
       selectedAddressTitle: address,
       selectedAddressType: type,
-    );
-  }
-
-  void updateAddress(String address) {
-    state = state.copyWith(
-      address: address,
-      selectedAddressTitle: address,
     );
   }
 

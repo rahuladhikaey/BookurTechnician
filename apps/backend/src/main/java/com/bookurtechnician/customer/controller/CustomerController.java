@@ -82,20 +82,27 @@ public class CustomerController {
         User user = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        validateCoordinates(dto.getLatitude(), dto.getLongitude());
+
         Point point = null;
         if (dto.getLatitude() != null && dto.getLongitude() != null) {
             point = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
         }
 
+        String houseFlat = dto.getHouseFlat() != null && !dto.getHouseFlat().isBlank() ? dto.getHouseFlat() : dto.getAddressLine1();
+        String street = dto.getStreet() != null && !dto.getStreet().isBlank() ? dto.getStreet() : dto.getAddressLine2();
+        String area = dto.getArea() != null && !dto.getArea().isBlank() ? dto.getArea() : dto.getLocality();
+        String label = dto.getAddressType() != null && !dto.getAddressType().isBlank() ? dto.getAddressType() : (dto.getLabel() != null ? dto.getLabel() : "HOME");
+
         CustomerAddress address = CustomerAddress.builder()
                 .customer(user)
-                .addressType(dto.getAddressType() != null ? dto.getAddressType() : "HOME")
-                .houseFlat(dto.getHouseFlat())
-                .street(dto.getStreet())
-                .area(dto.getArea())
-                .city(dto.getCity())
-                .state(dto.getState())
-                .postalCode(dto.getPostalCode())
+                .addressType(label.toUpperCase())
+                .houseFlat(houseFlat != null ? houseFlat : "Premises")
+                .street(street != null ? street : "Main Road")
+                .area(area != null ? area : "Locality")
+                .city(dto.getCity() != null ? dto.getCity() : "City")
+                .state(dto.getState() != null ? dto.getState() : "State")
+                .postalCode(dto.getPostalCode() != null ? dto.getPostalCode() : "000000")
                 .landmark(dto.getLandmark())
                 .coordinates(point)
                 .primary(dto.isPrimary())
@@ -114,6 +121,74 @@ public class CustomerController {
         return ResponseEntity.ok(ApiResponse.success(address, "Address saved successfully"));
     }
 
+    @PutMapping("/addresses/{id}")
+    public ResponseEntity<ApiResponse<CustomerAddress>> updateAddress(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID id,
+            @RequestBody CreateAddressDto dto) {
+        CustomerAddress address = addressRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Address not found with id: " + id));
+
+        if (!address.getCustomer().getId().equals(principal.getId())) {
+            throw new com.bookurtechnician.common.exception.BadRequestException("Unauthorized access to this address.");
+        }
+
+        validateCoordinates(dto.getLatitude(), dto.getLongitude());
+
+        if (dto.getLatitude() != null && dto.getLongitude() != null) {
+            Point point = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
+            address.setCoordinates(point);
+        }
+
+        if (dto.getHouseFlat() != null || dto.getAddressLine1() != null) {
+            address.setHouseFlat(dto.getHouseFlat() != null ? dto.getHouseFlat() : dto.getAddressLine1());
+        }
+        if (dto.getStreet() != null || dto.getAddressLine2() != null) {
+            address.setStreet(dto.getStreet() != null ? dto.getStreet() : dto.getAddressLine2());
+        }
+        if (dto.getArea() != null || dto.getLocality() != null) {
+            address.setArea(dto.getArea() != null ? dto.getArea() : dto.getLocality());
+        }
+        if (dto.getCity() != null) address.setCity(dto.getCity());
+        if (dto.getState() != null) address.setState(dto.getState());
+        if (dto.getPostalCode() != null) address.setPostalCode(dto.getPostalCode());
+        if (dto.getLandmark() != null) address.setLandmark(dto.getLandmark());
+        if (dto.getAddressType() != null) address.setAddressType(dto.getAddressType().toUpperCase());
+        else if (dto.getLabel() != null) address.setAddressType(dto.getLabel().toUpperCase());
+        address.setPrimary(dto.isPrimary());
+
+        address = addressRepository.save(address);
+        return ResponseEntity.ok(ApiResponse.success(address, "Address updated successfully"));
+    }
+
+    @DeleteMapping("/addresses/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteAddress(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID id) {
+        CustomerAddress address = addressRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Address not found with id: " + id));
+
+        if (!address.getCustomer().getId().equals(principal.getId())) {
+            throw new com.bookurtechnician.common.exception.BadRequestException("Unauthorized access to this address.");
+        }
+
+        addressRepository.delete(address);
+        return ResponseEntity.ok(ApiResponse.success(null, "Address deleted successfully"));
+    }
+
+    private void validateCoordinates(Double latitude, Double longitude) {
+        if (latitude != null) {
+            if (latitude.isNaN() || latitude.isInfinite() || latitude < -90.0 || latitude > 90.0) {
+                throw new com.bookurtechnician.common.exception.BadRequestException("Invalid latitude: must be between -90.0 and +90.0");
+            }
+        }
+        if (longitude != null) {
+            if (longitude.isNaN() || longitude.isInfinite() || longitude < -180.0 || longitude > 180.0) {
+                throw new com.bookurtechnician.common.exception.BadRequestException("Invalid longitude: must be between -180.0 and +180.0");
+            }
+        }
+    }
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -127,19 +202,17 @@ public class CustomerController {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class CreateAddressDto {
-        @NotBlank
         private String houseFlat;
-        @NotBlank
         private String street;
-        @NotBlank
         private String area;
-        @NotBlank
         private String city;
-        @NotBlank
         private String state;
-        @NotBlank
         private String postalCode;
         private String addressType;
+        private String label;
+        private String addressLine1;
+        private String addressLine2;
+        private String locality;
         private String landmark;
         private Double latitude;
         private Double longitude;
