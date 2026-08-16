@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'models/customer_profile_models.dart';
@@ -35,26 +37,27 @@ class AppState {
   final String selectedScheduleSlot;
   final String selectedAddressTitle;
   final String selectedAddressType;
-
   final double? selectedLatitude;
   final double? selectedLongitude;
+  final bool isAcquiringLocation;
 
   const AppState({
-    this.isGuest = false,
+    this.isGuest = true,
     required this.profile,
     this.selectedScheduleDate = 'Tomorrow',
     this.selectedScheduleSlot = '3:00 PM – 4:00 PM',
-    this.selectedAddressTitle = 'Select Service Location',
+    this.selectedAddressTitle = 'Locating...',
     this.selectedAddressType = 'Home',
     this.selectedLatitude,
     this.selectedLongitude,
+    this.isAcquiringLocation = false,
     this.categories = const [],
     this.isCatalogLoading = false,
     this.heroBanners = const [],
     this.spotlightBanners = const [],
     this.isBannersLoading = false,
     this.cartItems = const [],
-    this.address = 'Select Service Location',
+    this.address = 'Fetching live address...',
     this.couponCode = '',
     this.baseCost = 0.0,
     this.visitFee = 99.0,
@@ -70,7 +73,7 @@ class AppState {
     this.restoredCartTotal = 0.0,
   });
 
-  // Convenience getters for backward compatibility
+  // Convenience getters
   String get userName => profile.fullName;
   String get userPhone => profile.phone;
   String get userEmail => profile.email;
@@ -84,6 +87,7 @@ class AppState {
     String? selectedAddressType,
     double? selectedLatitude,
     double? selectedLongitude,
+    bool? isAcquiringLocation,
     List<Category>? categories,
     bool? isCatalogLoading,
     List<PromotionalBanner>? heroBanners,
@@ -116,6 +120,7 @@ class AppState {
       selectedAddressType: selectedAddressType ?? this.selectedAddressType,
       selectedLatitude: selectedLatitude ?? this.selectedLatitude,
       selectedLongitude: selectedLongitude ?? this.selectedLongitude,
+      isAcquiringLocation: isAcquiringLocation ?? this.isAcquiringLocation,
       categories: categories ?? this.categories,
       isCatalogLoading: isCatalogLoading ?? this.isCatalogLoading,
       heroBanners: heroBanners ?? this.heroBanners,
@@ -157,26 +162,244 @@ class BookingNotifier extends StateNotifier<AppState> {
             addresses: const [],
           ),
         )) {
+    initAppSession();
+  }
+
+  /// Initialize application session: restore persisted login state & real GPS location
+  Future<void> initAppSession() async {
+    await restoreSession();
     _loadCatalog();
     loadBanners();
+    autoAcquireGpsLocation();
+  }
+
+  /// Restore persisted authentication session from local storage & sync backend
+  Future<bool> restoreSession() async {
+    try {
+      final session = await ApiClient.getUserSession();
+      final token = session['accessToken'];
+      final name = session['name'];
+      final phone = session['phone'];
+      final email = session['email'];
+
+      if (token != null && token.isNotEmpty) {
+        // Immediate in-memory session restore from persistent storage
+        final restoredProfile = CustomerProfile.createWithCalculation(
+          customerId: session['userId'] ?? 'user',
+          userId: session['userId'] ?? 'user',
+          fullName: name ?? 'Customer',
+          phone: phone ?? '',
+          isPhoneVerified: phone != null && phone.isNotEmpty,
+          email: email ?? '',
+          isEmailVerified: email != null && email.isNotEmpty,
+          addresses: const [],
+        );
+
+        state = state.copyWith(
+          isGuest: false,
+          profile: restoredProfile,
+        );
+
+        // Asynchronously sync latest profile & saved addresses from backend
+        _syncProfileAndAddresses();
+        loadBookingHistory();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Session restore warning: $e');
+    }
+    return false;
+  }
+
+  Future<void> _syncProfileAndAddresses() async {
+    try {
+      final res = await ApiClient.get('/customer/profile');
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final data = decoded['data'];
+        final user = data?['user'];
+        final addrList = data?['addresses'] as List? ?? [];
+
+        final List<CustomerAddress> parsedAddrs = [];
+        for (var a in addrList) {
+          try {
+            parsedAddrs.add(CustomerAddress(
+              id: a['id']?.toString() ?? '',
+              customerId: a['customerId']?.toString() ?? '',
+              addressType: (a['addressType'] == 'WORK') ? AddressType.work : AddressType.home,
+              houseFlat: a['houseFlat'] ?? '',
+              street: a['street'] ?? '',
+              area: a['area'] ?? '',
+              city: a['city'] ?? '',
+              state: a['state'] ?? 'Karnataka',
+              postalCode: a['postalCode'] ?? '',
+              latitude: (a['latitude'] as num?)?.toDouble() ?? 12.9716,
+              longitude: (a['longitude'] as num?)?.toDouble() ?? 77.5946,
+              isPrimary: a['primary'] == true || a['isPrimary'] == true,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ));
+          } catch (_) {}
+        }
+
+        final syncedProfile = CustomerProfile.createWithCalculation(
+          customerId: user?['id']?.toString() ?? state.profile.customerId,
+          userId: user?['id']?.toString() ?? state.profile.userId,
+          fullName: user?['fullName'] ?? state.profile.fullName,
+          phone: user?['phone'] ?? state.profile.phone,
+          isPhoneVerified: true,
+          email: user?['email'] ?? state.profile.email,
+          isEmailVerified: true,
+          addresses: parsedAddrs,
+        );
+
+        state = state.copyWith(
+          isGuest: false,
+          profile: syncedProfile,
+        );
+
+        if (parsedAddrs.isNotEmpty && state.selectedLatitude == null) {
+          final primary = syncedProfile.primaryAddress;
+          if (primary != null) {
+            state = state.copyWith(
+              address: primary.formattedAddress,
+              selectedAddressTitle: primary.area.isNotEmpty ? primary.area : primary.city,
+              selectedLatitude: primary.latitude,
+              selectedLongitude: primary.longitude,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to sync backend profile: $e');
+    }
+  }
+
+  /// Automatically acquire device live GPS location on app launch
+  Future<void> autoAcquireGpsLocation() async {
+    state = state.copyWith(isAcquiringLocation: true);
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        state = state.copyWith(
+          isAcquiringLocation: false,
+          selectedAddressTitle: 'Enable GPS',
+          address: 'Please enable GPS location services',
+        );
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          state = state.copyWith(
+            isAcquiringLocation: false,
+            selectedAddressTitle: 'Location Permission',
+            address: 'Allow location access to find nearby technicians',
+          );
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        state = state.copyWith(
+          isAcquiringLocation: false,
+          selectedAddressTitle: 'GPS Denied',
+          address: 'Location permissions are permanently denied in settings',
+        );
+        return;
+      }
+
+      // Fetch real high accuracy GPS coordinates
+      Position pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      );
+
+      final lat = pos.latitude;
+      final lng = pos.longitude;
+
+      // Reverse geocode via OpenStreetMap Nominatim
+      try {
+        final url = Uri.parse(
+          'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1',
+        );
+        final response = await http.get(url, headers: {
+          'User-Agent': 'BookUrTechnician/1.0 (contact@bookurtechnician.com)',
+        }).timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final displayName = data['display_name'] as String?;
+          final addressObj = data['address'] as Map<String, dynamic>?;
+
+          final suburb = addressObj?['suburb'] ?? addressObj?['neighbourhood'] ?? addressObj?['residential'] ?? addressObj?['subdistrict'] ?? '';
+          final city = addressObj?['city'] ?? addressObj?['town'] ?? addressObj?['county'] ?? 'Bengaluru';
+          final title = suburb.isNotEmpty ? suburb : city;
+
+          state = state.copyWith(
+            selectedLatitude: lat,
+            selectedLongitude: lng,
+            selectedAddressTitle: title,
+            address: displayName ?? '$title, $city',
+            isAcquiringLocation: false,
+          );
+          return;
+        }
+      } catch (e) {
+        debugPrint('Reverse geocoding lookup warning: $e');
+      }
+
+      state = state.copyWith(
+        selectedLatitude: lat,
+        selectedLongitude: lng,
+        selectedAddressTitle: 'Live GPS Location',
+        address: 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}',
+        isAcquiringLocation: false,
+      );
+    } catch (e) {
+      debugPrint('Auto GPS error: $e');
+      state = state.copyWith(
+        isAcquiringLocation: false,
+        selectedAddressTitle: 'Select Location',
+        address: 'Tap to pick service location',
+      );
+    }
   }
 
   void setGuestMode(bool guest) {
     state = state.copyWith(isGuest: guest);
   }
 
-  /// Called after successful phone/email OTP login
-  void loginUser({
+  /// Called after successful OTP login / verification
+  Future<void> loginUser({
     required String name,
     required String phone,
     required String email,
-    bool isNewRegistration = false,
-  }) {
+    String? userId,
+    String? accessToken,
+    String? refreshToken,
+  }) async {
     final cleanPhone = phone.startsWith('+91') ? phone : '+91 $phone';
-    
+    final uid = userId ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
+
+    // Persist credentials locally
+    if (accessToken != null && refreshToken != null) {
+      await ApiClient.saveUserSession(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        userId: uid,
+        name: name.trim(),
+        phone: cleanPhone,
+        email: email.trim(),
+      );
+    }
+
     final userProfile = CustomerProfile.createWithCalculation(
-      customerId: 'cust_${DateTime.now().millisecondsSinceEpoch}',
-      userId: 'usr_${DateTime.now().millisecondsSinceEpoch}',
+      customerId: uid,
+      userId: uid,
       fullName: name.trim(),
       phone: cleanPhone,
       isPhoneVerified: true,
@@ -188,12 +411,37 @@ class BookingNotifier extends StateNotifier<AppState> {
     state = state.copyWith(
       isGuest: false,
       profile: userProfile,
-      address: '',
-      selectedAddressTitle: '',
+    );
+
+    // Sync with backend & load history
+    _syncProfileAndAddresses();
+    loadBookingHistory();
+  }
+
+  /// Complete Sign Out & Session Erasure
+  Future<void> logoutUser() async {
+    await ApiClient.clearTokens();
+    
+    state = state.copyWith(
+      isGuest: true,
+      profile: CustomerProfile.createWithCalculation(
+        customerId: '',
+        userId: '',
+        fullName: '',
+        phone: '',
+        isPhoneVerified: false,
+        email: '',
+        isEmailVerified: false,
+        addresses: const [],
+      ),
+      cartItems: [],
+      activeBooking: null,
+      clearActiveBooking: true,
+      bookingHistory: [],
     );
   }
 
-  /// Update profile details & recalculate
+  /// Update profile details
   void updateProfileDetails({
     String? fullName,
     String? email,
@@ -229,8 +477,6 @@ class BookingNotifier extends StateNotifier<AppState> {
   /// Add a new service address
   void addCustomerAddress(CustomerAddress address) {
     final currentList = [...state.profile.addresses];
-    
-    // If first address or marked primary, ensure others are non-primary
     final shouldBePrimary = address.isPrimary || currentList.isEmpty;
     final updatedList = currentList.map((a) => shouldBePrimary ? a.copyWith(isPrimary: false) : a).toList();
     
@@ -242,8 +488,10 @@ class BookingNotifier extends StateNotifier<AppState> {
     state = state.copyWith(
       profile: updatedProfile,
       address: primary?.formattedAddress ?? state.address,
-      selectedAddressTitle: primary?.formattedAddress ?? state.selectedAddressTitle,
+      selectedAddressTitle: primary?.area.isNotEmpty == true ? primary!.area : (primary?.city ?? state.selectedAddressTitle),
       selectedAddressType: primary?.typeLabel ?? state.selectedAddressType,
+      selectedLatitude: primary?.latitude ?? state.selectedLatitude,
+      selectedLongitude: primary?.longitude ?? state.selectedLongitude,
     );
   }
 
@@ -265,19 +513,18 @@ class BookingNotifier extends StateNotifier<AppState> {
     state = state.copyWith(
       profile: updatedProfile,
       address: primary?.formattedAddress ?? state.address,
-      selectedAddressTitle: primary?.formattedAddress ?? state.selectedAddressTitle,
+      selectedAddressTitle: primary?.area.isNotEmpty == true ? primary!.area : (primary?.city ?? state.selectedAddressTitle),
       selectedAddressType: primary?.typeLabel ?? state.selectedAddressType,
     );
   }
 
-  /// Delete a service address (with safety checks)
+  /// Delete a service address
   bool deleteCustomerAddress(String addressId) {
     final currentList = [...state.profile.addresses];
     final target = currentList.firstWhere((a) => a.id == addressId, orElse: () => currentList.first);
     
     currentList.removeWhere((a) => a.id == addressId);
 
-    // If we deleted the primary address and there are remaining addresses, promote the first one
     if (target.isPrimary && currentList.isNotEmpty) {
       currentList[0] = currentList[0].copyWith(isPrimary: true);
     }
@@ -288,7 +535,7 @@ class BookingNotifier extends StateNotifier<AppState> {
     state = state.copyWith(
       profile: updatedProfile,
       address: primary?.formattedAddress ?? '',
-      selectedAddressTitle: primary?.formattedAddress ?? '',
+      selectedAddressTitle: primary?.area.isNotEmpty == true ? primary!.area : (primary?.city ?? 'Select Location'),
       selectedAddressType: primary?.typeLabel ?? 'Home',
     );
 
@@ -307,8 +554,10 @@ class BookingNotifier extends StateNotifier<AppState> {
     state = state.copyWith(
       profile: updatedProfile,
       address: primary?.formattedAddress ?? state.address,
-      selectedAddressTitle: primary?.formattedAddress ?? state.selectedAddressTitle,
+      selectedAddressTitle: primary?.area.isNotEmpty == true ? primary!.area : (primary?.city ?? state.selectedAddressTitle),
       selectedAddressType: primary?.typeLabel ?? state.selectedAddressType,
+      selectedLatitude: primary?.latitude ?? state.selectedLatitude,
+      selectedLongitude: primary?.longitude ?? state.selectedLongitude,
     );
   }
 
@@ -341,7 +590,6 @@ class BookingNotifier extends StateNotifier<AppState> {
     } catch (e) {
       debugPrint('Catalog live load warning: $e');
     }
-    // Fallback to offline catalog if API is unavailable
     state = state.copyWith(
       categories: MockData.categoriesList,
       isCatalogLoading: false,

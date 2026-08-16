@@ -1,32 +1,80 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 
 class ApiClient {
-  /// Active API Base URL derived from AppConfig (defaults to live Render HTTPS backend)
+  /// Active API Base URL derived from AppConfig
   static String get activeBaseUrl => AppConfig.apiBaseUrl;
+
+  static const String _keyAccessToken = 'bt_access_token';
+  static const String _keyRefreshToken = 'bt_refresh_token';
+  static const String _keyUserId = 'bt_user_id';
+  static const String _keyUserName = 'bt_user_name';
+  static const String _keyUserPhone = 'bt_user_phone';
+  static const String _keyUserEmail = 'bt_user_email';
+  static const String _keyUserProfileJson = 'bt_user_profile_json';
 
   static Future<String?> getAccessToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('bt_access_token');
+    return prefs.getString(_keyAccessToken);
   }
 
   static Future<String?> getRefreshToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('bt_refresh_token');
+    return prefs.getString(_keyRefreshToken);
   }
 
   static Future<void> saveTokens({required String accessToken, required String refreshToken}) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('bt_access_token', accessToken);
-    await prefs.setString('bt_refresh_token', refreshToken);
+    await prefs.setString(_keyAccessToken, accessToken);
+    await prefs.setString(_keyRefreshToken, refreshToken);
+  }
+
+  static Future<void> saveUserSession({
+    required String accessToken,
+    required String refreshToken,
+    required String userId,
+    required String name,
+    required String phone,
+    required String email,
+    Map<String, dynamic>? profileJson,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyAccessToken, accessToken);
+    await prefs.setString(_keyRefreshToken, refreshToken);
+    await prefs.setString(_keyUserId, userId);
+    await prefs.setString(_keyUserName, name);
+    await prefs.setString(_keyUserPhone, phone);
+    await prefs.setString(_keyUserEmail, email);
+    if (profileJson != null) {
+      await prefs.setString(_keyUserProfileJson, jsonEncode(profileJson));
+    }
+  }
+
+  static Future<Map<String, String?>> getUserSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'accessToken': prefs.getString(_keyAccessToken),
+      'refreshToken': prefs.getString(_keyRefreshToken),
+      'userId': prefs.getString(_keyUserId),
+      'name': prefs.getString(_keyUserName),
+      'phone': prefs.getString(_keyUserPhone),
+      'email': prefs.getString(_keyUserEmail),
+      'profileJson': prefs.getString(_keyUserProfileJson),
+    };
   }
 
   static Future<void> clearTokens() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('bt_access_token');
-    await prefs.remove('bt_refresh_token');
+    await prefs.remove(_keyAccessToken);
+    await prefs.remove(_keyRefreshToken);
+    await prefs.remove(_keyUserId);
+    await prefs.remove(_keyUserName);
+    await prefs.remove(_keyUserPhone);
+    await prefs.remove(_keyUserEmail);
+    await prefs.remove(_keyUserProfileJson);
   }
 
   static Map<String, String> _buildHeaders(String? token) {
@@ -147,7 +195,9 @@ class ApiClient {
           return true;
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Token refresh failed: $e');
+    }
 
     await clearTokens();
     return false;

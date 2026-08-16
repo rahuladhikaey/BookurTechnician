@@ -48,7 +48,9 @@ class _HomeBody extends StatelessWidget {
           // 1. Layered Hero Banner Carousel
           HomeHeroBanner(
             banners: state.heroBanners,
+            addressTitle: state.selectedAddressTitle,
             address: state.address,
+            isAcquiringLocation: state.isAcquiringLocation,
           ),
           
           const SizedBox(height: 16),
@@ -184,12 +186,16 @@ class _HomeBody extends StatelessWidget {
 // ─── 1. HomeHeroBanner Widget ──────────────────────────────────────────────
 class HomeHeroBanner extends StatefulWidget {
   final List<PromotionalBanner> banners;
+  final String addressTitle;
   final String address;
+  final bool isAcquiringLocation;
 
   const HomeHeroBanner({
     super.key,
     required this.banners,
+    required this.addressTitle,
     required this.address,
+    this.isAcquiringLocation = false,
   });
 
   @override
@@ -375,9 +381,21 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Bellary Rd',
-                                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                Row(
+                                  children: [
+                                    Text(
+                                      widget.addressTitle.isNotEmpty ? widget.addressTitle : 'Current Location',
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                                    ),
+                                    if (widget.isAcquiringLocation) ...[
+                                      const SizedBox(width: 6),
+                                      const SizedBox(
+                                        width: 10,
+                                        height: 10,
+                                        child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 Text(
                                   widget.address,

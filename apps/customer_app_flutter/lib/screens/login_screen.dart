@@ -546,6 +546,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               name: user?['fullName'] ?? (widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'User'),
               phone: user?['phone'] ?? widget.phoneNumber,
               email: user?['email'] ?? widget.emailAddress,
+              userId: user?['id']?.toString(),
+              accessToken: accessToken,
+              refreshToken: refreshToken,
             );
 
             final profileCompleted = user?['profileCompleted'] == true;

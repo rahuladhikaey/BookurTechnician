@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -79,34 +78,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
     
-    // Check if an existing authenticated session exists in secure storage
+    // Check if an existing authenticated session exists in storage
+    final isRestored = await ref.read(bookingProvider.notifier).restoreSession();
     final token = await ApiClient.getAccessToken();
-    final refreshToken = await ApiClient.getRefreshToken();
 
-    if (token != null && token.isNotEmpty && refreshToken != null && refreshToken.isNotEmpty) {
-      try {
-        final profileRes = await ApiClient.get('/customer/profile');
-        if (profileRes.statusCode == 200) {
-          final decoded = jsonDecode(profileRes.body);
-          final data = decoded['data'];
-          final user = data?['user'];
-          if (mounted) {
-            ref.read(bookingProvider.notifier).loginUser(
-              name: user?['fullName'] ?? 'Customer',
-              phone: user?['phone'] ?? '',
-              email: user?['email'] ?? '',
-            );
-            Navigator.of(context).pushReplacementNamed('/home');
-            return;
-          }
-        }
-      } catch (_) {
-        // If offline/network issue, still restore cached session to home
-        if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/home');
-          return;
-        }
-      }
+    if ((isRestored || (token != null && token.isNotEmpty)) && mounted) {
+      Navigator.of(context).pushReplacementNamed('/home');
+      return;
     }
 
     if (!mounted) return;

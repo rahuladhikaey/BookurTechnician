@@ -293,9 +293,11 @@ class ProfileScreen extends ConsumerWidget {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            onPressed: () {
-              ref.read(bookingProvider.notifier).setGuestMode(true);
-              Navigator.pushReplacementNamed(context, '/login');
+            onPressed: () async {
+              await ref.read(bookingProvider.notifier).logoutUser();
+              if (context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+              }
             },
             child: const Text('Sign Out'),
           ),
