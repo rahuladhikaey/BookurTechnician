@@ -22,6 +22,7 @@ public class ReviewController {
     private final ReviewService reviewService;
 
     @PostMapping("/reviews")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<ReviewDtos.ReviewResponse>> submitReview(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody ReviewDtos.CreateReviewRequest request) {
@@ -49,5 +50,13 @@ public class ReviewController {
             @PathVariable UUID reviewId) {
         ReviewDtos.ReviewResponse response = reviewService.toggleReviewVisibility(reviewId);
         return ResponseEntity.ok(ApiResponse.success(response, "Review visibility status updated"));
+    }
+
+    @PatchMapping("/admin/reviews/{reviewId}/flag")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<ReviewDtos.ReviewResponse>> toggleReviewFlag(
+            @PathVariable UUID reviewId) {
+        ReviewDtos.ReviewResponse response = reviewService.toggleReviewFlag(reviewId);
+        return ResponseEntity.ok(ApiResponse.success(response, "Review flag status updated"));
     }
 }

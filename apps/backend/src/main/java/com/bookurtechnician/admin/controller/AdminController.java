@@ -10,8 +10,6 @@ import com.bookurtechnician.auth.entity.Role;
 import com.bookurtechnician.auth.entity.User;
 import com.bookurtechnician.auth.repository.UserRepository;
 import com.bookurtechnician.auth.security.UserPrincipal;
-import com.bookurtechnician.banner.entity.Banner;
-import com.bookurtechnician.banner.repository.BannerRepository;
 import com.bookurtechnician.booking.entity.Booking;
 import com.bookurtechnician.booking.repository.BookingRepository;
 import com.bookurtechnician.common.exception.BadRequestException;
@@ -25,8 +23,7 @@ import com.bookurtechnician.payment.entity.Payment;
 import com.bookurtechnician.payment.entity.Refund;
 import com.bookurtechnician.payment.repository.PaymentRepository;
 import com.bookurtechnician.payment.repository.RefundRepository;
-import com.bookurtechnician.review.entity.Review;
-import com.bookurtechnician.review.repository.ReviewRepository;
+
 import com.bookurtechnician.servicecatalog.entity.ServiceCategory;
 import com.bookurtechnician.servicecatalog.entity.ServiceItem;
 import com.bookurtechnician.servicecatalog.repository.ServiceCategoryRepository;
@@ -67,10 +64,8 @@ public class AdminController {
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
     private final WithdrawalRequestRepository withdrawalRequestRepository;
-    private final ReviewRepository reviewRepository;
     private final ServiceCategoryRepository serviceCategoryRepository;
     private final ServiceItemRepository serviceItemRepository;
-    private final BannerRepository bannerRepository;
     private final SupportTicketRepository supportTicketRepository;
     private final NotificationRepository notificationRepository;
     private final AiKnowledgeDocumentRepository aiKnowledgeDocumentRepository;
@@ -523,41 +518,7 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(req, "Withdrawal status updated to " + status));
     }
 
-    // ─── 7. REVIEWS MODERATION ────────────────────────────────────────────────
-    @GetMapping("/reviews")
-    public ResponseEntity<ApiResponse<List<Review>>> getReviews() {
-        return ResponseEntity.ok(ApiResponse.success(reviewRepository.findAll()));
-    }
 
-    @PatchMapping("/reviews/{id}/hide")
-    public ResponseEntity<ApiResponse<Review>> toggleHideReview(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        Review r = reviewRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + id));
-        r.setHidden(!r.isHidden());
-        r = reviewRepository.save(r);
-
-        recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "TOGGLE_REVIEW_VISIBILITY", "Review", id.toString(), "Hidden set to " + r.isHidden());
-
-        return ResponseEntity.ok(ApiResponse.success(r, "Review visibility updated"));
-    }
-
-    @PatchMapping("/reviews/{id}/flag")
-    public ResponseEntity<ApiResponse<Review>> toggleFlagReview(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        Review r = reviewRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + id));
-        r.setFlagged(!r.isFlagged());
-        r = reviewRepository.save(r);
-
-        recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "TOGGLE_REVIEW_FLAG", "Review", id.toString(), "Flagged set to " + r.isFlagged());
-
-        return ResponseEntity.ok(ApiResponse.success(r, "Review flag status updated"));
-    }
 
     // ─── 8. SUPPORT TICKETS ───────────────────────────────────────────────────
     @GetMapping("/support/tickets")
@@ -803,52 +764,7 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(item, "Pricing updated"));
     }
 
-    // ─── 13. BANNERS CRUD ─────────────────────────────────────────────────────
-    @GetMapping("/banners")
-    public ResponseEntity<ApiResponse<List<Banner>>> getBanners() {
-        return ResponseEntity.ok(ApiResponse.success(bannerRepository.findAll()));
-    }
 
-    @PostMapping("/banners")
-    public ResponseEntity<ApiResponse<Banner>> createBanner(
-            @RequestBody Banner banner,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        banner = bannerRepository.save(banner);
-        recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "CREATE_BANNER", "Banner", banner.getId().toString(), banner.getTitle());
-        return ResponseEntity.ok(ApiResponse.success(banner, "Banner created"));
-    }
-
-    @PutMapping("/banners/{id}")
-    public ResponseEntity<ApiResponse<Banner>> updateBanner(
-            @PathVariable UUID id,
-            @RequestBody Banner updated,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        Banner banner = bannerRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Banner not found: " + id));
-        banner.setTitle(updated.getTitle());
-        banner.setSubtitle(updated.getSubtitle());
-        banner.setImageUrl(updated.getImageUrl());
-        banner.setBannerType(updated.getBannerType());
-        banner.setBadgeText(updated.getBadgeText());
-        banner.setCtaText(updated.getCtaText());
-        banner.setActive(updated.isActive());
-        banner = bannerRepository.save(banner);
-
-        recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "UPDATE_BANNER", "Banner", id.toString(), banner.getTitle());
-        return ResponseEntity.ok(ApiResponse.success(banner, "Banner updated"));
-    }
-
-    @DeleteMapping("/banners/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteBanner(
-            @PathVariable UUID id,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        bannerRepository.deleteById(id);
-        recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "DELETE_BANNER", "Banner", id.toString(), "Deleted");
-        return ResponseEntity.ok(ApiResponse.success(null, "Banner deleted"));
-    }
 
     // ─── HELPER: RECORD AUDIT TRAIL ───────────────────────────────────────────
     private void recordAudit(UUID actorId, String email, String action, String entityType, String entityId, String changes) {

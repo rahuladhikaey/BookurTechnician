@@ -116,19 +116,45 @@ public class ReviewService {
         return mapToResponse(review);
     }
 
+    @Transactional
+    public ReviewDtos.ReviewResponse toggleReviewFlag(UUID reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
+
+        review.setFlagged(!review.isFlagged());
+        review = reviewRepository.save(review);
+        return mapToResponse(review);
+    }
+
     private ReviewDtos.ReviewResponse mapToResponse(Review r) {
+        String cust = (r.getCustomer() != null && r.getCustomer().getFullName() != null) ? r.getCustomer().getFullName() : "Customer";
+        String tech = (r.getTechnician() != null && r.getTechnician().getUser() != null && r.getTechnician().getUser().getFullName() != null)
+                ? r.getTechnician().getUser().getFullName() : "Technician";
+        String techCode = (r.getTechnician() != null && r.getTechnician().getTechnicianCode() != null)
+                ? r.getTechnician().getTechnicianCode() : "";
+        String srv = (r.getBooking() != null && r.getBooking().getService() != null)
+                ? r.getBooking().getService().getName() : "Service";
+        String comment = (r.getReviewText() != null) ? r.getReviewText() : "";
+        String dateStr = (r.getCreatedAt() != null) ? r.getCreatedAt().toString().substring(0, 10) : "";
+
         return ReviewDtos.ReviewResponse.builder()
                 .id(r.getId())
-                .bookingId(r.getBooking().getId())
-                .customerName(r.getCustomer().getFullName() != null ? r.getCustomer().getFullName() : "Customer")
-                .technicianName(r.getTechnician().getUser().getFullName() != null ? r.getTechnician().getUser().getFullName() : "Technician")
-                .technicianCode(r.getTechnician().getTechnicianCode())
-                .serviceName(r.getBooking().getService().getName())
+                .bookingId(r.getBooking() != null ? r.getBooking().getId() : null)
+                .customerName(cust)
+                .customer(cust)
+                .technicianName(tech)
+                .technician(tech)
+                .technicianCode(techCode)
+                .techId(techCode)
+                .serviceName(srv)
+                .service(srv)
                 .rating(r.getRating())
-                .reviewText(r.getReviewText())
+                .reviewText(comment)
+                .comment(comment)
                 .hidden(r.isHidden())
                 .flagged(r.isFlagged())
                 .createdAt(r.getCreatedAt())
+                .date(dateStr)
                 .build();
     }
 }

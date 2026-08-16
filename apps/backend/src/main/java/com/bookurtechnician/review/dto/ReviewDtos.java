@@ -37,13 +37,19 @@ public class ReviewDtos {
         private UUID id;
         private UUID bookingId;
         private String customerName;
+        private String customer;
         private String technicianName;
+        private String technician;
         private String technicianCode;
+        private String techId;
         private String serviceName;
+        private String service;
         private Integer rating;
         private String reviewText;
+        private String comment;
         private boolean hidden;
         private boolean flagged;
         private Instant createdAt;
+        private String date;
     }
 }

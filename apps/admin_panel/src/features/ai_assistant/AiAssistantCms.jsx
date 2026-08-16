@@ -1,85 +1,35 @@
-import React, { useState } from 'react';
-
-const INITIAL_KNOWLEDGE_DOCUMENTS = [
-  {
-    id: 'doc_cancel_policy',
-    category: 'Cancellation Policy',
-    title: 'Standard 1-Hour Free Cancellation Window',
-    content: 'Free cancellation is available up to 1 hour before the scheduled service appointment. If cancelled within this window, the base service cost is queued for refund. The ₹99 booking convenience fee and statutory 18% GST are non-refundable.',
-    version: 'v2.4',
-    effectiveDate: '01 Aug 2026',
-    status: 'Published',
-    updatedBy: 'Operations Super Admin',
-    updatedAt: '15 Aug 2026, 11:30 AM'
-  },
-  {
-    id: 'doc_refund_sla',
-    category: 'Refund Policy',
-    title: '48-Hour Gateway SLA Turnaround',
-    content: 'Eligible refunds are processed directly back to the original source of payment within 48 hours. Booking charge (₹99) and 18% GST tax invoices are retained and non-refundable.',
-    version: 'v2.2',
-    effectiveDate: '15 Jul 2026',
-    status: 'Published',
-    updatedBy: 'Finance Admin',
-    updatedAt: '12 Aug 2026, 04:15 PM'
-  },
-  {
-    id: 'doc_pricing_rules',
-    category: 'Service Charges',
-    title: 'Transparent Invoice & Fee Structure',
-    content: 'Every booking invoice consists of: 1) Upfront Service Base Price; 2) Mandatory ₹99 booking convenience charge; 3) 18% GST. No hidden doorstep travel surcharges apply.',
-    version: 'v1.8',
-    effectiveDate: '01 Jun 2026',
-    status: 'Published',
-    updatedBy: 'Finance Admin',
-    updatedAt: '10 Aug 2026, 09:00 AM'
-  },
-  {
-    id: 'doc_tech_vetting',
-    category: 'Technician Information',
-    title: 'Police & Government ID Verification Standards',
-    content: '100% of BookurTechnician service partners hold verified Digital ID cards with QR tokens, clean uniforms, and undergo mandatory police background vetting before account activation.',
-    version: 'v3.0',
-    effectiveDate: '01 Aug 2026',
-    status: 'Published',
-    updatedBy: 'Operations Super Admin',
-    updatedAt: '14 Aug 2026, 02:20 PM'
-  },
-  {
-    id: 'doc_terms_legal',
-    category: 'Terms & Conditions',
-    title: 'Master Consumer Service Agreement',
-    content: 'Standard 30-day post-service warranty on genuine replacement parts. Disputes are resolved via Bengaluru jurisdictional arbitration.',
-    version: 'v3.1',
-    effectiveDate: '01 Aug 2026',
-    status: 'Published',
-    updatedBy: 'Legal Admin',
-    updatedAt: '15 Aug 2026, 10:00 AM'
-  },
-  {
-    id: 'doc_privacy_legal',
-    category: 'Privacy Policy',
-    title: 'Data Protection & Encryption Standards',
-    content: 'Customer contact and address details are encrypted with 256-bit AES. Sensitive banking passwords, UPI PINs, and CVVs are strictly never requested or stored.',
-    version: 'v2.0',
-    effectiveDate: '15 Jun 2026',
-    status: 'Published',
-    updatedBy: 'Security Admin',
-    updatedAt: '08 Aug 2026, 06:40 PM'
-  }
-];
-
-const INITIAL_FAQS = [
-  { id: 'faq_1', category: 'General', question: 'How do I book a service?', answer: 'Select your required category on the Customer App, pick a convenient 1-hour slot, confirm your location address, and complete secure online checkout.', status: 'Published' },
-  { id: 'faq_2', category: 'Cancellation', question: 'Can I cancel my booking if the technician is delayed?', answer: 'Yes, if there is a scheduling delay or you cancel up to 1 hour before the slot, you can cancel directly from the app to initiate an eligible refund.', status: 'Published' },
-  { id: 'faq_3', category: 'Payment', question: 'What payment modes are accepted?', answer: 'We accept UPI (GPay, PhonePe, Paytm), All Major Debit/Credit Cards, and Net Banking.', status: 'Published' },
-  { id: 'faq_4', category: 'Refunds', question: 'Why is the ₹99 booking charge non-refundable?', answer: 'The ₹99 fee covers administrative slot allocation, dispatch reservation, and server verification resources.', status: 'Published' }
-];
+import React, { useState, useEffect, useCallback } from 'react';
+import api from '../../api/apiClient';
 
 export default function AiAssistantCms({ auditLogAction }) {
   const [activeTab, setActiveTab] = useState('documents');
-  const [documents, setDocuments] = useState(INITIAL_KNOWLEDGE_DOCUMENTS);
-  const [faqs, setFaqs] = useState(INITIAL_FAQS);
+  const [documents, setDocuments] = useState([]);
+  const [faqs, setFaqs] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [docsRes, faqsRes] = await Promise.allSettled([
+        api.getAiDocs(),
+        api.getAiFaqs()
+      ]);
+      if (docsRes.status === 'fulfilled' && docsRes.value?.data) {
+        setDocuments(docsRes.value.data);
+      }
+      if (faqsRes.status === 'fulfilled' && faqsRes.value?.data) {
+        setFaqs(faqsRes.value.data);
+      }
+    } catch (err) {
+      console.error('Error loading AI CMS data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const [showDocModal, setShowDocModal] = useState(false);
   const [editingDoc, setEditingDoc] = useState(null);

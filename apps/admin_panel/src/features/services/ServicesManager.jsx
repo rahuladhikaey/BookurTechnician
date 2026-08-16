@@ -1,37 +1,10 @@
-import React, { useState } from 'react';
-
-const INITIAL_POPULAR_SERVICES = [
-  { id: 'pop_1', name: 'AC Deep Cleaning & Jet Pump', category: 'AC Service', displayOrder: 1, isActive: true, imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500', bookingsCount: 1420 },
-  { id: 'pop_2', name: 'Laptop Hardware & Screen Repair', category: 'Laptop Service', displayOrder: 2, isActive: true, imageUrl: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=500', bookingsCount: 980 },
-  { id: 'pop_3', name: 'Ceiling Fan Installation & Repair', category: 'Fan Service', displayOrder: 3, isActive: true, imageUrl: 'https://images.unsplash.com/photo-1618943716616-e41c4d9ad1bd?w=500', bookingsCount: 840 },
-  { id: 'pop_4', name: 'Refrigerator Coolant & Thermostat', category: 'Refrigerator Service', displayOrder: 4, isActive: true, imageUrl: 'https://images.unsplash.com/photo-1571887455898-ac2865c3dc4e?w=500', bookingsCount: 650 },
-  { id: 'pop_5', name: 'Washing Machine Installation', category: 'Washing Machine Service', displayOrder: 5, isActive: true, imageUrl: 'https://images.unsplash.com/photo-1582730147233-a3d82a170562?w=500', bookingsCount: 520 }
-];
-
-const INITIAL_BRANDS = [
-  { id: 'br_1', name: 'Daikin', category: 'AC Service', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Daikin_logo.svg/320px-Daikin_logo.svg.png', displayOrder: 1, status: 'Active' },
-  { id: 'br_2', name: 'Voltas', category: 'AC Service', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Voltas_logo.svg/320px-Voltas_logo.svg.png', displayOrder: 2, status: 'Active' },
-  { id: 'br_3', name: 'LG Electronics', category: 'Refrigerator Service', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/LG_logo_%282015%29.svg/320px-LG_logo_%282015%29.svg.png', displayOrder: 3, status: 'Active' },
-  { id: 'br_4', name: 'Samsung', category: 'Washing Machine Service', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Samsung_Logo.svg/320px-Samsung_Logo.svg.png', displayOrder: 4, status: 'Active' },
-  { id: 'br_5', name: 'Dell', category: 'Laptop Service', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Dell_logo_2016.svg/320px-Dell_logo_2016.svg.png', displayOrder: 5, status: 'Active' },
-  { id: 'br_6', name: 'HP', category: 'Laptop Service', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/HP_logo_2012.svg/320px-HP_logo_2012.svg.png', displayOrder: 6, status: 'Active' },
-  { id: 'br_7', name: 'Havells', category: 'Fan Service', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Havells_Logo.svg/320px-Havells_Logo.svg.png', displayOrder: 7, status: 'Active' }
-];
-
-const INITIAL_SERVICE_IMAGES = [
-  { id: 'img_1', title: 'AC Filter Jet Wash', category: 'AC Service', url: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500', resolution: '1200x800', tags: 'indoor, jet pump, filter' },
-  { id: 'img_2', title: 'Motherboard IC Diagnostics', category: 'Laptop Service', url: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=500', resolution: '1200x800', tags: 'pcb, chip, soldering' },
-  { id: 'img_3', title: 'High-speed Fan Motor Check', category: 'Fan Service', url: 'https://images.unsplash.com/photo-1618943716616-e41c4d9ad1bd?w=500', resolution: '1200x800', tags: 'bearing, coil, copper' },
-  { id: 'img_4', title: 'Compressor Gas Level Gauge', category: 'Refrigerator Service', url: 'https://images.unsplash.com/photo-1571887455898-ac2865c3dc4e?w=500', resolution: '1200x800', tags: 'gas, freon, pressure' }
-];
-
 export default function ServicesManager({ categories, setCategories, services, setServices, auditLogAction, subTab = 'categories' }) {
   const [activeTab, setActiveTab] = useState(subTab);
   
-  // Popular Services & Brands State
-  const [popularServices, setPopularServices] = useState(INITIAL_POPULAR_SERVICES);
-  const [brands, setBrands] = useState(INITIAL_BRANDS);
-  const [serviceImages, setServiceImages] = useState(INITIAL_SERVICE_IMAGES);
+  // Dynamic Popular Services from Catalog
+  const [popularServices, setPopularServices] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [serviceImages, setServiceImages] = useState([]);
 
   // Modals & Form State
   const [showCategoryModal, setShowCategoryModal] = useState(false);
