@@ -4,6 +4,7 @@ import com.bookurtechnician.booking.entity.Booking;
 import com.bookurtechnician.booking.repository.BookingRepository;
 import com.bookurtechnician.common.exception.BadRequestException;
 import com.bookurtechnician.common.exception.ResourceNotFoundException;
+import com.bookurtechnician.dispatch.service.DispatchService;
 import com.bookurtechnician.payment.dto.PaymentDtos;
 import com.bookurtechnician.payment.entity.Payment;
 import com.bookurtechnician.payment.repository.PaymentRepository;
@@ -31,6 +32,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
+    private final DispatchService dispatchService;
 
     @Value("${app.razorpay.key-id:}")
     private String keyId;
@@ -124,10 +126,14 @@ public class PaymentService {
         payment.setStatus("PAID");
         paymentRepository.save(payment);
 
-        booking.setStatus("CONFIRMED");
-        bookingRepository.save(booking);
+        booking.setStatus("PAYMENT_VERIFIED");
+        booking = bookingRepository.save(booking);
 
-        log.info("Payment verified successfully for booking {}. Payment ID: {}", booking.getBookingCode(), req.getRazorpayPaymentId());
+        log.info("Payment verified successfully for booking {}. Payment ID: {}. Starting 10-km sequential technician dispatch...", 
+                booking.getBookingCode(), req.getRazorpayPaymentId());
+
+        // Kick off 10-km PostGIS sequential dispatch engine
+        dispatchService.startSequentialDispatch(booking.getId());
 
         return PaymentDtos.PaymentVerificationResponse.builder()
                 .success(true)

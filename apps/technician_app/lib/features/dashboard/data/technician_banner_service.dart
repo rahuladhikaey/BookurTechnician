@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
+import '../../../../core/config/app_config.dart';
 import '../domain/technician_banner.dart';
 
 class TechnicianBannerService {
-  // Backend URL (10.0.2.2 for Android emulator localhost, localhost for web/desktop)
-  static const String baseUrl = 'http://10.0.2.2:3000/api';
+  static String get baseUrl => AppConfig.apiBaseUrl;
 
   static final Dio _dio = Dio(
     BaseOptions(

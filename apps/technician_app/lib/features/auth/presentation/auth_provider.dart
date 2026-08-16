@@ -1,52 +1,51 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
 import '../domain/auth_repository.dart';
 import '../../../core/network/api_result.dart';
-import '../../../core/network/dio_client.dart';
 
-enum AuthStatus { unauthenticated, authenticating, otpSent, authenticated, error }
+enum AuthStatus { unauthenticated, authenticating, otpSent, authenticated }
 
 class AuthState {
   final AuthStatus status;
   final String? phone;
   final String? email;
-  final String? expectedOtp;
-  final String? errorMessage;
   final String? token;
+  final String? errorMessage;
 
   AuthState({
-    required this.status,
+    this.status = AuthStatus.unauthenticated,
     this.phone,
     this.email,
-    this.expectedOtp,
-    this.errorMessage,
     this.token,
+    this.errorMessage,
   });
 
   AuthState copyWith({
     AuthStatus? status,
     String? phone,
     String? email,
-    String? expectedOtp,
-    String? errorMessage,
     String? token,
+    String? errorMessage,
   }) {
     return AuthState(
       status: status ?? this.status,
       phone: phone ?? this.phone,
       email: email ?? this.email,
-      expectedOtp: expectedOtp ?? this.expectedOtp,
-      errorMessage: errorMessage ?? this.errorMessage,
       token: token ?? this.token,
+      errorMessage: errorMessage,
     );
   }
 }
 
 class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
-  final SecureStorage _secureStorage = SecureStorage();
   late final DioClient _dioClient;
+  final SecureStorage _secureStorage;
 
-  AuthNotifier() : super(AuthState(status: AuthStatus.unauthenticated)) {
+  AuthNotifier({SecureStorage? storage}) 
+      : _secureStorage = storage ?? SecureStorage(),
+        super(AuthState()) {
     _dioClient = DioClient(_secureStorage);
     _checkExistingToken();
   }
@@ -62,19 +61,22 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
   Future<ApiResult<bool>> requestOtp(String phone, {required String email}) async {
     state = state.copyWith(status: AuthStatus.authenticating);
     
+    final normalizedEmail = email.trim().toLowerCase();
+    final normalizedPhone = phone.trim();
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (phone.length == 10 && emailRegex.hasMatch(email)) {
+    
+    if (normalizedPhone.length == 10 && emailRegex.hasMatch(normalizedEmail)) {
       try {
         final response = await _dioClient.dio.post('/auth/request-otp', data: {
-          'email': email.trim().toLowerCase(),
+          'email': normalizedEmail,
           'purpose': 'LOGIN',
         });
 
         if (response.statusCode == 200) {
           state = state.copyWith(
             status: AuthStatus.otpSent, 
-            phone: phone, 
-            email: email, 
+            phone: normalizedPhone, 
+            email: normalizedEmail, 
           );
           return const ApiSuccess(true);
         } else {
@@ -83,8 +85,15 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
           return ApiFailure(msg);
         }
       } catch (e) {
-        state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: e.toString());
-        return ApiFailure('Connection error: $e');
+        String msg = 'Connection error: $e';
+        if (e is DioException) {
+          final backendMsg = e.response?.data?['message'];
+          if (backendMsg != null && backendMsg.toString().isNotEmpty) {
+            msg = backendMsg.toString();
+          }
+        }
+        state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: msg);
+        return ApiFailure(msg);
       }
     } else {
       state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: 'Invalid phone or email address');
@@ -93,22 +102,27 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
   }
 
   @override
-  Future<ApiResult<String>> verifyOtp(String phone, String code) async {
+  Future<ApiResult<String>> verifyOtp(String phone, String code, {String? email}) async {
     state = state.copyWith(status: AuthStatus.authenticating);
     
+    final targetEmail = (email ?? state.email ?? '').trim().toLowerCase();
+    final targetPhone = phone.trim();
+    final targetOtp = code.trim();
+
     try {
       final response = await _dioClient.dio.post('/auth/verify-otp', data: {
-        'email': state.email ?? '',
-        'otp': code.trim(),
+        'email': targetEmail,
+        'otp': targetOtp,
         'role': 'TECHNICIAN',
-        'phone': phone.trim(),
+        'phone': targetPhone,
+        'purpose': 'LOGIN',
       });
 
       if (response.statusCode == 200) {
         final data = response.data?['data'];
         final accessToken = data?['accessToken'];
         final refreshToken = data?['refreshToken'];
-        final userId = data?['user']?['id']?.toString() ?? phone;
+        final userId = data?['user']?['id']?.toString() ?? targetPhone;
 
         if (accessToken != null) {
           await _secureStorage.saveToken(accessToken);
@@ -116,7 +130,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
             await _secureStorage.saveRefreshToken(refreshToken);
           }
           await _secureStorage.saveUserId(userId);
-          state = AuthState(status: AuthStatus.authenticated, phone: phone, email: state.email, token: accessToken);
+          state = AuthState(status: AuthStatus.authenticated, phone: targetPhone, email: targetEmail, token: accessToken);
           return ApiSuccess(accessToken);
         }
       }
@@ -125,8 +139,17 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       state = state.copyWith(status: AuthStatus.otpSent, errorMessage: msg);
       return ApiFailure(msg);
     } catch (e) {
-      state = state.copyWith(status: AuthStatus.otpSent, errorMessage: e.toString());
-      return ApiFailure('Verification error: $e');
+      String msg = 'Verification error: $e';
+      if (e is DioException) {
+        final backendMsg = e.response?.data?['message'];
+        if (backendMsg != null && backendMsg.toString().isNotEmpty) {
+          msg = backendMsg.toString();
+        } else if (e.response?.statusCode == 400) {
+          msg = 'Invalid or expired OTP code. Please check your inbox and try again.';
+        }
+      }
+      state = state.copyWith(status: AuthStatus.otpSent, errorMessage: msg);
+      return ApiFailure(msg);
     }
   }
 

@@ -62,7 +62,7 @@ export default function MarketingManager({
   const fetchAllBanners = async () => {
     // Fetch Spotlight Banners
     try {
-      const res = await fetch('http://localhost:3000/api/spotlight-banners');
+      const res = await fetch('/api/v1/spotlight-banners');
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.banners) {
@@ -75,7 +75,7 @@ export default function MarketingManager({
 
     // Fetch Hero Banners
     try {
-      const res = await fetch('http://localhost:3000/api/hero-banners');
+      const res = await fetch('/api/v1/hero-banners');
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.banners) {
@@ -220,7 +220,7 @@ export default function MarketingManager({
 
     if (isEdit) {
       try {
-        const res = await fetch(`http://localhost:3000/api/spotlight-banners/${editingBannerId}`, {
+        const res = await fetch(`/api/v1/spotlight-banners/${editingBannerId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(bodyData)
@@ -239,7 +239,7 @@ export default function MarketingManager({
     } else {
       const tempId = `banner_${Date.now()}`;
       try {
-        const res = await fetch('http://localhost:3000/api/spotlight-banners', {
+        const res = await fetch('/api/v1/spotlight-banners', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(bodyData)
@@ -265,7 +265,7 @@ export default function MarketingManager({
     const updatedStatus = !target.isActive;
     setBanners(prev => prev.map(b => b.id === id ? { ...b, isActive: updatedStatus } : b));
     try {
-      await fetch(`http://localhost:3000/api/spotlight-banners/${id}`, {
+      await fetch(`/api/v1/spotlight-banners/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: updatedStatus })
@@ -280,7 +280,7 @@ export default function MarketingManager({
     const target = banners.find(b => b.id === id);
     if (!window.confirm(`Delete spotlight banner "${target.title}"?`)) return;
     try {
-      const res = await fetch(`http://localhost:3000/api/spotlight-banners/${id}`, {
+      const res = await fetch(`/api/v1/spotlight-banners/${id}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -342,7 +342,7 @@ export default function MarketingManager({
 
     if (isEdit) {
       try {
-        const res = await fetch(`http://localhost:3000/api/hero-banners/${editingHeroId}`, {
+        const res = await fetch(`/api/v1/hero-banners/${editingHeroId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(bodyData)
@@ -361,7 +361,7 @@ export default function MarketingManager({
     } else {
       const tempId = `hero_${Date.now()}`;
       try {
-        const res = await fetch('http://localhost:3000/api/hero-banners', {
+        const res = await fetch('/api/v1/hero-banners', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(bodyData)
@@ -387,7 +387,7 @@ export default function MarketingManager({
     const updatedStatus = !target.active;
     setHeroBanners(prev => prev.map(h => h.id === id ? { ...h, active: updatedStatus } : h));
     try {
-      await fetch(`http://localhost:3000/api/hero-banners/${id}`, {
+      await fetch(`/api/v1/hero-banners/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: updatedStatus })
@@ -402,7 +402,7 @@ export default function MarketingManager({
     const target = heroBanners.find(h => h.id === id);
     if (!window.confirm(`Delete hero banner "${target.title}"?`)) return;
     try {
-      const res = await fetch(`http://localhost:3000/api/hero-banners/${id}`, {
+      const res = await fetch(`/api/v1/hero-banners/${id}`, {
         method: 'DELETE'
       });
       if (res.ok) {

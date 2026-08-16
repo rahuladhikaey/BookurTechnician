@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../booking_provider.dart';
+import '../config/app_config.dart';
 import '../models.dart';
 import '../theme.dart';
 
@@ -46,6 +47,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
   String _socketStatus = 'DISCONNECTED'; // 'CONNECTED', 'RECONNECTING', 'DISCONNECTED'
   bool _isGpsGranted = true;
   bool _showSocketSuccessBanner = false;
+  Timer? _statusSyncTimer;
 
   @override
   void initState() {
@@ -62,10 +64,16 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
       });
 
     _initSocket();
+
+    // Fallback periodic sync with PostgreSQL
+    _statusSyncTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      ref.read(bookingProvider.notifier).loadBookingHistory();
+    });
   }
 
   @override
   void dispose() {
+    _statusSyncTimer?.cancel();
     _interpolationController.dispose();
     _otpCtrl.dispose();
     _socket?.disconnect();
@@ -75,8 +83,8 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
 
   void _initSocket() {
     try {
-      // Connect to the local Node.js server (use 10.0.2.2 in Android Emulator)
-      _socket = io.io('http://10.0.2.2:3000', io.OptionBuilder()
+      // Connect to the real-time telemetry socket server
+      _socket = io.io(AppConfig.socketUrl, io.OptionBuilder()
         .setTransports(['websocket'])
         .enableAutoConnect()
         .build());

@@ -31,6 +31,7 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,6 +54,7 @@ public class TechnicianController {
     private final TechnicianWalletRepository walletRepository;
     private final WithdrawalRequestRepository withdrawalRequestRepository;
     private final StringRedisTemplate redisTemplate;
+    private final SimpMessagingTemplate messagingTemplate;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
     @GetMapping("/profile")
@@ -138,6 +140,42 @@ public class TechnicianController {
 
         BookingDtos.BookingResponse response = bookingService.updateBookingStatus(bookingId, req);
         return ResponseEntity.ok(ApiResponse.success(response, "Booking status updated to " + dto.getStatus()));
+    }
+
+    @PostMapping("/location")
+    public ResponseEntity<ApiResponse<Void>> streamLocation(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody LocationUpdateDto dto) {
+        TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
+
+        if (dto.getLatitude() != null && dto.getLongitude() != null) {
+            Point point = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
+            profile.setCurrentLocation(point);
+            profile.setLocationUpdatedAt(Instant.now());
+            profileRepository.save(profile);
+
+            // Broadcast real GPS coordinate to customer live tracking screen
+            if (dto.getBookingId() != null) {
+                try {
+                    TelemetryEvent telemetry = TelemetryEvent.builder()
+                            .technicianId(profile.getId())
+                            .bookingId(dto.getBookingId())
+                            .latitude(dto.getLatitude())
+                            .longitude(dto.getLongitude())
+                            .heading(dto.getHeading() != null ? dto.getHeading() : 0.0)
+                            .speed(dto.getSpeed() != null ? dto.getSpeed() : 0.0)
+                            .timestamp(Instant.now())
+                            .build();
+
+                    messagingTemplate.convertAndSend("/topic/booking/" + dto.getBookingId() + "/telemetry", telemetry);
+                } catch (Exception ex) {
+                    log.warn("Telemetry WebSocket broadcast warning: {}", ex.getMessage());
+                }
+            }
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Location updated"));
     }
 
     @PostMapping("/online-status")
@@ -235,6 +273,31 @@ public class TechnicianController {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class LocationUpdateDto {
+        private Double latitude;
+        private Double longitude;
+        private Double heading;
+        private Double speed;
+        private UUID bookingId;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TelemetryEvent {
+        private UUID technicianId;
+        private UUID bookingId;
+        private Double latitude;
+        private Double longitude;
+        private Double heading;
+        private Double speed;
+        private Instant timestamp;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class OnlineStatusDto {
         private boolean online;
         private Double latitude;
@@ -259,4 +322,3 @@ public class TechnicianController {
         private String upiId;
     }
 }
-

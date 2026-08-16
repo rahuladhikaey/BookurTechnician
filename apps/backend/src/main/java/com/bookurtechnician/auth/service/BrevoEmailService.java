@@ -108,6 +108,6 @@ public class BrevoEmailService {
               </div>
             </body>
             </html>
-            """.formatted(name != null && !name.isBlank() ? name : "Customer", otp);
+            """.formatted(name != null && !name.isBlank() ? name : "Partner / Customer", otp);
     }
 }

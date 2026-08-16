@@ -36,6 +36,8 @@ if (-not $env:JAVA_HOME) {
 # Auto-detect Flutter
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
     $CommonFlutterPaths = @(
+        "D:\Users\RAHUL\flutter\bin",
+        "C:\Users\RAHUL\flutter\bin",
         "D:\flutter\bin",
         "C:\flutter\bin",
         "C:\src\flutter\bin"
@@ -104,8 +106,12 @@ if (Test-Path $CustomerAppDir) {
                 $TargetApk = Join-Path $OutputDir "customer_app-debug.apk"
                 Copy-Item -Path $BuiltApk -Destination $TargetApk -Force
                 Write-Host "Successfully built and copied Customer App (Debug) to: $TargetApk" -ForegroundColor Green
-            } else {
-                Write-Warning "Could not find built customer app APK at $BuiltApk"
+            }
+            $BuiltReleaseApk = "build\app\outputs\flutter-apk\app-release.apk"
+            if (Test-Path $BuiltReleaseApk) {
+                $TargetReleaseApk = Join-Path $OutputDir "customer_app-release.apk"
+                Copy-Item -Path $BuiltReleaseApk -Destination $TargetReleaseApk -Force
+                Write-Host "Copied Customer App (Release) to: $TargetReleaseApk" -ForegroundColor Green
             }
         } else {
             Write-Warning "Flutter CLI not found. Skipping Customer App build."

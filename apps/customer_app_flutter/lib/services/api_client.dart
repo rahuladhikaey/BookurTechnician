@@ -1,13 +1,11 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
 class ApiClient {
-  static const String baseUrl = 'https://api.bookurtechnician.online/api/v1';
-  static const String fallbackLocalUrl = 'http://10.0.2.2:8080/api/v1';
-
-  static String get activeBaseUrl => kDebugMode ? fallbackLocalUrl : baseUrl;
+  /// Active API Base URL derived from AppConfig (defaults to live Render HTTPS backend)
+  static String get activeBaseUrl => AppConfig.apiBaseUrl;
 
   static Future<String?> getAccessToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -45,13 +43,13 @@ class ApiClient {
   static Future<http.Response> get(String endpoint) async {
     String? token = await getAccessToken();
     var uri = Uri.parse('$activeBaseUrl$endpoint');
-    var response = await http.get(uri, headers: _buildHeaders(token)).timeout(const Duration(seconds: 10));
+    var response = await http.get(uri, headers: _buildHeaders(token)).timeout(AppConfig.requestTimeout);
 
     if (response.statusCode == 401) {
       final refreshed = await _attemptRefreshToken();
       if (refreshed) {
         token = await getAccessToken();
-        response = await http.get(uri, headers: _buildHeaders(token)).timeout(const Duration(seconds: 10));
+        response = await http.get(uri, headers: _buildHeaders(token)).timeout(AppConfig.requestTimeout);
       }
     }
     return response;
@@ -64,7 +62,7 @@ class ApiClient {
       uri,
       headers: _buildHeaders(token),
       body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 10));
+    ).timeout(AppConfig.requestTimeout);
 
     if (response.statusCode == 401) {
       final refreshed = await _attemptRefreshToken();
@@ -74,7 +72,7 @@ class ApiClient {
           uri,
           headers: _buildHeaders(token),
           body: jsonEncode(body),
-        ).timeout(const Duration(seconds: 10));
+        ).timeout(AppConfig.requestTimeout);
       }
     }
     return response;
@@ -87,7 +85,7 @@ class ApiClient {
       uri,
       headers: _buildHeaders(token),
       body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 10));
+    ).timeout(AppConfig.requestTimeout);
 
     if (response.statusCode == 401) {
       final refreshed = await _attemptRefreshToken();
@@ -97,7 +95,7 @@ class ApiClient {
           uri,
           headers: _buildHeaders(token),
           body: jsonEncode(body),
-        ).timeout(const Duration(seconds: 10));
+        ).timeout(AppConfig.requestTimeout);
       }
     }
     return response;
@@ -110,7 +108,7 @@ class ApiClient {
       uri,
       headers: _buildHeaders(token),
       body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 10));
+    ).timeout(AppConfig.requestTimeout);
 
     if (response.statusCode == 401) {
       final refreshed = await _attemptRefreshToken();
@@ -120,7 +118,7 @@ class ApiClient {
           uri,
           headers: _buildHeaders(token),
           body: jsonEncode(body),
-        ).timeout(const Duration(seconds: 10));
+        ).timeout(AppConfig.requestTimeout);
       }
     }
     return response;

@@ -16,10 +16,10 @@ import com.bookurtechnician.payment.repository.PaymentRepository;
 import com.bookurtechnician.payment.repository.RefundRepository;
 import com.bookurtechnician.servicecatalog.entity.ServiceItem;
 import com.bookurtechnician.servicecatalog.repository.ServiceItemRepository;
-import com.bookurtechnician.technician.entity.TechnicianProfile;
 import com.bookurtechnician.wallet.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,10 +40,10 @@ public class BookingService {
     private final UserRepository userRepository;
     private final CustomerAddressRepository addressRepository;
     private final ServiceItemRepository serviceItemRepository;
-    private final DispatchService dispatchService;
     private final WalletService walletService;
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
+    private final SimpMessagingTemplate messagingTemplate;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -83,17 +83,11 @@ public class BookingService {
                 .platformCommissionAmount(platformCommission)
                 .technicianPayoutAmount(technicianPayout)
                 .startServiceOtp(startOtp)
-                .status("CONFIRMED")
+                .status("PAYMENT_PENDING")
                 .build();
 
-        // Auto dispatch nearby technician
-        TechnicianProfile assignedTech = dispatchService.autoAssignNearbyTechnician(booking);
-        if (assignedTech != null) {
-            booking.setTechnician(assignedTech);
-            booking.setStatus("ASSIGNED");
-        }
-
         booking = bookingRepository.save(booking);
+        log.info("Created booking {} in PAYMENT_PENDING state. Amount: ₹{}", booking.getBookingCode(), grandTotal);
 
         return mapToResponse(booking);
     }
@@ -103,30 +97,82 @@ public class BookingService {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
 
-        String newStatus = req.getStatus().toUpperCase();
+        String currentStatus = booking.getStatus();
+        String targetStatus = req.getStatus().toUpperCase();
 
-        if ("IN_PROGRESS".equals(newStatus)) {
-            if (req.getStartOtp() == null || !req.getStartOtp().trim().equals(booking.getStartServiceOtp())) {
-                throw new BadRequestException("Invalid Start Service OTP. Please ask the customer for the correct 4-digit code.");
-            }
-        } else if ("COMPLETED".equals(newStatus)) {
-            if (booking.getTechnician() != null) {
-                walletService.creditTechnicianEarning(
-                        booking.getTechnician(),
-                        booking.getTechnicianPayoutAmount(),
-                        booking.getBookingCode()
-                );
-            }
-        } else if ("CANCELLED".equals(newStatus)) {
-            booking.setCancellationReason(req.getCancellationReason() != null ? req.getCancellationReason() : "Customer cancelled");
-            booking.setCancelledBy("CUSTOMER");
+        log.info("Transitioning booking {} from {} -> {}", booking.getBookingCode(), currentStatus, targetStatus);
 
-            // Process refund calculation
-            processCancellationRefund(booking);
+        switch (targetStatus) {
+            case "ON_THE_WAY" -> {
+                if (!"ASSIGNED".equals(currentStatus) && !"CONFIRMED".equals(currentStatus)) {
+                    throw new BadRequestException("Cannot start journey. Booking status is " + currentStatus);
+                }
+                booking.setStatus("ON_THE_WAY");
+            }
+            case "ARRIVED" -> {
+                if (!"ON_THE_WAY".equals(currentStatus)) {
+                    throw new BadRequestException("Cannot mark arrived. Booking status is " + currentStatus);
+                }
+                booking.setStatus("ARRIVED");
+            }
+            case "IN_PROGRESS" -> {
+                if (!"ARRIVED".equals(currentStatus)) {
+                    throw new BadRequestException("Technician must mark ARRIVED before starting the service.");
+                }
+                if (req.getStartOtp() == null || !req.getStartOtp().trim().equals(booking.getStartServiceOtp())) {
+                    throw new BadRequestException("Invalid Start Service OTP. Please ask customer for the correct 4-digit code displayed on their app.");
+                }
+                booking.setStatus("IN_PROGRESS");
+            }
+            case "COMPLETED" -> {
+                if (!"IN_PROGRESS".equals(currentStatus)) {
+                    throw new BadRequestException("Cannot complete service before it is in progress.");
+                }
+                booking.setStatus("COMPLETED");
+
+                // Execute real PostgreSQL transactional wallet credit and ledger entry
+                if (booking.getTechnician() != null) {
+                    walletService.creditTechnicianEarning(
+                            booking.getTechnician(),
+                            booking.getTechnicianPayoutAmount(),
+                            booking.getBookingCode()
+                    );
+                    log.info("Credited ₹{} to technician {} wallet for booking {}",
+                            booking.getTechnicianPayoutAmount(), booking.getTechnician().getTechnicianCode(), booking.getBookingCode());
+                }
+            }
+            case "CANCELLED" -> {
+                if ("IN_PROGRESS".equals(currentStatus) || "COMPLETED".equals(currentStatus)) {
+                    throw new BadRequestException("Cannot cancel an active or completed service.");
+                }
+                booking.setStatus("CANCELLED");
+                booking.setCancellationReason(req.getCancellationReason() != null ? req.getCancellationReason() : "Customer cancelled");
+                booking.setCancelledBy("CUSTOMER");
+                processCancellationRefund(booking);
+            }
+            default -> throw new BadRequestException("Unknown booking status: " + targetStatus);
         }
 
-        booking.setStatus(newStatus);
         booking = bookingRepository.save(booking);
+
+        // Broadcast real-time status update to customer & technician WebSocket topics
+        try {
+            DispatchService.DispatchStatusEvent event = DispatchService.DispatchStatusEvent.builder()
+                    .bookingId(booking.getId())
+                    .bookingCode(booking.getBookingCode())
+                    .status(booking.getStatus())
+                    .message("Status updated to " + booking.getStatus())
+                    .technicianName(booking.getTechnician() != null ? booking.getTechnician().getUser().getFullName() : null)
+                    .technicianPhone(booking.getTechnician() != null ? booking.getTechnician().getUser().getPhone() : null)
+                    .technicianCode(booking.getTechnician() != null ? booking.getTechnician().getTechnicianCode() : null)
+                    .startServiceOtp(booking.getStartServiceOtp())
+                    .timestamp(Instant.now())
+                    .build();
+
+            messagingTemplate.convertAndSend("/topic/booking/" + booking.getId(), event);
+        } catch (Exception ex) {
+            log.warn("WebSocket status broadcast warning: {}", ex.getMessage());
+        }
 
         return mapToResponse(booking);
     }
@@ -136,7 +182,6 @@ public class BookingService {
         Duration elapsed = Duration.between(booking.getCreatedAt(), now);
 
         if (elapsed.toHours() <= 1) {
-            // Eligible for refund minus non-refundable platform/safety fee (₹49)
             BigDecimal requestedAmount = booking.getGrandTotal();
             BigDecimal nonRefundable = booking.getSafetyFee();
             BigDecimal refundable = requestedAmount.subtract(nonRefundable).max(BigDecimal.ZERO);
@@ -183,7 +228,7 @@ public class BookingService {
                 .scheduleSlot(b.getScheduleSlot())
                 .grandTotal(b.getGrandTotal())
                 .startServiceOtp(b.getStartServiceOtp())
-                .technicianName(b.getTechnician() != null ? b.getTechnician().getUser().getFullName() : "Assigning nearby partner...")
+                .technicianName(b.getTechnician() != null ? b.getTechnician().getUser().getFullName() : "Finding nearest technician...")
                 .technicianPhone(b.getTechnician() != null ? b.getTechnician().getUser().getPhone() : "")
                 .technicianCode(b.getTechnician() != null ? b.getTechnician().getTechnicianCode() : "")
                 .fullAddress(b.getAddress().getHouseFlat() + ", " + b.getAddress().getStreet() + ", " + b.getAddress().getCity())

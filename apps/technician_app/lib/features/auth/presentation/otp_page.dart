@@ -40,7 +40,11 @@ class _OtpPageState extends ConsumerState<OtpPage> {
       });
       
       final code = _otpController.text.trim();
-      final res = await ref.read(authProvider.notifier).verifyOtp(widget.phoneNumber, code);
+      final res = await ref.read(authProvider.notifier).verifyOtp(
+        widget.phoneNumber, 
+        code, 
+        email: widget.emailAddress,
+      );
       
       if (res is ApiSuccess<String>) {
         if (mounted) {

@@ -446,27 +446,7 @@ class BookingNotifier extends StateNotifier<AppState> {
     } catch (e) {
       debugPrint('Confirm booking error: $e');
     }
-
-    final now = DateTime.now();
-    final fallbackBooking = Booking(
-      id: 'BT-${now.millisecondsSinceEpoch}',
-      services: [...state.cartItems],
-      date: date,
-      timeSlot: slot,
-      status: BookingStatus.confirmed,
-      baseCost: state.baseCost,
-      visitFee: state.visitFee,
-      discount: state.discount,
-      gstTax: state.gstTax,
-      grandTotal: state.grandTotal,
-      address: state.address,
-    );
-    state = state.copyWith(
-      activeBooking: fallbackBooking,
-      cartItems: [],
-      baseCost: 0, visitFee: 49, discount: 0, gstTax: 0, grandTotal: 0,
-    );
-    return true;
+    return false;
   }
 
   Future<void> loadBookingHistory() async {

@@ -519,10 +519,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     try {
       final response = await ApiClient.post('/auth/verify-otp', {
-        'email': widget.emailAddress,
-        'otp': otp,
+        'email': widget.emailAddress.trim().toLowerCase(),
+        'otp': otp.trim(),
         'role': 'CUSTOMER',
-        'phone': widget.phoneNumber,
+        'phone': widget.phoneNumber.trim(),
+        'purpose': 'LOGIN',
       });
 
       setState(() => _isVerifying = false);

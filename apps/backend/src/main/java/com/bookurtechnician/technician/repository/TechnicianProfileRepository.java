@@ -21,7 +21,7 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
     long countByKycStatus(String kycStatus);
     long countByOnlineTrue();
 
-    // ─── POSTGIS NATIVE 5-KM SPATIAL DISPATCH QUERY ──────────────────────────
+    // ─── POSTGIS NATIVE 10-KM SPATIAL DISPATCH QUERY ──────────────────────────
     @Query(value = """
         SELECT t.* FROM technician_profiles t
         WHERE t.is_online = true
@@ -43,5 +43,19 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
             @Param("lng") double lng,
             @Param("radiusMeters") double radiusMeters,
             @Param("limitCount") int limitCount
+    );
+
+    @Query(value = """
+        SELECT ST_Distance(
+            t.current_location::geography,
+            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+        )
+        FROM technician_profiles t
+        WHERE t.id = :technicianId
+        """, nativeQuery = true)
+    Double calculateDistanceMeters(
+            @Param("technicianId") UUID technicianId,
+            @Param("lat") double lat,
+            @Param("lng") double lng
     );
 }
