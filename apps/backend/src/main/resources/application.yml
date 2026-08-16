@@ -45,6 +45,10 @@ app:
     jwt-secret: ${JWT_SECRET:d982146a817357f000000ffffff2146a817357f000000ffffff}
     jwt-expiration-ms: 86400000 # 24 Hours
     jwt-refresh-expiration-ms: 2592000000 # 30 Days
+    admin:
+      access-key-1: ${ADMIN_ACCESS_KEY_1:}
+      access-key-2: ${ADMIN_ACCESS_KEY_2:}
+      bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
   brevo:
     api-key: ${BREVO_API_KEY:}
     sender-email: ${BREVO_SENDER_EMAIL:noreply@asaliswad.com}

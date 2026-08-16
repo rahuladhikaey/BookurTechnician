@@ -753,7 +753,7 @@ void _showLiveServiceSearchSheet(BuildContext context, WidgetRef ref) {
                                   Navigator.pushNamed(context, '/service_detail', arguments: item.id);
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: kBrandPrimary,
+                                  backgroundColor: kBlack,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

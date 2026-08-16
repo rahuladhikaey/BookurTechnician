@@ -150,7 +150,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: AppColors.black,
                   minimumSize: const Size(double.infinity, 44),
                   shape: const RoundedRectangleBorder(borderRadius: AppRadius.small),
                 ),

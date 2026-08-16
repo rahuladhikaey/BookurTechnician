@@ -70,7 +70,7 @@ ThemeData buildAppTheme() {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: kBrandPrimary,
+        backgroundColor: kBlack,
         foregroundColor: kWhite,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -85,8 +85,8 @@ ThemeData buildAppTheme() {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         backgroundColor: kWhite,
-        foregroundColor: kBrandPrimary,
-        side: const BorderSide(color: kBrandPrimary, width: 1.5),
+        foregroundColor: kBlack,
+        side: const BorderSide(color: kBlack, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         textStyle: const TextStyle(
@@ -191,7 +191,7 @@ class BTPrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: kBrandPrimary,
+          backgroundColor: kBlack,
           foregroundColor: kWhite,
           disabledBackgroundColor: const Color(0xFFCBD5E1),
           disabledForegroundColor: const Color(0xFF64748B),
@@ -246,20 +246,20 @@ class BTSecondaryButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           backgroundColor: kWhite,
-          foregroundColor: kBrandPrimary,
-          side: const BorderSide(color: kBrandPrimary, width: 1.5),
+          foregroundColor: kBlack,
+          side: const BorderSide(color: kBlack, width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 18, color: kBrandPrimary),
+              Icon(icon, size: 18, color: kBlack),
               const SizedBox(width: 8),
             ],
             Text(
               label,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kBrandPrimary),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kBlack),
             ),
           ],
         ),

@@ -198,7 +198,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     height: 54,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: kBrandPrimary,
+                        backgroundColor: kBlack,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),

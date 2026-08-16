@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/reviews/technician/**").permitAll()
                         .requestMatchers("/api/v1/payments/webhook").permitAll()
                         .requestMatchers("/actuator/health", "/ws/**").permitAll()
+                        .requestMatchers("/api/v1/internal/admin/**").permitAll()
                         // Admin Protected Endpoints
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "FINANCE_ADMIN")
                         // Technician Protected Endpoints

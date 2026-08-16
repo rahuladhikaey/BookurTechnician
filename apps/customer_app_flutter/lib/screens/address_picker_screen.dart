@@ -261,7 +261,7 @@ class _AddressPickerScreenState extends ConsumerState<AddressPickerScreen> {
                                 );
                               },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: kBrandPrimary,
+                          backgroundColor: kBlack,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),

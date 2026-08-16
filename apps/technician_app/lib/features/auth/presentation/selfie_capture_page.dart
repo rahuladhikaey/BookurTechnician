@@ -247,7 +247,7 @@ class _SelfieCapturePageState extends State<SelfieCapturePage> {
                           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.5),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF17399A),
+                          backgroundColor: AppColors.black,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

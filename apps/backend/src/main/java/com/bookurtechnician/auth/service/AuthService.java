@@ -62,12 +62,18 @@ public class AuthService {
 
         // 1. Check existing user by email first
         // 2. If not found by email, check existing user by normalized phone
-        // 3. If genuinely new, create exactly one user row
-        User user = userRepository.findByEmail(email)
+        // 3. Prevent public creation of administrative accounts
+        Optional<User> existingUserOpt = userRepository.findByEmail(email)
                 .or(() -> (normalizedPhone != null && !normalizedPhone.isBlank())
                         ? userRepository.findByPhone(normalizedPhone)
-                        : Optional.empty())
-                .orElseGet(() -> createNewUser(dto, normalizedPhone, email));
+                        : Optional.empty());
+
+        if (existingUserOpt.isEmpty() && isAdministrativeRole(dto.getRole())) {
+            log.warn("Blocked public attempt to register non-existent admin account: {}", email);
+            throw new BadRequestException("Administrator access is not configured.");
+        }
+
+        User user = existingUserOpt.orElseGet(() -> createNewUser(dto, normalizedPhone, email));
 
         // Update user fields safely
         if (user.getEmail() == null || user.getEmail().isBlank()) {
@@ -76,8 +82,11 @@ public class AuthService {
         if (normalizedPhone != null && !normalizedPhone.isBlank() && (user.getPhone() == null || user.getPhone().isBlank())) {
             user.setPhone(normalizedPhone);
         }
-        if (dto.getRole() != null && user.getRole() != dto.getRole()) {
-            user.setRole(dto.getRole());
+        // Retain administrative roles from DB; never escalate role from client input
+        if (!isAdministrativeRole(user.getRole())) {
+            if (dto.getRole() != null && !isAdministrativeRole(dto.getRole()) && user.getRole() != dto.getRole()) {
+                user.setRole(dto.getRole());
+            }
         }
         if (dto.getFullName() != null && !dto.getFullName().isBlank()) {
             user.setFullName(dto.getFullName().trim());
@@ -184,11 +193,13 @@ public class AuthService {
                 ? dto.getFullName().trim()
                 : (dto.getRole() == Role.TECHNICIAN ? "Technician Partner" : "Customer");
 
+        Role allowedRole = (dto.getRole() == Role.TECHNICIAN) ? Role.TECHNICIAN : Role.CUSTOMER;
+
         User user = User.builder()
                 .email(email)
                 .phone(phone)
                 .fullName(fullName)
-                .role(dto.getRole() != null ? dto.getRole() : Role.CUSTOMER)
+                .role(allowedRole)
                 .emailVerified(true)
                 .phoneVerified(true)
                 .active(true)
@@ -202,6 +213,10 @@ public class AuthService {
                     .or(() -> userRepository.findByEmail(email))
                     .orElseThrow(() -> ex);
         }
+    }
+
+    private boolean isAdministrativeRole(Role role) {
+        return role == Role.ADMIN || role == Role.SUPER_ADMIN || role == Role.FINANCE_ADMIN;
     }
 
     private String normalizePhone(String rawPhone) {

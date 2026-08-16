@@ -226,7 +226,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: AppColors.black,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -415,7 +415,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                             child: ElevatedButton(
                               onPressed: _submitPinAndUpdateUpi,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
+                                backgroundColor: AppColors.black,
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
@@ -518,7 +518,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                                   child: ElevatedButton(
                                     onPressed: _handleSaveUpi,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primary,
+                                      backgroundColor: AppColors.black,
                                       foregroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),

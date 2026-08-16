@@ -61,7 +61,7 @@ class ProfileScreen extends ConsumerWidget {
                     child: ElevatedButton(
                       onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: kBrandPrimary,
+                        backgroundColor: kBlack,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),

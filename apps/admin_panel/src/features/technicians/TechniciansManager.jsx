@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
+import api from '../../api/apiClient';
 
-export default function TechniciansManager({ technicians, setTechnicians, auditLogAction, subTab = 'list', onNavigateToIdCard }) {
+export default function TechniciansManager({ technicians = [], setTechnicians, auditLogAction, subTab = 'list', onNavigateToIdCard }) {
   const [filterTab, setFilterTab] = useState(subTab === 'kyc' ? 'PENDING' : 'ALL');
   const [selectedTech, setSelectedTech] = useState(null);
   const [showKycModal, setShowKycModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('Incomplete or blurry identity documents');
 
   const [newTechForm, setNewTechForm] = useState({
     name: '',
@@ -17,70 +19,96 @@ export default function TechniciansManager({ technicians, setTechnicians, auditL
   });
 
   // Filter technicians
-  const filteredTechnicians = technicians.filter(t => {
+  const filteredTechnicians = (technicians || []).filter(t => {
     const q = searchQuery.toLowerCase();
-    const matchesSearch = !q ||
-      t.name.toLowerCase().includes(q) ||
-      t.id.toLowerCase().includes(q) ||
-      (t.category && t.category.toLowerCase().includes(q)) ||
-      (t.phone && t.phone.toLowerCase().includes(q));
+    const nameStr = (t.name || '').toLowerCase();
+    const idStr = (t.id || t.code || '').toLowerCase();
+    const catStr = (t.category || '').toLowerCase();
+    const phoneStr = (t.phone || '');
 
-    if (filterTab === 'ALL') return matchesSearch;
-    if (filterTab === 'PENDING') return matchesSearch && (t.kycStatus === 'Pending' || t.status === 'Pending');
-    if (filterTab === 'APPROVED') return matchesSearch && (t.status === 'Approved');
-    if (filterTab === 'ONLINE') return matchesSearch && (t.onlineStatus === 'Online' || t.status === 'Approved');
-    if (filterTab === 'OFFLINE') return matchesSearch && (t.onlineStatus === 'Offline');
-    if (filterTab === 'SUSPENDED') return matchesSearch && (t.status === 'Suspended');
-    return matchesSearch;
+    const matchesSearch = !q || nameStr.includes(q) || idStr.includes(q) || catStr.includes(q) || phoneStr.includes(q);
+    if (!matchesSearch) return false;
+
+    const kyc = (t.kycStatus || 'PENDING').toUpperCase();
+    const online = Boolean(t.isOnline || t.online);
+    const status = (t.status || 'Active').toUpperCase();
+
+    if (filterTab === 'ALL') return true;
+    if (filterTab === 'PENDING') return kyc === 'PENDING' || kyc === 'SUBMITTED';
+    if (filterTab === 'APPROVED') return kyc === 'VERIFIED';
+    if (filterTab === 'ONLINE') return online;
+    if (filterTab === 'OFFLINE') return !online;
+    if (filterTab === 'SUSPENDED') return status === 'SUSPENDED';
+    return true;
   });
 
   // KYC Verification Workflow Actions
-  const handleApproveTech = (tech) => {
-    const permanentId = tech.id.startsWith('BT-TECH') ? tech.id : `BT-TECH-00000${tech.id.replace(/\D/g, '') || '1'}`;
-    setTechnicians(prev => prev.map(t => t.id === tech.id ? {
-      ...t,
-      id: permanentId,
-      status: 'Approved',
-      kycStatus: 'Approved',
-      onlineStatus: 'Online',
-      verifiedAt: '15 Aug 2026'
-    } : t));
+  const handleApproveTech = async (tech) => {
+    try {
+      await api.updateKyc(tech.id, 'VERIFIED');
+      if (setTechnicians) {
+        setTechnicians(prev => prev.map(t => t.id === tech.id ? {
+          ...t,
+          status: 'Active',
+          kycStatus: 'VERIFIED'
+        } : t));
+      }
 
-    auditLogAction?.(
-      'Technicians',
-      `Approved technician ${tech.name}. Generated permanent ID: ${permanentId} with ID badge tokens.`
-    );
+      auditLogAction?.(
+        'Technicians',
+        `Approved technician KYC for ${tech.name} (${tech.code || tech.id}).`
+      );
 
-    setShowKycModal(false);
-    alert(`Technician ${tech.name} successfully Approved!`);
+      setShowKycModal(false);
+      alert(`Technician ${tech.name} successfully Verified & Approved!`);
+    } catch (err) {
+      console.error('Error approving KYC:', err);
+      alert('Error approving technician: ' + err.message);
+    }
   };
 
-  const handleRejectTech = (tech) => {
-    setTechnicians(prev => prev.map(t => t.id === tech.id ? {
-      ...t,
-      status: 'Rejected',
-      kycStatus: 'Rejected'
-    } : t));
+  const handleRejectTech = async (tech) => {
+    try {
+      await api.updateKyc(tech.id, 'REJECTED', rejectionReason);
+      if (setTechnicians) {
+        setTechnicians(prev => prev.map(t => t.id === tech.id ? {
+          ...t,
+          kycStatus: 'REJECTED',
+          rejectionReason
+        } : t));
+      }
 
-    auditLogAction?.(
-      'Technicians',
-      `Rejected technician registration for ${tech.name} (${tech.id}).`
-    );
+      auditLogAction?.(
+        'Technicians',
+        `Rejected technician KYC for ${tech.name} (${tech.id}). Reason: ${rejectionReason}`
+      );
 
-    setShowKycModal(false);
+      setShowKycModal(false);
+    } catch (err) {
+      console.error('Error rejecting KYC:', err);
+      alert('Error updating technician: ' + err.message);
+    }
   };
 
-  const handleSuspendTech = (tech) => {
-    const nextState = tech.status === 'Suspended' ? 'Approved' : 'Suspended';
-    setTechnicians(prev => prev.map(t => t.id === tech.id ? {
-      ...t,
-      status: nextState
-    } : t));
+  const handleSuspendTech = async (tech) => {
+    const nextState = tech.status === 'Suspended' ? 'Active' : 'Suspended';
+    try {
+      await api.updateTechnicianStatus(tech.id, nextState);
+      if (setTechnicians) {
+        setTechnicians(prev => prev.map(t => t.id === tech.id ? {
+          ...t,
+          status: nextState
+        } : t));
+      }
 
-    auditLogAction?.(
-      'Technicians',
-      `Changed account status of ${tech.name} (${tech.id}) to ${nextState}`
-    );
+      auditLogAction?.(
+        'Technicians',
+        `Changed account status of ${tech.name} (${tech.id}) to ${nextState}`
+      );
+    } catch (err) {
+      console.error('Error updating technician status:', err);
+      alert('Error updating status: ' + err.message);
+    }
   };
 
   const handleCreateTechnician = (e) => {
@@ -94,158 +122,171 @@ export default function TechniciansManager({ technicians, setTechnicians, auditL
       location: newTechForm.location,
       experience: newTechForm.experience,
       photo: newTechForm.photo,
-      status: 'Approved',
-      kycStatus: 'Approved',
-      onlineStatus: 'Online',
+      status: 'Active',
+      kycStatus: 'VERIFIED',
+      isOnline: true,
       rating: 5.0,
-      completedJobs: 0,
-      earnings: 0
+      totalRatingsCount: 0,
+      totalJobsCompleted: 0
     };
-    setTechnicians(prev => [...prev, newT]);
+
+    if (setTechnicians) {
+      setTechnicians(prev => [newT, ...prev]);
+    }
     auditLogAction?.('Technicians', `Manually registered technician ${newT.name} (${newId})`);
     setShowAddModal(false);
   };
 
   return (
-    <div className="technicians-manager-view">
-      {/* ─── FLAT TABS ─── */}
-      <div className="flat-tabs">
-        {['ALL', 'PENDING', 'APPROVED', 'ONLINE', 'OFFLINE', 'SUSPENDED'].map(tab => (
-          <div
-            key={tab}
-            className={`flat-tab ${filterTab === tab ? 'active' : ''}`}
-            onClick={() => setFilterTab(tab)}
-          >
-            {tab === 'ALL' ? `All Technicians (${technicians.length})` :
-             tab === 'PENDING' ? `Pending Verification (${technicians.filter(t => t.kycStatus === 'Pending' || t.status === 'Pending').length})` :
-             tab === 'APPROVED' ? `Approved (${technicians.filter(t => t.status === 'Approved').length})` :
-             tab === 'ONLINE' ? `🟢 Online Fleet (${technicians.filter(t => t.onlineStatus === 'Online' || t.status === 'Approved').length})` :
-             tab === 'OFFLINE' ? 'Offline' : 'Suspended'}
-          </div>
-        ))}
+    <div className="technicians-view">
+      {/* ─── PAGE HEADER ROW ─── */}
+      <div className="page-header-row">
+        <div>
+          <h1 className="page-title">Technician Fleet & Verification Directory</h1>
+          <p className="page-subtitle">Verify KYC identity documents, issue digital ID credentials, and monitor real GPS online availability</p>
+        </div>
+        <div className="page-actions-group">
+          <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+            + Register New Technician
+          </button>
+        </div>
       </div>
 
+      {/* ─── FILTER TABS (FLAT 2D) ─── */}
+      <div className="flat-tabs">
+        <div className={`flat-tab ${filterTab === 'ALL' ? 'active' : ''}`} onClick={() => setFilterTab('ALL')}>
+          All Technicians ({technicians.length})
+        </div>
+        <div className={`flat-tab ${filterTab === 'PENDING' ? 'active' : ''}`} onClick={() => setFilterTab('PENDING')}>
+          Pending KYC ({technicians.filter(t => t.kycStatus === 'PENDING' || t.kycStatus === 'Pending' || t.kycStatus === 'SUBMITTED').length})
+        </div>
+        <div className={`flat-tab ${filterTab === 'APPROVED' ? 'active' : ''}`} onClick={() => setFilterTab('APPROVED')}>
+          Verified Partners ({technicians.filter(t => t.kycStatus === 'VERIFIED' || t.kycStatus === 'Approved').length})
+        </div>
+        <div className={`flat-tab ${filterTab === 'ONLINE' ? 'active' : ''}`} onClick={() => setFilterTab('ONLINE')}>
+          Online GPS ({technicians.filter(t => t.isOnline || t.online).length})
+        </div>
+        <div className={`flat-tab ${filterTab === 'OFFLINE' ? 'active' : ''}`} onClick={() => setFilterTab('OFFLINE')}>
+          Offline ({technicians.filter(t => !t.isOnline && !t.online).length})
+        </div>
+      </div>
+
+      {/* ─── TOOLBAR (SEARCH + ACTIONS) ─── */}
+      <div className="toolbar-row">
+        <div className="toolbar-left">
+          <div className="search-input-box header-search" style={{ minWidth: '300px' }}>
+            <input
+              type="text"
+              placeholder="Search by name, ID code, category, phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="toolbar-right">
+          <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+            Showing <strong>{filteredTechnicians.length}</strong> of {technicians.length} fleet technicians
+          </span>
+        </div>
+      </div>
+
+      {/* ─── FLAT TECHNICIANS TABLE ─── */}
       <div className="panel">
-        <div className="page-header-row">
-          <div>
-            <h2 className="page-title">Technician Fleet & Verification</h2>
-            <p className="page-subtitle">Review selfie submissions, verify KYC documents, manage ID badges and availability</p>
-          </div>
-          <div className="page-actions-group">
-            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-              + Add Technician
-            </button>
-          </div>
-        </div>
-
-        {/* ─── TOOLBAR ─── */}
-        <div className="toolbar-row">
-          <div className="toolbar-left">
-            <div className="search-input-box header-search" style={{ minWidth: '300px' }}>
-              <input
-                type="text"
-                placeholder="Search technician by name, ID, phone, category..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="toolbar-right">
-            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              Showing {filteredTechnicians.length} technicians
-            </span>
-          </div>
-        </div>
-
-        {/* ─── FLAT TABLE ─── */}
         <div className="table-responsive">
           <table className="flat-table">
             <thead>
               <tr>
-                <th>Technician</th>
-                <th>Technician ID</th>
-                <th>Category</th>
-                <th>Contact</th>
-                <th>Rating & Jobs</th>
-                <th>Hub Location</th>
+                <th>Partner ID & Profile</th>
+                <th>Category / Skill</th>
+                <th>Contact & Location</th>
                 <th>KYC Status</th>
-                <th>Fleet State</th>
+                <th>Fleet GPS Status</th>
+                <th>Performance</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredTechnicians.map(t => (
-                <tr key={t.id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <img
-                        src={t.photo || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=100'}
-                        alt={t.name}
-                        style={{ width: '40px', height: '40px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)' }}
-                      />
-                      <div>
-                        <strong style={{ color: 'var(--text-main)' }}>{t.name}</strong>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Exp: {t.experience || '4 years'}</div>
-                      </div>
+              {filteredTechnicians.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-secondary)' }}>
+                    👨🔧 No technicians registered yet.
+                    <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-muted)' }}>
+                      Real technician records will appear here as soon as partners register via the Technician App.
                     </div>
                   </td>
-                  <td>
-                    <strong style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>
-                      {t.id.startsWith('BT-TECH') ? t.id : `BT-TECH-00000${t.id.replace(/\D/g, '') || '1'}`}
-                    </strong>
-                  </td>
-                  <td><span className="badge badge-info">{t.category}</span></td>
-                  <td>{t.phone}</td>
-                  <td>
-                    <div>⭐ {t.rating || '4.8'}</div>
-                    <small style={{ color: 'var(--text-secondary)' }}>{t.completedJobs || 18} jobs</small>
-                  </td>
-                  <td>{t.location || 'Bengaluru Central'}</td>
-                  <td>
-                    <span className={`badge ${t.status === 'Approved' ? 'badge-completed' : t.status === 'Rejected' ? 'badge-cancelled' : 'badge-pending'}`}>
-                      {t.status === 'Approved' ? 'Verified' : t.status === 'Rejected' ? 'Rejected' : 'Pending'}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge ${t.onlineStatus === 'Online' || t.status === 'Approved' ? 'badge-completed' : 'badge-cancelled'}`}>
-                      {t.onlineStatus === 'Online' || t.status === 'Approved' ? '🟢 Online' : '⚪ Offline'}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div className="page-actions-group" style={{ justifyContent: 'flex-end' }}>
-                      {(t.kycStatus === 'Pending' || t.status === 'Pending') ? (
+                </tr>
+              ) : (
+                filteredTechnicians.map((t) => (
+                  <tr key={t.id}>
+                    <td>
+                      <div className="flex-gap" style={{ alignItems: 'center' }}>
+                        <img
+                          src={t.photo || "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=150&q=80"}
+                          alt=""
+                          style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }}
+                        />
+                        <div>
+                          <strong style={{ color: 'var(--text-main)', display: 'block' }}>{t.name}</strong>
+                          <small style={{ color: 'var(--primary)', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                            {t.code || t.technicianCode || t.id}
+                          </small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div><strong>{t.category || 'AC Service'}</strong></div>
+                      <small style={{ color: 'var(--text-secondary)' }}>{t.experience || '3 years exp'}</small>
+                    </td>
+                    <td>
+                      <div>{t.phone}</div>
+                      <small style={{ color: 'var(--text-secondary)' }}>{t.location || 'Bengaluru'}</small>
+                    </td>
+                    <td>
+                      <span className={`badge ${
+                        t.kycStatus === 'VERIFIED' || t.kycStatus === 'Approved' ? 'badge-completed' :
+                        t.kycStatus === 'REJECTED' || t.kycStatus === 'Rejected' ? 'badge-cancelled' : 'badge-pending'
+                      }`}>
+                        {t.kycStatus === 'VERIFIED' ? 'Verified' : t.kycStatus || 'Pending'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${t.isOnline || t.online ? 'badge-confirmed' : 'badge-cancelled'}`}>
+                        {t.isOnline || t.online ? 'Online' : 'Offline'}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 'bold', color: '#D97706' }}>
+                        ★ {t.rating || 5.0} <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>({t.totalJobsCompleted || 0} jobs)</span>
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                         <button
-                          className="btn btn-primary btn-sm"
+                          className="btn btn-outline btn-sm"
                           onClick={() => {
                             setSelectedTech(t);
                             setShowKycModal(true);
                           }}
                         >
-                          Review KYC →
+                          KYC Review
                         </button>
-                      ) : (
-                        <>
-                          <button
-                            className="btn btn-outline btn-sm"
-                            onClick={() => {
-                              setSelectedTech(t);
-                              setShowKycModal(true);
-                            }}
-                          >
-                            Details
-                          </button>
-                          <button
-                            className={`btn btn-sm ${t.status === 'Suspended' ? 'btn-primary' : 'btn-danger'}`}
-                            onClick={() => handleSuspendTech(t)}
-                          >
-                            {t.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => onNavigateToIdCard ? onNavigateToIdCard(t) : alert(`Viewing ID for ${t.name}`)}
+                        >
+                          Digital ID
+                        </button>
+                        <button
+                          className={`btn btn-sm ${t.status === 'Suspended' ? 'btn-primary' : 'btn-danger'}`}
+                          onClick={() => handleSuspendTech(t)}
+                        >
+                          {t.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -256,45 +297,64 @@ export default function TechniciansManager({ technicians, setTechnicians, auditL
         <div className="modal-overlay" onClick={() => setShowKycModal(false)}>
           <div className="modal-dialog" style={{ maxWidth: '640px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Technician Profile: {selectedTech.name}</h3>
+              <h3 className="modal-title">KYC Document Verification: {selectedTech.name}</h3>
               <button className="modal-close-btn" onClick={() => setShowKycModal(false)}>×</button>
             </div>
+
             <div className="modal-body">
-              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '16px', marginBottom: '16px' }}>
-                <img
-                  src={selectedTech.photo}
-                  alt={selectedTech.name}
-                  style={{ width: '120px', height: '120px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-color)' }}
-                />
-                <div>
-                  <h3 style={{ margin: '0 0 4px', color: 'var(--text-main)' }}>{selectedTech.name}</h3>
-                  <div style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '13px' }}>ID: {selectedTech.id}</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Phone: {selectedTech.phone}</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Skill Vertical: {selectedTech.category}</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>PAN Card: {selectedTech.panCard || 'BPRPK9028L'}</div>
+              <div style={{ padding: '12px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <strong>{selectedTech.name}</strong> ({selectedTech.phone})
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      Technician Code: <strong>{selectedTech.code || selectedTech.technicianCode || selectedTech.id}</strong>
+                    </div>
+                  </div>
+                  <span className={`badge ${selectedTech.kycStatus === 'VERIFIED' ? 'badge-completed' : 'badge-pending'}`}>
+                    {selectedTech.kycStatus || 'Pending'}
+                  </span>
                 </div>
               </div>
 
-              <div style={{ padding: '14px', background: 'var(--primary-light)', border: '1px solid var(--border-color)', borderRadius: '4px', marginBottom: '16px' }}>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary)', marginBottom: '4px' }}>DIGITAL ID STATUS</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-main)' }}>
-                  Certified ID Card QR Token: <strong>{selectedTech.id}-VERIFIED-2026</strong>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>AADHAAR CARD (FRONT & BACK)</span>
+                  <div style={{ height: '110px', background: '#E2E8F0', borderRadius: '4px', marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#64748B' }}>
+                    Aadhaar Image Verified ✓
+                  </div>
+                </div>
+                <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>PAN CARD & POLICE VERIFICATION</span>
+                  <div style={{ height: '110px', background: '#E2E8F0', borderRadius: '4px', marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#64748B' }}>
+                    Govt ID Records Verified ✓
+                  </div>
                 </div>
               </div>
+
+              {selectedTech.kycStatus !== 'VERIFIED' && (
+                <div style={{ marginTop: '10px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Rejection Reason (if applicable):</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    style={{ width: '100%', padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px' }}
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="modal-footer">
-              {selectedTech.status === 'Pending' && (
-                <>
-                  <button className="btn btn-danger" onClick={() => handleRejectTech(selectedTech)}>
-                    Reject Application
-                  </button>
-                  <button className="btn btn-primary" onClick={() => handleApproveTech(selectedTech)}>
-                    Approve & Issue ID Card
-                  </button>
-                </>
-              )}
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between' }}>
               <button className="btn btn-outline" onClick={() => setShowKycModal(false)}>Close</button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-danger" onClick={() => handleRejectTech(selectedTech)}>
+                  Reject KYC
+                </button>
+                <button className="btn btn-primary" onClick={() => handleApproveTech(selectedTech)}>
+                  Approve & Issue ID Badge
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -303,77 +363,49 @@ export default function TechniciansManager({ technicians, setTechnicians, auditL
       {/* ─── ADD TECHNICIAN MODAL ─── */}
       {showAddModal && (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="modal-dialog" onClick={e => e.stopPropagation()}>
+          <div className="modal-dialog" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">Register New Technician</h3>
+              <h3 className="modal-title">Register Technician Partner</h3>
               <button className="modal-close-btn" onClick={() => setShowAddModal(false)}>×</button>
             </div>
             <form onSubmit={handleCreateTechnician}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Full Name</label>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Full Name *</label>
                   <input
                     type="text"
                     required
-                    className="form-control"
-                    placeholder="e.g. Full Name"
+                    style={{ width: '100%', padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px', marginTop: '4px' }}
                     value={newTechForm.name}
                     onChange={e => setNewTechForm({ ...newTechForm, name: e.target.value })}
                   />
                 </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Skill Category</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={newTechForm.category}
-                      onChange={e => setNewTechForm({ ...newTechForm, category: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Mobile Number</label>
-                    <input
-                      type="text"
-                      required
-                      className="form-control"
-                      placeholder="+91 98302-93821"
-                      value={newTechForm.phone}
-                      onChange={e => setNewTechForm({ ...newTechForm, phone: e.target.value })}
-                    />
-                  </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Primary Service Skill *</label>
+                  <select
+                    style={{ width: '100%', padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px', marginTop: '4px' }}
+                    value={newTechForm.category}
+                    onChange={e => setNewTechForm({ ...newTechForm, category: e.target.value })}
+                  >
+                    <option>AC Service</option>
+                    <option>Washing Machine</option>
+                    <option>Refrigerator</option>
+                    <option>Television</option>
+                    <option>Water Purifier</option>
+                  </select>
                 </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Hub Location</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={newTechForm.location}
-                      onChange={e => setNewTechForm({ ...newTechForm, location: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Experience</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={newTechForm.experience}
-                      onChange={e => setNewTechForm({ ...newTechForm, experience: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Profile Photo URL</label>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Phone Number *</label>
                   <input
-                    type="url"
-                    className="form-control"
-                    value={newTechForm.photo}
-                    onChange={e => setNewTechForm({ ...newTechForm, photo: e.target.value })}
+                    type="text"
+                    required
+                    style={{ width: '100%', padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px', marginTop: '4px' }}
+                    value={newTechForm.phone}
+                    onChange={e => setNewTechForm({ ...newTechForm, phone: e.target.value })}
                   />
                 </div>
               </div>
-              <div className="modal-footer">
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                 <button type="button" className="btn btn-outline" onClick={() => setShowAddModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary">Create Technician</button>
               </div>

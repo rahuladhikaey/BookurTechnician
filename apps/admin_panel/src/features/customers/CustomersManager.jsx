@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import api from '../../api/apiClient';
 
-export default function CustomersManager({ customers, setCustomers, auditLogAction }) {
+export default function CustomersManager({ customers = [], setCustomers, auditLogAction }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [completionFilter, setCompletionFilter] = useState('ALL');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -43,19 +44,20 @@ export default function CustomersManager({ customers, setCustomers, auditLogActi
       missingFields: c.missingFields || missing,
       isEmailVerified: c.emailVerified !== false,
       isPhoneVerified: c.phoneVerified !== false,
-      hasAddress: (c.address && c.address.trim().length > 0),
-      regDate: c.createdAt || '10 Jan 2026',
-      updatedDate: c.updatedAt || '15 Aug 2026, 02:30 PM'
+      hasAddress: Boolean(c.address && c.address.trim().length > 0),
+      regDate: c.createdAt || 'Just now',
+      updatedDate: c.updatedAt || 'Just now'
     };
   };
 
-  const filteredCustomers = customers.filter(c => {
-    const matchesSearch =
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.includes(searchTerm) ||
-      c.id.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredCustomers = (customers || []).filter(c => {
+    const nameStr = (c.name || '').toLowerCase();
+    const emailStr = (c.email || '').toLowerCase();
+    const phoneStr = c.phone || '';
+    const idStr = (c.id || '').toLowerCase();
+    const q = searchTerm.toLowerCase();
 
+    const matchesSearch = nameStr.includes(q) || emailStr.includes(q) || phoneStr.includes(q) || idStr.includes(q);
     if (!matchesSearch) return false;
 
     const profile = getCustomerProfileData(c);
@@ -69,13 +71,21 @@ export default function CustomersManager({ customers, setCustomers, auditLogActi
     return true;
   });
 
-  const handleStatusChange = (custId, nextStatus) => {
-    const oldCust = customers.find(c => c.id === custId);
-    setCustomers(prev => prev.map(c => c.id === custId ? { ...c, status: nextStatus } : c));
-    auditLogAction?.('Customers', `Changed status for customer ${oldCust?.name} to ${nextStatus}`);
-    
-    if (selectedCustomer && selectedCustomer.id === custId) {
-      setSelectedCustomer(prev => ({ ...prev, status: nextStatus }));
+  const handleStatusChange = async (custId, nextStatus) => {
+    const oldCust = (customers || []).find(c => c.id === custId);
+    try {
+      await api.updateCustomerStatus(custId, nextStatus);
+      if (setCustomers) {
+        setCustomers(prev => prev.map(c => c.id === custId ? { ...c, status: nextStatus } : c));
+      }
+      auditLogAction?.('Customers', `Changed status for customer ${oldCust?.name || custId} to ${nextStatus}`);
+      
+      if (selectedCustomer && selectedCustomer.id === custId) {
+        setSelectedCustomer(prev => ({ ...prev, status: nextStatus }));
+      }
+    } catch (err) {
+      console.error('Failed to update customer status:', err);
+      alert('Error updating customer status: ' + err.message);
     }
   };
 
@@ -155,63 +165,74 @@ export default function CustomersManager({ customers, setCustomers, auditLogActi
               </tr>
             </thead>
             <tbody>
-              {filteredCustomers.map((c) => {
-                const p = getCustomerProfileData(c);
-                return (
-                  <tr key={c.id}>
-                    <td>
-                      <strong style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{c.id}</strong>
-                    </td>
-                    <td>
-                      <strong style={{ color: 'var(--text-main)' }}>{c.name}</strong>
-                    </td>
-                    <td>
-                      <div style={{ fontSize: '13px' }}>{c.phone}</div>
-                      <small style={{ color: 'var(--text-secondary)' }}>{c.email}</small>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
-                        <div style={{ flex: 1, height: '6px', background: '#E2E8F0', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div
-                            style={{
-                              width: `${p.score}%`,
-                              height: '100%',
-                              background: p.score === 100 ? '#16A34A' : p.score >= 50 ? '#EA580C' : '#DC2626'
-                            }}
-                          ></div>
+              {filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-secondary)' }}>
+                    👥 No customers registered yet.
+                    <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--text-muted)' }}>
+                      Real customer records will appear here automatically when users sign up via OTP verification in the Customer App.
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredCustomers.map((c) => {
+                  const p = getCustomerProfileData(c);
+                  return (
+                    <tr key={c.id}>
+                      <td>
+                        <strong style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{c.id}</strong>
+                      </td>
+                      <td>
+                        <strong style={{ color: 'var(--text-main)' }}>{c.name}</strong>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '13px' }}>{c.phone}</div>
+                        <small style={{ color: 'var(--text-secondary)' }}>{c.email}</small>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
+                          <div style={{ flex: 1, height: '6px', background: '#E2E8F0', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div
+                              style={{
+                                width: `${p.score}%`,
+                                height: '100%',
+                                background: p.score === 100 ? '#16A34A' : p.score >= 50 ? '#EA580C' : '#DC2626'
+                              }}
+                            ></div>
+                          </div>
+                          <strong style={{ fontSize: '12px', color: p.score === 100 ? '#15803D' : '#C2410C' }}>
+                            {p.score}%
+                          </strong>
                         </div>
-                        <strong style={{ fontSize: '12px', color: p.score === 100 ? '#15803D' : '#C2410C' }}>
-                          {p.score}%
-                        </strong>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`badge ${
-                        p.status === 'COMPLETE' ? 'badge-completed' :
-                        p.status === 'PARTIALLY_COMPLETE' ? 'badge-pending' : 'badge-cancelled'
-                      }`}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {c.address || <span style={{ color: '#DC2626', fontStyle: 'italic' }}>Missing Address</span>}
-                    </td>
-                    <td>
-                      <span className={`badge ${
-                        c.status === 'Active' ? 'badge-completed' :
-                        c.status === 'Suspended' ? 'badge-pending' : 'badge-cancelled'
-                      }`}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button className="btn btn-primary btn-sm" onClick={() => handleOpenDetails(c)}>
-                        Inspect File →
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          p.status === 'COMPLETE' ? 'badge-completed' :
+                          p.status === 'PARTIALLY_COMPLETE' ? 'badge-pending' : 'badge-cancelled'
+                        }`}>
+                          {p.status}
+                        </span>
+                      </td>
+                      <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {c.address || <span style={{ color: '#DC2626', fontStyle: 'italic' }}>Missing Address</span>}
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          c.status === 'Active' ? 'badge-completed' :
+                          c.status === 'Suspended' ? 'badge-pending' : 'badge-cancelled'
+                        }`}>
+                          {c.status}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button className="btn btn-primary btn-sm" onClick={() => handleOpenDetails(c)}>
+                          Inspect File →
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

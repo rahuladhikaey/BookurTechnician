@@ -874,7 +874,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
             ref.read(bookingProvider.notifier).setBookingStatus(status);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: isSelected ? kBrandPrimary : Colors.grey.shade100,
+            backgroundColor: isSelected ? kBlack : Colors.grey.shade100,
             foregroundColor: isSelected ? Colors.white : Colors.black,
             elevation: 0,
             padding: EdgeInsets.zero,

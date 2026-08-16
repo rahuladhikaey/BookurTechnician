@@ -172,7 +172,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     ref.read(bookingProvider.notifier).updateSchedule(selectedDay, selectedSlot);
                     Navigator.pop(ctx);
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: kBrandPrimary, foregroundColor: Colors.white),
+                  style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
                   child: const Text('Confirm Schedule'),
                 ),
               ),
@@ -217,7 +217,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 Navigator.pop(dialogCtx);
                 Navigator.pushNamed(context, '/login');
               },
-              style: ElevatedButton.styleFrom(backgroundColor: kBrandPrimary, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
               child: const Text('Log In / Sign Up'),
             ),
           ],
@@ -258,7 +258,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   ),
                 );
               },
-              style: ElevatedButton.styleFrom(backgroundColor: kBrandPrimary, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
               child: const Text('Complete Profile'),
             ),
           ],
@@ -328,7 +328,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     Navigator.pop(confirmCtx);
                     Navigator.pushReplacementNamed(context, '/home');
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: kBrandPrimary, foregroundColor: Colors.white),
+                  style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
                   child: const Text('View Booking & Track Technician'),
                 ),
               ),
@@ -388,7 +388,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
-                    style: ElevatedButton.styleFrom(backgroundColor: kBrandPrimary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+                    style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
                     child: const Text('Browse Services'),
                   ),
                 ],
@@ -457,7 +457,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         child: ElevatedButton(
                           onPressed: _isProcessingPayment ? null : () => _proceedToPayment(state),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: kBrandPrimary,
+                            backgroundColor: kBlack,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

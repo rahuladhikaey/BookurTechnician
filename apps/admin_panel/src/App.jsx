@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import api from './api/apiClient';
 
 // Feature Components
 import Dashboard from './features/dashboard/Dashboard';
@@ -20,15 +21,19 @@ import ReviewsManager from './features/support/ReviewsManager';
 import ReportsManager from './features/reports/ReportsManager';
 import SettingsManager from './features/settings/SettingsManager';
 import AiAssistantCms from './features/ai_assistant/AiAssistantCms';
+import AdminLogin from './features/auth/AdminLogin';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeSubTab, setActiveSubTab] = useState('');
   const [currentRole, setCurrentRole] = useState('Super Admin');
+  const [adminUser, setAdminUser] = useState(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
 
   // ─── STATE INITIALIZATION (EMPTY PRODUCTION STATES) ───
+  const [stats, setStats] = useState(null);
   const [categories, setCategories] = useState([]);
   const [services, setServices] = useState([]);
   const [technicians, setTechnicians] = useState([]);
@@ -36,6 +41,7 @@ export default function App() {
   const [customers, setCustomers] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [selectedTechForIdCard, setSelectedTechForIdCard] = useState(null);
 
   const [settings, setSettings] = useState({
     bookingCharge: 99,
@@ -44,43 +50,82 @@ export default function App() {
     refundSlaHours: 48
   });
 
-  // Fetch real data on component mount
-  useEffect(() => {
-    const fetchAdminData = async () => {
-      try {
-        const token = localStorage.getItem('bt_admin_token');
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+  // Centralized Live Data Fetcher
+  const loadAllAdminData = useCallback(async () => {
+    try {
+      // 1. Stats
+      api.getStats()
+        .then(res => { if (res?.data) setStats(res.data); })
+        .catch(() => {});
 
-        // Fetch Technicians
-        fetch('/api/v1/admin/technicians', { headers })
-          .then(res => res.ok ? res.json() : null)
-          .then(data => { if (data?.data) setTechnicians(data.data); })
-          .catch(() => {});
+      // 2. Technicians
+      api.getTechnicians()
+        .then(res => { if (res?.data) setTechnicians(res.data); })
+        .catch(() => {});
 
-        // Fetch Bookings
-        fetch('/api/v1/admin/bookings', { headers })
-          .then(res => res.ok ? res.json() : null)
-          .then(data => { if (data?.data) setBookings(data.data); })
-          .catch(() => {});
+      // 3. Bookings
+      api.getBookings()
+        .then(res => { if (res?.data) setBookings(res.data); })
+        .catch(() => {});
 
-        // Fetch Customers
-        fetch('/api/v1/admin/customers', { headers })
-          .then(res => res.ok ? res.json() : null)
-          .then(data => { if (data?.data) setCustomers(data.data); })
-          .catch(() => {});
+      // 4. Customers
+      api.getCustomers()
+        .then(res => { if (res?.data) setCustomers(res.data); })
+        .catch(() => {});
 
-        // Fetch Catalog
-        fetch('/api/v1/catalog/categories')
-          .then(res => res.ok ? res.json() : null)
-          .then(data => { if (data?.data) setCategories(data.data); })
-          .catch(() => {});
-      } catch (err) {
-        console.error('Error fetching admin data:', err);
-      }
-    };
+      // 5. Catalog Categories & Services
+      api.getCategories()
+        .then(res => { if (res?.data) setCategories(res.data); })
+        .catch(() => {});
 
-    fetchAdminData();
+      api.getServices()
+        .then(res => { if (res?.data) setServices(res.data); })
+        .catch(() => {});
+
+      // 6. Support Tickets
+      api.getSupportTickets()
+        .then(res => { if (res?.data) setSupportTickets(res.data); })
+        .catch(() => {});
+
+      // 7. Audit Logs
+      api.getAuditLogs()
+        .then(res => { if (res?.data) setAuditLogs(res.data); })
+        .catch(() => {});
+    } catch (err) {
+      console.error('Error fetching admin data:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    api.onUnauthorized(() => {
+      setAdminUser(null);
+      api.clearToken();
+    });
+
+    const token = api.getToken();
+    if (token) {
+      api.getAdminMe()
+        .then(res => {
+          if (res?.data) {
+            setAdminUser(res.data);
+            setCurrentRole(res.data.role || 'Admin');
+            loadAllAdminData();
+          } else {
+            setAdminUser(null);
+            api.clearToken();
+          }
+        })
+        .catch(() => {
+          setAdminUser(null);
+          api.clearToken();
+        })
+        .finally(() => {
+          setIsCheckingAuth(false);
+        });
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, [loadAllAdminData]);
 
   const auditLogAction = (moduleName, description) => {
     const timeStr = new Date().toLocaleTimeString();
@@ -93,10 +138,52 @@ export default function App() {
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
+  const handleResetDatabase = () => {
+    if (window.confirm("Are you sure you want to refresh all data from the database?")) {
+      loadAllAdminData();
+      alert("Admin state successfully synchronized with PostgreSQL!");
+    }
+  };
+
   const selectView = (tab, subTab = '') => {
     setActiveTab(tab);
     setActiveSubTab(subTab);
   };
+
+  const handleNavigateToIdCard = (tech) => {
+    setSelectedTechForIdCard(tech);
+    setActiveTab('id_card');
+  };
+
+  if (isCheckingAuth) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0F172A',
+        color: '#94A3B8',
+        fontFamily: 'sans-serif'
+      }}>
+        <div style={{ fontSize: '32px', marginBottom: '12px' }}>🛠️</div>
+        <div style={{ fontSize: '15px', fontWeight: '600' }}>Verifying Administrator Session...</div>
+      </div>
+    );
+  }
+
+  if (!adminUser) {
+    return (
+      <AdminLogin
+        onLoginSuccess={(user) => {
+          setAdminUser(user);
+          setCurrentRole(user.role || 'Admin');
+          loadAllAdminData();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="admin-layout">
@@ -127,9 +214,10 @@ export default function App() {
           <div className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`} onClick={() => selectView('customers')}>
             <span className="nav-icon">👥</span>
             <span>Customers</span>
+            <span className="nav-item-badge">{customers.length}</span>
           </div>
 
-          <div className={`nav-item ${activeTab === 'technicians' ? 'active' : ''}`} onClick={() => selectView('technicians')}>
+          <div className={`nav-item ${activeTab === 'technicians' || activeTab === 'id_card' ? 'active' : ''}`} onClick={() => selectView('technicians')}>
             <span className="nav-icon">👨🔧</span>
             <span>Technicians</span>
             <span className="nav-item-badge">{technicians.length}</span>
@@ -140,6 +228,7 @@ export default function App() {
           <div className={`nav-item ${activeTab === 'services' ? 'active' : ''}`} onClick={() => selectView('services')}>
             <span className="nav-icon">🛠</span>
             <span>Services</span>
+            <span className="nav-item-badge">{services.length}</span>
           </div>
 
           <div className={`nav-item ${activeTab === 'pricing' ? 'active' : ''}`} onClick={() => selectView('pricing')}>
@@ -184,6 +273,7 @@ export default function App() {
           <div className={`nav-item ${activeTab === 'support' ? 'active' : ''}`} onClick={() => selectView('support')}>
             <span className="nav-icon">🎧</span>
             <span>Support</span>
+            <span className="nav-item-badge">{supportTickets.length}</span>
           </div>
 
           <div className={`nav-item ${activeTab === 'ai_assistant' ? 'active' : ''}`} onClick={() => selectView('ai_assistant')}>
@@ -234,23 +324,23 @@ export default function App() {
             <div style={{ position: 'relative' }}>
               <button className="header-notif-btn" onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}>
                 🔔
-                {bookings.filter(b => b.status === 'PENDING').length > 0 && (
-                  <span className="header-notif-badge">{bookings.filter(b => b.status === 'PENDING').length}</span>
+                {bookings.filter(b => b.status === 'PENDING' || b.status === 'REQUESTED').length > 0 && (
+                  <span className="header-notif-badge">{bookings.filter(b => b.status === 'PENDING' || b.status === 'REQUESTED').length}</span>
                 )}
               </button>
 
               {notifDropdownOpen && (
                 <div className="notif-dropdown-menu">
-                  <div className="notif-header">System Notifications ({bookings.filter(b => b.status === 'PENDING').length})</div>
-                  {bookings.filter(b => b.status === 'PENDING').length === 0 ? (
+                  <div className="notif-header">System Notifications ({bookings.filter(b => b.status === 'PENDING' || b.status === 'REQUESTED').length})</div>
+                  {bookings.filter(b => b.status === 'PENDING' || b.status === 'REQUESTED').length === 0 ? (
                     <div className="notif-item" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      <p>No new system alerts</p>
+                      <p>No pending booking alerts</p>
                     </div>
                   ) : (
-                    bookings.filter(b => b.status === 'PENDING').map(b => (
+                    bookings.filter(b => b.status === 'PENDING' || b.status === 'REQUESTED').map(b => (
                       <div key={b.id} className="notif-item unread">
-                        <strong>New Booking: {b.id}</strong>
-                        <p>{b.service || b.category} • ₹{b.price || 0}</p>
+                        <strong>New Booking: {b.bookingCode || b.id}</strong>
+                        <p>{b.service?.name || b.service || 'Service'} • ₹{b.grandTotal || b.price || 0}</p>
                       </div>
                     ))
                   )}
@@ -259,12 +349,35 @@ export default function App() {
             </div>
 
             {/* Admin Profile */}
-            <div className="header-profile-box">
-              <div className="profile-avatar">BT</div>
-              <div className="profile-info">
-                <span className="profile-name">Operations Admin</span>
-                <span className="profile-role">{currentRole}</span>
+            <div className="header-profile-box" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="profile-avatar">
+                {adminUser?.fullName ? adminUser.fullName.substring(0, 2).toUpperCase() : 'AD'}
               </div>
+              <div className="profile-info">
+                <span className="profile-name">{adminUser?.fullName || 'Administrator'}</span>
+                <span className="profile-role">{adminUser?.role || currentRole}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  api.logout();
+                  setAdminUser(null);
+                }}
+                title="Sign Out of Admin Console"
+                style={{
+                  marginLeft: '8px',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  color: '#EF4444',
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Sign Out
+              </button>
             </div>
           </div>
         </header>
@@ -273,6 +386,7 @@ export default function App() {
         <main className="page-container">
           {activeTab === 'dashboard' && (
             <Dashboard
+              stats={stats}
               bookings={bookings}
               technicians={technicians}
               customers={customers}
@@ -305,7 +419,15 @@ export default function App() {
               setTechnicians={setTechnicians}
               auditLogAction={auditLogAction}
               subTab={activeSubTab}
-              onNavigateToIdCard={() => selectView('technicians')}
+              onNavigateToIdCard={handleNavigateToIdCard}
+            />
+          )}
+
+          {activeTab === 'id_card' && (
+            <TechnicianIdCardManager
+              technician={selectedTechForIdCard || technicians[0]}
+              onBack={() => selectView('technicians')}
+              auditLogAction={auditLogAction}
             />
           )}
 

@@ -10,6 +10,7 @@ import java.util.UUID;
 
 @Repository
 public interface CustomerAddressRepository extends JpaRepository<CustomerAddress, UUID> {
+    List<CustomerAddress> findByCustomerId(UUID customerId);
     List<CustomerAddress> findByCustomerIdOrderByCreatedAtDesc(UUID customerId);
     Optional<CustomerAddress> findByCustomerIdAndPrimaryTrue(UUID customerId);
     long countByCustomerId(UUID customerId);

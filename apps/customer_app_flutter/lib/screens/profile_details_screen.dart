@@ -98,7 +98,7 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: kBrandPrimary),
+            style: ElevatedButton.styleFrom(backgroundColor: kBlack),
             onPressed: () {
               final newP = newPhoneCtrl.text.trim();
               if (newP.length == 10) {
@@ -479,7 +479,7 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
                 child: ElevatedButton(
                   onPressed: _saveProfile,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: kBrandPrimary,
+                    backgroundColor: kBlack,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),

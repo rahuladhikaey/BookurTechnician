@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_client.dart';
 import '../booking_provider.dart';
+import '../theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -348,7 +349,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: ElevatedButton(
                             onPressed: (_isValid && !_isLoading) ? _sendOtp : null,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2146A8),
+                              backgroundColor: kBlack,
                               disabledBackgroundColor: const Color(0xFFCBD5E1),
                               foregroundColor: Colors.white,
                               disabledForegroundColor: const Color(0xFF64748B),
@@ -762,7 +763,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                           child: ElevatedButton(
                             onPressed: _isVerifying ? null : _verifyOtp,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2146A8),
+                              backgroundColor: kBlack,
                               foregroundColor: Colors.white,
                               elevation: 2,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

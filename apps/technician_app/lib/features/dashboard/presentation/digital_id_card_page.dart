@@ -156,7 +156,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(ctx),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: AppColors.black,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -463,8 +463,8 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                       icon: const Icon(Icons.download, size: 16),
                       label: const Text('Download ID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF17399A),
-                        side: const BorderSide(color: Color(0xFF17399A)),
+                        foregroundColor: AppColors.black,
+                        side: const BorderSide(color: AppColors.black),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -477,8 +477,8 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                       icon: const Icon(Icons.share, size: 16),
                       label: const Text('Share ID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF17399A),
-                        side: const BorderSide(color: Color(0xFF17399A)),
+                        foregroundColor: AppColors.black,
+                        side: const BorderSide(color: AppColors.black),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -498,7 +498,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.4),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF17399A),
+                    backgroundColor: AppColors.black,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

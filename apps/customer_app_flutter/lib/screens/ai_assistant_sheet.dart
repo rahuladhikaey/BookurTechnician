@@ -370,7 +370,7 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                     child: ElevatedButton(
                       onPressed: () => _handleCardAction(msg.actionCard!),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: kBrandPrimary,
+                        backgroundColor: kBlack,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(

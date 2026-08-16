@@ -1,15 +1,22 @@
 import React, { useState } from 'react';
 
-export default function Dashboard({ bookings, technicians, customers, services, onNavigate }) {
+export default function Dashboard({ stats, bookings = [], technicians = [], customers = [], onNavigate }) {
   const [timeRange, setTimeRange] = useState('today');
 
-  // Real-time KPI Calculations based on live data or enterprise defaults
-  const totalBookingsCount = bookings.length > 0 ? 12840 + bookings.length - 3 : 12840;
-  const totalRevenue = 845600;
-  const totalCustomers = 24560;
-  const totalTechnicians = 486;
+  // Real-time KPI Calculations from live backend PostgreSQL statistics
+  const totalBookingsCount = stats?.totalBookings ?? bookings.length;
+  const totalRevenue = stats?.totalRevenue ?? 0;
+  const totalCustomers = stats?.totalCustomers ?? customers.length;
+  const verifiedTechnicians = stats?.verifiedTechnicians ?? technicians.filter(t => t.kycStatus === 'VERIFIED').length;
+  const onlineTechnicians = stats?.onlineTechnicians ?? technicians.filter(t => t.isOnline).length;
+  const activeBookingsCount = stats?.activeBookings ?? bookings.filter(b => ['CONFIRMED', 'ASSIGNED', 'ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(b.status)).length;
+  const completedBookingsCount = stats?.completedBookings ?? bookings.filter(b => b.status === 'COMPLETED').length;
+  const cancelledBookingsCount = stats?.cancelledBookings ?? bookings.filter(b => b.status === 'CANCELLED').length;
 
-  const activeBookings = bookings.filter(b => ['CONFIRMED', 'TECHNICIAN_ASSIGNED', 'TECHNICIAN_ON_THE_WAY', 'TECHNICIAN_ARRIVED', 'SERVICE_STARTED'].includes(b.status));
+  const totalCalculated = completedBookingsCount + activeBookingsCount + cancelledBookingsCount;
+  const completedPct = totalCalculated > 0 ? Math.round((completedBookingsCount / totalCalculated) * 100) : 0;
+  const activePct = totalCalculated > 0 ? Math.round((activeBookingsCount / totalCalculated) * 100) : 0;
+  const cancelledPct = totalCalculated > 0 ? Math.round((cancelledBookingsCount / totalCalculated) * 100) : 0;
 
   return (
     <div className="dashboard-view">
@@ -43,7 +50,7 @@ export default function Dashboard({ bookings, technicians, customers, services, 
           </div>
           <div className="stat-value">{totalBookingsCount.toLocaleString()}</div>
           <div className="stat-subtext">
-            <span className="stat-trend-positive">↑ 14%</span> vs last week
+            <span className="stat-trend-positive">{activeBookingsCount} active</span> currently in-flight
           </div>
         </div>
 
@@ -54,7 +61,7 @@ export default function Dashboard({ bookings, technicians, customers, services, 
           </div>
           <div className="stat-value">₹{totalRevenue.toLocaleString()}</div>
           <div className="stat-subtext">
-            <span className="stat-trend-positive">↑ ₹42,500</span> today
+            <span className="stat-trend-positive">₹{(stats?.todayRevenue ?? 0).toLocaleString()}</span> today
           </div>
         </div>
 
@@ -65,7 +72,7 @@ export default function Dashboard({ bookings, technicians, customers, services, 
           </div>
           <div className="stat-value">{totalCustomers.toLocaleString()}</div>
           <div className="stat-subtext">
-            <span className="stat-trend-positive">↑ 240</span> new this week
+            <span className="stat-trend-positive">{totalCustomers} registered</span> accounts
           </div>
         </div>
 
@@ -74,9 +81,9 @@ export default function Dashboard({ bookings, technicians, customers, services, 
             <span className="stat-title">Verified Technicians</span>
             <div className="stat-icon">👨🔧</div>
           </div>
-          <div className="stat-value">{totalTechnicians}</div>
+          <div className="stat-value">{verifiedTechnicians}</div>
           <div className="stat-subtext">
-            <span className="stat-trend-positive">54 Online</span> in-field ready
+            <span className="stat-trend-positive">{onlineTechnicians} Online</span> in-field ready
           </div>
         </div>
       </div>
@@ -87,46 +94,46 @@ export default function Dashboard({ bookings, technicians, customers, services, 
         <div className="flat-chart-box">
           <div className="flat-chart-header">
             <h3 className="flat-chart-title">Booking Velocity & Completion Ratio</h3>
-            <span className="badge badge-info">2D Analytics</span>
+            <span className="badge badge-info">PostgreSQL Live Data</span>
           </div>
 
           <div className="bar-2d-row">
             <div className="bar-2d-label">
               <span>Total Orders Received</span>
-              <strong>128 bookings</strong>
+              <strong>{totalBookingsCount} bookings</strong>
             </div>
             <div className="bar-2d-track">
-              <div className="bar-2d-fill" style={{ width: '100%' }}></div>
+              <div className="bar-2d-fill" style={{ width: totalBookingsCount > 0 ? '100%' : '0%' }}></div>
             </div>
           </div>
 
           <div className="bar-2d-row">
             <div className="bar-2d-label">
               <span>Successfully Completed</span>
-              <strong style={{ color: '#15803D' }}>92 jobs (72%)</strong>
+              <strong style={{ color: '#15803D' }}>{completedBookingsCount} jobs ({completedPct}%)</strong>
             </div>
             <div className="bar-2d-track">
-              <div className="bar-2d-fill success" style={{ width: '72%' }}></div>
+              <div className="bar-2d-fill success" style={{ width: `${completedPct}%` }}></div>
             </div>
           </div>
 
           <div className="bar-2d-row">
             <div className="bar-2d-label">
               <span>Ongoing In-Field / Dispatched</span>
-              <strong style={{ color: '#D97706' }}>28 jobs (22%)</strong>
+              <strong style={{ color: '#D97706' }}>{activeBookingsCount} jobs ({activePct}%)</strong>
             </div>
             <div className="bar-2d-track">
-              <div className="bar-2d-fill warning" style={{ width: '22%' }}></div>
+              <div className="bar-2d-fill warning" style={{ width: `${activePct}%` }}></div>
             </div>
           </div>
 
           <div className="bar-2d-row">
             <div className="bar-2d-label">
-              <span>Cancelled (Within 1h SLA)</span>
-              <strong style={{ color: '#DC2626' }}>8 jobs (6%)</strong>
+              <span>Cancelled</span>
+              <strong style={{ color: '#DC2626' }}>{cancelledBookingsCount} jobs ({cancelledPct}%)</strong>
             </div>
             <div className="bar-2d-track">
-              <div className="bar-2d-fill error" style={{ width: '6%' }}></div>
+              <div className="bar-2d-fill error" style={{ width: `${cancelledPct}%` }}></div>
             </div>
           </div>
         </div>
@@ -135,25 +142,25 @@ export default function Dashboard({ bookings, technicians, customers, services, 
         <div className="flat-chart-box">
           <div className="flat-chart-header">
             <h3 className="flat-chart-title">Revenue Breakdown (Platform Settlement)</h3>
-            <span className="badge badge-info">GST 18% Compliant</span>
+            <span className="badge badge-info">Live Financial Ledger</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--primary-light)', borderRadius: '4px' }}>
               <span style={{ fontWeight: '600', color: 'var(--text-main)' }}>🔧 Service Base Revenue</span>
-              <strong style={{ color: 'var(--primary)' }}>₹6,84,000.00</strong>
+              <strong style={{ color: 'var(--primary)' }}>₹{totalRevenue > 0 ? (totalRevenue * 0.82).toFixed(2) : '0.00'}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#F8FAFC', border: '1px solid var(--border-color)', borderRadius: '4px' }}>
-              <span style={{ color: 'var(--text-main)' }}>📍 Booking Convenience Fees (₹99 / job)</span>
-              <strong>₹48,200.00</strong>
+              <span style={{ color: 'var(--text-main)' }}>📍 Safety & Convenience Fee Volume</span>
+              <strong>₹{(completedBookingsCount * 49).toFixed(2)}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#F8FAFC', border: '1px solid var(--border-color)', borderRadius: '4px' }}>
-              <span style={{ color: 'var(--text-main)' }}>🏛️ GST Tax Invoices (18% Collected)</span>
-              <strong>₹1,13,400.00</strong>
+              <span style={{ color: 'var(--text-main)' }}>🏛️ GST Invoices (18% Collected)</span>
+              <strong>₹{totalRevenue > 0 ? (totalRevenue * 0.18).toFixed(2) : '0.00'}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-white)', border: '1.5px solid var(--primary)', borderRadius: '4px' }}>
               <span style={{ fontWeight: '800', color: 'var(--text-main)' }}>💎 Net Realized Platform Volume</span>
-              <strong style={{ color: 'var(--primary)', fontSize: '15px' }}>₹8,45,600.00</strong>
+              <strong style={{ color: 'var(--primary)', fontSize: '15px' }}>₹{totalRevenue.toFixed(2)}</strong>
             </div>
           </div>
         </div>
@@ -169,56 +176,65 @@ export default function Dashboard({ bookings, technicians, customers, services, 
         </div>
 
         <div className="table-responsive">
-          <table className="flat-table">
-            <thead>
-              <tr>
-                <th>Booking ID</th>
-                <th>Customer</th>
-                <th>Service</th>
-                <th>Technician</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.slice(0, 5).map(b => (
-                <tr key={b.id}>
-                  <td>
-                    <strong style={{ color: 'var(--primary)' }}>{b.id}</strong>
-                  </td>
-                  <td>
-                    <div>{b.customer}</div>
-                    <small style={{ color: 'var(--text-secondary)' }}>{b.phone}</small>
-                  </td>
-                  <td>
-                    <div>{b.service}</div>
-                    <span className="badge badge-info" style={{ fontSize: '11px', marginTop: '2px' }}>{b.category}</span>
-                  </td>
-                  <td>
-                    <strong>{b.technician || 'Pending Dispatch'}</strong>
-                  </td>
-                  <td>
-                    <strong style={{ color: 'var(--text-main)' }}>₹{b.price}</strong>
-                  </td>
-                  <td>
-                    <span className={`badge ${
-                      b.status === 'COMPLETED' ? 'badge-completed' :
-                      b.status === 'CONFIRMED' || b.status === 'TECHNICIAN_ASSIGNED' ? 'badge-confirmed' :
-                      b.status === 'CANCELLED' ? 'badge-cancelled' : 'badge-pending'
-                    }`}>
-                      {b.status === 'TECHNICIAN_ASSIGNED' ? 'Assigned' : b.status}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-outline btn-sm" onClick={() => onNavigate('bookings', 'all')}>
-                      View Details
-                    </button>
-                  </td>
+          {bookings.length === 0 ? (
+            <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+              <p style={{ fontSize: '14px', marginBottom: '8px' }}>📋 No bookings recorded in database yet.</p>
+              <span style={{ fontSize: '12px' }}>Real bookings will appear automatically when customers place service requests.</span>
+            </div>
+          ) : (
+            <table className="flat-table">
+              <thead>
+                <tr>
+                  <th>Booking ID</th>
+                  <th>Customer</th>
+                  <th>Service</th>
+                  <th>Technician</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {bookings.slice(0, 5).map(b => (
+                  <tr key={b.id}>
+                    <td>
+                      <strong style={{ color: 'var(--primary)' }}>{b.bookingCode || b.id}</strong>
+                    </td>
+                    <td>
+                      <div>{b.customer?.fullName || b.customer || 'Customer'}</div>
+                      <small style={{ color: 'var(--text-secondary)' }}>{b.customer?.phone || b.phone || ''}</small>
+                    </td>
+                    <td>
+                      <div>{b.service?.name || b.service || 'General Service'}</div>
+                      <span className="badge badge-info" style={{ fontSize: '11px', marginTop: '2px' }}>
+                        {b.service?.category?.name || b.category || 'Service'}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{b.technician?.user?.fullName || b.technician || 'Pending Dispatch'}</strong>
+                    </td>
+                    <td>
+                      <strong style={{ color: 'var(--text-main)' }}>₹{b.grandTotal || b.price || 0}</strong>
+                    </td>
+                    <td>
+                      <span className={`badge ${
+                        b.status === 'COMPLETED' ? 'badge-completed' :
+                        b.status === 'CONFIRMED' || b.status === 'ASSIGNED' ? 'badge-confirmed' :
+                        b.status === 'CANCELLED' ? 'badge-cancelled' : 'badge-pending'
+                      }`}>
+                        {b.status}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button className="btn btn-outline btn-sm" onClick={() => onNavigate('bookings', 'all')}>
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

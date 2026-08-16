@@ -284,7 +284,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: AppColors.black,
                         foregroundColor: Colors.white,
                         minimumSize: const Size(double.infinity, 44),
                         shape: const RoundedRectangleBorder(borderRadius: AppRadius.small),

@@ -121,7 +121,7 @@ class SavedAddressesScreen extends ConsumerWidget {
                       onPressed: () => _openAddAddressModal(context),
                       icon: const Icon(Icons.add),
                       label: const Text('Add Service Address'),
-                      style: ElevatedButton.styleFrom(backgroundColor: kBrandPrimary, foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
                     ),
                   ],
                 ),
@@ -501,7 +501,7 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
                     child: ElevatedButton(
                       onPressed: _save,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: kBrandPrimary,
+                        backgroundColor: kBlack,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),

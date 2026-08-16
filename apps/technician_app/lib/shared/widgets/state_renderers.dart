@@ -76,7 +76,7 @@ class ErrorRenderer extends StatelessWidget {
             ElevatedButton(
               onPressed: onRetry,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: AppColors.black,
                 shape: const RoundedRectangleBorder(borderRadius: AppRadius.small),
               ),
               child: const Text('Retry', style: TextStyle(color: Colors.white)),

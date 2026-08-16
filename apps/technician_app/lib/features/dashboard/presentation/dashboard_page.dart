@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/theme/app_colors.dart';
 import '../domain/technician_banner.dart';
 import 'dashboard_provider.dart';
 
@@ -368,7 +369,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             child: ElevatedButton(
               onPressed: () => notifier.toggleOnline(!isOnline),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isOnline ? const Color(0xFFDC2626) : const Color(0xFF2146A8),
+                backgroundColor: isOnline ? const Color(0xFFDC2626) : AppColors.black,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -915,8 +916,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   icon: const Icon(Icons.navigation, size: 14),
                   label: const Text('NAVIGATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF17399A),
-                    side: const BorderSide(color: Color(0xFF17399A)),
+                    foregroundColor: AppColors.black,
+                    side: const BorderSide(color: AppColors.black),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
@@ -971,7 +972,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             child: ElevatedButton(
               onPressed: () => notifier.updateActiveJobStep(nextStep),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF17399A),
+                backgroundColor: AppColors.black,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

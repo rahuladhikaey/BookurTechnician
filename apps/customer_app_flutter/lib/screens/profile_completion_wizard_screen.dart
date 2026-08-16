@@ -200,7 +200,7 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
                           height: 36,
                           child: ElevatedButton(
                             onPressed: _saveName,
-                            style: ElevatedButton.styleFrom(backgroundColor: kBrandPrimary),
+                            style: ElevatedButton.styleFrom(backgroundColor: kBlack),
                             child: const Text('Save Name', style: TextStyle(fontSize: 12)),
                           ),
                         ),
