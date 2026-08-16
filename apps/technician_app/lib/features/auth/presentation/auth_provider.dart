@@ -142,10 +142,16 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       String msg = 'Verification error: $e';
       if (e is DioException) {
         final backendMsg = e.response?.data?['message'];
-        if (backendMsg != null && backendMsg.toString().isNotEmpty) {
+        if (backendMsg != null && backendMsg.toString().trim().isNotEmpty) {
           msg = backendMsg.toString();
         } else if (e.response?.statusCode == 400) {
-          msg = 'Invalid or expired OTP code. Please check your inbox and try again.';
+          msg = 'Invalid or expired verification code. Please check your inbox.';
+        } else if (e.response?.statusCode == 401) {
+          msg = 'Authentication failed. Please request a new code.';
+        } else if (e.response?.statusCode == 403) {
+          msg = 'Technician account is not authorized.';
+        } else if (e.response?.statusCode == 500) {
+          msg = 'Authentication service temporarily unavailable.';
         }
       }
       state = state.copyWith(status: AuthStatus.otpSent, errorMessage: msg);
