@@ -44,12 +44,10 @@ class CustomerApp extends StatelessWidget {
             final args = settings.arguments as Map<String, String>? ?? {};
             final phone = args['phone'] ?? '';
             final email = args['email'] ?? '';
-            final otp = args['otp'] ?? '';
             return MaterialPageRoute(
               builder: (_) => OtpScreen(
                 phoneNumber: phone,
                 emailAddress: email,
-                expectedOtp: otp,
               ),
             );
           case '/home':

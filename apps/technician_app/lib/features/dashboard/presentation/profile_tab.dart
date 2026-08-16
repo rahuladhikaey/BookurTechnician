@@ -19,9 +19,9 @@ class ProfileTab extends ConsumerStatefulWidget {
 }
 
 class _ProfileTabState extends ConsumerState<ProfileTab> {
-  String _profilePhoto = 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=600';
-  final String _technicianCode = 'BT-TECH-000001';
-  final String _technicianName = 'Rahul Adhikary';
+  String _profilePhoto = '';
+  final String _technicianCode = 'BT-TECH-PENDING';
+  final String _technicianName = 'Technician';
 
   // Skills Checklist State
   final List<String> _allSkills = [

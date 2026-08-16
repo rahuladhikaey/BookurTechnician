@@ -139,9 +139,9 @@ class JobStateNotifier extends StateNotifier<JobState> {
         state = state.copyWith(isGpsGranted: true);
 
         // Upload location telemetries to Node.js backend
-        if (_socket != null && _socket!.connected) {
+        if (_socket != null && _socket!.connected && state.activeJob != null) {
           _socket!.emit('partner:location_update', {
-            'partnerId': '65daf7d94e21a2001bb974c2', // Mock MongoDB ObjectId
+            'partnerId': state.activeJob?.id,
             'bookingId': state.activeJob?.id,
             'latitude': position.latitude,
             'longitude': position.longitude,
@@ -173,35 +173,6 @@ class JobStateNotifier extends StateNotifier<JobState> {
     _socket?.dispose();
     _socket = null;
     state = state.copyWith(socketStatus: 'DISCONNECTED');
-  }
-
-  // Simulate an incoming service dispatch request
-  void simulateIncomingJobOffer() {
-    _countdownTimer?.cancel();
-    final mockJob = TechJob(
-      id: 'BT-${DateTime.now().millisecondsSinceEpoch % 100000}',
-      title: 'Monsoon AC Service Special',
-      price: 699.0,
-      customerName: 'Shreya Sharma',
-      customerAddress: 'Salt Lake Sector-V, Kolkata',
-      status: TechJobStatus.accepted,
-      otp: '4821',
-    );
-
-    state = state.copyWith(
-      showJobAlert: true,
-      jobAlertCountdown: 45,
-      proposedJob: mockJob,
-    );
-
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (state.jobAlertCountdown > 1) {
-        state = state.copyWith(jobAlertCountdown: state.jobAlertCountdown - 1);
-      } else {
-        timer.cancel();
-        rejectProposedJob();
-      }
-    });
   }
 
   void acceptProposedJob() {

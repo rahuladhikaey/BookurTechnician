@@ -1,21 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function PaymentsManager({ bookings = [], auditLogAction, subTab = 'transactions' }) {
   const [activeTab, setActiveTab] = useState(subTab);
   const [filterMode, setFilterMode] = useState('ALL');
+  const [transactions, setTransactions] = useState([]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('bt_admin_token');
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+    fetch('/api/v1/admin/payments', { headers })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.data && Array.isArray(data.data)) {
+          setTransactions(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const transactionsPaid = bookings.filter(b => b.paymentStatus === 'Paid' || b.paymentStatus === 'PAID');
-  const totalPaidRevenue = transactionsPaid.reduce((sum, b) => sum + (b.price || 1899), 0);
+  const totalPaidRevenue = transactionsPaid.reduce((sum, b) => sum + (b.price || 0), 0);
   const totalBookingFees = transactionsPaid.length * 99;
   const totalGstCollected = Math.round((totalPaidRevenue + totalBookingFees) * 0.18);
   const netGrossVolume = totalPaidRevenue + totalBookingFees + totalGstCollected;
-
-  const mockTransactions = [
-    { id: 'TXN-90812', bookingId: 'BT-BK-00001234', customer: 'Rahul Customer', amount: 2357.64, gateway: 'Razorpay UPI', refNo: 'pay_Nz38920194', status: 'SUCCESS', date: '15 Aug 2026, 03:15 PM' },
-    { id: 'TXN-90811', bookingId: 'BT-BK-00001235', customer: 'Shreya Sharma', amount: 823.62, gateway: 'HDFC NetBanking', refNo: 'pay_Nz20194821', status: 'SUCCESS', date: '14 Aug 2026, 10:05 AM' },
-    { id: 'TXN-90810', bookingId: 'BT-BK-00001236', customer: 'Vikas Kumar', amount: 1177.62, gateway: 'Razorpay Cards', refNo: 'pay_Nz10293847', status: 'SUCCESS', date: '15 Aug 2026, 05:20 PM' },
-    { id: 'TXN-90809', bookingId: 'BT-BK-00001231', customer: 'Ananya Roy', amount: 469.64, gateway: 'PhonePe UPI', refNo: 'pay_Nz00918234', status: 'FAILED', date: '13 Aug 2026, 01:40 PM' }
-  ];
 
   return (
     <div className="payments-manager-view">
@@ -54,7 +62,7 @@ export default function PaymentsManager({ bookings = [], auditLogAction, subTab 
             </div>
             <div className="toolbar-right">
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Showing {mockTransactions.length} recent transactions
+                Showing {transactions.length} transactions
               </span>
             </div>
           </div>
@@ -75,39 +83,47 @@ export default function PaymentsManager({ bookings = [], auditLogAction, subTab 
                 </tr>
               </thead>
               <tbody>
-                {mockTransactions.map(txn => (
-                  <tr key={txn.id}>
-                    <td>
-                      <strong style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{txn.id}</strong>
-                    </td>
-                    <td>
-                      <strong style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{txn.bookingId}</strong>
-                    </td>
-                    <td>{txn.customer}</td>
-                    <td>
-                      <strong style={{ color: 'var(--text-main)' }}>₹{txn.amount.toFixed(2)}</strong>
-                    </td>
-                    <td>
-                      <span className="badge badge-info">{txn.gateway}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-secondary)' }}>{txn.refNo}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{txn.date}</span>
-                    </td>
-                    <td>
-                      <span className={`badge ${txn.status === 'SUCCESS' ? 'badge-completed' : 'badge-cancelled'}`}>
-                        {txn.status}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button className="btn btn-outline btn-sm" onClick={() => alert(`Viewing GST invoice receipt for ${txn.id}`)}>
-                        View GST Invoice
-                      </button>
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                      💳 No transactions yet
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  transactions.map(txn => (
+                    <tr key={txn.id}>
+                      <td>
+                        <strong style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>{txn.id}</strong>
+                      </td>
+                      <td>
+                        <strong style={{ color: 'var(--text-main)', fontFamily: 'monospace' }}>{txn.bookingId}</strong>
+                      </td>
+                      <td>{txn.customer || txn.customerEmail || 'Customer'}</td>
+                      <td>
+                        <strong style={{ color: 'var(--text-main)' }}>₹{(txn.amount || 0).toFixed(2)}</strong>
+                      </td>
+                      <td>
+                        <span className="badge badge-info">{txn.gateway || txn.paymentMethod || 'Razorpay'}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-secondary)' }}>{txn.refNo || txn.razorpayPaymentId || '-'}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{txn.date || txn.createdAt || '-'}</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${txn.status === 'SUCCESS' || txn.status === 'CAPTURED' ? 'badge-completed' : 'badge-cancelled'}`}>
+                          {txn.status}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button className="btn btn-outline btn-sm" onClick={() => alert(`Viewing GST invoice receipt for ${txn.id}`)}>
+                          View GST Invoice
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

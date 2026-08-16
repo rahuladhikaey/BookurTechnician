@@ -18,49 +18,6 @@ class JobsListTab extends ConsumerStatefulWidget {
 class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  final List<Map<String, dynamic>> _mockJobs = [
-    {
-      'id': 'BT102939',
-      'title': 'AC Deep Cleaning Service',
-      'price': 599.0,
-      'customerName': 'Shreya Sharma',
-      'customerAddress': 'New Town, Sector-V, Kolkata',
-      'date': '13 Aug 2026',
-      'timeSlot': '10:00 AM - 12:00 PM',
-      'status': TechJobStatus.completed,
-    },
-    {
-      'id': 'BT102935',
-      'title': 'Keyboard Replacement',
-      'price': 1899.0,
-      'customerName': 'Amit Kumar',
-      'customerAddress': 'Salt Lake Sector-I, Kolkata',
-      'date': '12 Aug 2026',
-      'timeSlot': '02:00 PM - 03:30 PM',
-      'status': TechJobStatus.completed,
-    },
-    {
-      'id': 'BT102945',
-      'title': 'Kitchen Chimney Clean',
-      'price': 899.0,
-      'customerName': 'Sourav Sen',
-      'customerAddress': 'Kestopur, Kolkata',
-      'date': '11 Aug 2026',
-      'timeSlot': '11:00 AM - 12:30 PM',
-      'status': TechJobStatus.completed,
-    },
-    {
-      'id': 'BT102930',
-      'title': 'Washing Machine Repair',
-      'price': 499.0,
-      'customerName': 'Sonia Das',
-      'customerAddress': 'Lake Town, Kolkata',
-      'date': '10 Aug 2026',
-      'timeSlot': '09:00 AM - 10:30 AM',
-      'status': TechJobStatus.completed,
-    }
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -74,46 +31,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
   }
 
   List<Map<String, dynamic>> _getJobsForStatus(String tabName) {
-    if (tabName == 'Upcoming') {
-      return [
-        {
-          'id': 'BT102941',
-          'title': 'Geyser Inspection',
-          'price': 299.0,
-          'customerName': 'Abhishek Roy',
-          'customerAddress': 'Lake Gardens, Kolkata',
-          'date': 'Today',
-          'timeSlot': '05:00 PM - 06:30 PM',
-          'status': TechJobStatus.accepted,
-        },
-        {
-          'id': 'BT102942',
-          'title': 'Monsoon AC Service Special',
-          'price': 699.0,
-          'customerName': 'Neha Sen',
-          'customerAddress': 'Bhowanipore, Kolkata',
-          'date': 'Tomorrow',
-          'timeSlot': '10:00 AM - 11:30 AM',
-          'status': TechJobStatus.accepted,
-        }
-      ];
-    } else if (tabName == 'Completed') {
-      return _mockJobs;
-    } else if (tabName == 'Cancelled') {
-      return [
-        {
-          'id': 'BT102890',
-          'title': 'Ceiling Fan Installation',
-          'price': 299.0,
-          'customerName': 'Joydev Saha',
-          'customerAddress': 'Dum Dum, Kolkata',
-          'date': '08 Aug 2026',
-          'timeSlot': '02:00 PM - 03:30 PM',
-          'status': TechJobStatus.completed,
-        }
-      ];
-    }
-    return []; // active is handled dynamically by activeJob
+    return const [];
   }
 
   @override

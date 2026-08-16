@@ -33,29 +33,13 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
   final MapController _mapController = MapController();
   final _otpCtrl = TextEditingController();
   String? _otpError;
-
-  // Route Simulation Points
-  final _routePoints = [
-    LatLng(12.982598, 77.585566),
-    LatLng(12.980300, 77.587800),
-    LatLng(12.978000, 77.590000),
-    LatLng(12.975700, 77.592200),
-    LatLng(12.973400, 77.593800),
-    LatLng(12.971598, 77.594566),
-  ];
   static final _customerLoc = LatLng(12.971598, 77.594566);
 
-  int _currentPathIndex = 0;
-  LatLng _techLocation = LatLng(12.982598, 77.585566);
   LatLng _interpolatedLocation = LatLng(12.982598, 77.585566);
   
   // Interpolation Animation
   late AnimationController _interpolationController;
   Animation<LatLng>? _latLngAnimation;
-
-  // Simulation Controls & Timer (For Offline Testing)
-  Timer? _movementTimer;
-  final bool _isMovementPaused = false;
 
   // Real-Time Socket Connection & GPS Permissions Status
   io.Socket? _socket;
@@ -78,12 +62,10 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
       });
 
     _initSocket();
-    _startOfflineSimulation();
   }
 
   @override
   void dispose() {
-    _movementTimer?.cancel();
     _interpolationController.dispose();
     _otpCtrl.dispose();
     _socket?.disconnect();
@@ -174,63 +156,11 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     _interpolationController.reset();
     _interpolationController.forward();
 
-    setState(() {
-      _techLocation = newLocation;
-    });
-
     _mapController.move(newLocation, 14.5);
-  }
-
-  void _startOfflineSimulation() {
-    _movementTimer?.cancel();
-    _movementTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      // If socket is connected, ignore offline mock coordinates simulation
-      if (_socketStatus == 'CONNECTED') return;
-
-      // Pause coordinates if socket is disconnected or GPS denied
-      if (_socketStatus == 'DISCONNECTED' || !_isGpsGranted || _isMovementPaused) {
-        return;
-      }
-
-      final state = ref.read(bookingProvider);
-      final booking = state.activeBooking;
-      if (booking == null || booking.status != BookingStatus.techOnTheWay) {
-        return;
-      }
-
-      if (_currentPathIndex < _routePoints.length - 1) {
-        final nextIndex = _currentPathIndex + 1;
-        _onPartnerLocationUpdate(_routePoints[nextIndex]);
-
-        setState(() {
-          _currentPathIndex = nextIndex;
-        });
-
-        // Geofence check
-        final dist = _haversineDistance(
-          _techLocation.latitude, _techLocation.longitude,
-          _customerLoc.latitude, _customerLoc.longitude,
-        );
-        if (dist <= 100) {
-          timer.cancel();
-          ref.read(bookingProvider.notifier).setBookingStatus(BookingStatus.techArrived);
-        }
-      } else {
-        timer.cancel();
-        ref.read(bookingProvider.notifier).setBookingStatus(BookingStatus.techArrived);
-      }
-    });
   }
 
   void _resetSimulation() {
     _interpolationController.stop();
-    setState(() {
-      _currentPathIndex = 0;
-      _techLocation = _routePoints[0];
-      _interpolatedLocation = _routePoints[0];
-    });
-    ref.read(bookingProvider.notifier).setBookingStatus(BookingStatus.techOnTheWay);
-    _startOfflineSimulation();
   }
 
   double _haversineDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -341,15 +271,12 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
       );
     }
 
-    final remainingRoute = <LatLng>[];
-    if (booking.status == BookingStatus.techOnTheWay) {
-      remainingRoute.add(_interpolatedLocation);
-      if (_currentPathIndex < _routePoints.length - 1) {
-        remainingRoute.addAll(_routePoints.sublist(_currentPathIndex + 1));
-      } else {
-        remainingRoute.add(_customerLoc);
-      }
-    }
+    final remainingRoute = <LatLng>[
+      if (booking.status == BookingStatus.techOnTheWay) ...[
+        _interpolatedLocation,
+        _customerLoc,
+      ]
+    ];
 
     return Scaffold(
       body: Stack(
@@ -377,14 +304,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                       Polyline(
                         points: remainingRoute,
                         color: kBrandPrimary,
-                        strokeWidth: 5.0,
-                      ),
-                    if (booking.status == BookingStatus.techOnTheWay)
-                      Polyline(
-                        points: _routePoints.sublist(0, (_currentPathIndex + 1).clamp(1, _routePoints.length)),
-                        color: Colors.grey.shade400,
                         strokeWidth: 4.0,
-                        isDotted: true,
                       ),
                   ],
                 ),
@@ -944,9 +864,6 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
         child: ElevatedButton(
           onPressed: () {
             ref.read(bookingProvider.notifier).setBookingStatus(status);
-            if (status == BookingStatus.techOnTheWay) {
-              _startOfflineSimulation();
-            }
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: isSelected ? kBrandPrimary : Colors.grey.shade100,

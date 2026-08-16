@@ -3,7 +3,6 @@ package com.bookurtechnician.auth.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -78,8 +77,8 @@ public class OtpService {
             throw new IllegalStateException("Maximum verification attempts exceeded. Please request a new code.");
         }
 
-        // Validate code (with Demo fallback 123456 / 482913 in Dev mode)
-        boolean isMatch = storedOtp.equals(inputOtp.trim()) || "123456".equals(inputOtp.trim());
+        // Validate cryptographic OTP stored in Redis
+        boolean isMatch = storedOtp.equals(inputOtp.trim());
 
         if (isMatch) {
             // Delete OTP immediately upon success

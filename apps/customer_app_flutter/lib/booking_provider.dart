@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'models/customer_profile_models.dart';
+import 'services/api_client.dart';
 
 // ─── App State ───────────────────────────────────────────────────────────────
 
@@ -136,44 +136,16 @@ class AppState {
 class BookingNotifier extends StateNotifier<AppState> {
   BookingNotifier()
       : super(AppState(
+          isGuest: true,
           profile: CustomerProfile.createWithCalculation(
-            customerId: 'cust_rahul_01',
-            userId: 'usr_rahul_01',
-            fullName: 'Rahul Sharma',
-            phone: '+91 98765 43210',
-            isPhoneVerified: true,
-            email: 'rahul.sharma@example.com',
-            isEmailVerified: true,
-            addresses: [
-              CustomerAddress(
-                id: 'addr_1',
-                customerId: 'cust_rahul_01',
-                addressType: AddressType.home,
-                houseFlat: 'Flat 402, Royal Palms',
-                street: 'Bellary Road',
-                area: 'Hebbal',
-                city: 'Bengaluru',
-                state: 'Karnataka',
-                postalCode: '560024',
-                isPrimary: true,
-                createdAt: DateTime(2026, 1, 15),
-                updatedAt: DateTime(2026, 1, 15),
-              ),
-              CustomerAddress(
-                id: 'addr_2',
-                customerId: 'cust_rahul_01',
-                addressType: AddressType.work,
-                houseFlat: 'Tech Park, Tower B',
-                street: 'Outer Ring Road',
-                area: 'Koramangala',
-                city: 'Bengaluru',
-                state: 'Karnataka',
-                postalCode: '560034',
-                isPrimary: false,
-                createdAt: DateTime(2026, 2, 10),
-                updatedAt: DateTime(2026, 2, 10),
-              ),
-            ],
+            customerId: '',
+            userId: '',
+            fullName: '',
+            phone: '',
+            isPhoneVerified: false,
+            email: '',
+            isEmailVerified: false,
+            addresses: const [],
           ),
         )) {
     _loadCatalog();
@@ -193,60 +165,23 @@ class BookingNotifier extends StateNotifier<AppState> {
   }) {
     final cleanPhone = phone.startsWith('+91') ? phone : '+91 $phone';
     
-    // For new registrations, simulate an incomplete profile requiring completion
-    if (isNewRegistration || name.trim().isEmpty) {
-      final incompleteProfile = CustomerProfile.createWithCalculation(
-        customerId: 'cust_${DateTime.now().millisecondsSinceEpoch}',
-        userId: 'usr_${DateTime.now().millisecondsSinceEpoch}',
-        fullName: name.trim(),
-        phone: cleanPhone,
-        isPhoneVerified: true,
-        email: email,
-        isEmailVerified: true,
-        addresses: const [], // No address yet -> triggers completion
-      );
+    final userProfile = CustomerProfile.createWithCalculation(
+      customerId: 'cust_${DateTime.now().millisecondsSinceEpoch}',
+      userId: 'usr_${DateTime.now().millisecondsSinceEpoch}',
+      fullName: name.trim(),
+      phone: cleanPhone,
+      isPhoneVerified: true,
+      email: email.trim(),
+      isEmailVerified: true,
+      addresses: const [],
+    );
 
-      state = state.copyWith(
-        isGuest: false,
-        profile: incompleteProfile,
-        address: '',
-        selectedAddressTitle: '',
-      );
-    } else {
-      // Returning user with mock address
-      final completeProfile = CustomerProfile.createWithCalculation(
-        customerId: 'cust_${DateTime.now().millisecondsSinceEpoch}',
-        userId: 'usr_${DateTime.now().millisecondsSinceEpoch}',
-        fullName: name.trim(),
-        phone: cleanPhone,
-        isPhoneVerified: true,
-        email: email,
-        isEmailVerified: true,
-        addresses: [
-          CustomerAddress(
-            id: 'addr_${DateTime.now().millisecondsSinceEpoch}',
-            customerId: 'cust_user',
-            addressType: AddressType.home,
-            houseFlat: 'Flat 402, Royal Palms',
-            street: 'Bellary Road',
-            area: 'Hebbal',
-            city: 'Bengaluru',
-            state: 'Karnataka',
-            postalCode: '560024',
-            isPrimary: true,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-        ],
-      );
-
-      state = state.copyWith(
-        isGuest: false,
-        profile: completeProfile,
-        address: completeProfile.primaryAddress?.formattedAddress ?? 'Bellary Road, Bengaluru',
-        selectedAddressTitle: completeProfile.primaryAddress?.formattedAddress ?? 'Bellary Road, Bengaluru',
-      );
-    }
+    state = state.copyWith(
+      isGuest: false,
+      profile: userProfile,
+      address: '',
+      selectedAddressTitle: '',
+    );
   }
 
   /// Update profile details & recalculate
@@ -370,7 +305,24 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   Future<void> _loadCatalog() async {
     state = state.copyWith(isCatalogLoading: true);
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final res = await ApiClient.get('/catalog/categories');
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final List list = decoded['data'] ?? [];
+        final categories = list.map((c) => Category.fromJson(c as Map<String, dynamic>)).toList();
+        if (categories.isNotEmpty) {
+          state = state.copyWith(
+            categories: categories,
+            isCatalogLoading: false,
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Catalog live load warning: $e');
+    }
+    // Fallback to offline catalog if API is unavailable
     state = state.copyWith(
       categories: MockData.categoriesList,
       isCatalogLoading: false,
@@ -379,59 +331,32 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   Future<void> loadBanners() async {
     state = state.copyWith(isBannersLoading: true);
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Load from local storage cache initially
-    final cachedHeroJson = prefs.getString('bt_hero_banners_cache');
-    final cachedSpotlightJson = prefs.getString('bt_spotlight_banners_cache');
-    List<PromotionalBanner> initialHeroes = [];
-    List<PromotionalBanner> initialSpotlights = [];
-    if (cachedHeroJson != null) {
-      try {
-        final List decoded = jsonDecode(cachedHeroJson);
-        initialHeroes = decoded.map((j) => PromotionalBanner.fromJson(j)).toList();
-      } catch (_) {}
-    }
-    if (cachedSpotlightJson != null) {
-      try {
-        final List decoded = jsonDecode(cachedSpotlightJson);
-        initialSpotlights = decoded.map((j) => PromotionalBanner.fromJson(j)).toList();
-      } catch (_) {}
-    }
-
-    if (initialHeroes.isNotEmpty || initialSpotlights.isNotEmpty) {
-      state = state.copyWith(
-        heroBanners: initialHeroes.isNotEmpty ? initialHeroes : state.heroBanners,
-        spotlightBanners: initialSpotlights.isNotEmpty ? initialSpotlights : state.spotlightBanners,
-      );
-    }
-
     try {
-      final uri = Uri.parse('http://10.0.2.2:5000/api/banners/active?role=CUSTOMER');
-      final res = await http.get(uri).timeout(const Duration(seconds: 4));
+      final heroRes = await ApiClient.get('/banners/hero');
+      final spotRes = await ApiClient.get('/banners/spotlight');
 
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(res.body);
-        final List heroList = decoded['heroBanners'] ?? [];
-        final List spotlightList = decoded['spotlightBanners'] ?? [];
+      List<PromotionalBanner> heroes = [];
+      List<PromotionalBanner> spotlights = [];
 
-        final heroes = heroList.map((j) => PromotionalBanner.fromJson(j)).toList();
-        final spotlights = spotlightList.map((j) => PromotionalBanner.fromJson(j)).toList();
-
-        // Save to cache
-        await prefs.setString('bt_hero_banners_cache', jsonEncode(heroList));
-        await prefs.setString('bt_spotlight_banners_cache', jsonEncode(spotlightList));
-
-        state = state.copyWith(
-          heroBanners: heroes,
-          spotlightBanners: spotlights,
-          isBannersLoading: false,
-        );
-      } else {
-        state = state.copyWith(isBannersLoading: false);
+      if (heroRes.statusCode == 200) {
+        final decoded = jsonDecode(heroRes.body);
+        final List list = decoded['data'] ?? [];
+        heroes = list.map((b) => PromotionalBanner.fromJson(b as Map<String, dynamic>)).toList();
       }
+
+      if (spotRes.statusCode == 200) {
+        final decoded = jsonDecode(spotRes.body);
+        final List list = decoded['data'] ?? [];
+        spotlights = list.map((b) => PromotionalBanner.fromJson(b as Map<String, dynamic>)).toList();
+      }
+
+      state = state.copyWith(
+        heroBanners: heroes.isNotEmpty ? heroes : state.heroBanners,
+        spotlightBanners: spotlights.isNotEmpty ? spotlights : state.spotlightBanners,
+        isBannersLoading: false,
+      );
     } catch (e) {
-      debugPrint('Error fetching banners from API: $e. Falling back to cache.');
+      debugPrint('Banners load warning: $e');
       state = state.copyWith(isBannersLoading: false);
     }
   }
@@ -475,9 +400,9 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   Future<void> _recalculatePrices() async {
     state = state.copyWith(isCalculatingPrice: true);
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 100));
     final base = state.cartItems.fold(0.0, (sum, s) => sum + s.price);
-    final bookingCharge = base > 0 ? 99.0 : 0.0;
+    final bookingCharge = base > 0 ? 49.0 : 0.0;
     final taxable = base + bookingCharge;
     final gst = taxable * 0.18;
     final total = taxable + gst;
@@ -491,10 +416,40 @@ class BookingNotifier extends StateNotifier<AppState> {
     );
   }
 
-  void confirmOrder(String date, String slot) {
+  Future<bool> confirmOrder(String date, String slot) async {
+    if (state.cartItems.isEmpty) return false;
+    final service = state.cartItems.first;
+    final primaryAddr = state.profile.primaryAddress;
+    final addressId = primaryAddr?.id ?? 'default_address';
+
+    try {
+      final res = await ApiClient.post('/bookings', {
+        'serviceId': service.id,
+        'addressId': addressId,
+        'scheduleDate': date == 'Tomorrow' ? DateTime.now().add(const Duration(days: 1)).toIso8601String().split('T').first : date,
+        'scheduleSlot': slot,
+      });
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final data = decoded['data'];
+        if (data != null) {
+          final liveBooking = Booking.fromJson(data);
+          state = state.copyWith(
+            activeBooking: liveBooking,
+            cartItems: [],
+            baseCost: 0, visitFee: 49, discount: 0, gstTax: 0, grandTotal: 0,
+          );
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('Confirm booking error: $e');
+    }
+
     final now = DateTime.now();
-    final booking = Booking(
-      id: 'BKG-${now.millisecondsSinceEpoch}',
+    final fallbackBooking = Booking(
+      id: 'BT-${now.millisecondsSinceEpoch}',
       services: [...state.cartItems],
       date: date,
       timeSlot: slot,
@@ -504,12 +459,28 @@ class BookingNotifier extends StateNotifier<AppState> {
       discount: state.discount,
       gstTax: state.gstTax,
       grandTotal: state.grandTotal,
+      address: state.address,
     );
     state = state.copyWith(
-      activeBooking: booking,
+      activeBooking: fallbackBooking,
       cartItems: [],
-      baseCost: 0, visitFee: 99, discount: 0, gstTax: 0, grandTotal: 0,
+      baseCost: 0, visitFee: 49, discount: 0, gstTax: 0, grandTotal: 0,
     );
+    return true;
+  }
+
+  Future<void> loadBookingHistory() async {
+    try {
+      final res = await ApiClient.get('/bookings/my-bookings');
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final List list = decoded['data'] ?? [];
+        final history = list.map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
+        state = state.copyWith(bookingHistory: history);
+      }
+    } catch (e) {
+      debugPrint('Error loading booking history: $e');
+    }
   }
 
   void setBookingStatus(BookingStatus status) {
@@ -544,37 +515,41 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   // ─── Payments ─────────────────────────────────────────────────
 
-  Future<void> startPayment() async {
+  Future<Map<String, dynamic>?> createPaymentOrder(String bookingId) async {
     state = state.copyWith(paymentStatus: PaymentStatus.processing, clearPaymentError: true);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('is_pending', true);
-    await prefs.setDouble('grand_total', state.grandTotal);
+    try {
+      final res = await ApiClient.post('/payments/create-order', {'bookingId': bookingId});
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        return decoded['data'];
+      }
+    } catch (e) {
+      state = state.copyWith(paymentStatus: PaymentStatus.errorNetwork, paymentError: e.toString());
+    }
+    return null;
   }
 
-  Future<void> simulatePaymentOutcome(String outcome) async {
-    switch (outcome) {
-      case 'SUCCESS':
-        await _clearPaymentSession();
-        confirmOrder('Tomorrow', '10:00 AM – 11:00 AM');
+  Future<bool> verifyPaymentSignature({
+    required String bookingId,
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    try {
+      final res = await ApiClient.post('/payments/verify-signature', {
+        'bookingId': bookingId,
+        'razorpayOrderId': razorpayOrderId,
+        'razorpayPaymentId': razorpayPaymentId,
+        'razorpaySignature': razorpaySignature,
+      });
+      if (res.statusCode == 200) {
         state = state.copyWith(paymentStatus: PaymentStatus.success, clearPaymentError: true);
-        break;
-      case 'TIMEOUT':
-        state = state.copyWith(
-          paymentStatus: PaymentStatus.errorTimeout,
-          paymentError: 'Gateway transaction timed out. Please try again.',
-        );
-        break;
-      case 'NETWORK_DISCONNECT':
-        state = state.copyWith(
-          paymentStatus: PaymentStatus.errorNetwork,
-          paymentError: 'Network connection lost. Please check your internet.',
-        );
-        break;
-      case 'APP_TERMINATION':
-        // SharedPrefs remain as-is (pending=true). Reset runtime.
-        state = state.copyWith(paymentStatus: PaymentStatus.idle, clearPaymentError: true);
-        break;
+        return true;
+      }
+    } catch (e) {
+      state = state.copyWith(paymentStatus: PaymentStatus.errorNetwork, paymentError: e.toString());
     }
+    return false;
   }
 
   Future<void> checkRestoration() async {
@@ -590,22 +565,19 @@ class BookingNotifier extends StateNotifier<AppState> {
   }
 
   Future<void> restoreCart() async {
-    await _clearPaymentSession();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
     state = state.copyWith(paymentStatus: PaymentStatus.idle);
   }
 
   Future<void> discardRestoration() async {
-    await _clearPaymentSession();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
     state = state.copyWith(paymentStatus: PaymentStatus.idle);
   }
 
   void clearPaymentStatus() {
     state = state.copyWith(paymentStatus: PaymentStatus.idle, clearPaymentError: true);
-  }
-
-  Future<void> _clearPaymentSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
   }
 }
 

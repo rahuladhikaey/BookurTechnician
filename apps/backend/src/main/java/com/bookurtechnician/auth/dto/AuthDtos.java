@@ -83,4 +83,11 @@ public class AuthDtos {
         @NotBlank(message = "Refresh token is required")
         private String refreshToken;
     }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class LogoutDto {
+        private String refreshToken;
+    }
 }

@@ -1,12 +1,26 @@
 package com.bookurtechnician.technician.controller;
 
 import com.bookurtechnician.auth.security.UserPrincipal;
+import com.bookurtechnician.booking.dto.BookingDtos;
+import com.bookurtechnician.booking.entity.Booking;
+import com.bookurtechnician.booking.repository.BookingRepository;
+import com.bookurtechnician.booking.service.BookingService;
+import com.bookurtechnician.common.exception.BadRequestException;
 import com.bookurtechnician.common.exception.ResourceNotFoundException;
 import com.bookurtechnician.common.response.ApiResponse;
 import com.bookurtechnician.technician.entity.TechnicianProfile;
 import com.bookurtechnician.technician.repository.TechnicianProfileRepository;
+import com.bookurtechnician.wallet.entity.TechnicianWallet;
+import com.bookurtechnician.wallet.entity.WithdrawalRequest;
+import com.bookurtechnician.wallet.repository.TechnicianWalletRepository;
+import com.bookurtechnician.wallet.repository.WithdrawalRequestRepository;
+import com.bookurtechnician.wallet.service.WalletService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +34,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/technician")
@@ -29,6 +47,11 @@ import java.time.Instant;
 public class TechnicianController {
 
     private final TechnicianProfileRepository profileRepository;
+    private final BookingRepository bookingRepository;
+    private final BookingService bookingService;
+    private final WalletService walletService;
+    private final TechnicianWalletRepository walletRepository;
+    private final WithdrawalRequestRepository withdrawalRequestRepository;
     private final StringRedisTemplate redisTemplate;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
@@ -37,6 +60,84 @@ public class TechnicianController {
         TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
         return ResponseEntity.ok(ApiResponse.success(profile));
+    }
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<ApiResponse<TechnicianDashboardDto>> getDashboard(@AuthenticationPrincipal UserPrincipal principal) {
+        TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
+
+        List<Booking> allJobs = bookingRepository.findByTechnicianIdOrderByCreatedAtDesc(profile.getId());
+        LocalDate today = LocalDate.now();
+
+        long todayJobsCount = allJobs.stream().filter(b -> today.equals(b.getScheduleDate())).count();
+        long completedJobsCount = allJobs.stream().filter(b -> "COMPLETED".equalsIgnoreCase(b.getStatus())).count();
+
+        BigDecimal todayEarnings = allJobs.stream()
+                .filter(b -> today.equals(b.getScheduleDate()) && "COMPLETED".equalsIgnoreCase(b.getStatus()))
+                .map(b -> b.getTechnicianPayoutAmount() != null ? b.getTechnicianPayoutAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
+
+        BigDecimal totalEarnings = allJobs.stream()
+                .filter(b -> "COMPLETED".equalsIgnoreCase(b.getStatus()))
+                .map(b -> b.getTechnicianPayoutAmount() != null ? b.getTechnicianPayoutAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, (a, b) -> a.add(b));
+
+        TechnicianWallet wallet = walletRepository.findByTechnician(profile).orElse(null);
+        BigDecimal availableBalance = wallet != null ? wallet.getAvailableBalance() : BigDecimal.ZERO;
+
+        List<WithdrawalRequest> payouts = withdrawalRequestRepository.findByTechnicianIdOrderByCreatedAtDesc(profile.getId());
+
+        TechnicianDashboardDto dto = TechnicianDashboardDto.builder()
+                .isOnline(profile.isOnline())
+                .todayJobsCount(todayJobsCount)
+                .todayEarnings(todayEarnings)
+                .completedJobsCount(completedJobsCount)
+                .totalEarnings(totalEarnings)
+                .availableBalance(availableBalance)
+                .rating(profile.getRating() != null ? profile.getRating() : BigDecimal.ZERO)
+                .savedUpiId(profile.getUpiId())
+                .payouts(payouts)
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(dto));
+    }
+
+    @GetMapping("/jobs")
+    public ResponseEntity<ApiResponse<List<BookingDtos.BookingResponse>>> getJobs(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String status) {
+        TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
+
+        List<BookingDtos.BookingResponse> jobs = bookingService.getTechnicianBookings(profile.getId());
+        if (status != null && !status.isBlank()) {
+            jobs = jobs.stream().filter(j -> status.equalsIgnoreCase(j.getStatus())).toList();
+        }
+        return ResponseEntity.ok(ApiResponse.success(jobs));
+    }
+
+    @PatchMapping("/jobs/{bookingId}/status")
+    public ResponseEntity<ApiResponse<BookingDtos.BookingResponse>> updateJobStatus(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID bookingId,
+            @RequestBody JobStatusUpdateDto dto) {
+        TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
+
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (booking.getTechnician() == null || !profile.getId().equals(booking.getTechnician().getId())) {
+            throw new BadRequestException("This booking is not assigned to you.");
+        }
+
+        BookingDtos.UpdateBookingStatusRequest req = new BookingDtos.UpdateBookingStatusRequest();
+        req.setStatus(dto.getStatus());
+        req.setStartOtp(dto.getStartOtp());
+
+        BookingDtos.BookingResponse response = bookingService.updateBookingStatus(bookingId, req);
+        return ResponseEntity.ok(ApiResponse.success(response, "Booking status updated to " + dto.getStatus()));
     }
 
     @PostMapping("/online-status")
@@ -87,6 +188,50 @@ public class TechnicianController {
         return ResponseEntity.ok(ApiResponse.success(profile, "UPI Payout ID updated to " + dto.getUpiId()));
     }
 
+    @PostMapping("/withdraw")
+    public ResponseEntity<ApiResponse<WithdrawalRequest>> requestWithdrawal(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody WithdrawalRequestDto dto) {
+        TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
+
+        String destinationUpi = dto.getUpiId() != null && !dto.getUpiId().isBlank() 
+                ? dto.getUpiId().trim() 
+                : profile.getUpiId();
+
+        if (destinationUpi == null || destinationUpi.isBlank()) {
+            throw new BadRequestException("Please provide or configure a valid UPI ID for payout.");
+        }
+
+        WithdrawalRequest request = walletService.requestUpiWithdrawal(profile.getId(), dto.getAmount(), destinationUpi);
+        return ResponseEntity.ok(ApiResponse.success(request, "Withdrawal request of ₹" + dto.getAmount() + " processed successfully."));
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TechnicianDashboardDto {
+        private boolean isOnline;
+        private long todayJobsCount;
+        private BigDecimal todayEarnings;
+        private long completedJobsCount;
+        private BigDecimal totalEarnings;
+        private BigDecimal availableBalance;
+        private BigDecimal rating;
+        private String savedUpiId;
+        private List<WithdrawalRequest> payouts;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class JobStatusUpdateDto {
+        @NotBlank
+        private String status;
+        private String startOtp;
+    }
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -103,4 +248,15 @@ public class TechnicianController {
         @NotBlank
         private String upiId;
     }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WithdrawalRequestDto {
+        @NotNull(message = "Amount is required")
+        @DecimalMin(value = "100.00", message = "Minimum withdrawal amount is ₹100.00")
+        private BigDecimal amount;
+        private String upiId;
+    }
 }
+

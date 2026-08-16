@@ -340,39 +340,55 @@ class NotificationsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final notifications = [
-      _Notif('Booking Confirmed 🎉', 'Your AC service booking has been confirmed!', '2h ago'),
-      _Notif('Technician Assigned', 'Rahul Sharma will be at your place tomorrow.', '1d ago'),
-      _Notif('Special Offer 🏷️', 'Use FIRST100 for ₹100 off your first service.', '2d ago'),
-    ];
+    final List<_Notif> notifications = [];
 
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications')),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: notifications.length,
-        itemBuilder: (_, i) {
-          final n = notifications[i];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(width: 10, height: 10, margin: const EdgeInsets.only(top: 4),
-                    decoration: const BoxDecoration(shape: BoxShape.circle, color: kBrandPrimary)),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(n.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  Text(n.body, style: const TextStyle(fontSize: 12, color: kTextGray)),
-                  const SizedBox(height: 4),
-                  Text(n.time, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                ])),
-              ]),
+      body: notifications.isEmpty
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.notifications_none_outlined, size: 56, color: kTextGray),
+                  SizedBox(height: 12),
+                  Text(
+                    'No notifications yet',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kPrimaryText),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'We will notify you when there are updates on your bookings.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: kSecondaryText),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: notifications.length,
+              itemBuilder: (_, i) {
+                final n = notifications[i];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Container(width: 10, height: 10, margin: const EdgeInsets.only(top: 4),
+                          decoration: const BoxDecoration(shape: BoxShape.circle, color: kBrandPrimary)),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(n.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        const SizedBox(height: 4),
+                        Text(n.body, style: const TextStyle(fontSize: 12, color: kTextGray)),
+                        const SizedBox(height: 4),
+                        Text(n.time, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      ])),
+                    ]),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }

@@ -1,169 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-const INITIAL_BANNERS = [
-  {
-    id: 'banner_1',
-    badgeText: 'Trending',
-    title: 'Get your AC ready for summer',
-    subtitle: 'AC Service',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=800',
-    serviceId: 'ac_clean',
-    categoryId: 'cat_ac',
-    displayOrder: 1,
-    isActive: true,
-    autoSlide: true,
-    slideDuration: 4000,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  },
-  {
-    id: 'banner_2',
-    badgeText: 'Popular',
-    title: 'Complete electrical checkup for your home',
-    subtitle: 'Electrical Inspection',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800',
-    serviceId: '',
-    categoryId: 'cat_lighting',
-    displayOrder: 2,
-    isActive: true,
-    autoSlide: true,
-    slideDuration: 4000,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  },
-  {
-    id: 'banner_3',
-    badgeText: 'New',
-    title: 'Professional fan installation',
-    subtitle: 'Fan Installation',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1618943716616-e41c4d9ad1bd?w=800',
-    serviceId: 'fan_install',
-    categoryId: 'cat_fan',
-    displayOrder: 3,
-    isActive: true,
-    autoSlide: true,
-    slideDuration: 4000,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  },
-  {
-    id: 'banner_4',
-    badgeText: 'Recommended',
-    title: 'Keep your refrigerator running perfectly',
-    subtitle: 'Refrigerator Service',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1571887455898-ac2865c3dc4e?w=800',
-    serviceId: 'fridge_rep',
-    categoryId: 'cat_refrigerator',
-    displayOrder: 4,
-    isActive: true,
-    autoSlide: true,
-    slideDuration: 4000,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  },
-  {
-    id: 'banner_5',
-    badgeText: 'Special Offer',
-    title: 'Complete home electrical service',
-    subtitle: 'Electrical Services',
-    ctaText: 'Explore',
-    imageUrl: 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=800',
-    serviceId: '',
-    categoryId: 'cat_lighting',
-    displayOrder: 5,
-    isActive: true,
-    autoSlide: true,
-    slideDuration: 4000,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  }
-];
-
-const INITIAL_HERO_BANNERS = [
-  {
-    id: 'hero_1',
-    badgeText: 'Trending',
-    title: 'Expert AC Service',
-    subtitle: 'Starting from ₹299',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=1000',
-    targetServiceId: 'ac_clean',
-    displayOrder: 1,
-    active: true,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  },
-  {
-    id: 'hero_2',
-    badgeText: 'Popular',
-    title: 'Expert Electrician at Your Doorstep',
-    subtitle: 'Starting from ₹249',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=1000',
-    targetServiceId: 'pop_inspect',
-    displayOrder: 2,
-    active: true,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  },
-  {
-    id: 'hero_3',
-    badgeText: 'New',
-    title: 'Professional fan installation',
-    subtitle: 'Starting from ₹199',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1618943716616-e41c4d9ad1bd?w=1000',
-    targetServiceId: 'fan_install',
-    displayOrder: 3,
-    active: true,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  },
-  {
-    id: 'hero_4',
-    badgeText: 'Recommended',
-    title: 'Keep your refrigerator running perfectly',
-    subtitle: 'Service & Repair',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1571887455898-ac2865c3dc4e?w=1000',
-    targetServiceId: 'fridge_rep',
-    displayOrder: 4,
-    active: true,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  },
-  {
-    id: 'hero_5',
-    badgeText: 'Special Offer',
-    title: 'Washing Machine Service',
-    subtitle: 'Starting from ₹699',
-    ctaText: 'Explore',
-    imageUrl: 'https://images.unsplash.com/photo-1582730147233-a3d82a170562?w=1000',
-    targetServiceId: 'washing_clean',
-    displayOrder: 5,
-    active: true,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  },
-  {
-    id: 'hero_6',
-    badgeText: 'Same-Day',
-    title: 'Same-Day Technician Service',
-    subtitle: 'Handyman & Repairs',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=1000',
-    targetServiceId: 'pop_wiring',
-    displayOrder: 6,
-    active: true,
-    startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  }
-];
-
 export default function MarketingManager({ 
   coupons, 
   setCoupons, 
@@ -200,47 +36,27 @@ export default function MarketingManager({
   });
 
   // Spotlight Banners States
-  const [banners, setBanners] = useState(() => {
-    const saved = localStorage.getItem('bt_spotlight_banners');
-    return saved ? JSON.parse(saved) : INITIAL_BANNERS;
-  });
+  const [banners, setBanners] = useState([]);
   const [showBannerModal, setShowBannerModal] = useState(false);
   const [editingBannerId, setEditingBannerId] = useState(null);
-  const [bannerForm, setBannerForm] = useState({
-    badgeText: 'Trending',
-    title: '',
-    subtitle: '',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=800',
-    serviceId: '',
-    categoryId: '',
-    displayOrder: 0,
-    isActive: true,
-    autoSlide: true,
-    slideDuration: 4000,
-    startDate: new Date().toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  });
 
   // Hero Banners States
-  const [heroBanners, setHeroBanners] = useState(() => {
-    const saved = localStorage.getItem('bt_hero_banners');
-    return saved ? JSON.parse(saved) : INITIAL_HERO_BANNERS;
-  });
+  const [heroBanners, setHeroBanners] = useState([]);
   const [showHeroModal, setShowHeroModal] = useState(false);
   const [editingHeroId, setEditingHeroId] = useState(null);
-  const [heroForm, setHeroForm] = useState({
-    badgeText: 'Trending',
-    title: '',
-    subtitle: '',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=1000',
-    targetServiceId: '',
-    displayOrder: 0,
-    active: true,
-    startDate: new Date().toISOString().slice(0, 10),
-    endDate: new Date(Date.now() + 31536000000).toISOString().slice(0, 10)
-  });
+
+  // Fetch banners from API on mount
+  useEffect(() => {
+    fetch('/api/v1/banners/spotlight')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.data && Array.isArray(data.data)) setBanners(data.data); })
+      .catch(() => {});
+
+    fetch('/api/v1/banners/hero')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.data && Array.isArray(data.data)) setHeroBanners(data.data); })
+      .catch(() => {});
+  }, []);
 
   // ─── Fetch Banners ──────────────────────────────────────────────────────────
   const fetchAllBanners = async () => {

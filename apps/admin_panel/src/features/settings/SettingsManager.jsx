@@ -44,9 +44,6 @@ export default function SettingsManager({ settings, setSettings, auditLogs, audi
         <div className={`flat-tab ${currentSubTab === 'audit' ? 'active' : ''}`} onClick={() => setCurrentSubTab('audit')}>
           📜 Immutable Audit Logs ({auditLogs.length})
         </div>
-        <div className={`flat-tab ${currentSubTab === 'reset' ? 'active' : ''}`} onClick={() => setCurrentSubTab('reset')}>
-          🧹 Reset Sandbox Database
-        </div>
       </div>
 
       {/* ─── TAB 1: GENERAL CONFIG ─── */}
@@ -200,21 +197,6 @@ export default function SettingsManager({ settings, setSettings, auditLogs, audi
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {/* ─── TAB 4: DATABASE RESET ─── */}
-      {currentSubTab === 'reset' && (
-        <div className="panel" style={{ maxWidth: '600px' }}>
-          <div className="panel-header">
-            <h3 className="panel-title">🧹 Seed & Sandbox Database Utilities</h3>
-          </div>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Resetting clears the current browser localStorage session and re-populates all official initial datasets for bookings, services, categories, technicians, and promo banners.
-          </p>
-          <button className="btn btn-danger" onClick={onResetDatabase}>
-            Reset Database to Production Defaults
-          </button>
         </div>
       )}
     </div>

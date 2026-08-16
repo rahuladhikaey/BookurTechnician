@@ -12,24 +12,21 @@ export async function getNextTechnicianCode(): Promise<string> {
   return `BT-TECH-${padded}`;
 }
 
-// 1. Get Current Technician Digital ID Profile (or auto-provision Rahul Adhikary default)
+// 1. Get Current Technician Digital ID Profile
 router.get('/my-id', async (req: Request, res: Response) => {
   try {
-    let profile = await TechnicianProfile.findOne({ technician_code: 'BT-TECH-000001' });
+    const techCode = req.query.code as string;
+    let query: any = {};
+    if (techCode) {
+      query.technician_code = techCode;
+    }
+
+    const profile = await TechnicianProfile.findOne(query);
 
     if (!profile) {
-      const token = `verify_${crypto.randomBytes(12).toString('hex')}`;
-      profile = await TechnicianProfile.create({
-        technician_code: 'BT-TECH-000001',
-        user_id: 'tech_user_rahul_01',
-        full_name: 'Rahul Adhikary',
-        phone: '+91 98765 43210',
-        email: 'rahul.adhikary@bookurtechnician.com',
-        profile_photo_url: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=400',
-        join_date: new Date('2026-08-15'),
-        skills: ['AC Service', 'Electrical Repair', 'Ceiling Fan Installation'],
-        verification_status: 'APPROVED',
-        qr_verification_token: token,
+      return res.status(404).json({
+        success: false,
+        message: 'Technician digital ID profile not found',
       });
     }
 

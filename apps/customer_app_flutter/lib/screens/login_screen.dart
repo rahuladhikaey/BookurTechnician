@@ -1,7 +1,7 @@
-import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/brevo_service.dart';
+import '../services/api_client.dart';
 import '../booking_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -56,40 +56,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _isLoading = true;
     });
 
-    // Generate random 6-digit OTP
-    final randomOtp = (100000 + Random().nextInt(900000)).toString();
+    try {
+      final response = await ApiClient.post('/auth/request-otp', {
+        'email': email,
+        'purpose': 'LOGIN',
+      });
 
-    final success = await BrevoService.sendOtpEmail(
-      email: email,
-      otp: randomOtp,
-      role: 'Customer',
-    );
+      setState(() {
+        _isLoading = false;
+      });
 
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (mounted) {
-      if (success) {
+      if (mounted) {
+        if (response.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Verification code sent to $email! Check inbox.')),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OtpScreen(
+                phoneNumber: phone,
+                emailAddress: email,
+              ),
+            ),
+          );
+        } else {
+          final decoded = jsonDecode(response.body);
+          final msg = decoded['message'] ?? 'Failed to send OTP. Please try again.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg)),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Verification code sent to $email! Check inbox.')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Demo OTP: $randomOtp')),
+          SnackBar(content: Text('Connection error: $e')),
         );
       }
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OtpScreen(
-            phoneNumber: phone,
-            emailAddress: email,
-            expectedOtp: randomOtp,
-          ),
-        ),
-      );
     }
   }
 
@@ -470,13 +477,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 class OtpScreen extends ConsumerStatefulWidget {
   final String phoneNumber;
   final String emailAddress;
-  final String expectedOtp;
 
   const OtpScreen({
     super.key,
     required this.phoneNumber,
     required this.emailAddress,
-    required this.expectedOtp,
   });
 
   @override
@@ -511,28 +516,84 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     }
 
     setState(() => _isVerifying = true);
-    await Future.delayed(const Duration(milliseconds: 400));
-    setState(() => _isVerifying = false);
 
-    if (otp == widget.expectedOtp || otp == '123456') {
-      ref.read(bookingProvider.notifier).loginUser(
-        name: 'Rahul Sharma',
-        phone: widget.phoneNumber,
-        email: widget.emailAddress,
-      );
+    try {
+      final response = await ApiClient.post('/auth/verify-otp', {
+        'email': widget.emailAddress,
+        'otp': otp,
+        'role': 'CUSTOMER',
+        'phone': widget.phoneNumber,
+      });
 
-      final profile = ref.read(bookingProvider).profile;
+      setState(() => _isVerifying = false);
+
       if (mounted) {
-        if (profile.isProfileComplete) {
-          Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+        if (response.statusCode == 200) {
+          final decoded = jsonDecode(response.body);
+          final data = decoded['data'];
+          if (data != null) {
+            final accessToken = data['accessToken'];
+            final refreshToken = data['refreshToken'];
+            final user = data['user'];
+
+            if (accessToken != null && refreshToken != null) {
+              await ApiClient.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
+            }
+
+            ref.read(bookingProvider.notifier).loginUser(
+              name: user?['fullName'] ?? (widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'User'),
+              phone: user?['phone'] ?? widget.phoneNumber,
+              email: user?['email'] ?? widget.emailAddress,
+            );
+
+            final profileCompleted = user?['profileCompleted'] == true;
+            if (!mounted) return;
+            if (profileCompleted) {
+              Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+            } else {
+              Navigator.pushNamedAndRemoveUntil(context, '/profile_completion_wizard', (route) => false);
+            }
+          }
         } else {
-          Navigator.pushNamedAndRemoveUntil(context, '/profile_completion_wizard', (route) => false);
+          final decoded = jsonDecode(response.body);
+          final msg = decoded['message'] ?? 'Invalid verification code. Please check your inbox.';
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg)),
+          );
         }
       }
-    } else {
+    } catch (e) {
+      setState(() => _isVerifying = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid verification code. Please check your inbox.')),
+          SnackBar(content: Text('Verification error: $e')),
+        );
+      }
+    }
+  }
+
+  void _resendOtp() async {
+    try {
+      final res = await ApiClient.post('/auth/request-otp', {
+        'email': widget.emailAddress,
+        'purpose': 'LOGIN',
+      });
+      if (mounted) {
+        if (res.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('New verification code sent to your email.')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to resend code. Please try again.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
         );
       }
     }
@@ -723,11 +784,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         // Resend OTP Action
                         Center(
                           child: TextButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Demo OTP: ${widget.expectedOtp}')),
-                              );
-                            },
+                            onPressed: _resendOtp,
                             child: const Text(
                               'Resend OTP',
                               style: TextStyle(

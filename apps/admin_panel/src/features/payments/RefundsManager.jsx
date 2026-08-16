@@ -1,18 +1,26 @@
-import React, { useState } from 'react';
-
-const INITIAL_REFUNDS = [
-  { id: 'REF-801', bookingId: 'BT-BK-00001234', customer: 'Rahul Customer', originalAmount: 2357.64, serviceCost: 1899.00, bookingCharge: 99.00, gst: 359.64, eligibleRefund: 1899.00, status: 'Pending', reason: 'Technician delayed past 1-hour window', requestedDate: '15 Aug 2026, 09:30 AM', slaHoursRemaining: 42 },
-  { id: 'REF-802', bookingId: 'BT-BK-00001238', customer: 'Shreya Sharma', originalAmount: 823.64, serviceCost: 599.00, bookingCharge: 99.00, gst: 125.64, eligibleRefund: 599.00, status: 'Approved', reason: 'Cancelled 2 hours before scheduled slot', requestedDate: '14 Aug 2026, 02:15 PM', slaHoursRemaining: 21 },
-  { id: 'REF-803', bookingId: 'BT-BK-00001192', customer: 'Vikas Kumar', originalAmount: 1177.64, serviceCost: 899.00, bookingCharge: 99.00, gst: 179.64, eligibleRefund: 899.00, status: 'Completed', reason: 'Wrong service selected by customer', requestedDate: '13 Aug 2026, 11:00 AM', slaHoursRemaining: 0 }
-];
+import React, { useState, useEffect } from 'react';
 
 export default function RefundsManager({ auditLogAction }) {
-  const [refunds, setRefunds] = useState(INITIAL_REFUNDS);
+  const [refunds, setRefunds] = useState([]);
   const [activeTab, setActiveTab] = useState('ALL');
+
+  useEffect(() => {
+    const token = localStorage.getItem('bt_admin_token');
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+    fetch('/api/v1/admin/refunds', { headers })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.data && Array.isArray(data.data)) {
+          setRefunds(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const filteredRefunds = refunds.filter(r => {
     if (activeTab === 'ALL') return true;
-    return r.status.toUpperCase() === activeTab;
+    return (r.status || '').toUpperCase() === activeTab;
   });
 
   const handleUpdateRefundStatus = (refundId, nextStatus) => {

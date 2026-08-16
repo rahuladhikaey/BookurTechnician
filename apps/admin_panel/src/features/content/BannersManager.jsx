@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
-
-const INITIAL_RUNNING_BANNERS = [
-  { id: 'rb_1', title: 'AC Service & Deep Cleaning', subtitle: 'Flat 20% off on jet-pump deep cleaning', category: 'AC Service', displayOrder: 1, isActive: true, imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=600', appType: 'Customer App' },
-  { id: 'rb_2', title: 'Laptop Service & Motherboard Fix', subtitle: 'Original parts & 6 months warranty', category: 'Laptop Service', displayOrder: 2, isActive: true, imageUrl: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600', appType: 'Customer App' },
-  { id: 'rb_3', title: 'Ceiling Fan Installation', subtitle: 'Certified electrician within 45 mins', category: 'Fan Service', displayOrder: 3, isActive: true, imageUrl: 'https://images.unsplash.com/photo-1618943716616-e41c4d9ad1bd?w=600', appType: 'Customer App' },
-  { id: 'rb_4', title: 'Home Appliance Repair', subtitle: 'Refrigerator & Washing Machine Care', category: 'Refrigerator Service', displayOrder: 4, isActive: false, imageUrl: 'https://images.unsplash.com/photo-1571887455898-ac2865c3dc4e?w=600', appType: 'Customer App' },
-  { id: 'tb_1', title: 'Peak Weekend Incentive', subtitle: 'Earn up to ₹45,000 / month with surge pricing', category: 'Technician Earnings', displayOrder: 1, isActive: true, imageUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600', appType: 'Technician App' },
-  { id: 'tb_2', title: 'Fast Weekly Payouts', subtitle: 'Direct bank transfer every Tuesday morning', category: 'Settlements', displayOrder: 2, isActive: true, imageUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600', appType: 'Technician App' }
-];
+import React, { useState, useEffect } from 'react';
 
 export default function BannersManager({ auditLogAction }) {
-  const [banners, setBanners] = useState(INITIAL_RUNNING_BANNERS);
+  const [banners, setBanners] = useState([]);
   const [activeTab, setActiveTab] = useState('Customer App');
   const [showModal, setShowModal] = useState(false);
   const [editingBanner, setEditingBanner] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/v1/banners/running')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.data && Array.isArray(data.data)) {
+          setBanners(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [formState, setFormState] = useState({
     title: '',
@@ -120,8 +122,15 @@ export default function BannersManager({ auditLogAction }) {
               </tr>
             </thead>
             <tbody>
-              {filteredBanners.map(banner => (
-                <tr key={banner.id}>
+              {filteredBanners.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                    🖼️ No banners configured yet
+                  </td>
+                </tr>
+              ) : (
+                filteredBanners.map(banner => (
+                  <tr key={banner.id}>
                   <td>
                     <span className="badge badge-info" style={{ fontWeight: '700' }}>#{banner.displayOrder}</span>
                   </td>
@@ -156,7 +165,7 @@ export default function BannersManager({ auditLogAction }) {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

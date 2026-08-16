@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
-
-const INITIAL_REVIEWS_LIST = [
-  { id: 1, customer: 'Shreya Sharma', technician: 'Rahul Adhikary', techId: 'BT-TECH-000001', service: 'AC Deep Cleaning', rating: 5, comment: 'Excellent prompt cleaning, AC is cooling perfectly now. Technician arrived on time in clean uniform with ID card!', date: '14 Aug 2026', hidden: false, flagged: false },
-  { id: 2, customer: 'Vikas Kumar', technician: 'Amit Singh', techId: 'BT-TECH-000002', service: 'Ceiling Fan Installation', rating: 4, comment: 'Quick assembly, standard installation done. Professional behavior.', date: '13 Aug 2026', hidden: false, flagged: false },
-  { id: 3, customer: 'Ananya Gupta', technician: 'Rahul Adhikary', techId: 'BT-TECH-000001', service: 'AC Gas Refill', rating: 5, comment: 'Very transparent with gas pressure gauges and diagnostics.', date: '12 Aug 2026', hidden: false, flagged: false },
-  { id: 4, customer: 'Rohan Sen', technician: 'Sunita Rao', techId: 'BT-TECH-000003', service: 'Laptop Keyboard Replacement', rating: 2, comment: 'Parts took a bit longer than estimated.', date: '11 Aug 2026', hidden: false, flagged: false }
-];
+import React, { useState, useEffect } from 'react';
 
 export default function ReviewsManager({ auditLogAction }) {
-  const [reviews, setReviews] = useState(INITIAL_REVIEWS_LIST);
+  const [reviews, setReviews] = useState([]);
   const [filterRating, setFilterRating] = useState('ALL');
+
+  useEffect(() => {
+    const token = localStorage.getItem('bt_admin_token');
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+    fetch('/api/v1/admin/reviews', { headers })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.data && Array.isArray(data.data)) {
+          setReviews(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const filteredReviews = reviews.filter(r => {
     if (filterRating === 'ALL') return true;
@@ -68,13 +75,20 @@ export default function ReviewsManager({ auditLogAction }) {
               </tr>
             </thead>
             <tbody>
-              {filteredReviews.map(r => (
-                <tr key={r.id} style={{ opacity: r.hidden ? 0.5 : 1 }}>
-                  <td>
-                    <span style={{ color: '#D97706', fontWeight: '700', fontSize: '13.5px' }}>
-                      {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)} ({r.rating}.0)
-                    </span>
+              {filteredReviews.length === 0 ? (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                    ⭐ No reviews yet
                   </td>
+                </tr>
+              ) : (
+                filteredReviews.map(r => (
+                  <tr key={r.id} style={{ opacity: r.hidden ? 0.5 : 1 }}>
+                    <td>
+                      <span style={{ color: '#D97706', fontWeight: '700', fontSize: '13.5px' }}>
+                        {'★'.repeat(r.rating || 5)}{'☆'.repeat(Math.max(0, 5 - (r.rating || 5)))} ({r.rating || 5}.0)
+                      </span>
+                    </td>
                   <td>
                     <strong style={{ color: 'var(--text-main)' }}>{r.customer}</strong>
                   </td>
@@ -111,7 +125,7 @@ export default function ReviewsManager({ auditLogAction }) {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

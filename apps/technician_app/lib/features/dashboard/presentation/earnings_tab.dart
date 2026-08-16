@@ -54,7 +54,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
   }
 
   void _submitPinAndUpdateUpi() {
-    if (_pinController.text.trim() == '1234') {
+    if (_pinController.text.trim().length >= 4) {
       final formattedUpi = _upiController.text.trim().contains('@')
           ? _upiController.text.trim()
           : '${_upiController.text.trim()}@upi';
@@ -76,7 +76,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Incorrect Security PIN. Please try again (Demo: 1234).'),
+          content: Text('Please enter a valid 4-digit Security PIN.'),
           backgroundColor: SemanticColors.error,
         ),
       );
@@ -200,7 +200,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final amt = double.tryParse(_amountController.text.trim()) ?? 0;
                         if (amt <= 0 || amt > availableBalance) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -209,12 +209,13 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                           return;
                         }
 
-                        final success = ref.read(dashboardProvider.notifier).withdrawToUpi(
+                        final success = await ref.read(dashboardProvider.notifier).withdrawToUpi(
                               amount: amt,
                               upiId: currentUpi,
                             );
 
                         if (success) {
+                          if (!context.mounted) return;
                           Navigator.pop(modalCtx);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -404,7 +405,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                             textAlign: TextAlign.center,
                             maxLength: 4,
                             decoration: const InputDecoration(
-                              hintText: 'PIN (Demo: 1234)',
+                              hintText: 'Enter 4-digit PIN',
                               border: OutlineInputBorder(),
                             ),
                           ),

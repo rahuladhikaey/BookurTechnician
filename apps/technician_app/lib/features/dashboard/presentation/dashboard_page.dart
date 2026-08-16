@@ -989,6 +989,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   // ─── 7. Today's Jobs Section ──────────────────────────────────────────────
   Widget _buildTodayJobsSection(BuildContext context) {
+    final state = ref.watch(dashboardProvider);
     return Column(
       children: [
         Row(
@@ -1017,82 +1018,100 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           ],
         ),
         const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
+        state.activeJob != null
+            ? Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8EEFF),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.ac_unit, color: Color(0xFF17399A), size: 22),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AC Cleaning',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0B1635)),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Amit Kumar • Today • 2:30 PM',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF667085)),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      '📍 Hebbal',
-                      style: TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    '₹499',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF17399A)),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8EEFF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.build, color: Color(0xFF17399A), size: 22),
                     ),
-                    child: const Text(
-                      'Upcoming',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1D4ED8),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            state.activeJob!.title,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0B1635)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${state.activeJob!.customerName} • Today',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF667085)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '📍 ${state.activeJob!.customerAddress}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+                          ),
+                        ],
                       ),
                     ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '₹${state.activeJob!.price.toStringAsFixed(0)}',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF17399A)),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'In Progress',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1D4ED8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              )
+            : Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: const Center(
+                  child: Text(
+                    'No active bookings scheduled for today',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF667085), fontWeight: FontWeight.w500),
                   ),
-                ],
+                ),
               ),
-            ],
-          ),
-        ),
       ],
     );
   }

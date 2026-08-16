@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function ReportsManager({ auditLogAction }) {
+export default function ReportsManager({ auditLogAction, technicians = [] }) {
   const [reportType, setReportType] = useState('REVENUE');
   const [dateRange, setDateRange] = useState('MONTH');
 
@@ -160,30 +160,28 @@ export default function ReportsManager({ auditLogAction }) {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td><strong>Rahul Adhikary</strong></td>
-                  <td><span className="badge badge-info">AC Service</span></td>
-                  <td>142 jobs</td>
-                  <td><strong>₹42,800.00</strong></td>
-                  <td>⭐ 4.9 (120 reviews)</td>
-                  <td><span className="badge badge-completed">🟢 Online</span></td>
-                </tr>
-                <tr>
-                  <td><strong>Amit Singh</strong></td>
-                  <td><span className="badge badge-info">Fan Service</span></td>
-                  <td>64 jobs</td>
-                  <td><strong>₹18,400.00</strong></td>
-                  <td>⭐ 4.8 (58 reviews)</td>
-                  <td><span className="badge badge-completed">🟢 Online</span></td>
-                </tr>
-                <tr>
-                  <td><strong>Kabir Dev</strong></td>
-                  <td><span className="badge badge-info">Refrigerator Service</span></td>
-                  <td>38 jobs</td>
-                  <td><strong>₹24,600.00</strong></td>
-                  <td>⭐ 4.7 (32 reviews)</td>
-                  <td><span className="badge badge-cancelled">⚪ Offline</span></td>
-                </tr>
+                {technicians.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                      👨‍🔧 No technician records found
+                    </td>
+                  </tr>
+                ) : (
+                  technicians.map(t => (
+                    <tr key={t.id}>
+                      <td><strong>{t.name}</strong></td>
+                      <td><span className="badge badge-info">{t.category || 'General'}</span></td>
+                      <td>{t.completedJobs || 0} jobs</td>
+                      <td><strong>₹{(t.earnings || 0).toFixed(2)}</strong></td>
+                      <td>⭐ {t.rating || 0.0}</td>
+                      <td>
+                        <span className={`badge ${t.onlineStatus === 'Online' ? 'badge-completed' : 'badge-cancelled'}`}>
+                          {t.onlineStatus === 'Online' ? '🟢 Online' : '⚪ Offline'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

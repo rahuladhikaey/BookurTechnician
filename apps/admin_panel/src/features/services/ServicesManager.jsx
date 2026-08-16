@@ -347,31 +347,39 @@ export default function ServicesManager({ categories, setCategories, services, s
                 </tr>
               </thead>
               <tbody>
-                {categories.map(cat => {
-                  const count = services.filter(s => s.category === cat.name).length;
-                  return (
-                    <tr key={cat.id}>
-                      <td>
-                        <img src={cat.imageUrl} alt={cat.name} className="table-img-thumb" />
-                      </td>
-                      <td>
-                        <strong style={{ color: 'var(--text-main)', fontSize: '14px' }}>{cat.name}</strong>
-                      </td>
-                      <td>{count} active services</td>
-                      <td>
-                        <span className={`badge ${cat.isActive !== false ? 'badge-completed' : 'badge-cancelled'}`}>
-                          {cat.isActive !== false ? 'Active' : 'Disabled'}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div className="page-actions-group" style={{ justifyContent: 'flex-end' }}>
-                          <button className="btn btn-outline btn-sm" onClick={() => openCategoryModal(cat)}>Edit</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteCategory(cat.id, cat.name)}>Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {categories.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                      📁 No categories found
+                    </td>
+                  </tr>
+                ) : (
+                  categories.map(cat => {
+                    const count = services.filter(s => s.category === cat.name).length;
+                    return (
+                      <tr key={cat.id}>
+                        <td>
+                          <img src={cat.imageUrl} alt={cat.name} className="table-img-thumb" />
+                        </td>
+                        <td>
+                          <strong style={{ color: 'var(--text-main)', fontSize: '14px' }}>{cat.name}</strong>
+                        </td>
+                        <td>{count} active services</td>
+                        <td>
+                          <span className={`badge ${cat.isActive !== false ? 'badge-completed' : 'badge-cancelled'}`}>
+                            {cat.isActive !== false ? 'Active' : 'Disabled'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div className="page-actions-group" style={{ justifyContent: 'flex-end' }}>
+                            <button className="btn btn-outline btn-sm" onClick={() => openCategoryModal(cat)}>Edit</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDeleteCategory(cat.id, cat.name)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

@@ -12,12 +12,12 @@ class DigitalIdCardPage extends StatefulWidget {
 
   const DigitalIdCardPage({
     super.key,
-    this.technicianName = 'Rahul Adhikary',
-    this.technicianCode = 'BT-TECH-000001',
-    this.joinDate = '15 August 2026',
-    this.initialPhotoUrl = 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=600',
-    this.skills = const ['AC Service', 'Electrical', 'Fan Service'],
-    this.verificationStatus = 'APPROVED',
+    this.technicianName = 'Technician',
+    this.technicianCode = 'BT-TECH-PENDING',
+    this.joinDate = '',
+    this.initialPhotoUrl = '',
+    this.skills = const [],
+    this.verificationStatus = 'PENDING',
   });
 
   @override

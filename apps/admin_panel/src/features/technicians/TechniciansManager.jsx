@@ -316,7 +316,7 @@ export default function TechniciansManager({ technicians, setTechnicians, auditL
                     type="text"
                     required
                     className="form-control"
-                    placeholder="e.g. Rahul Adhikary"
+                    placeholder="e.g. Full Name"
                     value={newTechForm.name}
                     onChange={e => setNewTechForm({ ...newTechForm, name: e.target.value })}
                   />

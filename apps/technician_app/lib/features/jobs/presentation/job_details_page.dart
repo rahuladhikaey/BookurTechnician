@@ -295,15 +295,6 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
-                    const SizedBox(height: AppSpacing.l),
-                    if (jobState.isShiftOnline)
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.radar),
-                        label: const Text('Simulate Incoming Booking Broadcast'),
-                        onPressed: () {
-                          notifier.simulateIncomingJobOffer();
-                        },
-                      ),
                   ],
                 ),
               ),
@@ -555,7 +546,7 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('Client: Shreya Sharma', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                                  Text('Client: ${jobState.proposedJob!.customerName}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                                   Text(
                                     'Payout: ₹${jobState.proposedJob!.price.toStringAsFixed(0)}',
                                     style: const TextStyle(fontWeight: FontWeight.bold, color: SemanticColors.success, fontSize: 13),

@@ -49,6 +49,18 @@ class ServiceItem {
     this.faqs = const [],
     this.imageUrl = 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500&auto=format&fit=crop',
   });
+
+  factory ServiceItem.fromJson(Map<String, dynamic> json) {
+    return ServiceItem(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      durationMinutes: json['durationMinutes'] as int? ?? 45,
+      warrantyText: json['warrantyText']?.toString() ?? '30-Day Service Warranty',
+      description: json['description']?.toString() ?? '',
+      imageUrl: json['imageUrl']?.toString() ?? 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500&auto=format&fit=crop',
+    );
+  }
 }
 
 class Subcategory {
@@ -56,6 +68,14 @@ class Subcategory {
   final String name;
   final List<ServiceItem> services;
   const Subcategory({required this.id, required this.name, required this.services});
+
+  factory Subcategory.fromJson(Map<String, dynamic> json) {
+    return Subcategory(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      services: (json['services'] as List?)?.map((s) => ServiceItem.fromJson(s as Map<String, dynamic>)).toList() ?? [],
+    );
+  }
 }
 
 class Category {
@@ -69,6 +89,15 @@ class Category {
     this.imageUrl = '',
     required this.subcategories,
   });
+
+  factory Category.fromJson(Map<String, dynamic> json) {
+    return Category(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      imageUrl: json['iconUrl']?.toString() ?? json['bannerUrl']?.toString() ?? json['imageUrl']?.toString() ?? '',
+      subcategories: (json['subcategories'] as List?)?.map((s) => Subcategory.fromJson(s as Map<String, dynamic>)).toList() ?? [],
+    );
+  }
 }
 
 class AddOnItem {
@@ -107,13 +136,50 @@ class Booking {
     this.visitFee = 99.0,
     this.discount = 0.0,
     required this.gstTax,
-    required this.grandTotal,
-    this.address = 'Flat 402, Royal Palms Residency, Bengaluru',
-    this.technicianName = 'Rahul Sharma',
-    this.technicianPhone = '+91 98765 43210',
-    this.otpCode = '4821',
+    this.grandTotal = 0.0,
+    this.address = '',
+    this.technicianName = '',
+    this.technicianPhone = '',
+    this.otpCode = '',
     this.addOns = const [],
   });
+
+  factory Booking.fromJson(Map<String, dynamic> json) {
+    final statusStr = json['status']?.toString().toUpperCase() ?? 'CONFIRMED';
+    BookingStatus bookingStatus = BookingStatus.confirmed;
+    if (statusStr == 'ASSIGNED') {
+      bookingStatus = BookingStatus.techAssigned;
+    } else if (statusStr == 'ON_THE_WAY') {
+      bookingStatus = BookingStatus.techOnTheWay;
+    } else if (statusStr == 'ARRIVED') {
+      bookingStatus = BookingStatus.techArrived;
+    } else if (statusStr == 'IN_PROGRESS') {
+      bookingStatus = BookingStatus.serviceStarted;
+    } else if (statusStr == 'COMPLETED') {
+      bookingStatus = BookingStatus.completed;
+    } else if (statusStr == 'CANCELLED') {
+      bookingStatus = BookingStatus.cancelled;
+    }
+
+    return Booking(
+      id: json['bookingCode']?.toString() ?? json['id']?.toString() ?? '',
+      services: json['serviceName'] != null 
+          ? [ServiceItem(id: json['serviceId']?.toString() ?? '', name: json['serviceName']?.toString() ?? 'Service', price: (json['basePrice'] as num?)?.toDouble() ?? 0.0)]
+          : [],
+      date: json['scheduleDate']?.toString() ?? '',
+      timeSlot: json['scheduleSlot']?.toString() ?? '',
+      status: bookingStatus,
+      baseCost: (json['basePrice'] as num?)?.toDouble() ?? 0.0,
+      visitFee: (json['safetyFee'] as num?)?.toDouble() ?? 49.0,
+      discount: 0.0,
+      gstTax: (json['gstAmount'] as num?)?.toDouble() ?? 0.0,
+      grandTotal: (json['grandTotal'] as num?)?.toDouble() ?? 0.0,
+      address: json['fullAddress']?.toString() ?? '',
+      technicianName: json['technicianName']?.toString() ?? '',
+      technicianPhone: json['technicianPhone']?.toString() ?? '',
+      otpCode: json['startServiceOtp']?.toString() ?? '',
+    );
+  }
 
   Booking copyWith({
     String? id,

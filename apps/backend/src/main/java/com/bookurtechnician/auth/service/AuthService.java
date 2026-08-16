@@ -32,6 +32,7 @@ public class AuthService {
     private final TechnicianWalletRepository technicianWalletRepository;
     private final OtpService otpService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     public void requestOtp(AuthDtos.RequestOtpDto dto) {
         otpService.requestEmailOtp(dto.getEmail(), dto.getName(), dto.getPurpose());
@@ -105,15 +106,19 @@ public class AuthService {
     private User createNewUser(AuthDtos.VerifyOtpDto dto) {
         String phone = dto.getPhone() != null && !dto.getPhone().isBlank()
                 ? dto.getPhone().trim()
-                : "+91" + (System.currentTimeMillis() % 10000000000L);
+                : null;
+
+        String fullName = dto.getFullName() != null && !dto.getFullName().isBlank()
+                ? dto.getFullName().trim()
+                : "";
 
         User user = User.builder()
                 .email(dto.getEmail().toLowerCase().trim())
                 .phone(phone)
-                .fullName(dto.getFullName() != null ? dto.getFullName().trim() : "Valued Customer")
+                .fullName(fullName)
                 .role(dto.getRole() != null ? dto.getRole() : Role.CUSTOMER)
                 .emailVerified(true)
-                .phoneVerified(true)
+                .phoneVerified(phone != null)
                 .build();
 
         user = userRepository.save(user);
@@ -121,8 +126,8 @@ public class AuthService {
         if (user.getRole() == Role.CUSTOMER) {
             CustomerProfile profile = CustomerProfile.builder()
                     .user(user)
-                    .hasValidName(user.getFullName() != null && !user.getFullName().isBlank())
-                    .hasVerifiedPhone(true)
+                    .hasValidName(!fullName.isBlank())
+                    .hasVerifiedPhone(phone != null)
                     .hasVerifiedEmail(true)
                     .build();
             profile.recalculateScore();
@@ -133,8 +138,8 @@ public class AuthService {
                     .user(user)
                     .technicianCode(techCode)
                     .kycStatus("PENDING")
-                    .rating(new BigDecimal("5.0"))
-                    .upiId("technician@upi")
+                    .rating(BigDecimal.ZERO)
+                    .upiId(null)
                     .build();
             techProfile = technicianProfileRepository.save(techProfile);
 
@@ -165,7 +170,7 @@ public class AuthService {
         int score = 100;
         if (user.getRole() == Role.CUSTOMER) {
             score = customerProfileRepository.findByUser(user)
-                    .map(CustomerProfile::getProfileCompletionPercentage)
+                    .map(profile -> profile.getProfileCompletionPercentage())
                     .orElse(100);
         }
 
@@ -183,5 +188,17 @@ public class AuthService {
                         .profileCompletionPercentage(score)
                         .build())
                 .build();
+    }
+
+    public void logout(AuthDtos.LogoutDto dto) {
+        if (dto != null && dto.getRefreshToken() != null && !dto.getRefreshToken().isBlank()) {
+            try {
+                // Invalidate refresh token by storing in Redis blacklist
+                redisTemplate.opsForValue().set("token:blacklist:" + dto.getRefreshToken(), "revoked", java.time.Duration.ofDays(30));
+                log.info("Token session invalidated successfully.");
+            } catch (Exception ex) {
+                log.warn("Redis token blacklist warning: {}", ex.getMessage());
+            }
+        }
     }
 }

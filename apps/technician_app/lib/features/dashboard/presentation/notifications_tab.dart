@@ -2,64 +2,50 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/semantic_colors.dart';
 
 class NotificationsTab extends StatelessWidget {
   const NotificationsTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    const notifications = [
-      _PartnerNotification(
-        title: 'Weekly Payout Processed 💰',
-        body: 'Your weekly payout of ₹11,205 has been transferred to SBI account ending with 8392.',
-        time: 'Today • 10:15 AM',
-        icon: Icons.account_balance_wallet,
-        color: SemanticColors.success,
-        isUnread: true,
-      ),
-      _PartnerNotification(
-        title: '5-Star Rating Received ⭐',
-        body: 'Amit Kumar rated your AC Installation service 5 stars: "Very prompt, clean and expert work!"',
-        time: 'Yesterday • 6:40 PM',
-        icon: Icons.star,
-        color: SemanticColors.warning,
-        isUnread: true,
-      ),
-      _PartnerNotification(
-        title: 'High Demand Surge Alert ⚡',
-        body: 'High demand in Hebbal & HSR Layout. Earn 1.2x on all electrical & AC repair jobs today.',
-        time: 'Yesterday • 11:00 AM',
-        icon: Icons.bolt,
-        color: AppColors.primary,
-        isUnread: true,
-      ),
-      _PartnerNotification(
-        title: 'Training Module Available 🛠️',
-        body: 'New safety module on Jet-Pump AC Wash procedures is now available in your profile.',
-        time: '2 days ago',
-        icon: Icons.school,
-        color: AppColors.textSecondary,
-        isUnread: false,
-      ),
-    ];
+    const List<_PartnerNotification> notifications = [];
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
-          TextButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('All alerts marked as read.')),
-              );
-            },
-            child: const Text('Mark all read', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
-          ),
+          if (notifications.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('All alerts marked as read.')),
+                );
+              },
+              child: const Text('Mark all read', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
         ],
       ),
-      body: ListView.separated(
+      body: notifications.isEmpty
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.notifications_none, size: 64, color: AppColors.textSecondary),
+                  SizedBox(height: AppSpacing.s),
+                  Text(
+                    'No notifications yet',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary, fontSize: 15),
+                  ),
+                  SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    'You will receive broadcast alerts and job updates here.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            )
+          : ListView.separated(
         padding: const EdgeInsets.all(AppSpacing.m),
         itemCount: notifications.length,
         separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.s),

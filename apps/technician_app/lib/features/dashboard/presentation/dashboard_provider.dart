@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../data/technician_banner_service.dart';
 import '../domain/technician_banner.dart';
+import '../../../core/network/dio_client.dart';
+import '../../../core/security/secure_storage.dart';
 
 enum ActiveJobStep {
   accepted,
@@ -165,23 +167,20 @@ class DashboardState {
     this.isLoadingBanners = false,
     this.currentLatitude = 12.9716,
     this.currentLongitude = 77.5946,
-    this.currentLocationAddress = 'Bellary Road, Bengaluru',
+    this.currentLocationAddress = '',
     this.isFetchingLocation = false,
-    this.todayJobsCount = 4,
-    this.todayEarnings = 1850.0,
-    this.completedJobsCount = 3,
-    this.rating = 4.8,
-    this.weeklyEarnings = 12450.0,
-    this.weeklyCompletedJobs = 24,
-    this.platformFee = 1245.0,
-    this.netEarnings = 11205.0,
-    this.savedUpiId = 'rahulsharma@sbi',
-    this.payoutHistory = const [
-      PayoutTransaction(id: 'PAY-8392019A', date: '10 Aug 2026', amount: 4580.0, upiId: 'rahulsharma@sbi'),
-      PayoutTransaction(id: 'PAY-7482910D', date: '03 Aug 2026', amount: 6240.0, upiId: 'rahulsharma@sbi'),
-    ],
-    this.acceptanceRate = 98.0,
-    this.completionRate = 96.0,
+    this.todayJobsCount = 0,
+    this.todayEarnings = 0.0,
+    this.completedJobsCount = 0,
+    this.rating = 0.0,
+    this.weeklyEarnings = 0.0,
+    this.weeklyCompletedJobs = 0,
+    this.platformFee = 0.0,
+    this.netEarnings = 0.0,
+    this.savedUpiId = '',
+    this.payoutHistory = const [],
+    this.acceptanceRate = 0.0,
+    this.completionRate = 0.0,
     this.currentProposal,
     this.proposalCountdown = 25,
     this.activeJob,
@@ -248,21 +247,11 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
           DashboardState(
             isOnline: true,
             banners: TechnicianBanner.getDefaultBanners(),
-            currentProposal: const JobProposalModel(
-              id: 'SR-92841',
-              title: 'AC Service',
-              customerName: 'Amit Kumar',
-              customerAddress: 'Flat 302, Green Glen Layout, Bellandur, Bengaluru',
-              distanceKm: 2.4,
-              travelMinutes: 8,
-              estimatedEarning: 399.0,
-              countdownSeconds: 25,
-            ),
-            proposalCountdown: 25,
+            currentProposal: null,
+            proposalCountdown: 0,
           ),
         ) {
     _initBanners();
-    _startCountdownTimer();
   }
 
   Future<void> _initBanners() async {
@@ -293,13 +282,23 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
     if (val) {
       // Automatically fetch current GPS location upon going online
       await fetchAndUpdateLocation();
-
-      if (state.activeJob == null && state.currentProposal == null) {
-        simulateNewBookingRequest();
-      }
+      try {
+        final dioClient = DioClient(SecureStorage());
+        await dioClient.dio.post('/technician/online-status', data: {
+          'online': true,
+          'latitude': state.currentLatitude,
+          'longitude': state.currentLongitude,
+        });
+      } catch (_) {}
     } else {
       // Going offline rejects pending proposals
       rejectProposal();
+      try {
+        final dioClient = DioClient(SecureStorage());
+        await dioClient.dio.post('/technician/online-status', data: {
+          'online': false,
+        });
+      } catch (_) {}
     }
   }
 
@@ -342,31 +341,42 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
   }
 
   /// ─── UPI INSTANT WITHDRAWAL & WALLET ACTIONS ──────────────────────────────
-  bool withdrawToUpi({required double amount, required String upiId}) {
+  Future<bool> withdrawToUpi({required double amount, required String upiId}) async {
     if (amount <= 0 || amount > state.netEarnings) {
       return false;
     }
 
-    HapticFeedback.heavyImpact();
-    final newTxnId = 'PAY-${1000000 + DateTime.now().millisecondsSinceEpoch % 9000000}';
-    final now = DateTime.now();
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final dateStr = '${now.day} ${months[now.month - 1]} ${now.year}';
+    try {
+      final dioClient = DioClient(SecureStorage());
+      final res = await dioClient.dio.post('/technician/withdraw', data: {
+        'amount': amount,
+        'upiId': upiId,
+      });
 
-    final newTxn = PayoutTransaction(
-      id: newTxnId,
-      date: dateStr,
-      amount: amount,
-      upiId: upiId,
-      status: 'Settled (Instant UPI: $upiId)',
-    );
+      if (res.statusCode == 200) {
+        HapticFeedback.heavyImpact();
+        final newTxnId = 'PAY-${1000000 + DateTime.now().millisecondsSinceEpoch % 9000000}';
+        final now = DateTime.now();
+        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final dateStr = '${now.day} ${months[now.month - 1]} ${now.year}';
 
-    state = state.copyWith(
-      netEarnings: state.netEarnings - amount,
-      payoutHistory: [newTxn, ...state.payoutHistory],
-      savedUpiId: upiId,
-    );
-    return true;
+        final newTxn = PayoutTransaction(
+          id: newTxnId,
+          date: dateStr,
+          amount: amount,
+          upiId: upiId,
+          status: 'Settled (Instant UPI: $upiId)',
+        );
+
+        state = state.copyWith(
+          netEarnings: state.netEarnings - amount,
+          payoutHistory: [newTxn, ...state.payoutHistory],
+          savedUpiId: upiId,
+        );
+        return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   void updateUpiId(String newUpiId) {
@@ -431,23 +441,15 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
   }
 
   void resetProposal() {
-    simulateNewBookingRequest();
+    _countdownTimer?.cancel();
+    state = state.copyWith(currentProposal: null, proposalCountdown: 0);
   }
 
-  void simulateNewBookingRequest() {
+  void receiveJobProposal(JobProposalModel proposal) {
     _countdownTimer?.cancel();
     state = state.copyWith(
-      currentProposal: const JobProposalModel(
-        id: 'SR-92841',
-        title: 'AC Service',
-        customerName: 'Amit Kumar',
-        customerAddress: 'Flat 302, Green Glen Layout, Bellandur, Bengaluru',
-        distanceKm: 2.4,
-        travelMinutes: 8,
-        estimatedEarning: 399.0,
-        countdownSeconds: 25,
-      ),
-      proposalCountdown: 25,
+      currentProposal: proposal,
+      proposalCountdown: proposal.countdownSeconds,
     );
     _startCountdownTimer();
   }
