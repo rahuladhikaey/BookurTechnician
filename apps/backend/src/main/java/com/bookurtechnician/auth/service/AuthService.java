@@ -15,10 +15,13 @@ import com.bookurtechnician.wallet.entity.TechnicianWallet;
 import com.bookurtechnician.wallet.repository.TechnicianWalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -32,7 +35,7 @@ public class AuthService {
     private final TechnicianWalletRepository technicianWalletRepository;
     private final OtpService otpService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+    private final StringRedisTemplate redisTemplate;
 
     public void requestOtp(AuthDtos.RequestOtpDto dto) {
         String purpose = dto.getPurpose() != null && !dto.getPurpose().isBlank()
@@ -49,6 +52,7 @@ public class AuthService {
                 : "LOGIN";
         String email = dto.getEmail().trim().toLowerCase();
         String otp = dto.getOtp() != null ? dto.getOtp().trim() : "";
+        String normalizedPhone = normalizePhone(dto.getPhone());
 
         boolean isValid = otpService.verifyEmailOtp(email, purpose, otp);
         if (!isValid) {
@@ -56,33 +60,52 @@ public class AuthService {
             throw new BadRequestException("Invalid or expired verification code. Please check your inbox and try again.");
         }
 
-        // Find or create user
+        // 1. Check existing user by email first
+        // 2. If not found by email, check existing user by normalized phone
+        // 3. If genuinely new, create exactly one user row
         User user = userRepository.findByEmail(email)
-                .orElseGet(() -> createNewUser(dto));
+                .or(() -> (normalizedPhone != null && !normalizedPhone.isBlank())
+                        ? userRepository.findByPhone(normalizedPhone)
+                        : Optional.empty())
+                .orElseGet(() -> createNewUser(dto, normalizedPhone, email));
 
-        // If user already existed, ensure role compatibility if requested role is TECHNICIAN
+        // Update user fields safely
+        if (user.getEmail() == null || user.getEmail().isBlank()) {
+            user.setEmail(email);
+        }
+        if (normalizedPhone != null && !normalizedPhone.isBlank() && (user.getPhone() == null || user.getPhone().isBlank())) {
+            user.setPhone(normalizedPhone);
+        }
         if (dto.getRole() != null && user.getRole() != dto.getRole()) {
             user.setRole(dto.getRole());
         }
-
-        // Update name/phone if provided
         if (dto.getFullName() != null && !dto.getFullName().isBlank()) {
             user.setFullName(dto.getFullName().trim());
         }
-        if (dto.getPhone() != null && !dto.getPhone().isBlank()) {
-            user.setPhone(dto.getPhone().trim());
-        }
         user.setEmailVerified(true);
-        final User savedUser = userRepository.save(user);
+        user.setPhoneVerified(true);
+        user.setActive(true);
 
-        // Update profile status
+        User savedUser;
+        try {
+            savedUser = userRepository.save(user);
+        } catch (DataIntegrityViolationException ex) {
+            // Concurrent insert race condition safety fallback
+            log.warn("Concurrent user record resolution for phone {} / email {}", normalizedPhone, email);
+            savedUser = userRepository.findByEmail(email)
+                    .or(() -> (normalizedPhone != null) ? userRepository.findByPhone(normalizedPhone) : Optional.empty())
+                    .orElse(user);
+        }
+
+        // Update profile status idempotently
         int completionScore = 100;
         if (savedUser.getRole() == Role.CUSTOMER) {
-            CustomerProfile profile = customerProfileRepository.findByUser(savedUser)
+            final User customerUser = savedUser;
+            CustomerProfile profile = customerProfileRepository.findByUser(customerUser)
                     .orElseGet(() -> {
                         CustomerProfile newProfile = CustomerProfile.builder()
-                                .user(savedUser)
-                                .hasValidName(savedUser.getFullName() != null && !savedUser.getFullName().isBlank())
+                                .user(customerUser)
+                                .hasValidName(customerUser.getFullName() != null && !customerUser.getFullName().isBlank())
                                 .hasVerifiedPhone(true)
                                 .hasVerifiedEmail(true)
                                 .build();
@@ -91,6 +114,7 @@ public class AuthService {
                     });
 
             profile.setHasVerifiedEmail(true);
+            profile.setHasVerifiedPhone(true);
             if (savedUser.getFullName() != null && !savedUser.getFullName().isBlank()) {
                 profile.setHasValidName(true);
             }
@@ -98,28 +122,29 @@ public class AuthService {
             customerProfileRepository.save(profile);
             completionScore = profile.getProfileCompletionPercentage();
         } else if (savedUser.getRole() == Role.TECHNICIAN) {
-            technicianProfileRepository.findByUser(savedUser).orElseGet(() -> {
-                String techCode = "BT-TECH-" + String.format("%06d", (userRepository.countByRole(Role.TECHNICIAN) + 1));
-                TechnicianProfile techProfile = TechnicianProfile.builder()
-                        .user(savedUser)
-                        .technicianCode(techCode)
-                        .kycStatus("VERIFIED")
-                        .rating(new BigDecimal("5.0"))
-                        .upiId("technician@upi")
-                        .upiVerified(true)
-                        .build();
-                techProfile = technicianProfileRepository.save(techProfile);
+            final User techUser = savedUser;
+            TechnicianProfile techProfile = technicianProfileRepository.findByUser(techUser)
+                    .orElseGet(() -> {
+                        String techCode = "BT-TECH-" + String.format("%06d", (userRepository.countByRole(Role.TECHNICIAN) + 1));
+                        TechnicianProfile newTechProfile = TechnicianProfile.builder()
+                                .user(techUser)
+                                .technicianCode(techCode)
+                                .kycStatus("VERIFIED")
+                                .rating(new BigDecimal("5.0"))
+                                .upiId("technician@upi")
+                                .upiVerified(true)
+                                .build();
+                        return technicianProfileRepository.save(newTechProfile);
+                    });
 
-                if (technicianWalletRepository.findByTechnician(techProfile).isEmpty()) {
-                    TechnicianWallet wallet = TechnicianWallet.builder()
-                            .technician(techProfile)
-                            .availableBalance(BigDecimal.ZERO)
-                            .totalWithdrawn(BigDecimal.ZERO)
-                            .build();
-                    technicianWalletRepository.save(wallet);
-                }
-                return techProfile;
-            });
+            if (technicianWalletRepository.findByTechnician(techProfile).isEmpty()) {
+                TechnicianWallet wallet = TechnicianWallet.builder()
+                        .technician(techProfile)
+                        .availableBalance(BigDecimal.ZERO)
+                        .totalWithdrawn(BigDecimal.ZERO)
+                        .build();
+                technicianWalletRepository.save(wallet);
+            }
         }
 
         // Generate JWT Access and Refresh tokens
@@ -144,57 +169,53 @@ public class AuthService {
                 .build();
     }
 
-    private User createNewUser(AuthDtos.VerifyOtpDto dto) {
-        String phone = dto.getPhone() != null && !dto.getPhone().isBlank()
-                ? dto.getPhone().trim()
-                : "9" + String.format("%09d", Math.abs((dto.getEmail().hashCode() % 1000000000L)));
+    private User createNewUser(AuthDtos.VerifyOtpDto dto, String normalizedPhone, String email) {
+        String phone = (normalizedPhone != null && !normalizedPhone.isBlank())
+                ? normalizedPhone
+                : "9" + String.format("%09d", Math.abs((email.hashCode() % 1000000000L)));
+
+        // Idempotency check: if user with this phone exists, return it
+        Optional<User> existing = userRepository.findByPhone(phone);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
 
         String fullName = dto.getFullName() != null && !dto.getFullName().isBlank()
                 ? dto.getFullName().trim()
                 : (dto.getRole() == Role.TECHNICIAN ? "Technician Partner" : "Customer");
 
         User user = User.builder()
-                .email(dto.getEmail().toLowerCase().trim())
+                .email(email)
                 .phone(phone)
                 .fullName(fullName)
                 .role(dto.getRole() != null ? dto.getRole() : Role.CUSTOMER)
                 .emailVerified(true)
                 .phoneVerified(true)
+                .active(true)
                 .build();
 
-        user = userRepository.save(user);
-
-        if (user.getRole() == Role.CUSTOMER) {
-            CustomerProfile profile = CustomerProfile.builder()
-                    .user(user)
-                    .hasValidName(!fullName.isBlank())
-                    .hasVerifiedPhone(true)
-                    .hasVerifiedEmail(true)
-                    .build();
-            profile.recalculateScore();
-            customerProfileRepository.save(profile);
-        } else if (user.getRole() == Role.TECHNICIAN) {
-            String techCode = "BT-TECH-" + String.format("%06d", (userRepository.countByRole(Role.TECHNICIAN) + 1));
-            TechnicianProfile techProfile = TechnicianProfile.builder()
-                    .user(user)
-                    .technicianCode(techCode)
-                    .kycStatus("VERIFIED")
-                    .rating(new BigDecimal("5.0"))
-                    .upiId("technician@upi")
-                    .upiVerified(true)
-                    .build();
-            techProfile = technicianProfileRepository.save(techProfile);
-
-            // Initialize Wallet
-            TechnicianWallet wallet = TechnicianWallet.builder()
-                    .technician(techProfile)
-                    .availableBalance(BigDecimal.ZERO)
-                    .totalWithdrawn(BigDecimal.ZERO)
-                    .build();
-            technicianWalletRepository.save(wallet);
+        try {
+            return userRepository.save(user);
+        } catch (DataIntegrityViolationException ex) {
+            // In case of race condition
+            return userRepository.findByPhone(phone)
+                    .or(() -> userRepository.findByEmail(email))
+                    .orElseThrow(() -> ex);
         }
+    }
 
-        return user;
+    private String normalizePhone(String rawPhone) {
+        if (rawPhone == null || rawPhone.isBlank()) {
+            return null;
+        }
+        String digits = rawPhone.replaceAll("[^0-9]", "");
+        if (digits.length() == 12 && digits.startsWith("91")) {
+            digits = digits.substring(2);
+        }
+        if (digits.length() == 11 && digits.startsWith("0")) {
+            digits = digits.substring(1);
+        }
+        return digits.isBlank() ? null : digits;
     }
 
     public AuthDtos.AuthResponseDto refreshToken(AuthDtos.RefreshTokenDto dto) {

@@ -73,8 +73,18 @@ if (Test-Path $TechAppDir) {
                 $TargetApk = Join-Path $OutputDir "technician_app-debug.apk"
                 Copy-Item -Path $BuiltTechApk -Destination $TargetApk -Force
                 Write-Host "Successfully built and copied Technician App (Debug) to: $TargetApk" -ForegroundColor Green
+            }
+
+            Write-Host "Building release APK..." -ForegroundColor Gray
+            flutter build apk --release
+
+            $BuiltTechReleaseApk = "build\app\outputs\flutter-apk\app-release.apk"
+            if (Test-Path $BuiltTechReleaseApk) {
+                $TargetReleaseApk = Join-Path $OutputDir "technician_app-release.apk"
+                Copy-Item -Path $BuiltTechReleaseApk -Destination $TargetReleaseApk -Force
+                Write-Host "Successfully built and copied Technician App (Release) to: $TargetReleaseApk" -ForegroundColor Green
             } else {
-                Write-Warning "Could not find built technician app APK at $BuiltTechApk"
+                Write-Warning "Could not find built technician app release APK at $BuiltTechReleaseApk"
             }
         } else {
             Write-Warning "Flutter CLI is not found in your PATH. Skipping Technician App build."

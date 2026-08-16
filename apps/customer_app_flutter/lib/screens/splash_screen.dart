@@ -1,18 +1,22 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../booking_provider.dart';
+import '../services/api_client.dart';
 import '../theme.dart';
 import 'onboarding_screen.dart';
 import 'login_screen.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _logoScale;
   late Animation<double> _logoOpacity;
@@ -75,6 +79,36 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final prefs = await SharedPreferences.getInstance();
     final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
     
+    // Check if an existing authenticated session exists in secure storage
+    final token = await ApiClient.getAccessToken();
+    final refreshToken = await ApiClient.getRefreshToken();
+
+    if (token != null && token.isNotEmpty && refreshToken != null && refreshToken.isNotEmpty) {
+      try {
+        final profileRes = await ApiClient.get('/customer/profile');
+        if (profileRes.statusCode == 200) {
+          final decoded = jsonDecode(profileRes.body);
+          final data = decoded['data'];
+          final user = data?['user'];
+          if (mounted) {
+            ref.read(bookingProvider.notifier).loginUser(
+              name: user?['fullName'] ?? 'Customer',
+              phone: user?['phone'] ?? '',
+              email: user?['email'] ?? '',
+            );
+            Navigator.of(context).pushReplacementNamed('/home');
+            return;
+          }
+        }
+      } catch (_) {
+        // If offline/network issue, still restore cached session to home
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/home');
+          return;
+        }
+      }
+    }
+
     if (!mounted) return;
 
     // Transition with a smooth cross-fade duration of 400ms
