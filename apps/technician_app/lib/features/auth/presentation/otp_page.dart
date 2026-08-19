@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
@@ -37,9 +38,32 @@ class _OtpPageState extends ConsumerState<OtpPage> {
   final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String? _errorMsg;
+  int _countdown = 30;
+  StreamSubscription<int>? _timerSub;
+  bool _isResending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _countdown = 30;
+    _timerSub?.cancel();
+    _timerSub = Stream.periodic(const Duration(seconds: 1), (i) => i).listen((_) {
+      if (!mounted) return;
+      if (_countdown > 0) {
+        setState(() => _countdown--);
+      } else {
+        _timerSub?.cancel();
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _timerSub?.cancel();
     _otpController.dispose();
     super.dispose();
   }
@@ -96,6 +120,38 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     }
   }
 
+  void _resendCode() async {
+    if (_countdown > 0 || _isResending) return;
+
+    setState(() => _isResending = true);
+    final res = await ref.read(authProvider.notifier).requestOtp(
+      widget.phoneNumber.isNotEmpty ? widget.phoneNumber : null,
+      email: widget.emailAddress,
+      fullName: widget.fullName,
+      age: widget.age,
+    );
+    setState(() => _isResending = false);
+
+    if (mounted) {
+      if (res is ApiSuccess<bool>) {
+        _startCountdown();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF166534),
+            content: Text('New verification code sent to ${widget.emailAddress}!'),
+          ),
+        );
+      } else if (res is ApiFailure<bool>) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFDC2626),
+            content: Text(res.message),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -104,29 +160,42 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('OTP Verification'),
+        title: const Text('Partner OTP Verification'),
+        backgroundColor: Colors.white,
+        elevation: 0,
       ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.l),
           child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.m),
+              padding: const EdgeInsets.all(24),
               child: Form(
                 key: _formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Official App Logo
                     Container(
-                      width: 64,
-                      height: 64,
+                      width: 72,
+                      height: 72,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF1E3A8A).withValues(alpha: 0.12),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: const Icon(Icons.mark_email_read_outlined, size: 36, color: Color(0xFF1E3A8A)),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.asset('assets/images/app_logo.png', fit: BoxFit.cover),
                     ),
-                    const SizedBox(height: AppSpacing.s),
+                    const SizedBox(height: 16),
                     if (widget.fullName != null && widget.fullName!.isNotEmpty) ...[
                       Text(
                         'Welcome, ${widget.fullName}!',
@@ -177,18 +246,29 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                     ),
                     const SizedBox(height: AppSpacing.m),
                     TextButton(
-                      onPressed: () {
-                        ref.read(authProvider.notifier).requestOtp(
-                          widget.phoneNumber,
-                          email: widget.emailAddress,
-                          fullName: widget.fullName,
-                          age: widget.age,
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Verification code resent to your email.')),
-                        );
-                      },
-                      child: const Text('Resend Code', style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
+                      onPressed: (_countdown == 0 && !_isResending) ? _resendCode : null,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_isResending) ...[
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E3A8A)),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(
+                            _countdown > 0
+                                ? 'Resend OTP in ${_countdown}s'
+                                : 'Resend Code',
+                            style: TextStyle(
+                              color: _countdown > 0 ? AppColors.textSecondary : const Color(0xFF1E3A8A),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -200,4 +280,3 @@ class _OtpPageState extends ConsumerState<OtpPage> {
     );
   }
 }
-

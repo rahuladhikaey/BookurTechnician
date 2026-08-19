@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SecureStorage {
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
@@ -23,6 +24,8 @@ class SecureStorage {
   Future<void> saveToken(String token) async {
     try {
       await _storage.write(key: _tokenKey, value: token);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, token);
     } catch (e) {
       debugPrint('SecureStorage.saveToken error: $e');
     }
@@ -30,11 +33,15 @@ class SecureStorage {
 
   Future<String?> getToken() async {
     try {
-      return await _storage.read(key: _tokenKey);
+      final token = await _storage.read(key: _tokenKey);
+      if (token != null) return token;
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_tokenKey);
     } catch (e) {
       debugPrint('SecureStorage.getToken error: $e');
       try {
-        await _storage.delete(key: _tokenKey);
+        final prefs = await SharedPreferences.getInstance();
+        return prefs.getString(_tokenKey);
       } catch (_) {}
       return null;
     }
@@ -43,6 +50,8 @@ class SecureStorage {
   Future<void> deleteToken() async {
     try {
       await _storage.delete(key: _tokenKey);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_tokenKey);
     } catch (e) {
       debugPrint('SecureStorage.deleteToken error: $e');
     }
@@ -51,6 +60,8 @@ class SecureStorage {
   Future<void> saveRefreshToken(String refreshToken) async {
     try {
       await _storage.write(key: _refreshTokenKey, value: refreshToken);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_refreshTokenKey, refreshToken);
     } catch (e) {
       debugPrint('SecureStorage.saveRefreshToken error: $e');
     }
@@ -68,6 +79,8 @@ class SecureStorage {
   Future<void> deleteRefreshToken() async {
     try {
       await _storage.delete(key: _refreshTokenKey);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_refreshTokenKey);
     } catch (e) {
       debugPrint('SecureStorage.deleteRefreshToken error: $e');
     }
@@ -76,6 +89,8 @@ class SecureStorage {
   Future<void> saveUserId(String userId) async {
     try {
       await _storage.write(key: _userIdKey, value: userId);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userIdKey, userId);
     } catch (e) {
       debugPrint('SecureStorage.saveUserId error: $e');
     }
@@ -97,10 +112,23 @@ class SecureStorage {
     String? email,
   }) async {
     try {
-      if (name != null) await _storage.write(key: _userNameKey, value: name);
-      if (age != null) await _storage.write(key: _userAgeKey, value: age);
-      if (phone != null) await _storage.write(key: _userPhoneKey, value: phone);
-      if (email != null) await _storage.write(key: _userEmailKey, value: email);
+      final prefs = await SharedPreferences.getInstance();
+      if (name != null) {
+        await _storage.write(key: _userNameKey, value: name);
+        await prefs.setString(_userNameKey, name);
+      }
+      if (age != null) {
+        await _storage.write(key: _userAgeKey, value: age);
+        await prefs.setString(_userAgeKey, age);
+      }
+      if (phone != null) {
+        await _storage.write(key: _userPhoneKey, value: phone);
+        await prefs.setString(_userPhoneKey, phone);
+      }
+      if (email != null) {
+        await _storage.write(key: _userEmailKey, value: email);
+        await prefs.setString(_userEmailKey, email);
+      }
     } catch (e) {
       debugPrint('SecureStorage.saveUserDetails error: $e');
     }
@@ -127,9 +155,10 @@ class SecureStorage {
   Future<void> clearAll() async {
     try {
       await _storage.deleteAll();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
     } catch (e) {
       debugPrint('SecureStorage.clearAll error: $e');
     }
   }
 }
-

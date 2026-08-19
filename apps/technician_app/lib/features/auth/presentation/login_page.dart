@@ -144,29 +144,26 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
               children: [
                 // Top Logo Icon Container
                 Container(
-                  width: 72,
-                  height: 72,
+                  width: 88,
+                  height: 88,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFDBEAFE), width: 1.5),
+                    color: Colors.white,
+                    shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF1E3A8A).withValues(alpha: 0.08),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
+                        color: const Color(0xFF1E3A8A).withValues(alpha: 0.12),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.engineering_rounded,
-                      size: 38,
-                      color: Color(0xFF1E3A8A),
-                    ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(
+                    'assets/images/app_logo.png',
+                    fit: BoxFit.cover,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
 
                 const Text(
                   'Join Technician Member',

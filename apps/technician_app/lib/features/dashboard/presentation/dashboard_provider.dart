@@ -8,6 +8,8 @@ import '../domain/technician_banner.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
 
+import '../../../core/services/location_tracking_service.dart';
+
 enum ActiveJobStep {
   accepted,
   onTheWay,
@@ -253,6 +255,11 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
           ),
         ) {
     _initBanners();
+    fetchAndUpdateLocation().then((success) {
+      if (success && state.isOnline) {
+        LocationTrackingService().startTracking();
+      }
+    });
   }
 
   Future<void> _initBanners() async {
@@ -284,10 +291,12 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       final success = await fetchAndUpdateLocation();
       if (!success) {
         state = state.copyWith(isOnline: false);
+        await LocationTrackingService().stopTracking();
         return false;
       }
 
       state = state.copyWith(isOnline: true);
+      await LocationTrackingService().startTracking();
       try {
         final dioClient = DioClient(SecureStorage());
         await dioClient.dio.post('/technician/online-status', data: {
@@ -300,8 +309,9 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       }
       return true;
     } else {
-      // Going offline rejects pending proposals and deregisters from Redis GEO
+      // Going offline stops background tracking, rejects proposals, and updates server
       state = state.copyWith(isOnline: false);
+      await LocationTrackingService().stopTracking();
       rejectProposal();
       try {
         final dioClient = DioClient(SecureStorage());

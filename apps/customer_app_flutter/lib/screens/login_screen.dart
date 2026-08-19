@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -149,23 +150,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                   // ─── UPPER LOGO & BRANDING AREA ───
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 88,
+                    height: 88,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(22),
+                      shape: BoxShape.circle,
                       boxShadow: const [
                         BoxShadow(
-                          color: Color(0x33000000),
+                          color: Color(0x40000000),
                           blurRadius: 18,
                           offset: Offset(0, 8),
                         ),
                       ],
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: CustomPaint(
-                      size: const Size(80, 80),
-                      painter: _OfficialBtLogoPainter(),
+                    child: Image.asset(
+                      'assets/images/app_logo.png',
+                      fit: BoxFit.cover,
                     ),
                   ),
 
@@ -643,9 +644,32 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   final List<TextEditingController> _digitControllers = List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _isVerifying = false;
+  bool _isResending = false;
+  int _resendCountdown = 30;
+  StreamSubscription<int>? _resendTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _resendCountdown = 30;
+    _resendTimer?.cancel();
+    _resendTimer = Stream.periodic(const Duration(seconds: 1), (i) => i).listen((_) {
+      if (!mounted) return;
+      if (_resendCountdown > 0) {
+        setState(() => _resendCountdown--);
+      } else {
+        _resendTimer?.cancel();
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     for (var c in _digitControllers) {
       c.dispose();
     }
@@ -733,23 +757,34 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   }
 
   void _resendOtp() async {
+    if (_resendCountdown > 0 || _isResending) return;
+
+    setState(() => _isResending = true);
     try {
       final res = await ApiClient.post('/auth/request-otp', {
         'email': widget.emailAddress,
         'purpose': 'LOGIN',
       });
+      setState(() => _isResending = false);
       if (mounted) {
         if (res.statusCode == 200) {
+          _startCountdown();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('New verification code sent to your email.')),
+            SnackBar(
+              backgroundColor: const Color(0xFF166534),
+              content: Text('New 6-digit code sent to ${widget.emailAddress}!'),
+            ),
           );
         } else {
+          final decoded = jsonDecode(res.body);
+          final msg = decoded['message'] ?? 'Failed to resend code. Please try again.';
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to resend code. Please try again.')),
+            SnackBar(content: Text(msg)),
           );
         }
       }
     } catch (e) {
+      setState(() => _isResending = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
@@ -799,45 +834,54 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
-                  // Emblem
+                  // Brand Icon Container
                   Container(
-                    width: 68,
-                    height: 68,
+                    width: 72,
+                    height: 72,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
+                      shape: BoxShape.circle,
                       boxShadow: const [
-                        BoxShadow(color: Color(0x33000000), blurRadius: 12, offset: Offset(0, 6)),
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 16,
+                          offset: Offset(0, 6),
+                        ),
                       ],
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: CustomPaint(
-                      size: const Size(68, 68),
-                      painter: _OfficialBtLogoPainter(),
+                    child: Image.asset('assets/images/app_logo.png', fit: BoxFit.cover),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  const Text(
+                    'Verify Email OTP',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
                     ),
                   ),
 
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Verification',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
+
                   Text(
-                    'Code sent to ${widget.emailAddress}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    'Enter the 6-digit code sent to\n${widget.emailAddress}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
                   ),
 
                   const SizedBox(height: 28),
 
-                  // Floating White OTP Card
+                  // OTP Card
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
@@ -845,24 +889,32 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: const [
-                        BoxShadow(color: Color(0x4D0B1635), blurRadius: 24, offset: Offset(0, 12)),
+                        BoxShadow(
+                          color: Color(0x4D0B1635),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
                       ],
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const Text(
-                          'Verify your account',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF111827)),
+                          'Enter Verification Code',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF111827),
+                          ),
                         ),
                         const SizedBox(height: 6),
                         const Text(
-                          'Enter the 6-digit verification code we sent to you.',
-                          style: TextStyle(fontSize: 13, color: Color(0xFF667085)),
+                          'Check your inbox or spam folder',
+                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                         ),
                         const SizedBox(height: 24),
 
-                        // 6 Digit Segmented Input Boxes
+                        // 6-digit input boxes
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: List.generate(6, (index) {
@@ -940,17 +992,32 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
                         const SizedBox(height: 16),
 
-                        // Resend OTP Action
+                        // Active Resend OTP Action
                         Center(
                           child: TextButton(
-                            onPressed: _resendOtp,
-                            child: const Text(
-                              'Resend OTP',
-                              style: TextStyle(
-                                color: Color(0xFF2146A8),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13.5,
-                              ),
+                            onPressed: (_resendCountdown == 0 && !_isResending) ? _resendOtp : null,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_isResending) ...[
+                                  const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2146A8)),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+                                Text(
+                                  _resendCountdown > 0
+                                      ? 'Resend OTP in ${_resendCountdown}s'
+                                      : 'Resend Code',
+                                  style: TextStyle(
+                                    color: _resendCountdown > 0 ? const Color(0xFF94A3B8) : const Color(0xFF2146A8),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13.5,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -965,81 +1032,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       ),
     );
   }
-}
-
-// ─── OFFICIAL BOOKURTECHNICIAN EMBLEM PAINTER ──────────────────────────────────
-
-class _OfficialBtLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    // Top-left cyan & bottom-right royal blue split
-    final paintLight = Paint()..color = const Color(0xFF19B5D5);
-    final paintDark = Paint()..color = const Color(0xFF2146A8);
-
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), paintLight);
-
-    final pathBg = Path()
-      ..moveTo(0, h)
-      ..lineTo(w, h)
-      ..lineTo(w, 0)
-      ..close();
-    canvas.drawPath(pathBg, paintDark);
-
-    final scaleX = w / 100.0;
-    final scaleY = h / 100.0;
-
-    final paintWhite = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    // 1. Draw "B" stem
-    final pathB = Path()
-      ..moveTo(24 * scaleX, 24 * scaleY)
-      ..lineTo(33 * scaleX, 24 * scaleY)
-      ..lineTo(33 * scaleX, 62 * scaleY)
-      ..lineTo(24 * scaleX, 62 * scaleY)
-      ..close();
-    canvas.drawPath(pathB, paintWhite);
-
-    // 2. Top and Bottom loops of B
-    final pathBLoops = Path()
-      ..moveTo(33 * scaleX, 24 * scaleY)
-      ..quadraticBezierTo(52 * scaleX, 24 * scaleY, 52 * scaleX, 42 * scaleY)
-      ..quadraticBezierTo(52 * scaleX, 44 * scaleY, 46 * scaleX, 44 * scaleY)
-      ..quadraticBezierTo(54 * scaleX, 44 * scaleY, 54 * scaleX, 62 * scaleY)
-      ..lineTo(33 * scaleX, 62 * scaleY)
-      ..lineTo(33 * scaleX, 54 * scaleY)
-      ..lineTo(44 * scaleX, 54 * scaleY)
-      ..quadraticBezierTo(46 * scaleX, 54 * scaleY, 46 * scaleX, 50 * scaleY)
-      ..quadraticBezierTo(46 * scaleX, 46 * scaleY, 44 * scaleX, 46 * scaleY)
-      ..lineTo(33 * scaleX, 46 * scaleY)
-      ..lineTo(33 * scaleX, 40 * scaleY)
-      ..lineTo(42 * scaleX, 40 * scaleY)
-      ..quadraticBezierTo(44 * scaleX, 40 * scaleY, 44 * scaleX, 32 * scaleY)
-      ..quadraticBezierTo(44 * scaleX, 31 * scaleY, 42 * scaleX, 31 * scaleY)
-      ..lineTo(33 * scaleX, 31 * scaleY)
-      ..close();
-    canvas.drawPath(pathBLoops, paintWhite);
-
-    // 3. Wrench & T tool element
-    final pathT = Path()
-      ..moveTo(56 * scaleX, 36 * scaleY)
-      ..lineTo(78 * scaleX, 36 * scaleY)
-      ..lineTo(78 * scaleX, 44 * scaleY)
-      ..lineTo(70 * scaleX, 44 * scaleY)
-      ..lineTo(70 * scaleX, 74 * scaleY)
-      ..lineTo(62 * scaleX, 74 * scaleY)
-      ..lineTo(62 * scaleX, 44 * scaleY)
-      ..lineTo(56 * scaleX, 44 * scaleY)
-      ..close();
-    canvas.drawPath(pathT, paintWhite);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ─── SUBTLE BACKGROUND GEOMETRIC PATTERN PAINTER ─────────────────────────────

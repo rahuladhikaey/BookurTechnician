@@ -25,6 +25,9 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
   void initState() {
     super.initState();
     _fetchSkillProfile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(dashboardProvider.notifier).fetchAndUpdateLocation();
+    });
   }
 
   Future<void> _fetchSkillProfile() async {
@@ -136,9 +139,13 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
               children: [
                 // ─── 1. CUSTOM TOP APP BAR ───────────────────────────────────
                 _buildTopAppBar(context, technicianName),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
-                // ─── 2. DUTY STATUS SWITCH BANNER ────────────────────────────
+                // ─── 2. REAL-TIME GPS LOCATION HEADER (TASK 4) ────────────────
+                _buildRealtimeLocationHeader(context, dashState, dashNotifier),
+                const SizedBox(height: 14),
+
+                // ─── 3. DUTY STATUS SWITCH BANNER ────────────────────────────
                 _buildDutyStatusBanner(dashState, dashNotifier),
                 const SizedBox(height: 16),
 
@@ -329,7 +336,112 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
     );
   }
 
-  // ─── 2. Duty Status Switch Banner ──────────────────────────────────────────
+  // ─── 2. Real-Time GPS Location Header (Task 4) ─────────────────────────────
+  Widget _buildRealtimeLocationHeader(BuildContext context, DashboardState state, DashboardNotifier notifier) {
+    final hasCoords = state.currentLatitude != null && state.currentLongitude != null;
+    final coordsText = hasCoords
+        ? '${state.currentLatitude!.toStringAsFixed(4)}°, ${state.currentLongitude!.toStringAsFixed(4)}°'
+        : 'Acquiring GPS...';
+    final addressText = state.currentLocationAddress.isNotEmpty
+        ? state.currentLocationAddress
+        : 'Real-Time Device Location';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E3A8A).withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: const Center(
+              child: Icon(Icons.location_on_rounded, color: Color(0xFF1E3A8A), size: 20),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'CURRENT REAL LOCATION',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF64748B),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: state.isFetchingLocation ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      state.isFetchingLocation ? 'Fixing GPS...' : 'Live GPS Fix',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: state.isFetchingLocation ? const Color(0xFFD97706) : const Color(0xFF059669),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$addressText ($coordsText)',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Refresh GPS Location',
+            icon: state.isFetchingLocation
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E3A8A)),
+                  )
+                : const Icon(Icons.my_location_rounded, size: 18, color: Color(0xFF1E3A8A)),
+            onPressed: state.isFetchingLocation ? null : () => notifier.fetchAndUpdateLocation(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 3. Duty Status Switch Banner ──────────────────────────────────────────
   Widget _buildDutyStatusBanner(DashboardState state, DashboardNotifier notifier) {
     final isOnline = state.isOnline;
 
