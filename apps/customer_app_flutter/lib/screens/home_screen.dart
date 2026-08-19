@@ -1478,7 +1478,7 @@ class _BookUrServiceCard extends ConsumerWidget {
                             ref.read(bookingProvider.notifier).toggleCartItem(service);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: inCart ? const Color(0xFFDCFCE7) : kBrandPrimary,
+                            backgroundColor: inCart ? const Color(0xFFDCFCE7) : kBlack,
                             foregroundColor: inCart ? kSuccessGreen : Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -1641,11 +1641,11 @@ class _BottomNav extends ConsumerWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE4E7EC), width: 1)),
+        color: kBlack,
+        border: Border(top: BorderSide(color: Color(0xFF27272A), width: 1)),
         boxShadow: [
           BoxShadow(
-            color: Color(0x0D000000),
+            color: Color(0x33000000),
             blurRadius: 10,
             offset: Offset(0, -2),
           ),
@@ -1674,7 +1674,7 @@ class _BottomNav extends ConsumerWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFFEEF3FF) : Colors.transparent,
+                  color: isSelected ? const Color(0xFF27272A) : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -1685,7 +1685,7 @@ class _BottomNav extends ConsumerWidget {
                       children: [
                         Icon(
                           isSelected ? item.activeIcon : item.icon,
-                          color: isSelected ? const Color(0xFF2146A8) : const Color(0xFF667085),
+                          color: isSelected ? Colors.white : const Color(0xFF94A3B8),
                           size: 22,
                         ),
                         if (item.badgeCount != null && item.badgeCount! > 0)
@@ -1695,7 +1695,7 @@ class _BottomNav extends ConsumerWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                               decoration: const BoxDecoration(
-                                color: Color(0xFF2146A8),
+                                color: Colors.white,
                                 shape: BoxShape.circle,
                               ),
                               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
@@ -1703,7 +1703,7 @@ class _BottomNav extends ConsumerWidget {
                               child: Text(
                                 '${item.badgeCount}',
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: Colors.black,
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -1718,7 +1718,7 @@ class _BottomNav extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                        color: isSelected ? const Color(0xFF2146A8) : const Color(0xFF667085),
+                        color: isSelected ? Colors.white : const Color(0xFF94A3B8),
                       ),
                     ),
                   ],

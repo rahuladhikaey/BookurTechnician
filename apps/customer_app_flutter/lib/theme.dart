@@ -148,9 +148,9 @@ ThemeData buildAppTheme() {
       }),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: kWhite,
-      selectedItemColor: kBrandPrimary,
-      unselectedItemColor: kSecondaryText,
+      backgroundColor: kBlack,
+      selectedItemColor: kWhite,
+      unselectedItemColor: Color(0xFF94A3B8),
       selectedLabelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
       unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w500, fontSize: 11.5),
       type: BottomNavigationBarType.fixed,

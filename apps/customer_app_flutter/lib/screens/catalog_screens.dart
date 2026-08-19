@@ -65,12 +65,17 @@ class _ServiceCard extends ConsumerWidget {
           ElevatedButton(
             onPressed: () => ref.read(bookingProvider.notifier).toggleCartItem(service),
             style: ElevatedButton.styleFrom(
-              backgroundColor: inCart ? Colors.red.shade50 : kBrandPrimary,
-              foregroundColor: inCart ? Colors.red : Colors.white,
+              backgroundColor: inCart ? const Color(0xFFDCFCE7) : kBlack,
+              foregroundColor: inCart ? kSuccessGreen : Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: inCart ? const BorderSide(color: kSuccessGreen, width: 1.5) : BorderSide.none,
+              ),
+              elevation: 0,
             ),
-            child: Text(inCart ? 'Remove' : 'Add'),
+            child: Text(inCart ? 'Added' : 'Add'),
           ),
         ]),
       ),
@@ -771,7 +776,8 @@ class ServiceDetailScreen extends ConsumerWidget {
                   if (!inCart) Navigator.pushNamed(context, '/cart');
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: inCart ? const Color(0xFFEF4444) : kBrandPrimary,
+                  backgroundColor: inCart ? const Color(0xFFEF4444) : kBlack,
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
