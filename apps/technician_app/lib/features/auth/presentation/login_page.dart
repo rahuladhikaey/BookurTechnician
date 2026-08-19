@@ -15,11 +15,17 @@ class LoginPage extends ConsumerStatefulWidget {
   ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends ConsumerState<LoginPage> {
-  final _nameController = TextEditingController();
-  final _ageController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
+class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProviderStateMixin {
+  // Mode: 0 = Existing Partner Log In, 1 = New Partner Register
+  int _selectedMode = 0; 
+
+  final _loginEmailController = TextEditingController();
+  
+  final _regNameController = TextEditingController();
+  final _regAgeController = TextEditingController();
+  final _regPhoneController = TextEditingController();
+  final _regEmailController = TextEditingController();
+
   final _formKey = GlobalKey<FormState>();
   String? _errorMsg;
   double? _latitude;
@@ -58,10 +64,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _ageController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
+    _loginEmailController.dispose();
+    _regNameController.dispose();
+    _regAgeController.dispose();
+    _regPhoneController.dispose();
+    _regEmailController.dispose();
     super.dispose();
   }
 
@@ -71,15 +78,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         _errorMsg = null;
       });
 
-      // Capture fresh GPS position if possible
       if (_latitude == null || _longitude == null) {
         await _requestInitialLocation();
       }
 
-      final name = _nameController.text.trim();
-      final age = int.tryParse(_ageController.text.trim());
-      final phone = _phoneController.text.trim();
-      final email = _emailController.text.trim();
+      final isLogin = _selectedMode == 0;
+      final email = isLogin 
+          ? _loginEmailController.text.trim() 
+          : _regEmailController.text.trim();
+      final phone = isLogin 
+          ? null 
+          : _regPhoneController.text.trim();
+      final name = isLogin 
+          ? null 
+          : _regNameController.text.trim();
+      final age = isLogin 
+          ? null 
+          : int.tryParse(_regAgeController.text.trim());
 
       final res = await ref.read(authProvider.notifier).requestOtp(
         phone,
@@ -94,7 +109,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             context,
             MaterialPageRoute(
               builder: (context) => OtpPage(
-                phoneNumber: phone,
+                phoneNumber: phone ?? '',
                 emailAddress: email,
                 fullName: name,
                 age: age,
@@ -153,7 +168,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
                 const SizedBox(height: 18),
 
-                // 3/ on log page delete bookurtechnician writing and write "Join Technician Member" with royal deep blue colour
                 const Text(
                   'Join Technician Member',
                   style: TextStyle(
@@ -174,7 +188,115 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+
+                // Tab Switcher (Log In vs Register)
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedMode = 0;
+                              _errorMsg = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _selectedMode == 0 ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: _selectedMode == 0
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.06),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      )
+                                    ]
+                                  : [],
+                            ),
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.login_rounded,
+                                    size: 16,
+                                    color: _selectedMode == 0 ? const Color(0xFF1E3A8A) : AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Partner Log In',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: _selectedMode == 0 ? FontWeight.w800 : FontWeight.w600,
+                                      color: _selectedMode == 0 ? const Color(0xFF1E3A8A) : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedMode = 1;
+                              _errorMsg = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _selectedMode == 1 ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: _selectedMode == 1
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.06),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      )
+                                    ]
+                                  : [],
+                            ),
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.person_add_outlined,
+                                    size: 16,
+                                    color: _selectedMode == 1 ? const Color(0xFF1E3A8A) : AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'New Register',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: _selectedMode == 1 ? FontWeight.w800 : FontWeight.w600,
+                                      color: _selectedMode == 1 ? const Color(0xFF1E3A8A) : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 
                 // Form Card
                 Container(
@@ -196,118 +318,148 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Partner Registration / Log In',
-                          style: TextStyle(
+                        Text(
+                          _selectedMode == 0 
+                              ? 'Log In with Registered Email' 
+                              : 'Partner Registration',
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: AppColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Please enter your full details to proceed with verification.',
-                          style: TextStyle(
+                        Text(
+                          _selectedMode == 0
+                              ? 'Enter your registered email address to receive your verification OTP.'
+                              : 'Please enter your full details to register and get onboarded.',
+                          style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 18),
 
-                        // 4/ Technician Name
-                        TextFormField(
-                          controller: _nameController,
-                          keyboardType: TextInputType.name,
-                          textCapitalization: TextCapitalization.words,
-                          decoration: InputDecoration(
-                            labelText: 'Full Name',
-                            hintText: 'Enter your full name',
-                            prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF1E3A8A)),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        // ─── LOG IN MODE (Existing Partner) ───
+                        if (_selectedMode == 0) ...[
+                          TextFormField(
+                            controller: _loginEmailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              labelText: 'Registered Email Address',
+                              hintText: 'e.g. partner@example.com',
+                              prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF1E3A8A)),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
+                            validator: (value) {
+                              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                              if (value == null || !emailRegex.hasMatch(value.trim())) {
+                                return 'Please enter your registered email address';
+                              }
+                              return null;
+                            },
                           ),
-                          validator: (value) {
-                            if (value == null || value.trim().length < 2) {
-                              return 'Please enter your full name';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
+                        ],
 
-                        // 4/ Technician Age
-                        TextFormField(
-                          controller: _ageController,
-                          keyboardType: TextInputType.number,
-                          maxLength: 2,
-                          decoration: InputDecoration(
-                            labelText: 'Age (in years)',
-                            hintText: 'e.g. 28',
-                            counterText: '',
-                            prefixIcon: const Icon(Icons.cake_outlined, color: Color(0xFF1E3A8A)),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        // ─── REGISTER MODE (New Partner) ───
+                        if (_selectedMode == 1) ...[
+                          // Full Name
+                          TextFormField(
+                            controller: _regNameController,
+                            keyboardType: TextInputType.name,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: InputDecoration(
+                              labelText: 'Full Name',
+                              hintText: 'Enter your full name',
+                              prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF1E3A8A)),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
+                            validator: (value) {
+                              if (value == null || value.trim().length < 2) {
+                                return 'Please enter your full name';
+                              }
+                              return null;
+                            },
                           ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Please enter your age';
-                            }
-                            final parsed = int.tryParse(value.trim());
-                            if (parsed == null || parsed < 18 || parsed > 75) {
-                              return 'Age must be between 18 and 75';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
+                          const SizedBox(height: 14),
 
-                        // Mobile Number
-                        TextFormField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          maxLength: 10,
-                          decoration: InputDecoration(
-                            labelText: 'Mobile Number',
-                            hintText: '10 digit mobile number',
-                            counterText: '',
-                            prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF1E3A8A)),
-                            prefixText: '+91 ',
-                            prefixStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                          // Age
+                          TextFormField(
+                            controller: _regAgeController,
+                            keyboardType: TextInputType.number,
+                            maxLength: 2,
+                            decoration: InputDecoration(
+                              labelText: 'Age (in years)',
+                              hintText: 'e.g. 28',
+                              counterText: '',
+                              prefixIcon: const Icon(Icons.cake_outlined, color: Color(0xFF1E3A8A)),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your age';
+                              }
+                              final parsed = int.tryParse(value.trim());
+                              if (parsed == null || parsed < 18 || parsed > 75) {
+                                return 'Age must be between 18 and 75';
+                              }
+                              return null;
+                            },
                           ),
-                          validator: (value) {
-                            if (value == null || value.trim().length != 10) {
-                              return 'Please enter a valid 10-digit mobile number';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
+                          const SizedBox(height: 14),
 
-                        // Email Address
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
-                            labelText: 'Email Address',
-                            hintText: 'Enter email to receive OTP',
-                            prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF1E3A8A)),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                          // Mobile Number
+                          TextFormField(
+                            controller: _regPhoneController,
+                            keyboardType: TextInputType.phone,
+                            maxLength: 10,
+                            decoration: InputDecoration(
+                              labelText: 'Mobile Number',
+                              hintText: '10 digit mobile number',
+                              counterText: '',
+                              prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF1E3A8A)),
+                              prefixText: '+91 ',
+                              prefixStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
+                            validator: (value) {
+                              if (value == null || value.trim().length != 10) {
+                                return 'Please enter a valid 10-digit mobile number';
+                              }
+                              return null;
+                            },
                           ),
-                          validator: (value) {
-                            final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                            if (value == null || !emailRegex.hasMatch(value.trim())) {
-                              return 'Please enter a valid email address';
-                            }
-                            return null;
-                          },
-                        ),
+                          const SizedBox(height: 14),
+
+                          // Email Address
+                          TextFormField(
+                            controller: _regEmailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              labelText: 'Email Address',
+                              hintText: 'Enter email to receive OTP',
+                              prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF1E3A8A)),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            validator: (value) {
+                              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                              if (value == null || !emailRegex.hasMatch(value.trim())) {
+                                return 'Please enter a valid email address';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
 
                         if (_errorMsg != null) ...[
                           const SizedBox(height: 12),
@@ -335,18 +487,44 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         const SizedBox(height: 20),
 
                         PrimaryButton(
-                          text: 'Send Verification OTP',
+                          text: _selectedMode == 0 ? 'Send Log In OTP' : 'Send Verification OTP',
                           onPressed: _submitDetails,
                           isLoading: isBtnLoading,
                         ),
                         const SizedBox(height: 16),
+
+                        // Mode toggle footer link
+                        Center(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedMode = _selectedMode == 0 ? 1 : 0;
+                                _errorMsg = null;
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                _selectedMode == 0 
+                                    ? 'New to BookurTechnician? Register here →'
+                                    : 'Already registered? Log In with Email →',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1E3A8A),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
 
                         Center(
                           child: Wrap(
                             alignment: WrapAlignment.center,
                             children: [
                               const Text(
-                                'By registering as a Partner, you agree to our ',
+                                'By continuing, you agree to our ',
                                 style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                               ),
                               GestureDetector(
@@ -398,4 +576,3 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 }
-

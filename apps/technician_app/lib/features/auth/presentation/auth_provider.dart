@@ -91,7 +91,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
   @override
   Future<ApiResult<bool>> requestOtp(
-    String phone, {
+    String? phone, {
     required String email,
     String? fullName,
     int? age,
@@ -99,10 +99,10 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     state = state.copyWith(status: AuthStatus.authenticating);
     
     final normalizedEmail = email.trim().toLowerCase();
-    final normalizedPhone = phone.trim();
+    final normalizedPhone = (phone ?? '').trim();
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     
-    if (normalizedPhone.length == 10 && emailRegex.hasMatch(normalizedEmail)) {
+    if (emailRegex.hasMatch(normalizedEmail)) {
       try {
         final response = await _dioClient.dio.post('/auth/request-otp', data: {
           'email': normalizedEmail,
@@ -113,7 +113,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         if (response.statusCode == 200) {
           state = state.copyWith(
             status: AuthStatus.otpSent, 
-            phone: normalizedPhone, 
+            phone: normalizedPhone.isNotEmpty ? normalizedPhone : null, 
             email: normalizedEmail,
             fullName: fullName?.trim(),
             age: age,
@@ -138,14 +138,14 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         return ApiFailure(msg);
       }
     } else {
-      state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: 'Invalid phone or email address');
-      return const ApiFailure('Invalid phone or email address');
+      state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: 'Please enter a valid email address');
+      return const ApiFailure('Please enter a valid email address');
     }
   }
 
   @override
   Future<ApiResult<String>> verifyOtp(
-    String phone,
+    String? phone,
     String code, {
     String? email,
     String? fullName,
@@ -156,9 +156,9 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     state = state.copyWith(status: AuthStatus.authenticating);
     
     final targetEmail = (email ?? state.email ?? '').trim().toLowerCase();
-    final targetPhone = phone.trim();
+    final targetPhone = (phone ?? state.phone ?? '').trim();
     final targetOtp = code.trim();
-    final targetName = (fullName ?? state.fullName ?? 'Partner Technician').trim();
+    final targetName = (fullName ?? state.fullName ?? '').trim();
     final targetAge = age ?? state.age;
 
     // Capture location if not provided
@@ -176,14 +176,20 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     }
 
     try {
-      final response = await _dioClient.dio.post('/auth/verify-otp', data: {
+      final payload = <String, dynamic>{
         'email': targetEmail,
         'otp': targetOtp,
         'role': 'TECHNICIAN',
-        'phone': targetPhone,
-        'fullName': targetName,
         'purpose': 'LOGIN',
-      });
+      };
+      if (targetPhone.isNotEmpty) {
+        payload['phone'] = targetPhone;
+      }
+      if (targetName.isNotEmpty) {
+        payload['fullName'] = targetName;
+      }
+
+      final response = await _dioClient.dio.post('/auth/verify-otp', data: payload);
 
       if (response.statusCode == 200) {
         final data = response.data?['data'];

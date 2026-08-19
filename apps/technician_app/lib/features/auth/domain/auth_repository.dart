@@ -2,14 +2,14 @@ import '../../../core/network/api_result.dart';
 
 abstract class AuthRepository {
   Future<ApiResult<bool>> requestOtp(
-    String phone, {
+    String? phone, {
     required String email,
     String? fullName,
     int? age,
   });
 
   Future<ApiResult<String>> verifyOtp(
-    String phone,
+    String? phone,
     String code, {
     String? email,
     String? fullName,
@@ -18,4 +18,3 @@ abstract class AuthRepository {
     double? longitude,
   });
 }
-

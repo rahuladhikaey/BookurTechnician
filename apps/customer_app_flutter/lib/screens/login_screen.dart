@@ -13,6 +13,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
+  int _selectedMode = 0; // 0 = Registered Email Log In, 1 = New Customer Registration
   final _phoneCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   bool _isLoading = false;
@@ -35,10 +36,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _validateInputs() {
-    final phone = _phoneCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    final valid = phone.length == 10 && emailRegex.hasMatch(email);
+    final isEmailValid = emailRegex.hasMatch(email);
+
+    bool valid;
+    if (_selectedMode == 0) {
+      // Log In mode: only requires registered email
+      valid = isEmailValid;
+    } else {
+      // Register mode: requires both 10-digit phone and valid email
+      final phone = _phoneCtrl.text.trim();
+      valid = phone.length == 10 && isEmailValid;
+    }
 
     if (valid != _isValid) {
       setState(() {
@@ -76,7 +86,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             context,
             MaterialPageRoute(
               builder: (context) => OtpScreen(
-                phoneNumber: phone,
+                phoneNumber: _selectedMode == 1 ? phone : '',
                 emailAddress: email,
               ),
             ),
@@ -222,9 +232,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Welcome Back',
-                          style: TextStyle(
+                        Text(
+                          _selectedMode == 0 ? 'Welcome Back' : 'Create Account',
+                          style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF111827),
@@ -232,84 +242,131 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Sign in to book trusted technicians at your doorstep.',
-                          style: TextStyle(
+                        Text(
+                          _selectedMode == 0
+                              ? 'Sign in with your registered email to book technicians.'
+                              : 'Register with mobile and email to get started.',
+                          style: const TextStyle(
                             fontSize: 13,
                             color: Color(0xFF667085),
                             height: 1.4,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 18),
 
-                        // Mobile Number Input Field
-                        const Text(
-                          'Mobile Number',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                        // Mode Switcher Tab
                         Container(
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE4E7EC)),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
                           child: Row(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                decoration: const BoxDecoration(
-                                  border: Border(right: BorderSide(color: Color(0xFFE4E7EC))),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text('🇮🇳', style: TextStyle(fontSize: 16)),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      '+91',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14,
-                                        color: Color(0xFF111827),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedMode = 0;
+                                    });
+                                    _validateInputs();
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 9),
+                                    decoration: BoxDecoration(
+                                      color: _selectedMode == 0 ? Colors.white : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(9),
+                                      boxShadow: _selectedMode == 0
+                                          ? [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.05),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              )
+                                            ]
+                                          : [],
+                                    ),
+                                    child: Center(
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.login_rounded,
+                                            size: 15,
+                                            color: _selectedMode == 0 ? const Color(0xFF2146A8) : const Color(0xFF64748B),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            'Email Log In',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: _selectedMode == 0 ? FontWeight.w800 : FontWeight.w600,
+                                              color: _selectedMode == 0 ? const Color(0xFF2146A8) : const Color(0xFF64748B),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                               Expanded(
-                                child: TextField(
-                                  controller: _phoneCtrl,
-                                  keyboardType: TextInputType.phone,
-                                  maxLength: 10,
-                                  style: const TextStyle(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF111827),
-                                  ),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Enter 10-digit number',
-                                    hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.normal),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                    border: InputBorder.none,
-                                    counterText: '',
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedMode = 1;
+                                    });
+                                    _validateInputs();
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 9),
+                                    decoration: BoxDecoration(
+                                      color: _selectedMode == 1 ? Colors.white : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(9),
+                                      boxShadow: _selectedMode == 1
+                                          ? [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.05),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              )
+                                            ]
+                                          : [],
+                                    ),
+                                    child: Center(
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.person_add_outlined,
+                                            size: 15,
+                                            color: _selectedMode == 1 ? const Color(0xFF2146A8) : const Color(0xFF64748B),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            'New Register',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: _selectedMode == 1 ? FontWeight.w800 : FontWeight.w600,
+                                              color: _selectedMode == 1 ? const Color(0xFF2146A8) : const Color(0xFF64748B),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 18),
 
-                        // Email Address Input Field
-                        const Text(
-                          'Email Address',
-                          style: TextStyle(
+                        // Email Address Input Field (First in Log In mode)
+                        Text(
+                          _selectedMode == 0 ? 'Registered Email Address' : 'Email Address',
+                          style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
                             color: Color(0xFF1E293B),
@@ -340,7 +397,73 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        if (_selectedMode == 1) ...[
+                          const SizedBox(height: 16),
+
+                          // Mobile Number Input Field (For Registration)
+                          const Text(
+                            'Mobile Number',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFE4E7EC)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                  decoration: const BoxDecoration(
+                                    border: Border(right: BorderSide(color: Color(0xFFE4E7EC))),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('🇮🇳', style: TextStyle(fontSize: 16)),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        '+91',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
+                                          color: Color(0xFF111827),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _phoneCtrl,
+                                    keyboardType: TextInputType.phone,
+                                    maxLength: 10,
+                                    style: const TextStyle(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF111827),
+                                    ),
+                                    decoration: const InputDecoration(
+                                      hintText: 'Enter 10-digit number',
+                                      hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.normal),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                      border: InputBorder.none,
+                                      counterText: '',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 22),
 
                         // ─── PRIMARY SEND OTP BUTTON ───
                         SizedBox(
@@ -368,9 +491,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Text(
-                                    'Send OTP',
-                                    style: TextStyle(
+                                : Text(
+                                    _selectedMode == 0 ? 'Send Log In OTP' : 'Send OTP',
+                                    style: const TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 0.3,
@@ -379,7 +502,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
+
+                        // Mode toggle footer link
+                        Center(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedMode = _selectedMode == 0 ? 1 : 0;
+                              });
+                              _validateInputs();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                _selectedMode == 0
+                                    ? 'New to BookurTechnician? Create account →'
+                                    : 'Already registered? Log In with Email →',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF2146A8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
 
                         // ─── GUEST ACCESS ───
                         Center(
@@ -390,7 +540,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             },
                             style: TextButton.styleFrom(
                               foregroundColor: const Color(0xFF475569),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
@@ -519,13 +669,17 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     setState(() => _isVerifying = true);
 
     try {
-      final response = await ApiClient.post('/auth/verify-otp', {
+      final payload = <String, dynamic>{
         'email': widget.emailAddress.trim().toLowerCase(),
         'otp': otp.trim(),
         'role': 'CUSTOMER',
-        'phone': widget.phoneNumber.trim(),
         'purpose': 'LOGIN',
-      });
+      };
+      if (widget.phoneNumber.trim().isNotEmpty) {
+        payload['phone'] = widget.phoneNumber.trim();
+      }
+
+      final response = await ApiClient.post('/auth/verify-otp', payload);
 
       setState(() => _isVerifying = false);
 
