@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_radius.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/primary_button.dart';
 import 'auth_provider.dart';
 import 'otp_page.dart';
@@ -18,33 +16,91 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
+  final _nameController = TextEditingController();
+  final _ageController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   String? _errorMsg;
+  double? _latitude;
+  double? _longitude;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestInitialLocation();
+  }
+
+  Future<void> _requestInitialLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+        final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 5),
+        );
+        if (mounted) {
+          setState(() {
+            _latitude = position.latitude;
+            _longitude = position.longitude;
+          });
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
+    _nameController.dispose();
+    _ageController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
   }
 
-  void _submitPhone() async {
+  void _submitDetails() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _errorMsg = null;
       });
+
+      // Capture fresh GPS position if possible
+      if (_latitude == null || _longitude == null) {
+        await _requestInitialLocation();
+      }
+
+      final name = _nameController.text.trim();
+      final age = int.tryParse(_ageController.text.trim());
       final phone = _phoneController.text.trim();
       final email = _emailController.text.trim();
-      final res = await ref.read(authProvider.notifier).requestOtp(phone, email: email);
+
+      final res = await ref.read(authProvider.notifier).requestOtp(
+        phone,
+        email: email,
+        fullName: name,
+        age: age,
+      );
       
       if (res is ApiSuccess<bool>) {
         if (mounted) {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => OtpPage(phoneNumber: phone, emailAddress: email),
+              builder: (context) => OtpPage(
+                phoneNumber: phone,
+                emailAddress: email,
+                fullName: name,
+                age: age,
+                latitude: _latitude,
+                longitude: _longitude,
+              ),
             ),
           );
         }
@@ -63,109 +119,228 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.l),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Image.asset(
-                  'assets/images/app_logo.png',
-                  width: 90,
-                  height: 90,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: AppRadius.medium,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Top Logo Icon Container
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFDBEAFE), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF1E3A8A).withValues(alpha: 0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.engineering_rounded,
+                      size: 38,
+                      color: Color(0xFF1E3A8A),
                     ),
-                    child: const Icon(Icons.construction, size: 40, color: AppColors.primary),
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.l),
-              const Text(
-                'BookUrTechnician Pro',
-                style: AppTypography.h1,
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              const Text(
-                'Technician partner console terminal',
-                style: AppTypography.bodyMedium,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.m),
+                const SizedBox(height: 18),
+
+                // 3/ on log page delete bookurtechnician writing and write "Join Technician Member" with royal deep blue colour
+                const Text(
+                  'Join Technician Member',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1E3A8A),
+                    letterSpacing: -0.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Sign in or register to receive instant service leads',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                
+                // Form Card
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(20),
                   child: Form(
                     key: _formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Register / Log In',
-                          style: AppTypography.titleMedium,
+                          'Partner Registration / Log In',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
-                        const SizedBox(height: AppSpacing.s),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Please enter your full details to proceed with verification.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        // 4/ Technician Name
                         TextFormField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          maxLength: 10,
-                          decoration: const InputDecoration(
-                            labelText: 'Mobile Number',
-                            hintText: 'Enter 10 digit phone',
-                            prefixIcon: Icon(Icons.phone),
+                          controller: _nameController,
+                          keyboardType: TextInputType.name,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: InputDecoration(
+                            labelText: 'Full Name',
+                            hintText: 'Enter your full name',
+                            prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF1E3A8A)),
                             border: OutlineInputBorder(
-                              borderRadius: AppRadius.small,
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                           validator: (value) {
-                            if (value == null || value.trim().length != 10) {
-                              return 'Please enter 10 digits mobile';
+                            if (value == null || value.trim().length < 2) {
+                              return 'Please enter your full name';
                             }
                             return null;
                           },
                         ),
-                        const SizedBox(height: AppSpacing.s),
+                        const SizedBox(height: 14),
+
+                        // 4/ Technician Age
+                        TextFormField(
+                          controller: _ageController,
+                          keyboardType: TextInputType.number,
+                          maxLength: 2,
+                          decoration: InputDecoration(
+                            labelText: 'Age (in years)',
+                            hintText: 'e.g. 28',
+                            counterText: '',
+                            prefixIcon: const Icon(Icons.cake_outlined, color: Color(0xFF1E3A8A)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter your age';
+                            }
+                            final parsed = int.tryParse(value.trim());
+                            if (parsed == null || parsed < 18 || parsed > 75) {
+                              return 'Age must be between 18 and 75';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Mobile Number
+                        TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          maxLength: 10,
+                          decoration: InputDecoration(
+                            labelText: 'Mobile Number',
+                            hintText: '10 digit mobile number',
+                            counterText: '',
+                            prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF1E3A8A)),
+                            prefixText: '+91 ',
+                            prefixStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().length != 10) {
+                              return 'Please enter a valid 10-digit mobile number';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Email Address
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Email Address',
-                            hintText: 'Enter email to send OTP',
-                            prefixIcon: Icon(Icons.email),
+                            hintText: 'Enter email to receive OTP',
+                            prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF1E3A8A)),
                             border: OutlineInputBorder(
-                              borderRadius: AppRadius.small,
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                           validator: (value) {
                             final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
                             if (value == null || !emailRegex.hasMatch(value.trim())) {
-                              return 'Please enter a valid email';
+                              return 'Please enter a valid email address';
                             }
                             return null;
                           },
                         ),
+
                         if (_errorMsg != null) ...[
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            _errorMsg!,
-                            style: const TextStyle(color: Colors.red, fontSize: 12),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFFCA5A5)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _errorMsg!,
+                                    style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
-                        const SizedBox(height: AppSpacing.m),
+                        const SizedBox(height: 20),
+
                         PrimaryButton(
-                          text: 'Send OTP to Email',
-                          onPressed: _submitPhone,
+                          text: 'Send Verification OTP',
+                          onPressed: _submitDetails,
                           isLoading: isBtnLoading,
                         ),
-                        const SizedBox(height: AppSpacing.m),
+                        const SizedBox(height: 16),
+
                         Center(
                           child: Wrap(
                             alignment: WrapAlignment.center,
@@ -183,7 +358,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   'Partner Agreement',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: AppColors.primary,
+                                    color: Color(0xFF1E3A8A),
                                     fontWeight: FontWeight.bold,
                                     decoration: TextDecoration.underline,
                                   ),
@@ -202,7 +377,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   'Privacy Policy',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: AppColors.primary,
+                                    color: Color(0xFF1E3A8A),
                                     fontWeight: FontWeight.bold,
                                     decoration: TextDecoration.underline,
                                   ),
@@ -215,11 +390,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 }
+

@@ -191,6 +191,22 @@ class ApiClient {
   deleteAiFaq(id) { return this.delete(`/admin/ai/faqs/${id}`); }
 
   getAuditLogs() { return this.get('/admin/audit-logs'); }
+  
+  // ─── SKILL HIERARCHY & VERIFICATION APIs ───
+  getSkillsHierarchy() { return this.get('/catalog/hierarchy'); }
+  getSkills() { return this.get('/catalog/skills'); }
+  createSkill(skill) { return this.post('/catalog/admin/skills', skill); }
+  updateSkill(id, skill) { return this.put(`/catalog/admin/skills/${id}`, skill); }
+  deleteSkill(id) { return this.delete(`/catalog/admin/skills/${id}`); }
+  getSkillCompatibility(skillId) { return this.get(`/catalog/admin/skills/${skillId}/compatibility`); }
+  updateSkillCompatibility(skillId, serviceItemIds) { return this.put(`/catalog/admin/skills/${skillId}/compatibility`, { serviceItemIds }); }
+  getMatchingRules() { return this.get('/catalog/admin/matching-rules'); }
+  updateMatchingRules(rules) { return this.put('/catalog/admin/matching-rules', rules); }
+
+  getTechnicianSkills(techId) { return this.get(`/technician/skills/technician/${techId}`); }
+  verifyTechnicianSkill(techSkillId, status = 'VERIFIED', rejectionReason = '') {
+    return this.post(`/technician/skills/admin/${techSkillId}/verify`, { status, rejectionReason });
+  }
 }
 
 export const api = new ApiClient();

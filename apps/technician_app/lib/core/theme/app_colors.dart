@@ -1,30 +1,36 @@
 import 'package:flutter/material.dart';
 
-// ─── BOOKURTECHNICIAN TECHNICIAN APP — STRICT ROYAL BLUE + BLACK COLOR SYSTEM ───
-
 class AppColors {
-  // Core Brand Colors
-  static const Color primary = Color(0xFF1E40AF);        // Primary Royal Blue (#1E40AF)
-  static const Color primaryDark = Color(0xFF1D3FAF);    // Deep Royal Blue (#1D3FAF)
-  static const Color primaryLight = Color(0xFFF1F5F9);   // Neutral Light Surface (#F1F5F9)
-  static const Color black = Color(0xFF000000);          // Black (#000000)
-  static const Color background = Color(0xFFFFFFFF);     // Clean White Surface (#FFFFFF)
-  static const Color card = Color(0xFFFFFFFF);           // White Card (#FFFFFF)
+  // Core Brand Colors - Urban Company Style
+  static const Color primary = Color(0xFF1E3A8A);        // Deep Navy Blue (#1E3A8A)
+  static const Color primaryDark = Color(0xFF0F2366);    // Rich Royal Dark Blue
+  static const Color primaryLight = Color(0xFFEFF6FF);   // Soft Ice Navy Tint (#EFF6FF)
+  static const Color black = Color(0xFF0F172A);          // Deep Slate / Midnight Black
+  static const Color background = Color(0xFFF8FAFC);     // Light Slate Canvas Background (#F8FAFC)
+  static const Color surface = Color(0xFFFFFFFF);        // Crisp White Card Surface
+  static const Color card = Color(0xFFFFFFFF);           // Card Surface (#FFFFFF)
   
   // Text Colors
-  static const Color textPrimary = Color(0xFF000000);    // Black Text (#000000)
-  static const Color textSecondary = Color(0xFF475569);  // Secondary Slate Text (#475569)
+  static const Color textPrimary = Color(0xFF0F172A);    // Crisp Dark Navy Slate
+  static const Color textSecondary = Color(0xFF64748B);  // Muted Slate (#64748B)
+  static const Color textMuted = Color(0xFF94A3B8);      // Light Muted Grey
   
-  // Borders & Accents
+  // Borders & Dividers
   static const Color border = Color(0xFFE2E8F0);         // Subtle Border Outline (#E2E8F0)
+  static const Color borderLight = Color(0xFFF1F5F9);    // Ultra Light Divider
   
-  // Functional Status Colors (Universal Recognition)
-  static const Color success = Color(0xFF16A34A);        // Functional Green (#16A34A)
-  static const Color warning = Color(0xFFF59E0B);        // Functional Amber (#F59E0B)
-  static const Color error = Color(0xFFDC2626);          // Functional Red (#DC2626)
+  // Functional Status Colors
+  static const Color onlineGreen = Color(0xFF10B981);    // Emerald Green (#10B981)
+  static const Color onlineGreenLight = Color(0xFFECFDF5); // Light Emerald Tint (#ECFDF5)
+  static const Color offlineRed = Color(0xFFEF4444);     // Alert Red (#EF4444)
+  static const Color offlineRedLight = Color(0xFFFEF2F2); // Light Red Tint (#FEF2F2)
+  static const Color warningAmber = Color(0xFFF59E0B);   // Amber Star/Pending
 
-  // Secondary aliases
+  // Aliases for compatibility
+  static const Color success = onlineGreen;
+  static const Color warning = warningAmber;
+  static const Color error = offlineRed;
   static const Color secondary = primaryLight;
-  static const Color onlineGreen = success;
   static const Color offlineGray = textSecondary;
 }
+

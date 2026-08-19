@@ -41,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/ws/**").permitAll()
                         .requestMatchers("/api/v1/internal/admin/**").permitAll()
                         // Admin Protected Endpoints
+                        .requestMatchers("/api/v1/catalog/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "FINANCE_ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "FINANCE_ADMIN")
                         // Technician Protected Endpoints
                         .requestMatchers("/api/v1/technician/**").hasAnyRole("TECHNICIAN", "ADMIN")

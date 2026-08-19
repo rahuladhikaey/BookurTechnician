@@ -5,9 +5,11 @@ import com.bookurtechnician.booking.repository.BookingRepository;
 import com.bookurtechnician.common.exception.BadRequestException;
 import com.bookurtechnician.common.exception.ResourceNotFoundException;
 import com.bookurtechnician.dispatch.entity.BookingProposal;
+import com.bookurtechnician.dispatch.entity.DispatchMatchingConfig;
 import com.bookurtechnician.dispatch.repository.BookingProposalRepository;
 import com.bookurtechnician.technician.entity.TechnicianProfile;
 import com.bookurtechnician.technician.repository.TechnicianProfileRepository;
+import com.bookurtechnician.technician.repository.TechnicianSkillRepository;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,12 +33,12 @@ import java.util.UUID;
 public class DispatchService {
 
     private final TechnicianProfileRepository technicianProfileRepository;
+    private final TechnicianSkillRepository technicianSkillRepository;
     private final BookingProposalRepository proposalRepository;
     private final BookingRepository bookingRepository;
     private final SimpMessagingTemplate messagingTemplate;
-
-    public static final double DISPATCH_RADIUS_METERS = 10000.0; // 10.0 KM Max Radius
-    public static final int PROPOSAL_TIMEOUT_SECONDS = 30; // 30s Countdown per candidate
+    private final com.bookurtechnician.dispatch.repository.DispatchMatchingConfigRepository matchingConfigRepository;
+    private final com.bookurtechnician.servicecatalog.repository.SkillServiceCompatibilityRepository compatibilityRepository;
 
     @Transactional
     public void startSequentialDispatch(UUID bookingId) {
@@ -44,16 +46,17 @@ public class DispatchService {
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found: " + bookingId));
 
         if (booking.getAddress() == null || booking.getAddress().getCoordinates() == null) {
-            log.warn("Booking {} has no valid GPS coordinates. Cannot perform 10km spatial search.", booking.getBookingCode());
+            log.warn("Booking {} has no valid GPS coordinates. Cannot perform spatial search.", booking.getBookingCode());
             booking.setStatus("NO_TECHNICIAN_AVAILABLE");
             bookingRepository.save(booking);
             broadcastBookingUpdate(booking, "Location coordinates missing for dispatch.");
             return;
         }
 
+        DispatchMatchingConfig config = getEffectiveConfig();
         booking.setStatus("SEARCHING_TECHNICIAN");
         bookingRepository.save(booking);
-        broadcastBookingUpdate(booking, "Searching for nearest verified technicians within 10 km...");
+        broadcastBookingUpdate(booking, "Searching for verified technicians within " + config.getSearchRadiusKm() + " km...");
 
         dispatchNextNearestTechnician(booking);
     }
@@ -65,33 +68,84 @@ public class DispatchService {
             return;
         }
 
+        DispatchMatchingConfig config = getEffectiveConfig();
+        double radiusMeters = config.getSearchRadiusKm() * 1000.0;
+        int timeoutSeconds = config.getNotificationTimeoutSeconds();
+
         double lat = booking.getAddress().getCoordinates().getY();
         double lng = booking.getAddress().getCoordinates().getX();
 
-        // Query PostGIS for all online verified technicians within 10 KM with fresh GPS fixes, ordered by spatial distance ASC
+        // Query PostGIS for all online verified technicians within radius with fresh GPS fixes
         java.time.Instant freshnessCutoff = Instant.now().minus(java.time.Duration.ofMinutes(30));
         List<TechnicianProfile> nearbyTechnicians = technicianProfileRepository.findNearbyAvailableTechnicians(
-                lat, lng, DISPATCH_RADIUS_METERS, freshnessCutoff, 20
+                lat, lng, radiusMeters, freshnessCutoff, 25
         );
 
-        // Find the first closest technician who hasn't already been sent a proposal for this booking
+        UUID serviceCategoryId = (booking.getService() != null && booking.getService().getCategory() != null)
+                ? booking.getService().getCategory().getId()
+                : null;
+        UUID serviceItemId = booking.getService() != null ? booking.getService().getId() : null;
+
+        // Check if dispatch proposals have exceeded max attempts
+        long priorAttempts = proposalRepository.findAll().stream()
+                .filter(p -> p.getBooking() != null && p.getBooking().getId().equals(booking.getId()))
+                .count();
+
+        if (priorAttempts >= config.getMaxDispatchAttempts()) {
+            log.info("Booking {} reached max dispatch attempts ({}). Escalating to Admin.", booking.getBookingCode(), priorAttempts);
+            if (config.isAutoEscalateToAdmin()) {
+                booking.setStatus("ADMIN_ESCALATION_REQUIRED");
+                bookingRepository.save(booking);
+                broadcastBookingUpdate(booking, "All nearest partners busy. Escalated to BookurTechnician Priority Operations Team.");
+                return;
+            }
+        }
+
+        // Find the first closest technician who has verified & compatible skills & hasn't been sent a proposal
         TechnicianProfile candidate = null;
         Double candidateDistance = null;
 
         for (TechnicianProfile tech : nearbyTechnicians) {
             boolean alreadyContacted = proposalRepository.existsByBookingIdAndTechnicianId(booking.getId(), tech.getId());
             if (!alreadyContacted) {
-                candidate = tech;
-                candidateDistance = technicianProfileRepository.calculateDistanceMeters(tech.getId(), lat, lng);
-                break;
+                // Intelligent Skill Match: Verify technician has active & verified skills for this service category or mapped compatibility
+                boolean hasMatchingSkill = technicianSkillRepository.hasVerifiedSkillForCategoryOrSkill(
+                        tech.getId(), serviceItemId, serviceCategoryId
+                );
+
+                // Check Skill Compatibility Matrix
+                if (!hasMatchingSkill && serviceItemId != null) {
+                    var techSkills = technicianSkillRepository.findByTechnicianIdOrderByCreatedAtAsc(tech.getId());
+                    for (var ts : techSkills) {
+                        if ("VERIFIED".equalsIgnoreCase(ts.getVerificationStatus()) && ts.isEnabled()) {
+                            if (compatibilityRepository.existsBySkillIdAndServiceItemId(ts.getSkill().getId(), serviceItemId)) {
+                                hasMatchingSkill = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Fallback for profiles without configured skills
+                if (!hasMatchingSkill && !config.isStrictSkillMatching()) {
+                    if (technicianSkillRepository.findByTechnicianIdOrderByCreatedAtAsc(tech.getId()).isEmpty()) {
+                        hasMatchingSkill = true;
+                    }
+                }
+
+                if (hasMatchingSkill) {
+                    candidate = tech;
+                    candidateDistance = technicianProfileRepository.calculateDistanceMeters(tech.getId(), lat, lng);
+                    break;
+                }
             }
         }
 
         if (candidate == null) {
-            log.info("No more eligible online technicians within 10km for booking {}.", booking.getBookingCode());
+            log.info("No more eligible online technicians within {} km for booking {}.", config.getSearchRadiusKm(), booking.getBookingCode());
             booking.setStatus("NO_TECHNICIAN_AVAILABLE");
             bookingRepository.save(booking);
-            broadcastBookingUpdate(booking, "No technicians currently available within 10 km. Please try again shortly.");
+            broadcastBookingUpdate(booking, "No technicians currently available within " + config.getSearchRadiusKm() + " km. Please try again shortly.");
             return;
         }
 
@@ -100,7 +154,7 @@ public class DispatchService {
         BigDecimal earnings = booking.getTechnicianPayoutAmount() != null ? booking.getTechnicianPayoutAmount() : booking.getBasePrice().multiply(new BigDecimal("0.90"));
 
         Instant now = Instant.now();
-        Instant expiresAt = now.plusSeconds(PROPOSAL_TIMEOUT_SECONDS);
+        Instant expiresAt = now.plusSeconds(timeoutSeconds);
 
         BookingProposal proposal = BookingProposal.builder()
                 .booking(booking)
@@ -116,8 +170,8 @@ public class DispatchService {
         booking.setStatus("TECHNICIAN_NOTIFIED");
         bookingRepository.save(booking);
 
-        log.info("Dispatched proposal {} for booking {} to closest technician {} ({} km away)",
-                proposal.getId(), booking.getBookingCode(), candidate.getTechnicianCode(), distanceKm);
+        log.info("Dispatched proposal {} for booking {} to closest technician {} ({} km away, timeout {}s)",
+                proposal.getId(), booking.getBookingCode(), candidate.getTechnicianCode(), distanceKm, timeoutSeconds);
 
         // Build WebSocket payload for the notified technician
         JobProposalDto proposalDto = JobProposalDto.builder()
@@ -130,7 +184,7 @@ public class DispatchService {
                 .estimatedEarnings(earnings)
                 .scheduleSlot(booking.getScheduleDate() + " (" + booking.getScheduleSlot() + ")")
                 .expiresAt(expiresAt)
-                .timeoutSeconds(PROPOSAL_TIMEOUT_SECONDS)
+                .timeoutSeconds(timeoutSeconds)
                 .build();
 
         try {
@@ -141,6 +195,17 @@ public class DispatchService {
         }
 
         broadcastBookingUpdate(booking, "Notified nearest partner (" + distanceKm + " km away). Awaiting acceptance...");
+    }
+
+    private DispatchMatchingConfig getEffectiveConfig() {
+        return matchingConfigRepository.findFirstByOrderByCreatedAtAsc()
+                .orElse(DispatchMatchingConfig.builder()
+                        .searchRadiusKm(10.0)
+                        .strictSkillMatching(true)
+                        .notificationTimeoutSeconds(30)
+                        .maxDispatchAttempts(5)
+                        .autoEscalateToAdmin(true)
+                        .build());
     }
 
     @Transactional

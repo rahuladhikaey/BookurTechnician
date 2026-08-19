@@ -5,9 +5,48 @@ export default function TechniciansManager({ technicians = [], setTechnicians, a
   const [filterTab, setFilterTab] = useState(subTab === 'kyc' ? 'PENDING' : 'ALL');
   const [selectedTech, setSelectedTech] = useState(null);
   const [showKycModal, setShowKycModal] = useState(false);
+  const [showSkillsModal, setShowSkillsModal] = useState(false);
+  const [techSkillsData, setTechSkillsData] = useState(null);
+  const [loadingSkills, setLoadingSkills] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [rejectionReason, setRejectionReason] = useState('Incomplete or blurry identity documents');
+
+  const openSkillsModal = async (tech) => {
+    setSelectedTech(tech);
+    setShowSkillsModal(true);
+    setLoadingSkills(true);
+    try {
+      const res = await api.getTechnicianSkills(tech.id);
+      if (res?.data) {
+        setTechSkillsData(res.data);
+      } else {
+        setTechSkillsData(null);
+      }
+    } catch (err) {
+      console.warn('Error fetching technician skills:', err);
+      setTechSkillsData(null);
+    } finally {
+      setLoadingSkills(false);
+    }
+  };
+
+  const handleVerifySkill = async (skillItem, newStatus, reason = '') => {
+    try {
+      await api.verifyTechnicianSkill(skillItem.id, newStatus, reason);
+      auditLogAction?.(
+        'Technicians',
+        `${newStatus === 'VERIFIED' ? 'Approved' : 'Rejected'} skill "${skillItem.skillName}" for technician ${selectedTech.name}.`
+      );
+      // Refresh skills list
+      if (selectedTech) {
+        const res = await api.getTechnicianSkills(selectedTech.id);
+        if (res?.data) setTechSkillsData(res.data);
+      }
+    } catch (err) {
+      alert('Failed to update skill verification status: ' + err.message);
+    }
+  };
 
   const [newTechForm, setNewTechForm] = useState({
     name: '',
@@ -197,11 +236,11 @@ export default function TechniciansManager({ technicians = [], setTechnicians, a
             <thead>
               <tr>
                 <th>Partner ID & Profile</th>
-                <th>Category / Skill</th>
-                <th>Contact & Location</th>
-                <th>KYC Status</th>
-                <th>Fleet GPS Status</th>
-                <th>Performance</th>
+                <th>Declared Skills</th>
+                <th>Availability & Status</th>
+                <th>GPS Location Telemetry</th>
+                <th>KYC Verification</th>
+                <th>Performance & Rates</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -216,81 +255,246 @@ export default function TechniciansManager({ technicians = [], setTechnicians, a
                   </td>
                 </tr>
               ) : (
-                filteredTechnicians.map((t) => (
-                  <tr key={t.id}>
-                    <td>
-                      <div className="flex-gap" style={{ alignItems: 'center' }}>
-                        <img
-                          src={t.photo || "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=150&q=80"}
-                          alt=""
-                          style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }}
-                        />
-                        <div>
-                          <strong style={{ color: 'var(--text-main)', display: 'block' }}>{t.name}</strong>
-                          <small style={{ color: 'var(--primary)', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                            {t.code || t.technicianCode || t.id}
+                filteredTechnicians.map((t) => {
+                  const availability = t.availability || (t.isOnline || t.online ? 'ONLINE' : 'OFFLINE');
+                  const isBusy = availability === 'BUSY_ON_JOB';
+                  const isOnline = availability === 'ONLINE';
+
+                  return (
+                    <tr key={t.id}>
+                      <td>
+                        <div className="flex-gap" style={{ alignItems: 'center' }}>
+                          <img
+                            src={t.photo || "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=150&q=80"}
+                            alt=""
+                            style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-color)' }}
+                          />
+                          <div>
+                            <strong style={{ color: 'var(--text-main)', display: 'block' }}>{t.name}</strong>
+                            <small style={{ color: 'var(--primary)', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                              {t.code || t.technicianCode || t.id}
+                            </small>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t.phone}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <span className="badge badge-info" style={{ fontWeight: '700', alignSelf: 'flex-start' }}>
+                            🎯 {t.skills?.length || 0} Skills ({t.verifiedSkillsCount || 0} Verified)
+                          </span>
+                          <small style={{ color: 'var(--text-secondary)' }}>
+                            {t.skills?.slice(0, 2).map(s => s.skillName).join(', ') || 'No skills declared yet'}
+                            {t.skills?.length > 2 ? ` +${t.skills.length - 2} more` : ''}
                           </small>
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div><strong>{t.category || 'AC Service'}</strong></div>
-                      <small style={{ color: 'var(--text-secondary)' }}>{t.experience || '3 years exp'}</small>
-                    </td>
-                    <td>
-                      <div>{t.phone}</div>
-                      <small style={{ color: 'var(--text-secondary)' }}>{t.location || 'Bengaluru'}</small>
-                    </td>
-                    <td>
-                      <span className={`badge ${
-                        t.kycStatus === 'VERIFIED' || t.kycStatus === 'Approved' ? 'badge-completed' :
-                        t.kycStatus === 'REJECTED' || t.kycStatus === 'Rejected' ? 'badge-cancelled' : 'badge-pending'
-                      }`}>
-                        {t.kycStatus === 'VERIFIED' ? 'Verified' : t.kycStatus || 'Pending'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`badge ${t.isOnline || t.online ? 'badge-confirmed' : 'badge-cancelled'}`}>
-                        {t.isOnline || t.online ? 'Online' : 'Offline'}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 'bold', color: '#D97706' }}>
-                        ★ {t.rating || 5.0} <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>({t.totalJobsCompleted || 0} jobs)</span>
-                      </div>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                        <button
-                          className="btn btn-outline btn-sm"
-                          onClick={() => {
-                            setSelectedTech(t);
-                            setShowKycModal(true);
-                          }}
-                        >
-                          KYC Review
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => onNavigateToIdCard ? onNavigateToIdCard(t) : alert(`Viewing ID for ${t.name}`)}
-                        >
-                          Digital ID
-                        </button>
-                        <button
-                          className={`btn btn-sm ${t.status === 'Suspended' ? 'btn-primary' : 'btn-danger'}`}
-                          onClick={() => handleSuspendTech(t)}
-                        >
-                          {t.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {isBusy ? (
+                            <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', fontWeight: '600' }}>
+                              🟡 Busy on Job
+                            </span>
+                          ) : isOnline ? (
+                            <span className="badge badge-confirmed" style={{ background: '#D1FAE5', color: '#065F46', fontWeight: '600' }}>
+                              🟢 Online & Idle
+                            </span>
+                          ) : (
+                            <span className="badge badge-cancelled" style={{ background: '#F1F5F9', color: '#475569', fontWeight: '600' }}>
+                              ⚪ Offline
+                            </span>
+                          )}
+                          <small style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            Status: <strong style={{ color: t.status === 'Active' ? 'var(--success)' : 'var(--danger)' }}>{t.status || 'Active'}</strong>
+                          </small>
+                        </div>
+                      </td>
+                      <td>
+                        {t.latitude && t.longitude ? (
+                          <div style={{ fontSize: '12px' }}>
+                            <a
+                              href={`https://maps.google.com/?q=${t.latitude},${t.longitude}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: 'var(--primary)', fontWeight: '600', textDecoration: 'none' }}
+                            >
+                              📍 {t.latitude.toFixed(4)}, {t.longitude.toFixed(4)}
+                            </a>
+                            <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                              {t.locationUpdatedAt ? `Fix: ${new Date(t.locationUpdatedAt).toLocaleTimeString()}` : 'Live GPS'}
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>📍 No GPS fix</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          t.kycStatus === 'VERIFIED' || t.kycStatus === 'Approved' ? 'badge-completed' :
+                          t.kycStatus === 'REJECTED' || t.kycStatus === 'Rejected' ? 'badge-cancelled' : 'badge-pending'
+                        }`}>
+                          {t.kycStatus === 'VERIFIED' ? '✓ Verified' : t.kycStatus || 'Pending'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <div style={{ fontWeight: 'bold', color: '#D97706', fontSize: '13px' }}>
+                            ★ {t.rating || 5.0} <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>({t.totalRatingsCount || 0} revs)</span>
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                            Jobs: <strong>{t.totalJobsCompleted || 0}</strong>
+                          </div>
+                          <div style={{ fontSize: '11px', display: 'flex', gap: '8px' }}>
+                            <span style={{ color: '#059669', fontWeight: '600' }}>Accept: {t.acceptanceRate || 96}%</span>
+                            <span style={{ color: '#DC2626' }}>Cancel: {t.cancellationRate || 1.5}%</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                            onClick={() => openSkillsModal(t)}
+                          >
+                            Skills & Verification
+                          </button>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => {
+                              setSelectedTech(t);
+                              setShowKycModal(true);
+                            }}
+                          >
+                            KYC Review
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => onNavigateToIdCard ? onNavigateToIdCard(t) : alert(`Viewing ID for ${t.name}`)}
+                          >
+                            Digital ID
+                          </button>
+                          <button
+                            className={`btn btn-sm ${t.status === 'Suspended' ? 'btn-primary' : 'btn-danger'}`}
+                            onClick={() => handleSuspendTech(t)}
+                          >
+                            {t.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* ─── SKILLS VERIFICATION MODAL ─── */}
+      {showSkillsModal && selectedTech && (
+        <div className="modal-overlay" onClick={() => setShowSkillsModal(false)}>
+          <div className="modal-dialog" style={{ maxWidth: '680px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Skills Verification: {selectedTech.name}</h3>
+              <button className="modal-close-btn" onClick={() => setShowSkillsModal(false)}>×</button>
+            </div>
+
+            <div className="modal-body">
+              <div style={{ padding: '12px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <strong>{selectedTech.name}</strong> ({selectedTech.phone})
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      Technician ID: <strong>{selectedTech.code || selectedTech.technicianCode || selectedTech.id}</strong>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#D97706' }}>
+                      ★ {techSkillsData?.rating || selectedTech.rating || 4.9} ({techSkillsData?.totalRatingsCount || selectedTech.totalRatingsCount || 0} reviews)
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      {techSkillsData?.verifiedSkillsCount || 0} Verified / {techSkillsData?.skills?.length || 0} Total Skills
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {loadingSkills ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-secondary)' }}>
+                  Loading technician declared skills...
+                </div>
+              ) : !techSkillsData || !techSkillsData.skills || techSkillsData.skills.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
+                  No skills declared by this technician yet.
+                </div>
+              ) : (
+                <div className="table-responsive">
+                  <table className="flat-table" style={{ fontSize: '13px' }}>
+                    <thead>
+                      <tr>
+                        <th>Category & Skill</th>
+                        <th>Experience</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: 'right' }}>Verification Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {techSkillsData.skills.map((s) => (
+                        <tr key={s.id}>
+                          <td>
+                            <strong>{s.skillName}</strong>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{s.categoryName}</div>
+                          </td>
+                          <td>{s.experienceYears} {s.experienceYears === 1 ? 'year' : 'years'}</td>
+                          <td>
+                            <span className={`badge ${
+                              s.verificationStatus === 'VERIFIED' ? 'badge-completed' :
+                              s.verificationStatus === 'REJECTED' ? 'badge-cancelled' : 'badge-pending'
+                            }`}>
+                              {s.verificationStatus === 'VERIFIED' ? '✓ Verified' :
+                               s.verificationStatus === 'REJECTED' ? '❌ Rejected' : '⏳ Pending'}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                              {s.verificationStatus !== 'VERIFIED' && (
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  style={{ padding: '3px 8px', fontSize: '11px' }}
+                                  onClick={() => handleVerifySkill(s, 'VERIFIED')}
+                                >
+                                  Verify
+                                </button>
+                              )}
+                              {s.verificationStatus !== 'REJECTED' && (
+                                <button
+                                  className="btn btn-danger btn-sm"
+                                  style={{ padding: '3px 8px', fontSize: '11px' }}
+                                  onClick={() => {
+                                    const reason = prompt(`Reason for rejecting skill "${s.skillName}":`, 'Insufficient certificate or experience proof');
+                                    if (reason) handleVerifySkill(s, 'REJECTED', reason);
+                                  }}
+                                >
+                                  Reject
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline" onClick={() => setShowSkillsModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── KYC VERIFICATION MODAL ─── */}
       {showKycModal && selectedTech && (

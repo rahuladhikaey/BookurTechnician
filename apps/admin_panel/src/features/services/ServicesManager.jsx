@@ -1,3 +1,6 @@
+import React, { useState, useEffect } from 'react';
+import api from '../../api/apiClient';
+
 export default function ServicesManager({ categories, setCategories, services, setServices, auditLogAction, subTab = 'categories' }) {
   const [activeTab, setActiveTab] = useState(subTab);
   
@@ -5,6 +8,130 @@ export default function ServicesManager({ categories, setCategories, services, s
   const [popularServices, setPopularServices] = useState([]);
   const [brands, setBrands] = useState([]);
   const [serviceImages, setServiceImages] = useState([]);
+
+  // Skills Management State
+  const [skillsList, setSkillsList] = useState([]);
+  const [loadingSkills, setLoadingSkills] = useState(false);
+  const [showSkillModal, setShowSkillModal] = useState(false);
+  const [editingSkill, setEditingSkill] = useState(null);
+  const [skillForm, setSkillForm] = useState({
+    name: '',
+    categoryId: '',
+    serviceItemId: '',
+    description: '',
+    displayOrder: 1,
+    active: true
+  });
+
+  const loadSkills = async () => {
+    setLoadingSkills(true);
+    try {
+      const res = await api.getSkills();
+      if (res?.data) {
+        setSkillsList(res.data);
+      }
+    } catch (err) {
+      console.warn('Error loading skills:', err);
+    } finally {
+      setLoadingSkills(false);
+    }
+  };
+
+  // Skill Compatibility Matrix State
+  const [showCompatibilityModal, setShowCompatibilityModal] = useState(false);
+  const [selectedSkillCompat, setSelectedSkillCompat] = useState(null);
+  const [compatibleServiceIds, setCompatibleServiceIds] = useState([]);
+  const [loadingCompat, setLoadingCompat] = useState(false);
+  const [savingCompat, setSavingCompat] = useState(false);
+
+  const openCompatibilityModal = async (skill) => {
+    setSelectedSkillCompat(skill);
+    setShowCompatibilityModal(true);
+    setLoadingCompat(true);
+    try {
+      const res = await api.getSkillCompatibility(skill.id);
+      if (res?.data?.compatibleServices) {
+        setCompatibleServiceIds(res.data.compatibleServices.map(s => s.serviceId));
+      } else {
+        setCompatibleServiceIds([]);
+      }
+    } catch (err) {
+      console.warn('Error loading skill compatibility:', err);
+      setCompatibleServiceIds([]);
+    } finally {
+      setLoadingCompat(false);
+    }
+  };
+
+  const handleToggleCompatService = (serviceId) => {
+    setCompatibleServiceIds(prev =>
+      prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]
+    );
+  };
+
+  const handleSaveCompatibility = async () => {
+    if (!selectedSkillCompat) return;
+    setSavingCompat(true);
+    try {
+      await api.updateSkillCompatibility(selectedSkillCompat.id, compatibleServiceIds);
+      auditLogAction?.('Services', `Updated compatible services for skill "${selectedSkillCompat.name}" (${compatibleServiceIds.length} services mapped).`);
+      setShowCompatibilityModal(false);
+    } catch (err) {
+      alert('Error updating compatibility: ' + err.message);
+    } finally {
+      setSavingCompat(false);
+    }
+  };
+
+  // Matching Rules State
+  const [matchingRules, setMatchingRules] = useState({
+    searchRadiusKm: 10.0,
+    strictSkillMatching: true,
+    scoreWeightDistance: 0.40,
+    scoreWeightRating: 0.30,
+    scoreWeightAcceptance: 0.15,
+    scoreWeightExperience: 0.15,
+    priorityPolicy: 'BALANCED',
+    notificationTimeoutSeconds: 30,
+    maxDispatchAttempts: 5,
+    autoEscalateToAdmin: true
+  });
+  const [loadingRules, setLoadingRules] = useState(false);
+  const [savingRules, setSavingRules] = useState(false);
+
+  const loadMatchingRules = async () => {
+    setLoadingRules(true);
+    try {
+      const res = await api.getMatchingRules();
+      if (res?.data) {
+        setMatchingRules(res.data);
+      }
+    } catch (err) {
+      console.warn('Error loading matching rules:', err);
+    } finally {
+      setLoadingRules(false);
+    }
+  };
+
+  const handleSaveMatchingRules = async (e) => {
+    e.preventDefault();
+    setSavingRules(true);
+    try {
+      const res = await api.updateMatchingRules(matchingRules);
+      if (res?.data) setMatchingRules(res.data);
+      auditLogAction?.('Dispatch', `Updated intelligent dispatch matching rules & score weights.`);
+      alert('✅ Dispatch matching rules successfully saved!');
+    } catch (err) {
+      alert('Error saving matching rules: ' + err.message);
+    } finally {
+      setSavingRules(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSkills();
+    loadMatchingRules();
+  }, []);
 
   // Modals & Form State
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -265,6 +392,71 @@ export default function ServicesManager({ categories, setCategories, services, s
     }
   };
 
+  const openSkillModal = (sk = null) => {
+    if (sk) {
+      setEditingSkill(sk.id);
+      setSkillForm({
+        name: sk.name,
+        categoryId: sk.categoryId || categories[0]?.id || '',
+        serviceItemId: sk.serviceItemId || '',
+        description: sk.description || '',
+        displayOrder: sk.displayOrder || 1,
+        active: sk.active !== false
+      });
+    } else {
+      setEditingSkill(null);
+      setSkillForm({
+        name: '',
+        categoryId: categories[0]?.id || '',
+        serviceItemId: '',
+        description: '',
+        displayOrder: skillsList.length + 1,
+        active: true
+      });
+    }
+    setShowSkillModal(true);
+  };
+
+  const handleSaveSkill = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingSkill) {
+        await api.updateSkill(editingSkill, {
+          name: skillForm.name,
+          description: skillForm.description,
+          displayOrder: Number(skillForm.displayOrder),
+          active: skillForm.active
+        });
+        auditLogAction?.('Services', `Updated skill "${skillForm.name}"`);
+      } else {
+        await api.createSkill({
+          name: skillForm.name,
+          categoryId: skillForm.categoryId,
+          serviceItemId: skillForm.serviceItemId || null,
+          description: skillForm.description,
+          displayOrder: Number(skillForm.displayOrder)
+        });
+        auditLogAction?.('Services', `Created skill "${skillForm.name}"`);
+      }
+      setShowSkillModal(false);
+      loadSkills();
+    } catch (err) {
+      alert('Error saving skill: ' + err.message);
+    }
+  };
+
+  const handleDeleteSkill = async (id, name) => {
+    if (window.confirm(`Deactivate skill "${name}"?`)) {
+      try {
+        await api.deleteSkill(id);
+        auditLogAction?.('Services', `Deactivated skill "${name}"`);
+        loadSkills();
+      } catch (err) {
+        alert('Error deactivating skill: ' + err.message);
+      }
+    }
+  };
+
   // Filtered Services List
   const filteredServices = services.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -272,15 +464,27 @@ export default function ServicesManager({ categories, setCategories, services, s
     return matchesSearch && matchesCat;
   });
 
+  const filteredSkills = skillsList.filter(sk => {
+    const matchesSearch = !searchQuery || sk.name.toLowerCase().includes(searchQuery.toLowerCase()) || (sk.categoryName || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCat = filterCategory === 'ALL' || sk.categoryId === filterCategory || sk.categoryName === filterCategory;
+    return matchesSearch && matchesCat;
+  });
+
   return (
     <div className="services-manager-view">
-      {/* ─── FLAT TABS NAVIGATION (5 TABS) ─── */}
+      {/* ─── FLAT TABS NAVIGATION (7 TABS) ─── */}
       <div className="flat-tabs">
         <div className={`flat-tab ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}>
           📂 Categories ({categories.length})
         </div>
         <div className={`flat-tab ${activeTab === 'services' ? 'active' : ''}`} onClick={() => setActiveTab('services')}>
           🛠️ Services Catalog ({services.length})
+        </div>
+        <div className={`flat-tab ${activeTab === 'skills' ? 'active' : ''}`} onClick={() => setActiveTab('skills')}>
+          🎯 Skills Directory ({skillsList.length})
+        </div>
+        <div className={`flat-tab ${activeTab === 'matching' ? 'active' : ''}`} onClick={() => setActiveTab('matching')}>
+          ⚙️ Matching Rules
         </div>
         <div className={`flat-tab ${activeTab === 'popular' ? 'active' : ''}`} onClick={() => setActiveTab('popular')}>
           ⭐ Popular Services ({popularServices.length})
@@ -448,6 +652,297 @@ export default function ServicesManager({ categories, setCategories, services, s
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          TAB: SKILLS HIERARCHY & DIRECTORY
+         ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'skills' && (
+        <div className="panel">
+          <div className="page-header-row">
+            <div>
+              <h2 className="page-title">Technician Skills Directory</h2>
+              <p className="page-subtitle">Configure granular skills hierarchy (Category → Service → Skill) for onboarding & dispatch matching</p>
+            </div>
+            <button className="btn btn-primary" onClick={() => openSkillModal()}>
+              + Add Skill
+            </button>
+          </div>
+
+          <div className="toolbar-row">
+            <div className="toolbar-left">
+              <div className="search-box">
+                <span className="search-icon">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search skills or categories..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <select className="filter-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+                <option value="ALL">All Categories</option>
+                {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="toolbar-right">
+              <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                Showing {filteredSkills.length} of {skillsList.length} skills
+              </span>
+            </div>
+          </div>
+
+          {loadingSkills ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+              Loading skills catalog...
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="flat-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '70px' }}>Order</th>
+                    <th>Skill Name</th>
+                    <th>Parent Category</th>
+                    <th>Associated Service</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSkills.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-secondary)' }}>
+                        🎯 No skills found for current filter. Click <strong>+ Add Skill</strong> to create one.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSkills.map(sk => (
+                      <tr key={sk.id}>
+                        <td>
+                          <span className="badge badge-info" style={{ fontWeight: '700' }}>#{sk.displayOrder || 1}</span>
+                        </td>
+                        <td>
+                          <strong style={{ color: 'var(--text-main)', fontSize: '14px' }}>{sk.name}</strong>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>slug: {sk.slug}</div>
+                        </td>
+                        <td>
+                          <span className="badge badge-info">{sk.categoryName}</span>
+                        </td>
+                        <td>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                            {sk.serviceItemName || 'General Category Skill'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`badge ${sk.active !== false ? 'badge-completed' : 'badge-cancelled'}`}>
+                            {sk.active !== false ? 'Active' : 'Disabled'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div className="page-actions-group" style={{ justifyContent: 'flex-end' }}>
+                            <button
+                              className="btn btn-outline btn-sm"
+                              style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                              onClick={() => openCompatibilityModal(sk)}
+                            >
+                              🔗 Compatibility
+                            </button>
+                            <button className="btn btn-outline btn-sm" onClick={() => openSkillModal(sk)}>Edit</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDeleteSkill(sk.id, sk.name)}>Deactivate</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          TAB: MATCHING RULES & DISPATCH CONFIGURATION
+         ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'matching' && (
+        <div className="panel">
+          <div className="page-header-row">
+            <div>
+              <h2 className="page-title">⚙️ Intelligent Dispatch & Skill Matching Engine Rules</h2>
+              <p className="page-subtitle">Configure search radius, skill matching strictness, candidate score weights, proposal timeouts, and escalation triggers</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSaveMatchingRules} style={{ maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* 1. Spatial Search & Matching Strictness */}
+            <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #E2E8F0)', borderRadius: '12px', padding: '20px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '14px', color: 'var(--text-main)' }}>
+                📍 1. Spatial Search & Skill Compatibility Strictness
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div className="form-group">
+                  <label className="form-label">
+                    Search Radius (km): <strong style={{ color: 'var(--primary)' }}>{matchingRules.searchRadiusKm} km</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="50"
+                    step="1"
+                    value={matchingRules.searchRadiusKm}
+                    onChange={e => setMatchingRules({ ...matchingRules, searchRadiusKm: Number(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--primary)' }}
+                  />
+                  <small style={{ color: 'var(--text-secondary)' }}>Maximum GPS distance to look for online, active technicians (Default: 10 km)</small>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Skill Matching Rule</label>
+                  <select
+                    className="form-control"
+                    value={matchingRules.strictSkillMatching ? 'strict' : 'flexible'}
+                    onChange={e => setMatchingRules({ ...matchingRules, strictSkillMatching: e.target.value === 'strict' })}
+                  >
+                    <option value="strict">Strict (Require exact verified skill or mapped compatibility)</option>
+                    <option value="flexible">Flexible (Allow category-level fallback if profile lacks specific skill)</option>
+                  </select>
+                  <small style={{ color: 'var(--text-secondary)' }}>Enforces verified technical capability before booking proposal dispatch</small>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Dispatch Priority & Score Weights */}
+            <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #E2E8F0)', borderRadius: '12px', padding: '20px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '14px', color: 'var(--text-main)' }}>
+                ⚖️ 2. Priority Policy & Candidate Scoring Weights
+              </h3>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Priority Strategy Policy</label>
+                <select
+                  className="form-control"
+                  value={matchingRules.priorityPolicy}
+                  onChange={e => setMatchingRules({ ...matchingRules, priorityPolicy: e.target.value })}
+                >
+                  <option value="BALANCED">Balanced Multi-Factor (Distance + Rating + Acceptance + Experience)</option>
+                  <option value="NEAREST_FIRST">Fastest Response (Nearest GPS Distance Priority)</option>
+                  <option value="HIGHEST_RATED">Quality First (Highest Rated & Experienced Technicians)</option>
+                  <option value="FAIR_SHARE">Fair Distribution (Balance job opportunities across all active partners)</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">Distance Weight: <strong>{Math.round(matchingRules.scoreWeightDistance * 100)}%</strong></label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={matchingRules.scoreWeightDistance}
+                    onChange={e => setMatchingRules({ ...matchingRules, scoreWeightDistance: Number(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--primary)' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Rating Weight: <strong>{Math.round(matchingRules.scoreWeightRating * 100)}%</strong></label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={matchingRules.scoreWeightRating}
+                    onChange={e => setMatchingRules({ ...matchingRules, scoreWeightRating: Number(e.target.value) })}
+                    style={{ width: '100%', accentColor: '#D97706' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Acceptance Rate Weight: <strong>{Math.round(matchingRules.scoreWeightAcceptance * 100)}%</strong></label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={matchingRules.scoreWeightAcceptance}
+                    onChange={e => setMatchingRules({ ...matchingRules, scoreWeightAcceptance: Number(e.target.value) })}
+                    style={{ width: '100%', accentColor: '#059669' }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Experience Weight: <strong>{Math.round(matchingRules.scoreWeightExperience * 100)}%</strong></label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={matchingRules.scoreWeightExperience}
+                    onChange={e => setMatchingRules({ ...matchingRules, scoreWeightExperience: Number(e.target.value) })}
+                    style={{ width: '100%', accentColor: '#7C3AED' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Notification Timeouts & Escalation Triggers */}
+            <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #E2E8F0)', borderRadius: '12px', padding: '20px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '14px', color: 'var(--text-main)' }}>
+                ⏱️ 3. Notification Countdown & Admin Escalation Triggers
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div className="form-group">
+                  <label className="form-label">
+                    Proposal Countdown Timeout: <strong style={{ color: 'var(--primary)' }}>{matchingRules.notificationTimeoutSeconds} seconds</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="15"
+                    max="120"
+                    step="5"
+                    value={matchingRules.notificationTimeoutSeconds}
+                    onChange={e => setMatchingRules({ ...matchingRules, notificationTimeoutSeconds: Number(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--primary)' }}
+                  />
+                  <small style={{ color: 'var(--text-secondary)' }}>Seconds technician has to accept before cascading to next candidate</small>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    Max Candidate Attempts: <strong>{matchingRules.maxDispatchAttempts} attempts</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={matchingRules.maxDispatchAttempts}
+                    onChange={e => setMatchingRules({ ...matchingRules, maxDispatchAttempts: Number(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--primary)' }}
+                  />
+                  <small style={{ color: 'var(--text-secondary)' }}>Number of sequential technician proposals before triggering escalation</small>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                  type="checkbox"
+                  id="escalateAdmin"
+                  checked={matchingRules.autoEscalateToAdmin}
+                  onChange={e => setMatchingRules({ ...matchingRules, autoEscalateToAdmin: e.target.checked })}
+                  style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
+                />
+                <label htmlFor="escalateAdmin" style={{ fontWeight: '600', color: 'var(--text-main)', cursor: 'pointer' }}>
+                  Auto-escalate to Admin Operations Console if no partner accepts within attempt limit
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <button type="submit" className="btn btn-primary" style={{ padding: '12px 28px', fontSize: '15px' }} disabled={savingRules}>
+                {savingRules ? 'Saving Matching Rules...' : '💾 Save Dispatch Matching Engine Rules'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -920,6 +1415,184 @@ export default function ServicesManager({ categories, setCategories, services, s
                 <button type="submit" className="btn btn-primary">Save Brand</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── SKILL MODAL ─── */}
+      {showSkillModal && (
+        <div className="modal-overlay" onClick={() => setShowSkillModal(false)}>
+          <div className="modal-dialog" style={{ maxWidth: '580px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">{editingSkill ? 'Edit Technician Skill' : 'Create New Skill'}</h3>
+              <button className="modal-close-btn" onClick={() => setShowSkillModal(false)}>×</button>
+            </div>
+            <form onSubmit={handleSaveSkill}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div className="form-group">
+                  <label className="form-label">Skill Name *</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="e.g. Ceiling Fan Repair, AC Deep Cleaning"
+                    value={skillForm.name}
+                    onChange={e => setSkillForm({ ...skillForm, name: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Parent Service Category *</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={skillForm.categoryId}
+                    onChange={e => setSkillForm({ ...skillForm, categoryId: e.target.value })}
+                  >
+                    <option value="">Select Parent Category</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Associated Service (Optional)</label>
+                  <select
+                    className="form-control"
+                    value={skillForm.serviceItemId}
+                    onChange={e => setSkillForm({ ...skillForm, serviceItemId: e.target.value })}
+                  >
+                    <option value="">General Category Skill (All Services)</option>
+                    {services.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.category})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Display Order</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      className="form-control"
+                      value={skillForm.displayOrder}
+                      onChange={e => setSkillForm({ ...skillForm, displayOrder: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Status</label>
+                    <select
+                      className="form-control"
+                      value={skillForm.active ? 'true' : 'false'}
+                      onChange={e => setSkillForm({ ...skillForm, active: e.target.value === 'true' })}
+                    >
+                      <option value="true">Active (Visible for Onboarding)</option>
+                      <option value="false">Disabled / Inactive</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Skill Description (Optional)</label>
+                  <textarea
+                    className="form-control"
+                    rows="2"
+                    placeholder="Brief description of verified technical competency required"
+                    value={skillForm.description}
+                    onChange={e => setSkillForm({ ...skillForm, description: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-outline" onClick={() => setShowSkillModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  {editingSkill ? 'Save Changes' : 'Create Skill'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── SKILL SERVICE COMPATIBILITY MODAL ─── */}
+      {showCompatibilityModal && selectedSkillCompat && (
+        <div className="modal-overlay" onClick={() => setShowCompatibilityModal(false)}>
+          <div className="modal-dialog" style={{ maxWidth: '680px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title">🔗 Skill Compatibility Matrix</h3>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Skill: <strong>{selectedSkillCompat.name}</strong> ({selectedSkillCompat.categoryName})
+                </div>
+              </div>
+              <button className="modal-close-btn" onClick={() => setShowCompatibilityModal(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+                Select all customer services that technicians holding this verified skill are qualified to handle. When customer bookings are dispatched, partners with this skill will automatically be eligible.
+              </p>
+
+              {loadingCompat ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-secondary)' }}>
+                  Loading service compatibility...
+                </div>
+              ) : (
+                <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {services.map(srv => {
+                    const isChecked = compatibleServiceIds.includes(srv.id);
+                    return (
+                      <div
+                        key={srv.id}
+                        onClick={() => handleToggleCompatService(srv.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          border: isChecked ? '1.5px solid var(--primary, #1E3A8A)' : '1px solid var(--border-color, #E2E8F0)',
+                          background: isChecked ? '#EFF6FF' : 'var(--card-bg, #ffffff)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            style={{ width: '17px', height: '17px', accentColor: 'var(--primary, #1E3A8A)', cursor: 'pointer' }}
+                          />
+                          <div>
+                            <strong style={{ color: 'var(--text-main)', fontSize: '13.5px' }}>{srv.name}</strong>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                              Category: {srv.category} • ₹{srv.price}
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`badge ${isChecked ? 'badge-completed' : 'badge-cancelled'}`} style={{ fontSize: '11px' }}>
+                          {isChecked ? 'Compatible' : 'Not Linked'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <div style={{ marginRight: 'auto', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                <strong>{compatibleServiceIds.length}</strong> of {services.length} services mapped
+              </div>
+              <button type="button" className="btn btn-outline" onClick={() => setShowCompatibilityModal(false)}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" onClick={handleSaveCompatibility} disabled={savingCompat}>
+                {savingCompat ? 'Saving Matrix...' : '💾 Save Compatibility Mapping'}
+              </button>
+            </div>
           </div>
         </div>
       )}

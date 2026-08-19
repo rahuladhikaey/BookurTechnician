@@ -9,6 +9,7 @@ import '../../auth/presentation/auth_provider.dart';
 import '../../auth/presentation/login_page.dart';
 import '../../auth/presentation/selfie_capture_page.dart';
 import 'digital_id_card_page.dart';
+import 'my_skills_page.dart';
 import 'partner_legal_page.dart';
 
 class ProfileTab extends ConsumerStatefulWidget {
@@ -21,18 +22,7 @@ class ProfileTab extends ConsumerStatefulWidget {
 class _ProfileTabState extends ConsumerState<ProfileTab> {
   String _profilePhoto = '';
   final String _technicianCode = 'BT-TECH-PENDING';
-  final String _technicianName = 'Technician';
 
-  // Skills Checklist State
-  final List<String> _allSkills = [
-    'AC Technician',
-    'Electrician',
-    'Laptop Technician',
-    'Fan Technician',
-    'Refrigerator Technician',
-    'Washing Machine Technician',
-    'Lighting Technician'
-  ];
   final List<String> _selectedSkills = ['AC Technician', 'Electrician', 'Fan Technician'];
 
   // Incident Form States
@@ -63,6 +53,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final technicianName = (authState.fullName != null && authState.fullName!.isNotEmpty)
+        ? authState.fullName!
+        : 'Rahul';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -95,7 +90,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => DigitalIdCardPage(
-                      technicianName: _technicianName,
+                      technicianName: technicianName,
                       technicianCode: _technicianCode,
                       initialPhotoUrl: _profilePhoto,
                       skills: _selectedSkills,
@@ -218,7 +213,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                         children: [
                           Row(
                             children: [
-                              Text(_technicianName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              Text(technicianName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                               const SizedBox(width: 4),
                               const Icon(Icons.verified, color: Colors.blue, size: 18),
                             ],
@@ -244,52 +239,105 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             ),
             const SizedBox(height: AppSpacing.m),
 
-            // SKILLS CHECKLIST
-            const Text('My Professional Skills', style: AppTypography.titleMedium),
-            const SizedBox(height: AppSpacing.s),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.m),
-                child: Column(
-                  children: [
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _allSkills.length,
-                      itemBuilder: (context, index) {
-                        final skill = _allSkills[index];
-                        final isChecked = _selectedSkills.contains(skill);
-                        return CheckboxListTile(
-                          title: Text(skill, style: const TextStyle(fontSize: 13)),
-                          value: isChecked,
-                          dense: true,
-                          activeColor: AppColors.primary,
-                          onChanged: (val) {
-                            setState(() {
-                              if (val == true) {
-                                _selectedSkills.add(skill);
-                              } else {
-                                _selectedSkills.remove(skill);
-                              }
-                            });
-                          },
-                        );
-                      },
+            // SKILLS & VERIFICATION CARD
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MySkillsPage()),
+                );
+              },
+              borderRadius: AppRadius.medium,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: AppRadius.medium,
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
                     ),
-                    const SizedBox(height: AppSpacing.s),
-                    ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Professional skills list updated successfully!'), backgroundColor: SemanticColors.success),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.black,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 44),
-                        shape: const RoundedRectangleBorder(borderRadius: AppRadius.small),
-                      ),
-                      child: const Text('Save Active Skills'),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.handyman_rounded, color: Color(0xFF1E3A8A), size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'My Skills & Expertise',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                Text(
+                                  'Manage categories & verification status',
+                                  style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle, size: 12, color: Color(0xFF059669)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Auto-Matching Enabled',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF059669),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        const Text(
+                          'View & Edit >',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1E3A8A),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

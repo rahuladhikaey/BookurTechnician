@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'dashboard_page.dart';
+import 'partner_home_screen.dart';
 import 'earnings_tab.dart';
-import 'notifications_tab.dart';
 import 'profile_tab.dart';
 import '../../jobs/presentation/jobs_list_tab.dart';
-import '../../../core/theme/app_colors.dart';
 
 class MainShellPage extends StatefulWidget {
   const MainShellPage({super.key});
@@ -18,26 +16,41 @@ class _MainShellPageState extends State<MainShellPage> {
 
   void _onTabChange(int index) {
     setState(() {
-      _currentIndex = index.clamp(0, 4);
+      _currentIndex = index.clamp(0, 3);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // 4 Core Tabs: Duty, Bookings, Earnings, Profile
     final List<Widget> tabs = [
-      DashboardPage(onNavigateTab: _onTabChange),
+      PartnerHomeScreen(onNavigateTab: _onTabChange),
       const JobsListTab(),
       const EarningsTab(),
-      const NotificationsTab(),
       const ProfileTab(),
     ];
 
     final navItems = [
-      const _ShellNavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
-      const _ShellNavItem(icon: Icons.work_outline_rounded, activeIcon: Icons.work_rounded, label: 'Jobs'),
-      const _ShellNavItem(icon: Icons.account_balance_wallet_outlined, activeIcon: Icons.account_balance_wallet_rounded, label: 'Earnings'),
-      const _ShellNavItem(icon: Icons.notifications_outlined, activeIcon: Icons.notifications_rounded, label: 'Notifications'),
-      const _ShellNavItem(icon: Icons.person_outline_rounded, activeIcon: Icons.person_rounded, label: 'Profile'),
+      const _ShellNavItem(
+        icon: Icons.dashboard_outlined,
+        activeIcon: Icons.dashboard_rounded,
+        label: 'Duty',
+      ),
+      const _ShellNavItem(
+        icon: Icons.calendar_month_outlined,
+        activeIcon: Icons.calendar_month_rounded,
+        label: 'Bookings',
+      ),
+      const _ShellNavItem(
+        icon: Icons.account_balance_wallet_outlined,
+        activeIcon: Icons.account_balance_wallet_rounded,
+        label: 'Earnings',
+      ),
+      const _ShellNavItem(
+        icon: Icons.person_outline_rounded,
+        activeIcon: Icons.person_rounded,
+        label: 'Profile',
+      ),
     ];
 
     return Scaffold(
@@ -46,18 +59,18 @@ class _MainShellPageState extends State<MainShellPage> {
         children: tabs,
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+          border: const Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
           boxShadow: [
             BoxShadow(
-              color: Color(0x0D000000),
-              blurRadius: 10,
-              offset: Offset(0, -2),
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, -3),
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: SafeArea(
           top: false,
           child: Row(
@@ -72,11 +85,11 @@ class _MainShellPageState extends State<MainShellPage> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   padding: EdgeInsets.symmetric(
-                    horizontal: isSelected ? 12 : 8,
+                    horizontal: isSelected ? 16 : 10,
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primaryLight : Colors.transparent,
+                    color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Column(
@@ -84,16 +97,16 @@ class _MainShellPageState extends State<MainShellPage> {
                     children: [
                       Icon(
                         isSelected ? item.activeIcon : item.icon,
-                        color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                        size: 22,
+                        color: isSelected ? const Color(0xFF1E3A8A) : const Color(0xFF64748B),
+                        size: 24,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
                         item.label,
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                          color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                          fontSize: 11.5,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          color: isSelected ? const Color(0xFF1E3A8A) : const Color(0xFF64748B),
                         ),
                       ),
                     ],
@@ -119,3 +132,4 @@ class _ShellNavItem {
     required this.label,
   });
 }
+

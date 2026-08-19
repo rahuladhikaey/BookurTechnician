@@ -12,5 +12,12 @@ import java.util.UUID;
 public interface ServiceItemRepository extends JpaRepository<ServiceItem, UUID> {
     List<ServiceItem> findByCategoryIdAndActiveTrue(UUID categoryId);
     List<ServiceItem> findByPopularTrueAndActiveTrue();
+
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM ServiceItem s WHERE s.active = true ORDER BY s.price ASC")
+    List<ServiceItem> findByActiveTrueOrderByPriceAsc();
+
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM ServiceItem s WHERE s.active = true")
+    List<ServiceItem> findByActiveTrue();
+
     Optional<ServiceItem> findBySlug(String slug);
 }

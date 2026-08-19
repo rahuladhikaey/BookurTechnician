@@ -1,29 +1,30 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
-import 'app_radius.dart';
 
 class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'Inter',
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.background,
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.primaryDark,
         surface: AppColors.card,
+        surfaceContainerLowest: AppColors.background,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: AppColors.textPrimary,
         outline: AppColors.border,
         error: AppColors.error,
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: CardThemeData(
         color: AppColors.card,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.medium,
-          side: BorderSide(color: AppColors.border, width: 1),
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.border, width: 1),
         ),
       ),
       appBarTheme: const AppBarTheme(
@@ -40,22 +41,22 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.black,
+          backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.medium),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.2),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           backgroundColor: Colors.white,
-          foregroundColor: AppColors.black,
-          side: const BorderSide(color: AppColors.black, width: 1.5),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.medium),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          foregroundColor: AppColors.primary,
+          side: const BorderSide(color: AppColors.primary, width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         ),
       ),
       dividerTheme: const DividerThemeData(
@@ -66,7 +67,6 @@ class AppTheme {
     );
   }
 
-  static ThemeData get darkTheme {
-    return lightTheme; // Enforce unified Royal Blue + Black + White identity across the application
-  }
+  static ThemeData get darkTheme => lightTheme;
 }
+
