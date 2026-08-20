@@ -23,6 +23,11 @@ import SettingsManager from './features/settings/SettingsManager';
 import AiAssistantCms from './features/ai_assistant/AiAssistantCms';
 import AdminLogin from './features/auth/AdminLogin';
 
+// Control Tower Feature Components
+import LiveBookingRadar from './features/dispatch_tower/LiveBookingRadar';
+import FinancialSettlementPortal from './features/payouts/FinancialSettlementPortal';
+import PartnerVerificationView from './features/kyc/PartnerVerificationView';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeSubTab, setActiveSubTab] = useState('');
@@ -198,6 +203,24 @@ export default function App() {
         </div>
 
         <div className="nav-container">
+          <div className="nav-group-label">⚡ Operations Control Tower</div>
+
+          <div className={`nav-item ${activeTab === 'live_radar' ? 'active' : ''}`} onClick={() => selectView('live_radar')}>
+            <span className="nav-icon">📡</span>
+            <span>Live Dispatch Radar</span>
+            <span className="nav-item-badge live-badge">LIVE</span>
+          </div>
+
+          <div className={`nav-item ${activeTab === 'settlements' ? 'active' : ''}`} onClick={() => selectView('settlements')}>
+            <span className="nav-icon">💰</span>
+            <span>Wallet Settlements (UTR)</span>
+          </div>
+
+          <div className={`nav-item ${activeTab === 'partner_kyc' ? 'active' : ''}`} onClick={() => selectView('partner_kyc')}>
+            <span className="nav-icon">🛡</span>
+            <span>Partner KYC & Safety</span>
+          </div>
+
           <div className="nav-group-label">Core Operations</div>
           
           <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => selectView('dashboard')}>
@@ -384,6 +407,18 @@ export default function App() {
 
         {/* ─── MAIN CONTENT VIEWPORT ─── */}
         <main className="page-container">
+          {activeTab === 'live_radar' && (
+            <LiveBookingRadar />
+          )}
+
+          {activeTab === 'settlements' && (
+            <FinancialSettlementPortal />
+          )}
+
+          {activeTab === 'partner_kyc' && (
+            <PartnerVerificationView />
+          )}
+
           {activeTab === 'dashboard' && (
             <Dashboard
               stats={stats}

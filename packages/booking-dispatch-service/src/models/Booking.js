@@ -31,6 +31,11 @@ const BookingSchema = new mongoose.Schema(
     distanceKm: { type: Number, default: 0 },
     payoutAmount: { type: Number, default: 450 },
     
+    // ─── DISPATCH OVERRIDE METADATA ───
+    isForceAssigned: { type: Boolean, default: false },
+    forceAssignedBy: { type: String },
+    forceAssignedAt: { type: Date },
+
     // ─── DUAL-OTP LIFECYCLE ───
     startOtp: {
       code: { type: String, required: true },
@@ -45,6 +50,15 @@ const BookingSchema = new mongoose.Schema(
       verifiedAt: { type: Date },
     },
     failedAttempts: { type: Number, default: 0 },
+
+    // ─── EMERGENCY OTP OVERRIDE & DISPUTES ───
+    otpBypassed: {
+      startOtpBypassed: { type: Boolean, default: false },
+      endOtpBypassed: { type: Boolean, default: false },
+      bypassedBy: { type: String },
+      bypassedAt: { type: Date },
+      reason: { type: String },
+    },
   },
   { timestamps: true }
 );

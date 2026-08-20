@@ -203,9 +203,24 @@ class ApiClient {
   getMatchingRules() { return this.get('/catalog/admin/matching-rules'); }
   updateMatchingRules(rules) { return this.put('/catalog/admin/matching-rules', rules); }
 
-  getTechnicianSkills(techId) { return this.get(`/technician/skills/technician/${techId}`); }
-  verifyTechnicianSkill(techSkillId, status = 'VERIFIED', rejectionReason = '') {
-    return this.post(`/technician/skills/admin/${techSkillId}/verify`, { status, rejectionReason });
+  // ─── CONTROL TOWER & OPERATIONS MANAGEMENT APIs ───
+  getControlTowerOverview() { return this.get('/admin/stats/overview'); }
+  getLiveBookingsRadar(params = {}) { return this.get('/admin/bookings/live', params); }
+  getNearbyTechniciansForBooking(bookingId) { return this.get(`/admin/bookings/${bookingId}/nearby-technicians`); }
+  forceAssignBooking(bookingId, technicianId, reason = '') {
+    return this.post(`/admin/bookings/${bookingId}/force-assign`, { technicianId, reason });
+  }
+  releaseWalletPayout(payoutData) {
+    return this.post('/admin/payouts/release', payoutData);
+  }
+  getPayoutTransactions(technicianId = 'all', params = {}) {
+    return this.get(`/admin/payouts/history/${technicianId}`, params);
+  }
+  updatePartnerKycStatus(partnerId, statusData) {
+    return this.patch(`/admin/partners/${partnerId}/status`, statusData);
+  }
+  emergencyBypassOtp(bookingId, otpType, reason) {
+    return this.post(`/admin/bookings/${bookingId}/bypass-otp`, { otpType, reason });
   }
 }
 

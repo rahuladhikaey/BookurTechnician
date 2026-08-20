@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const { Server } = require('socket.io');
 
 const bookingRoutes = require('./routes/bookingRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const { updateTechnicianLocation, removeTechnician } = require('./services/redisGeoService');
 
 const app = express();
@@ -14,9 +15,11 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: '*',
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
   },
 });
+
+global.io = io;
 
 app.use(cors());
 app.use(express.json());
@@ -26,6 +29,7 @@ app.set('io', io);
 
 // Routes
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'booking-dispatch-service', timestamp: new Date() });

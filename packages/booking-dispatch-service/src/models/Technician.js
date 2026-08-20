@@ -23,6 +23,37 @@ const TechnicianSchema = new mongoose.Schema(
     isOnline: { type: Boolean, default: false, index: true },
     activeBookingId: { type: String, default: null },
     lastHeartbeat: { type: Date, default: Date.now },
+
+    // ─── FINANCIAL & WALLET FIELDS ───
+    walletBalance: { type: Number, default: 0, min: 0 },
+    totalWithdrawn: { type: Number, default: 0, min: 0 },
+    pendingPayouts: { type: Number, default: 0, min: 0 },
+    upiId: { type: String, default: '' },
+    bankDetails: {
+      accountNumber: String,
+      ifscCode: String,
+      bankName: String,
+    },
+
+    // ─── PARTNER COMPLIANCE & KYC ───
+    kycStatus: {
+      type: String,
+      enum: ['PENDING_APPROVAL', 'ACTIVE', 'SUSPENDED', 'REJECTED'],
+      default: 'ACTIVE',
+      index: true,
+    },
+    kycDocuments: {
+      aadhaarNumber: String,
+      aadhaarFrontUrl: String,
+      aadhaarBackUrl: String,
+      skillCertificateUrl: String,
+      selfieUrl: String,
+      rejectionReason: String,
+      reviewedAt: Date,
+      reviewedBy: String,
+    },
+    suspensionReason: { type: String },
+    suspendedAt: { type: Date },
   },
   { timestamps: true }
 );
