@@ -428,6 +428,10 @@ public class AdminController {
 
     @GetMapping("/bookings/{id}")
     public ResponseEntity<ApiResponse<Booking>> getBookingDetails(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(bookingRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found: " + id))));
+    }
+
     // ─── 5. CONTROL TOWER: LIVE BOOKING RADAR & PIPELINE ─────────────────────
     @GetMapping("/bookings/live")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getLiveBookings(
