@@ -24,6 +24,7 @@ public class AuthDtos {
         private String email;
 
         private String name;
+        private String phone;
 
         @NotBlank(message = "Purpose is required (e.g. LOGIN, SIGNUP, VERIFY)")
         private String purpose;
