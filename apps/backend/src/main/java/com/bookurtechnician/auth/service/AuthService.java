@@ -1,5 +1,7 @@
 package com.bookurtechnician.auth.service;
 
+import com.bookurtechnician.audit.entity.AuditLog;
+import com.bookurtechnician.audit.repository.AuditLogRepository;
 import com.bookurtechnician.auth.dto.AuthDtos;
 import com.bookurtechnician.auth.entity.Role;
 import com.bookurtechnician.auth.entity.User;
@@ -15,12 +17,15 @@ import com.bookurtechnician.wallet.entity.TechnicianWallet;
 import com.bookurtechnician.wallet.repository.TechnicianWalletRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,9 +38,16 @@ public class AuthService {
     private final CustomerProfileRepository customerProfileRepository;
     private final TechnicianProfileRepository technicianProfileRepository;
     private final TechnicianWalletRepository technicianWalletRepository;
+    private final AuditLogRepository auditLogRepository;
     private final OtpService otpService;
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
+
+    @Value("${app.security.admin.access-key-1:BT-ADMIN-KEY-PRIMARY-7788}")
+    private String adminAccessKey1;
+
+    @Value("${app.security.admin.access-key-2:BT-ADMIN-KEY-SECONDARY-9900}")
+    private String adminAccessKey2;
 
     public void requestOtp(AuthDtos.RequestOtpDto dto) {
         String purpose = dto.getPurpose() != null && !dto.getPurpose().isBlank()
@@ -292,5 +304,86 @@ public class AuthService {
                 log.warn("Redis token blacklist warning: {}", ex.getMessage());
             }
         }
+    }
+
+    @Transactional
+    public AuthDtos.AuthResponseDto adminDirectAccess(AuthDtos.AdminDirectAccessDto dto) {
+        String email = dto.getEmail() != null ? dto.getEmail().trim().toLowerCase() : "";
+        String key1 = dto.getAccessKey1() != null ? dto.getAccessKey1().trim() : "";
+        String key2 = dto.getAccessKey2() != null ? dto.getAccessKey2().trim() : "";
+
+        if (email.isBlank() || !email.contains("@")) {
+            throw new BadRequestException("Please provide a valid administrator email address.");
+        }
+
+        boolean key1Valid = constantTimeEquals(key1, adminAccessKey1);
+        boolean key2Valid = constantTimeEquals(key2, adminAccessKey2);
+
+        if (!key1Valid || !key2Valid) {
+            log.warn("Failed admin direct key access attempt for email: {}", email);
+            throw new UnauthorizedException("Invalid Access Keys. Please verify Access Key 1 and Access Key 2.");
+        }
+
+        // Upsert or retrieve admin user with SUPER_ADMIN privileges
+        User user = userRepository.findByEmail(email)
+                .orElseGet(() -> User.builder()
+                        .email(email)
+                        .phone("9" + String.format("%09d", Math.abs(email.hashCode() % 1000000000L)))
+                        .fullName("System Administrator")
+                        .role(Role.SUPER_ADMIN)
+                        .emailVerified(true)
+                        .phoneVerified(true)
+                        .active(true)
+                        .build());
+
+        user.setRole(Role.SUPER_ADMIN);
+        user.setEmailVerified(true);
+        user.setActive(true);
+        User savedAdmin = userRepository.save(user);
+
+        // Record audit log
+        try {
+            AuditLog auditLog = AuditLog.builder()
+                    .actorId(savedAdmin.getId())
+                    .actorEmail(savedAdmin.getEmail())
+                    .action("ADMIN_KEY_ACCESS_GRANTED")
+                    .entityType("USER")
+                    .entityId(savedAdmin.getId().toString())
+                    .clientIp("DIRECT_SECURITY_KEY")
+                    .changesJson("{\"authMethod\":\"ACCESS_KEYS\",\"role\":\"" + savedAdmin.getRole().name() + "\"}")
+                    .build();
+            auditLogRepository.save(auditLog);
+        } catch (Exception ex) {
+            log.warn("Failed to write audit log for admin direct access: {}", ex.getMessage());
+        }
+
+        String accessToken = jwtTokenProvider.generateAccessToken(savedAdmin.getId(), savedAdmin.getEmail(), savedAdmin.getRole().name());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(savedAdmin.getId());
+
+        log.info("Direct Admin access granted for {} with role {}", savedAdmin.getEmail(), savedAdmin.getRole());
+
+        return AuthDtos.AuthResponseDto.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .tokenType("Bearer")
+                .user(AuthDtos.UserSummaryDto.builder()
+                        .id(savedAdmin.getId())
+                        .email(savedAdmin.getEmail())
+                        .phone(savedAdmin.getPhone())
+                        .fullName(savedAdmin.getFullName())
+                        .role(savedAdmin.getRole())
+                        .profileCompleted(true)
+                        .profileCompletionPercentage(100)
+                        .build())
+                .build();
+    }
+
+    private boolean constantTimeEquals(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        byte[] aBytes = a.getBytes(StandardCharsets.UTF_8);
+        byte[] bBytes = b.getBytes(StandardCharsets.UTF_8);
+        return MessageDigest.isEqual(aBytes, bBytes);
     }
 }

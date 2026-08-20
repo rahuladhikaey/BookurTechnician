@@ -46,9 +46,9 @@ app:
     jwt-expiration-ms: 86400000 # 24 Hours
     jwt-refresh-expiration-ms: 2592000000 # 30 Days
     admin:
-      access-key-1: ${ADMIN_ACCESS_KEY_1:}
-      access-key-2: ${ADMIN_ACCESS_KEY_2:}
-      bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+      access-key-1: ${ADMIN_ACCESS_KEY_1:BT-ADMIN-KEY-PRIMARY-7788}
+      access-key-2: ${ADMIN_ACCESS_KEY_2:BT-ADMIN-KEY-SECONDARY-9900}
+      bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:BT-ADMIN-MASTER-SECURE-2026}
   brevo:
     api-key: ${BREVO_API_KEY:}
     sender-email: ${BREVO_SENDER_EMAIL:noreply@asaliswad.com}

@@ -91,4 +91,20 @@ public class AuthDtos {
     public static class LogoutDto {
         private String refreshToken;
     }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AdminDirectAccessDto {
+        @NotBlank(message = "Admin email address is required")
+        @Email(message = "Please provide a valid admin email address")
+        private String email;
+
+        @NotBlank(message = "Access Key 1 is required")
+        private String accessKey1;
+
+        @NotBlank(message = "Access Key 2 is required")
+        private String accessKey2;
+    }
 }

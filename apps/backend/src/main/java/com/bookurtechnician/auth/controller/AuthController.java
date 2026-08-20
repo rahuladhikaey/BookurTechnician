@@ -33,6 +33,12 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(response, "Token refreshed successfully"));
     }
 
+    @PostMapping("/admin/direct-access")
+    public ResponseEntity<ApiResponse<AuthDtos.AuthResponseDto>> adminDirectAccess(@Valid @RequestBody AuthDtos.AdminDirectAccessDto dto) {
+        AuthDtos.AuthResponseDto response = authService.adminDirectAccess(dto);
+        return ResponseEntity.ok(ApiResponse.success(response, "Admin access authorized successfully"));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(@RequestBody(required = false) AuthDtos.LogoutDto dto) {
         authService.logout(dto);

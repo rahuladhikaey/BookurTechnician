@@ -119,6 +119,10 @@ class ApiClient {
   }
 
   // ─── AUTHENTICATION METHODS ───────────────────────────────────────────────
+  directAdminAccess(email, accessKey1, accessKey2) {
+    return this.post('/auth/admin/direct-access', { email, accessKey1, accessKey2 });
+  }
+
   requestOtp(email, name = 'Admin', purpose = 'LOGIN') {
     return this.post('/auth/request-otp', { email, name, purpose });
   }
