@@ -12,5 +12,6 @@ import java.util.UUID;
 public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalRequest, UUID> {
     List<WithdrawalRequest> findByTechnicianIdOrderByCreatedAtDesc(UUID technicianId);
     Optional<WithdrawalRequest> findByRequestCode(String requestCode);
+    boolean existsByUtrNumber(String utrNumber);
     long countByStatus(String status);
 }

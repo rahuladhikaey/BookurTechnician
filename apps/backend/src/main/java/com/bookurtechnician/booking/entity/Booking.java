@@ -97,6 +97,9 @@ public class Booking {
     @Column(name = "cancellation_reason")
     private String cancellationReason;
 
+    @Column(name = "cancelled_by", length = 30)
+    private String cancelledBy;
+
     @Builder.Default
     @Column(name = "is_force_assigned")
     private boolean isForceAssigned = false;
