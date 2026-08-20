@@ -49,6 +49,9 @@ public class User {
     @Column(name = "profile_image_url")
     private String profileImageUrl;
 
+    @Column(name = "fcm_token", length = 500)
+    private String fcmToken;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

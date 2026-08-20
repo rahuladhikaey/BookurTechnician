@@ -2,6 +2,7 @@ package com.bookurtechnician.booking.service;
 
 import com.bookurtechnician.auth.entity.User;
 import com.bookurtechnician.auth.repository.UserRepository;
+import com.bookurtechnician.auth.service.BrevoEmailService;
 import com.bookurtechnician.booking.dto.BookingDtos;
 import com.bookurtechnician.booking.entity.Booking;
 import com.bookurtechnician.booking.repository.BookingRepository;
@@ -44,6 +45,7 @@ public class BookingService {
     private final PaymentRepository paymentRepository;
     private final RefundRepository refundRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final BrevoEmailService brevoEmailService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -68,6 +70,7 @@ public class BookingService {
 
         String bookingCode = "BT-" + (System.currentTimeMillis() % 100000000L);
         String startOtp = String.valueOf(1000 + secureRandom.nextInt(9000));
+        Instant startOtpExpiresAt = Instant.now().plus(Duration.ofHours(3)); // 3-Hour Validity
 
         Booking booking = Booking.builder()
                 .bookingCode(bookingCode)
@@ -83,11 +86,13 @@ public class BookingService {
                 .platformCommissionAmount(platformCommission)
                 .technicianPayoutAmount(technicianPayout)
                 .startServiceOtp(startOtp)
+                .startOtpExpiresAt(startOtpExpiresAt)
+                .failedOtpAttempts(0)
                 .status("PAYMENT_PENDING")
                 .build();
 
         booking = bookingRepository.save(booking);
-        log.info("Created booking {} in PAYMENT_PENDING state. Amount: ₹{}", booking.getBookingCode(), grandTotal);
+        log.info("Created booking {} with 3-hr Start OTP. Amount: ₹{}", booking.getBookingCode(), grandTotal);
 
         return mapToResponse(booking);
     }
@@ -119,18 +124,60 @@ public class BookingService {
                 if (!"ARRIVED".equals(currentStatus)) {
                     throw new BadRequestException("Technician must mark ARRIVED before starting the service.");
                 }
+
+                // ─── STAGE 2: START OTP VERIFICATION (3-HOUR EXPIRATION) ───
+                if (booking.getStartOtpExpiresAt() != null && Instant.now().isAfter(booking.getStartOtpExpiresAt())) {
+                    throw new BadRequestException("Start Service OTP has expired (validity was 3 hours). Please contact support.");
+                }
+
                 if (req.getStartOtp() == null || !req.getStartOtp().trim().equals(booking.getStartServiceOtp())) {
                     throw new BadRequestException("Invalid Start Service OTP. Please ask customer for the correct 4-digit code displayed on their app.");
                 }
+
+                // Generate fresh 4-digit End Service OTP with 24-hour validity
+                String endOtp = String.valueOf(1000 + secureRandom.nextInt(9000));
+                Instant endOtpExpiresAt = Instant.now().plus(Duration.ofHours(24));
+
+                booking.setEndServiceOtp(endOtp);
+                booking.setEndOtpExpiresAt(endOtpExpiresAt);
+                booking.setFailedOtpAttempts(0);
                 booking.setStatus("IN_PROGRESS");
+
+                // Dispatch styled HTML email to customer's registered email address
+                User customer = booking.getCustomer();
+                if (customer != null && customer.getEmail() != null && !customer.getEmail().isBlank()) {
+                    brevoEmailService.sendEndServiceOtpEmail(
+                            customer.getEmail(),
+                            customer.getFullName(),
+                            booking.getBookingCode(),
+                            endOtp
+                    );
+                }
             }
             case "COMPLETED" -> {
                 if (!"IN_PROGRESS".equals(currentStatus)) {
                     throw new BadRequestException("Cannot complete service before it is in progress.");
                 }
+
+                // ─── STAGE 3: END OTP VERIFICATION (24-HOUR EXPIRATION & MAX 3 ATTEMPTS) ───
+                if (booking.getFailedOtpAttempts() >= 3) {
+                    throw new BadRequestException("Maximum OTP verification attempts exceeded (3 failed attempts). Account temporarily locked for safety.");
+                }
+
+                if (booking.getEndOtpExpiresAt() != null && Instant.now().isAfter(booking.getEndOtpExpiresAt())) {
+                    throw new BadRequestException("End Service OTP has expired (validity was 24 hours). Please request an email resend.");
+                }
+
+                if (req.getEndOtp() == null || !req.getEndOtp().trim().equals(booking.getEndServiceOtp())) {
+                    booking.setFailedOtpAttempts(booking.getFailedOtpAttempts() + 1);
+                    bookingRepository.save(booking);
+                    int remaining = 3 - booking.getFailedOtpAttempts();
+                    throw new BadRequestException("Invalid Completion OTP. " + (remaining > 0 ? "Remaining attempts: " + remaining : "Verification locked."));
+                }
+
                 booking.setStatus("COMPLETED");
 
-                // Execute real PostgreSQL transactional wallet credit and ledger entry
+                // Execute PostgreSQL transactional wallet credit and ledger entry
                 if (booking.getTechnician() != null) {
                     walletService.creditTechnicianEarning(
                             booking.getTechnician(),
@@ -177,6 +224,31 @@ public class BookingService {
         return mapToResponse(booking);
     }
 
+    @Transactional
+    public void resendEndOtpEmail(UUID bookingId, UUID customerId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found"));
+
+        if (!"IN_PROGRESS".equals(booking.getStatus())) {
+            throw new BadRequestException("Completion OTP email can only be resent when service is IN_PROGRESS.");
+        }
+
+        if (booking.getEndServiceOtp() == null) {
+            throw new BadRequestException("Completion OTP has not been generated yet.");
+        }
+
+        User customer = booking.getCustomer();
+        if (customer != null && customer.getEmail() != null && !customer.getEmail().isBlank()) {
+            brevoEmailService.sendEndServiceOtpEmail(
+                    customer.getEmail(),
+                    customer.getFullName(),
+                    booking.getBookingCode(),
+                    booking.getEndServiceOtp()
+            );
+            log.info("Resent End Service OTP email for booking {}", booking.getBookingCode());
+        }
+    }
+
     private void processCancellationRefund(Booking booking) {
         Instant now = Instant.now();
         Duration elapsed = Duration.between(booking.getCreatedAt(), now);
@@ -219,6 +291,26 @@ public class BookingService {
     }
 
     private BookingDtos.BookingResponse mapToResponse(Booking b) {
+        Double techLat = null;
+        Double techLng = null;
+        Double custLat = null;
+        Double custLng = null;
+
+        if (b.getAddress() != null && b.getAddress().getCoordinates() != null) {
+            custLat = b.getAddress().getCoordinates().getY();
+            custLng = b.getAddress().getCoordinates().getX();
+        }
+
+        if (b.getTechnician() != null && b.getTechnician().getCurrentLocation() != null) {
+            techLat = b.getTechnician().getCurrentLocation().getY();
+            techLng = b.getTechnician().getCurrentLocation().getX();
+        }
+
+        Double distanceKm = null;
+        if (techLat != null && techLng != null && custLat != null && custLng != null) {
+            distanceKm = calculateHaversineKm(custLat, custLng, techLat, techLng);
+        }
+
         return BookingDtos.BookingResponse.builder()
                 .id(b.getId())
                 .bookingCode(b.getBookingCode())
@@ -228,10 +320,28 @@ public class BookingService {
                 .scheduleSlot(b.getScheduleSlot())
                 .grandTotal(b.getGrandTotal())
                 .startServiceOtp(b.getStartServiceOtp())
+                .startOtpExpiresAt(b.getStartOtpExpiresAt())
+                .endOtpExpiresAt(b.getEndOtpExpiresAt())
                 .technicianName(b.getTechnician() != null ? b.getTechnician().getUser().getFullName() : "Finding nearest technician...")
                 .technicianPhone(b.getTechnician() != null ? b.getTechnician().getUser().getPhone() : "")
                 .technicianCode(b.getTechnician() != null ? b.getTechnician().getTechnicianCode() : "")
+                .technicianLatitude(techLat)
+                .technicianLongitude(techLng)
+                .customerLatitude(custLat)
+                .customerLongitude(custLng)
+                .distanceKm(distanceKm)
                 .fullAddress(b.getAddress().getHouseFlat() + ", " + b.getAddress().getStreet() + ", " + b.getAddress().getCity())
                 .build();
+    }
+
+    private double calculateHaversineKm(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371; // Earth radius in km
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return Math.round(R * c * 10.0) / 10.0;
     }
 }

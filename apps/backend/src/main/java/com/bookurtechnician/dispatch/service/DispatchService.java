@@ -37,6 +37,7 @@ public class DispatchService {
     private final BookingProposalRepository proposalRepository;
     private final BookingRepository bookingRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final com.bookurtechnician.notification.service.FcmNotificationService fcmNotificationService;
     private final com.bookurtechnician.dispatch.repository.DispatchMatchingConfigRepository matchingConfigRepository;
     private final com.bookurtechnician.servicecatalog.repository.SkillServiceCompatibilityRepository compatibilityRepository;
 
@@ -192,6 +193,28 @@ public class DispatchService {
             messagingTemplate.convertAndSend("/topic/technician/" + candidate.getUser().getId() + "/proposals", proposalDto);
         } catch (Exception ex) {
             log.warn("WebSocket proposal notification warning: {}", ex.getMessage());
+        }
+
+        // Dispatch High-Priority Loud FCM Alert with Custom Ringtone
+        try {
+            String fcmToken = candidate.getUser() != null ? candidate.getUser().getFcmToken() : null;
+            String customerName = booking.getCustomer() != null ? booking.getCustomer().getFullName() : "Customer";
+            String customerAddress = booking.getAddress() != null 
+                    ? (booking.getAddress().getArea() + ", " + booking.getAddress().getCity()) : "Nearby Location";
+
+            fcmNotificationService.sendJobAlert(
+                    fcmToken,
+                    proposal.getId().toString(),
+                    booking.getId().toString(),
+                    booking.getService() != null ? booking.getService().getName() : "Service Request",
+                    customerName,
+                    customerAddress,
+                    distanceKm.toString(),
+                    earnings.toBigInteger().toString(),
+                    timeoutSeconds
+            );
+        } catch (Exception ex) {
+            log.error("Failed to send FCM Job Alert to candidate {}: {}", candidate.getTechnicianCode(), ex.getMessage());
         }
 
         broadcastBookingUpdate(booking, "Notified nearest partner (" + distanceKm + " km away). Awaiting acceptance...");

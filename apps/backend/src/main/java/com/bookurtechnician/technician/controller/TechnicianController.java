@@ -19,6 +19,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -47,6 +48,7 @@ import java.util.UUID;
 @Slf4j
 public class TechnicianController {
 
+    private final com.bookurtechnician.auth.repository.UserRepository userRepository;
     private final TechnicianProfileRepository profileRepository;
     private final BookingRepository bookingRepository;
     private final BookingService bookingService;
@@ -56,6 +58,21 @@ public class TechnicianController {
     private final StringRedisTemplate redisTemplate;
     private final SimpMessagingTemplate messagingTemplate;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+
+    @PostMapping("/fcm-token")
+    public ResponseEntity<ApiResponse<Void>> updateFcmToken(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, String> request) {
+        String token = request.get("fcmToken");
+        if (token != null && !token.trim().isEmpty()) {
+            userRepository.findById(principal.getId()).ifPresent(user -> {
+                user.setFcmToken(token.trim());
+                userRepository.save(user);
+                log.info("Updated FCM token for technician user: {}", user.getId());
+            });
+        }
+        return ResponseEntity.ok(ApiResponse.success(null, "FCM token updated successfully"));
+    }
 
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<TechnicianProfile>> getProfile(@AuthenticationPrincipal UserPrincipal principal) {

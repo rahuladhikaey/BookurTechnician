@@ -40,6 +40,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/payments/webhook").permitAll()
                         .requestMatchers("/actuator/health", "/ws/**").permitAll()
                         .requestMatchers("/api/v1/internal/admin/**").permitAll()
+                        .requestMatchers("/privacy-policy", "/terms-and-conditions", "/cancellation-refund", "/support", "/verify-tech/**").permitAll()
                         // Admin Protected Endpoints
                         .requestMatchers("/api/v1/catalog/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "FINANCE_ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "FINANCE_ADMIN")

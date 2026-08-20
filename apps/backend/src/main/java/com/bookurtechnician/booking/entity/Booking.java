@@ -81,6 +81,19 @@ public class Booking {
     @Column(name = "start_service_otp", length = 6)
     private String startServiceOtp;
 
+    @Column(name = "start_otp_expires_at")
+    private Instant startOtpExpiresAt;
+
+    @Column(name = "end_service_otp", length = 6)
+    private String endServiceOtp;
+
+    @Column(name = "end_otp_expires_at")
+    private Instant endOtpExpiresAt;
+
+    @Builder.Default
+    @Column(name = "failed_otp_attempts")
+    private int failedOtpAttempts = 0;
+
     @Column(name = "cancellation_reason")
     private String cancellationReason;
 

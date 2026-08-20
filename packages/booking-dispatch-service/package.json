@@ -1,0 +1,19 @@
+{
+  "name": "booking-dispatch-service",
+  "version": "1.0.0",
+  "description": "On-Demand Service Booking, Redis GEO 15km Matching & Dual-OTP Lifecycle Service",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1",
+    "mongoose": "^8.5.2",
+    "nodemailer": "^6.9.14",
+    "socket.io": "^4.7.5"
+  }
+}

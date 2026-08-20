@@ -6,7 +6,8 @@ import '../security/secure_storage.dart';
 class DioClient {
   final Dio dio;
 
-  DioClient(SecureStorage storage) : dio = Dio() {
+  DioClient([SecureStorage? storage]) : dio = Dio() {
+    final effectiveStorage = storage ?? SecureStorage();
     dio.options = BaseOptions(
       baseUrl: AppConfig.apiBaseUrl,
       connectTimeout: const Duration(seconds: 15),
@@ -15,7 +16,7 @@ class DioClient {
     );
 
     dio.interceptors.addAll([
-      AuthInterceptor(storage),
+      AuthInterceptor(effectiveStorage),
       ErrorInterceptor(),
       LoggingInterceptor(),
     ]);

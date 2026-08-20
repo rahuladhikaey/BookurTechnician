@@ -42,4 +42,12 @@ public class BookingController {
         BookingDtos.BookingResponse response = bookingService.updateBookingStatus(bookingId, request);
         return ResponseEntity.ok(ApiResponse.success(response, "Booking status updated to " + request.getStatus()));
     }
+
+    @PostMapping("/{bookingId}/resend-end-email")
+    public ResponseEntity<ApiResponse<Void>> resendEndOtpEmail(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID bookingId) {
+        bookingService.resendEndOtpEmail(bookingId, principal.getId());
+        return ResponseEntity.ok(ApiResponse.success(null, "Completion OTP email resent to your registered inbox."));
+    }
 }

@@ -28,45 +28,45 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 3000),
     );
 
-    // 200–550 ms: Logo scales from 85% to 100% (Interval: 0.167 to 0.458)
+    // 0–900 ms: Logo scales from 85% to 100% (Interval: 0.0 to 0.30)
     _logoScale = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.167, 0.458, curve: Curves.easeOut),
+        curve: const Interval(0.0, 0.30, curve: Curves.easeOutBack),
       ),
     );
 
-    // 200–550 ms: Logo opacity fades from 0% to 100%
+    // 0–750 ms: Logo opacity fades from 0% to 100%
     _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.167, 0.458, curve: Curves.easeIn),
+        curve: const Interval(0.0, 0.25, curve: Curves.easeIn),
       ),
     );
 
-    // 550–800 ms: Wrench rotates subtly into place (-15 degrees to 0 degrees) (Interval: 0.458 to 0.667)
+    // 750–1500 ms: Wrench rotates subtly into place (-15 degrees to 0 degrees)
     _wrenchRotation = Tween<double>(begin: -0.26, end: 0.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.458, 0.667, curve: Curves.easeInOut),
+        curve: const Interval(0.25, 0.50, curve: Curves.easeInOut),
       ),
     );
 
-    // 800–1000 ms: Text fades in below the logo (Interval: 0.667 to 0.833)
+    // 1200–2100 ms: Text fades in below the logo
     _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.667, 0.833, curve: Curves.easeIn),
+        curve: const Interval(0.40, 0.70, curve: Curves.easeIn),
       ),
     );
 
     // Start splash timeline animation
     _controller.forward();
 
-    // Navigate to next screen after animation completes (at 1200ms)
+    // Navigate to next screen after animation completes (at 3000ms)
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         _navigateToNextScreen();

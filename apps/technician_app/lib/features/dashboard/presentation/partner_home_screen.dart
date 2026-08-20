@@ -7,6 +7,8 @@ import '../../onboarding/domain/skill_models.dart';
 import 'dashboard_provider.dart';
 import 'notifications_tab.dart';
 import 'my_skills_page.dart';
+import 'job_execution_screen.dart';
+import 'lead_alert_dialog.dart';
 
 class PartnerHomeScreen extends ConsumerStatefulWidget {
   final ValueChanged<int>? onNavigateTab;
@@ -539,13 +541,39 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                     SnackBar(
                       content: Text(
                         val && success
-                            ? '🟢 You are now ONLINE & ready for service leads!'
+                            ? '🟢 You are now ONLINE & ready for 15km service leads!'
                             : '🔴 You are now OFFLINE. No leads will be assigned.',
                       ),
                       backgroundColor: val ? const Color(0xFF059669) : const Color(0xFFDC2626),
                       duration: const Duration(seconds: 2),
                     ),
                   );
+
+                  if (val && success) {
+                    Future.delayed(const Duration(seconds: 2), () {
+                      if (mounted && state.isOnline) {
+                        LeadAlertDialog.show(
+                          context,
+                          {
+                            'title': 'AC Deep Cleaning & Master Service',
+                            'customerAddress': 'Flat 402, Green Glen Layout, Bellandur (3.2 km away)',
+                            'scheduledSlot': '1 Hour Service Window',
+                            'distanceKm': 3.2,
+                            'payoutAmount': 750,
+                          },
+                          onAccept: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                backgroundColor: Color(0xFF16A34A),
+                                content: Text('🎉 Lead Accepted! Navigating to Job Execution.'),
+                              ),
+                            );
+                          },
+                          onDecline: () {},
+                        );
+                      }
+                    });
+                  }
                 }
               },
             ),
@@ -882,11 +910,21 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                 flex: 1,
                 child: ElevatedButton(
                   onPressed: () {
-                    notifier.addEarnings(850.0);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Job progress updated successfully! ₹850 recorded.'),
-                        backgroundColor: Color(0xFF1E3A8A),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => JobExecutionScreen(
+                          job: {
+                            'id': activeJob?.id ?? 'BT-901',
+                            'title': title,
+                            'customerName': customerName,
+                            'address': customerAddress,
+                            'customerPhone': customerPhone,
+                            'payout': payout,
+                            'timeSlot': '1 Hour Service Window',
+                            'status': 'ACCEPTED',
+                          },
+                        ),
                       ),
                     );
                   },

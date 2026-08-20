@@ -17,6 +17,7 @@ import 'screens/ai_assistant_sheet.dart';
 import 'screens/profile_completion_wizard_screen.dart';
 import 'screens/profile_details_screen.dart';
 import 'screens/saved_addresses_screen.dart';
+import 'screens/booking_status_map_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: CustomerApp()));
@@ -63,6 +64,9 @@ class CustomerApp extends StatelessWidget {
           case '/tracking':
             final bId = settings.arguments as String? ?? '';
             return MaterialPageRoute(builder: (_) => BookingTrackingScreen(bookingId: bId));
+          case '/booking_status_map':
+            final args = settings.arguments as Map<String, dynamic>?;
+            return MaterialPageRoute(builder: (_) => BookingStatusMapScreen(initialBookingData: args));
           case '/history':
             return MaterialPageRoute(builder: (_) => const BookingHistoryScreen());
           case '/invoice':

@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -43,9 +44,16 @@ public class BookingDtos {
         private String scheduleSlot;
         private BigDecimal grandTotal;
         private String startServiceOtp;
+        private Instant startOtpExpiresAt;
+        private Instant endOtpExpiresAt;
         private String technicianName;
         private String technicianPhone;
         private String technicianCode;
+        private Double technicianLatitude;
+        private Double technicianLongitude;
+        private Double customerLatitude;
+        private Double customerLongitude;
+        private Double distanceKm;
         private String fullAddress;
     }
 
@@ -57,6 +65,7 @@ public class BookingDtos {
         @NotNull(message = "Status is required")
         private String status;
         private String startOtp;
+        private String endOtp;
         private String cancellationReason;
     }
 }
