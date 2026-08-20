@@ -8,7 +8,6 @@ import 'dashboard_provider.dart';
 import 'notifications_tab.dart';
 import 'my_skills_page.dart';
 import 'job_execution_screen.dart';
-import 'lead_alert_dialog.dart';
 
 class PartnerHomeScreen extends ConsumerStatefulWidget {
   final ValueChanged<int>? onNavigateTab;
@@ -41,36 +40,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
     }
   }
 
-  // Real schedule jobs list
-  final List<Map<String, dynamic>> _scheduleJobs = [
-    {
-      'id': 'JOB-9021',
-      'title': 'Washing Machine Repair',
-      'timeSlot': '02:30 PM - 03:30 PM',
-      'customerName': 'Pooja Verma',
-      'address': 'Flat 402, Green Glen Layout, Bellandur',
-      'payout': 650.0,
-      'distance': '1.8 km',
-    },
-    {
-      'id': 'JOB-9022',
-      'title': 'Switchboard & Fan Wiring',
-      'timeSlot': '04:45 PM - 05:45 PM',
-      'customerName': 'Rohan Gupta',
-      'address': 'Villa 12, Palm Meadows, Whitefield',
-      'payout': 400.0,
-      'distance': '3.2 km',
-    },
-    {
-      'id': 'JOB-9023',
-      'title': 'Refrigerator Gas Refill & Servicing',
-      'timeSlot': '06:30 PM - 07:30 PM',
-      'customerName': 'Meera Sundaram',
-      'address': 'B-102, Shriram Spandana, Wind Tunnel Road',
-      'payout': 950.0,
-      'distance': '4.1 km',
-    },
-  ];
+  // Real dynamic schedule jobs list
+  final List<Map<String, dynamic>> _scheduleJobs = [];
 
   Future<void> _launchMaps(String destination) async {
     final query = Uri.encodeComponent(destination);
@@ -237,7 +208,9 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          (_skillProfile?.rating ?? 4.88).toStringAsFixed(1),
+                          (_skillProfile != null && _skillProfile!.totalRatingsCount > 0)
+                              ? _skillProfile!.rating.toStringAsFixed(1)
+                              : '5.0',
                           style: const TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w800,
@@ -246,7 +219,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '(${_skillProfile?.totalRatingsCount ?? 142} reviews)',
+                          '(${_skillProfile?.totalRatingsCount ?? 0} reviews)',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -548,32 +521,6 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                       duration: const Duration(seconds: 2),
                     ),
                   );
-
-                  if (val && success) {
-                    Future.delayed(const Duration(seconds: 2), () {
-                      if (mounted && state.isOnline) {
-                        LeadAlertDialog.show(
-                          context,
-                          {
-                            'title': 'AC Deep Cleaning & Master Service',
-                            'customerAddress': 'Flat 402, Green Glen Layout, Bellandur (3.2 km away)',
-                            'scheduledSlot': '1 Hour Service Window',
-                            'distanceKm': 3.2,
-                            'payoutAmount': 750,
-                          },
-                          onAccept: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                backgroundColor: Color(0xFF16A34A),
-                                content: Text('🎉 Lead Accepted! Navigating to Job Execution.'),
-                              ),
-                            );
-                          },
-                          onDecline: () {},
-                        );
-                      }
-                    });
-                  }
                 }
               },
             ),
@@ -585,13 +532,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
 
   // ─── 3. Metrics & Performance Snapshot (2-Column Row) ──────────────────────
   Widget _buildMetricsSnapshotRow(DashboardState state) {
-    final earningsText = state.todayEarnings > 0
-        ? '₹${state.todayEarnings.toStringAsFixed(0)}'
-        : '₹1,850';
-    
-    final jobsDoneText = state.todayJobsCount > 0
-        ? '${state.completedJobsCount} / ${state.todayJobsCount}'
-        : '3 / 5';
+    final earningsText = '₹${state.todayEarnings.toStringAsFixed(0)}';
+    final jobsDoneText = '${state.completedJobsCount} / ${state.todayJobsCount > 0 ? state.todayJobsCount : 0}';
 
     return Row(
       children: [
@@ -752,11 +694,71 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
   // ─── 4. In-Progress / Active Job Card ──────────────────────────────────────
   Widget _buildActiveJobCard(BuildContext context, DashboardState state, DashboardNotifier notifier) {
     final activeJob = state.activeJob;
-    final title = activeJob?.title ?? 'Split AC Deep Cleaning & Servicing';
-    final customerName = activeJob?.customerName ?? 'Amit Sharma';
-    final customerAddress = activeJob?.customerAddress ?? 'B-304, Tower 3, Royal Residency (2.3 km away)';
-    final payout = activeJob != null ? '₹${activeJob.price.toStringAsFixed(0)}' : '₹850';
-    final customerPhone = activeJob?.customerPhone ?? '+91 98765 43210';
+
+    if (activeJob == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: state.isOnline ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: state.isOnline ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Icon(
+                state.isOnline ? Icons.radar_rounded : Icons.power_settings_new_rounded,
+                color: state.isOnline ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              state.isOnline ? 'Active Radar: Waiting for Requests' : 'You are currently Offline',
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              state.isOnline
+                  ? 'High-priority leads within 15 km will ring loudly here.'
+                  : 'Toggle the switch above to go online and receive service leads.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final title = activeJob.title;
+    final customerName = activeJob.customerName;
+    final customerAddress = activeJob.customerAddress;
+    final payout = '₹${activeJob.price.toStringAsFixed(0)}';
+    final customerPhone = activeJob.customerPhone;
 
     return Container(
       width: double.infinity,
@@ -776,7 +778,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: "IN PROGRESS" chip and payout amount ("₹850")
+          // Header: "IN PROGRESS" chip and payout amount
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -866,10 +868,6 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Action row:
-          // 1. Outlined button: "Navigate" with navigation icon
-          // 2. Circular action button: "Call" icon button with green accent
-          // 3. Primary elevated button: "Start Job" with primary deep blue fill
           Row(
             children: [
               // Navigate Button
@@ -888,7 +886,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
               ),
               const SizedBox(width: 8),
 
-              // Circular Action Button: "Call" icon button with green accent
+              // Call icon button
               Container(
                 width: 44,
                 height: 44,
@@ -905,7 +903,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
               ),
               const SizedBox(width: 8),
 
-              // Primary elevated button: "Start Job" with primary deep blue fill
+              // Start Job button
               Expanded(
                 flex: 1,
                 child: ElevatedButton(
@@ -915,7 +913,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                       MaterialPageRoute(
                         builder: (_) => JobExecutionScreen(
                           job: {
-                            'id': activeJob?.id ?? 'BT-901',
+                            'id': activeJob.id,
                             'title': title,
                             'customerName': customerName,
                             'address': customerAddress,
@@ -985,123 +983,155 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _scheduleJobs.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final job = _scheduleJobs[index];
-            return Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+        if (_scheduleJobs.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: const Center(
+              child: Column(
+                children: [
+                  Icon(Icons.event_available_rounded, size: 36, color: Color(0xFF94A3B8)),
+                  SizedBox(height: 8),
+                  Text(
+                    'No scheduled jobs for today',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'New customer bookings will appear here in real-time.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                   ),
                 ],
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Service Icon Box
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(10),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _scheduleJobs.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final job = _scheduleJobs[index];
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
-                    child: const Icon(
-                      Icons.build_circle_outlined,
-                      color: Color(0xFF1E3A8A),
-                      size: 24,
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Service Icon Box
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.build_circle_outlined,
+                        color: Color(0xFF1E3A8A),
+                        size: 24,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(width: 12),
 
-                  // Middle Content: Title, Time slot, Address snippet
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          job['title'],
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.access_time_rounded,
-                              size: 13,
-                              color: Color(0xFF64748B),
+                    // Middle Content: Title, Time slot, Address snippet
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            job['title'] ?? 'Service Job',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0F172A),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              job['timeSlot'],
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.access_time_rounded,
+                                size: 13,
                                 color: Color(0xFF64748B),
                               ),
+                              const SizedBox(width: 4),
+                              Text(
+                                job['timeSlot'] ?? '',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            job['address'] ?? '',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF94A3B8),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Expected Payout aligned to the right
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
                         Text(
-                          job['address'],
+                          '₹${(job['payout'] ?? 0.0).toString()}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF10B981),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          job['distance'] ?? '',
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF94A3B8),
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-
-                  // Expected Payout aligned to the right
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '₹${(job['payout'] as double).toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF10B981),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        job['distance'],
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+                  ],
+                ),
+              );
+            },
+          ),
       ],
     );
   }

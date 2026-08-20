@@ -5,6 +5,7 @@ class AppConfig {
   static const String socketUrl = 'https://api.bookurtechnician.online';
   static const String wsEndpoint = 'https://api.bookurtechnician.online/ws';
 
-  // Request timeout
-  static const Duration requestTimeout = Duration(seconds: 15);
+  // Request timeout (accommodates cold-start wake-up)
+  static const Duration requestTimeout = Duration(seconds: 45);
 }
+

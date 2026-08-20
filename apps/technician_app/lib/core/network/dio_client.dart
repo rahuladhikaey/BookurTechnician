@@ -10,8 +10,9 @@ class DioClient {
     final effectiveStorage = storage ?? SecureStorage();
     dio.options = BaseOptions(
       baseUrl: AppConfig.apiBaseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
+      connectTimeout: AppConfig.requestTimeout,
+      receiveTimeout: AppConfig.requestTimeout,
+      sendTimeout: AppConfig.requestTimeout,
       contentType: Headers.jsonContentType,
     );
 
@@ -22,3 +23,4 @@ class DioClient {
     ]);
   }
 }
+

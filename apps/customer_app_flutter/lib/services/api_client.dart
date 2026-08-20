@@ -88,88 +88,149 @@ class ApiClient {
     return headers;
   }
 
+  static List<String> get _candidateBaseUrls => [
+    AppConfig.apiBaseUrl,
+    AppConfig.renderFallbackApiUrl,
+  ];
+
   static Future<http.Response> get(String endpoint) async {
     String? token = await getAccessToken();
-    var uri = Uri.parse('$activeBaseUrl$endpoint');
-    var response = await http.get(uri, headers: _buildHeaders(token)).timeout(AppConfig.requestTimeout);
+    Exception? lastException;
 
-    if (response.statusCode == 401) {
-      final refreshed = await _attemptRefreshToken();
-      if (refreshed) {
-        token = await getAccessToken();
-        response = await http.get(uri, headers: _buildHeaders(token)).timeout(AppConfig.requestTimeout);
+    for (final base in _candidateBaseUrls) {
+      try {
+        final uri = Uri.parse('$base$endpoint');
+        var response = await http.get(uri, headers: _buildHeaders(token)).timeout(AppConfig.requestTimeout);
+
+        if (response.statusCode == 401) {
+          final refreshed = await _attemptRefreshToken();
+          if (refreshed) {
+            token = await getAccessToken();
+            response = await http.get(uri, headers: _buildHeaders(token)).timeout(AppConfig.requestTimeout);
+          }
+        }
+        if (response.statusCode < 500) {
+          return response;
+        }
+      } catch (e) {
+        lastException = e is Exception ? e : Exception(e.toString());
+        debugPrint('[ApiClient] GET $base$endpoint failed: $e. Retrying candidate...');
       }
     }
-    return response;
+
+    if (lastException != null) throw lastException;
+    return http.Response('{"status":"error","message":"Server unreachable"}', 503);
   }
 
   static Future<http.Response> post(String endpoint, Map<String, dynamic> body) async {
     String? token = await getAccessToken();
-    var uri = Uri.parse('$activeBaseUrl$endpoint');
-    var response = await http.post(
-      uri,
-      headers: _buildHeaders(token),
-      body: jsonEncode(body),
-    ).timeout(AppConfig.requestTimeout);
+    Exception? lastException;
 
-    if (response.statusCode == 401) {
-      final refreshed = await _attemptRefreshToken();
-      if (refreshed) {
-        token = await getAccessToken();
-        response = await http.post(
+    for (final base in _candidateBaseUrls) {
+      try {
+        final uri = Uri.parse('$base$endpoint');
+        var response = await http.post(
           uri,
           headers: _buildHeaders(token),
           body: jsonEncode(body),
         ).timeout(AppConfig.requestTimeout);
+
+        if (response.statusCode == 401) {
+          final refreshed = await _attemptRefreshToken();
+          if (refreshed) {
+            token = await getAccessToken();
+            response = await http.post(
+              uri,
+              headers: _buildHeaders(token),
+              body: jsonEncode(body),
+            ).timeout(AppConfig.requestTimeout);
+          }
+        }
+        if (response.statusCode < 500) {
+          return response;
+        }
+      } catch (e) {
+        lastException = e is Exception ? e : Exception(e.toString());
+        debugPrint('[ApiClient] POST $base$endpoint failed: $e. Retrying candidate...');
       }
     }
-    return response;
+
+    if (lastException != null) throw lastException;
+    return http.Response('{"status":"error","message":"Server unreachable"}', 503);
   }
 
   static Future<http.Response> put(String endpoint, Map<String, dynamic> body) async {
     String? token = await getAccessToken();
-    var uri = Uri.parse('$activeBaseUrl$endpoint');
-    var response = await http.put(
-      uri,
-      headers: _buildHeaders(token),
-      body: jsonEncode(body),
-    ).timeout(AppConfig.requestTimeout);
+    Exception? lastException;
 
-    if (response.statusCode == 401) {
-      final refreshed = await _attemptRefreshToken();
-      if (refreshed) {
-        token = await getAccessToken();
-        response = await http.put(
+    for (final base in _candidateBaseUrls) {
+      try {
+        final uri = Uri.parse('$base$endpoint');
+        var response = await http.put(
           uri,
           headers: _buildHeaders(token),
           body: jsonEncode(body),
         ).timeout(AppConfig.requestTimeout);
+
+        if (response.statusCode == 401) {
+          final refreshed = await _attemptRefreshToken();
+          if (refreshed) {
+            token = await getAccessToken();
+            response = await http.put(
+              uri,
+              headers: _buildHeaders(token),
+              body: jsonEncode(body),
+            ).timeout(AppConfig.requestTimeout);
+          }
+        }
+        if (response.statusCode < 500) {
+          return response;
+        }
+      } catch (e) {
+        lastException = e is Exception ? e : Exception(e.toString());
+        debugPrint('[ApiClient] PUT $base$endpoint failed: $e. Retrying candidate...');
       }
     }
-    return response;
+
+    if (lastException != null) throw lastException;
+    return http.Response('{"status":"error","message":"Server unreachable"}', 503);
   }
 
   static Future<http.Response> patch(String endpoint, Map<String, dynamic> body) async {
     String? token = await getAccessToken();
-    var uri = Uri.parse('$activeBaseUrl$endpoint');
-    var response = await http.patch(
-      uri,
-      headers: _buildHeaders(token),
-      body: jsonEncode(body),
-    ).timeout(AppConfig.requestTimeout);
+    Exception? lastException;
 
-    if (response.statusCode == 401) {
-      final refreshed = await _attemptRefreshToken();
-      if (refreshed) {
-        token = await getAccessToken();
-        response = await http.patch(
+    for (final base in _candidateBaseUrls) {
+      try {
+        final uri = Uri.parse('$base$endpoint');
+        var response = await http.patch(
           uri,
           headers: _buildHeaders(token),
           body: jsonEncode(body),
         ).timeout(AppConfig.requestTimeout);
+
+        if (response.statusCode == 401) {
+          final refreshed = await _attemptRefreshToken();
+          if (refreshed) {
+            token = await getAccessToken();
+            response = await http.patch(
+              uri,
+              headers: _buildHeaders(token),
+              body: jsonEncode(body),
+            ).timeout(AppConfig.requestTimeout);
+          }
+        }
+        if (response.statusCode < 500) {
+          return response;
+        }
+      } catch (e) {
+        lastException = e is Exception ? e : Exception(e.toString());
+        debugPrint('[ApiClient] PATCH $base$endpoint failed: $e. Retrying candidate...');
       }
     }
-    return response;
+
+    if (lastException != null) throw lastException;
+    return http.Response('{"status":"error","message":"Server unreachable"}', 503);
   }
 
   static Future<bool> _attemptRefreshToken() async {

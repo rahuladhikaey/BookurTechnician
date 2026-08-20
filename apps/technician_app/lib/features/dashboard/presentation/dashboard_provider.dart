@@ -1,13 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import '../data/technician_banner_service.dart';
 import '../domain/technician_banner.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
-
 import '../../../core/services/location_tracking_service.dart';
 
 enum ActiveJobStep {
@@ -329,35 +330,79 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
     state = state.copyWith(isFetchingLocation: true);
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        state = state.copyWith(
-          isFetchingLocation: false,
-          currentLocationAddress: 'GPS Disabled. Please enable Location Services.',
-        );
-        return false;
-      }
-
       LocationPermission permission = await Geolocator.checkPermission();
+
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
 
+      Position? position;
       if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-        final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 10),
-        );
+        if (serviceEnabled) {
+          try {
+            position = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high,
+              timeLimit: const Duration(seconds: 8),
+            );
+          } catch (_) {
+            position = await Geolocator.getLastKnownPosition();
+          }
+        } else {
+          position = await Geolocator.getLastKnownPosition();
+        }
+      }
+
+      if (position != null) {
+        final lat = position.latitude;
+        final lng = position.longitude;
+        String address = 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}';
+
+        // Reverse geocoding via OpenStreetMap Nominatim
+        try {
+          final url = Uri.parse(
+            'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1',
+          );
+          final response = await http.get(url, headers: {
+            'User-Agent': 'BookUrTechnicianPartner/1.0 (partner@bookurtechnician.com)',
+          }).timeout(const Duration(seconds: 4));
+
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            final addressObj = data['address'] as Map<String, dynamic>?;
+            final suburb = addressObj?['suburb'] ?? addressObj?['neighbourhood'] ?? addressObj?['residential'] ?? '';
+            final city = addressObj?['city'] ?? addressObj?['town'] ?? addressObj?['county'] ?? '';
+            if (suburb.isNotEmpty && city.isNotEmpty) {
+              address = '$suburb, $city';
+            } else if (data['display_name'] != null) {
+              final parts = (data['display_name'] as String).split(',');
+              address = parts.take(2).join(',').trim();
+            }
+          }
+        } catch (e) {
+          debugPrint('Reverse geocode error: $e');
+        }
+
         state = state.copyWith(
-          currentLatitude: position.latitude,
-          currentLongitude: position.longitude,
-          currentLocationAddress: 'GPS: ${position.latitude.toStringAsFixed(5)}°, ${position.longitude.toStringAsFixed(5)}°',
+          currentLatitude: lat,
+          currentLongitude: lng,
+          currentLocationAddress: address,
           isFetchingLocation: false,
         );
+
+        // Sync with backend
+        try {
+          final dioClient = DioClient(SecureStorage());
+          await dioClient.dio.post('/technician/location', data: {
+            'latitude': lat,
+            'longitude': lng,
+          });
+        } catch (_) {}
+
         return true;
       } else {
         state = state.copyWith(
           isFetchingLocation: false,
-          currentLocationAddress: 'Location Permission Denied',
+          currentLocationAddress: !serviceEnabled ? 'GPS Disabled. Tap to enable.' : 'Tap to acquire live GPS',
         );
         return false;
       }
@@ -365,7 +410,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       debugPrint('Location acquisition error: $e');
       state = state.copyWith(
         isFetchingLocation: false,
-        currentLocationAddress: 'Could not fetch GPS fix',
+        currentLocationAddress: 'Tap to retry GPS fix',
       );
       return false;
     }
