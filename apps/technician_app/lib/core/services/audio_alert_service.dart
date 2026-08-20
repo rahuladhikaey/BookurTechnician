@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:vibration/vibration.dart';
+import 'package:flutter/services.dart';
 
 /// Service responsible for playing loud, looping incoming job ringtones
 /// and triggering continuous emergency vibration patterns (Uber / Urban Company style).
@@ -43,8 +43,8 @@ class AudioAlertService {
     _vibrationTimer?.cancel();
     _triggerVibrationPulse();
 
-    // Repeat vibration pulse every 2 seconds
-    _vibrationTimer = Timer.periodic(const Duration(milliseconds: 2000), (_) {
+    // Repeat vibration pulse every 1.5 seconds while alert is active
+    _vibrationTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
       if (_isPlaying) {
         _triggerVibrationPulse();
       }
@@ -53,14 +53,9 @@ class AudioAlertService {
 
   Future<void> _triggerVibrationPulse() async {
     try {
-      bool? hasVibrator = await Vibration.hasVibrator();
-      if (hasVibrator == true) {
-        // [wait, vibrate, wait, vibrate]
-        Vibration.vibrate(
-          pattern: [0, 500, 200, 500, 200, 600],
-          intensities: [0, 255, 0, 255, 0, 255],
-        );
-      }
+      await HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 150));
+      await HapticFeedback.vibrate();
     } catch (e) {
       debugPrint('[AudioAlertService] Vibration error: $e');
     }
@@ -76,7 +71,6 @@ class AudioAlertService {
       if (_audioPlayer != null) {
         await _audioPlayer!.stop();
       }
-      await Vibration.cancel();
       debugPrint('[AudioAlertService] Ringtone and vibration halted.');
     } catch (e) {
       debugPrint('[AudioAlertService] Error stopping alert: $e');

@@ -185,7 +185,8 @@ public class CatalogService {
     }
 
     @Transactional
-    public CatalogDtos.SkillCompatibilityDto updateSkillCompatibility(UUID skillId, CatalogDtos.UpdateSkillCompatibilityRequest req) {
+    public CatalogDtos.SkillCompatibilityDto updateSkillCompatibility(UUID skillId,
+            CatalogDtos.UpdateSkillCompatibilityRequest req) {
         ServiceSkill skill = skillRepository.findById(skillId)
                 .orElseThrow(() -> new ResourceNotFoundException("Skill not found: " + skillId));
 
@@ -226,19 +227,28 @@ public class CatalogService {
     }
 
     @Transactional
-    public CatalogDtos.DispatchMatchingConfigDto updateDispatchConfig(CatalogDtos.DispatchMatchingConfigDto req, String adminEmail) {
+    public CatalogDtos.DispatchMatchingConfigDto updateDispatchConfig(CatalogDtos.DispatchMatchingConfigDto req,
+            String adminEmail) {
         DispatchMatchingConfig config = matchingConfigRepository.findFirstByOrderByCreatedAtAsc()
                 .orElseGet(() -> DispatchMatchingConfig.builder().build());
 
-        if (req.getSearchRadiusKm() > 0) config.setSearchRadiusKm(req.getSearchRadiusKm());
+        if (req.getSearchRadiusKm() > 0)
+            config.setSearchRadiusKm(req.getSearchRadiusKm());
         config.setStrictSkillMatching(req.isStrictSkillMatching());
-        if (req.getScoreWeightDistance() >= 0) config.setScoreWeightDistance(req.getScoreWeightDistance());
-        if (req.getScoreWeightRating() >= 0) config.setScoreWeightRating(req.getScoreWeightRating());
-        if (req.getScoreWeightAcceptance() >= 0) config.setScoreWeightAcceptance(req.getScoreWeightAcceptance());
-        if (req.getScoreWeightExperience() >= 0) config.setScoreWeightExperience(req.getScoreWeightExperience());
-        if (req.getPriorityPolicy() != null) config.setPriorityPolicy(req.getPriorityPolicy());
-        if (req.getNotificationTimeoutSeconds() > 0) config.setNotificationTimeoutSeconds(req.getNotificationTimeoutSeconds());
-        if (req.getMaxDispatchAttempts() > 0) config.setMaxDispatchAttempts(req.getMaxDispatchAttempts());
+        if (req.getScoreWeightDistance() >= 0)
+            config.setScoreWeightDistance(req.getScoreWeightDistance());
+        if (req.getScoreWeightRating() >= 0)
+            config.setScoreWeightRating(req.getScoreWeightRating());
+        if (req.getScoreWeightAcceptance() >= 0)
+            config.setScoreWeightAcceptance(req.getScoreWeightAcceptance());
+        if (req.getScoreWeightExperience() >= 0)
+            config.setScoreWeightExperience(req.getScoreWeightExperience());
+        if (req.getPriorityPolicy() != null)
+            config.setPriorityPolicy(req.getPriorityPolicy());
+        if (req.getNotificationTimeoutSeconds() > 0)
+            config.setNotificationTimeoutSeconds(req.getNotificationTimeoutSeconds());
+        if (req.getMaxDispatchAttempts() > 0)
+            config.setMaxDispatchAttempts(req.getMaxDispatchAttempts());
         config.setAutoEscalateToAdmin(req.isAutoEscalateToAdmin());
         config.setUpdatedByEmail(adminEmail);
 

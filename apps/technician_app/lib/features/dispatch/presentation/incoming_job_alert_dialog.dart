@@ -454,9 +454,9 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                                   height: 22,
                                   child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                                 )
-                              : Row(
+                              : const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
+                                  children: [
                                     Icon(Icons.check_circle_outline, size: 22),
                                     SizedBox(width: 8),
                                     Text(
