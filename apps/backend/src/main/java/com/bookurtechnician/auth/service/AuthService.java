@@ -42,6 +42,20 @@ public class AuthService {
                 ? dto.getPurpose().trim().toUpperCase()
                 : "LOGIN";
         String email = dto.getEmail().trim().toLowerCase();
+
+        if ("REGISTER".equalsIgnoreCase(purpose)) {
+            Optional<User> existingByEmail = userRepository.findByEmail(email);
+            if (existingByEmail.isPresent()) {
+                throw new BadRequestException("Account already exists with this email (" + email + "). Please log in with your email.");
+            }
+            if (dto.getPhone() != null && !dto.getPhone().isBlank()) {
+                String normPhone = normalizePhone(dto.getPhone());
+                if (normPhone != null && userRepository.findByPhone(normPhone).isPresent()) {
+                    throw new BadRequestException("Account already exists with mobile " + dto.getPhone() + ". Please log in with your email.");
+                }
+            }
+        }
+
         otpService.requestEmailOtp(email, dto.getName(), purpose);
     }
 

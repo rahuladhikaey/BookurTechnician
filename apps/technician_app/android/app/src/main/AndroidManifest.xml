@@ -18,7 +18,7 @@
         android:roundIcon="@mipmap/ic_launcher">
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyAhCvnUH_jA5bAhlGlIy3eX2lnM43gFRdE" />
+            android:value="AIzaSyB2MQJwRPfZxoaX72NuM7lBXjRQqpk9TkQ" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="job_alerts_channel" />

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../booking_provider.dart';
 import '../services/api_client.dart';
-import '../theme.dart';
 import 'onboarding_screen.dart';
 import 'login_screen.dart';
 
@@ -123,62 +122,83 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // BT Logo Container
+                // Official BT Logo Container
                 Opacity(
                   opacity: _logoOpacity.value,
                   child: Transform.scale(
                     scale: _logoScale.value,
                     child: Container(
-                      width: 96,
-                      height: 96,
-                      decoration: const BoxDecoration(
-                        borderRadius: BorderRadius.all(Radius.circular(24)),
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Color(0x26077E9B),
-                            blurRadius: 16,
-                            offset: Offset(0, 8),
+                            color: const Color(0xFF1E3A8A).withValues(alpha: 0.2),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: CustomPaint(
-                        size: const Size(96, 96),
-                        painter: _SplashLogoPainter(
-                          wrenchAngle: _wrenchRotation.value,
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/images/app_logo.png',
+                          width: 110,
+                          height: 110,
+                          fit: BoxFit.cover,
+                          errorBuilder: (ctx, err, stack) => CustomPaint(
+                            size: const Size(110, 110),
+                            painter: _SplashLogoPainter(
+                              wrenchAngle: _wrenchRotation.value,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 // Brand Name below logo
                 Opacity(
                   opacity: _textOpacity.value,
-                  child: RichText(
-                    text: const TextSpan(
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontFamily: 'Inter',
-                        letterSpacing: -0.5,
+                  child: Column(
+                    children: [
+                      RichText(
+                        text: const TextSpan(
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontFamily: 'Inter',
+                            letterSpacing: -0.6,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: 'bookur',
+                              style: TextStyle(
+                                color: Color(0xFF1E3A8A),
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            TextSpan(
+                              text: 'technician',
+                              style: TextStyle(
+                                color: Color(0xFF0284C7),
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      children: [
-                        TextSpan(
-                          text: 'bookur',
-                          style: TextStyle(
-                            color: kTextNavy,
-                            fontWeight: FontWeight.w800,
-                          ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Expert Help. Just a Booking Away.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600,
+                          letterSpacing: 0.2,
                         ),
-                        TextSpan(
-                          text: 'technician',
-                          style: TextStyle(
-                            color: kBrandSecondary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],

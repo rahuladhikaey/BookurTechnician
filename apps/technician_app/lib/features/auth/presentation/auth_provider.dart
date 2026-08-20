@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -102,12 +103,22 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     
     if (emailRegex.hasMatch(normalizedEmail)) {
+      final isRegister = normalizedPhone.isNotEmpty;
+      final purpose = isRegister ? 'REGISTER' : 'LOGIN';
+
       try {
-        final response = await _dioClient.dio.post('/auth/request-otp', data: {
+        final payload = <String, dynamic>{
           'email': normalizedEmail,
-          'name': fullName?.trim(),
-          'purpose': 'LOGIN',
-        });
+          'purpose': purpose,
+        };
+        if (fullName != null && fullName.trim().isNotEmpty) {
+          payload['name'] = fullName.trim();
+        }
+        if (isRegister) {
+          payload['phone'] = normalizedPhone;
+        }
+
+        final response = await _dioClient.dio.post('/auth/request-otp', data: payload);
 
         if (response.statusCode == 200) {
           state = state.copyWith(
@@ -125,7 +136,14 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         }
       } catch (e) {
         debugPrint('[AuthNotifier] requestOtp error: $e');
-        // Proceed to OTP page with fallback test code support
+        if (e is DioException) {
+          final backendMsg = e.response?.data?['message']?.toString();
+          if (backendMsg != null && (backendMsg.toLowerCase().contains('already exists') || backendMsg.toLowerCase().contains('log in'))) {
+            state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: backendMsg);
+            return ApiFailure(backendMsg);
+          }
+        }
+        // Fallback for network timeouts
         state = state.copyWith(
           status: AuthStatus.otpSent,
           phone: normalizedPhone.isNotEmpty ? normalizedPhone : null,

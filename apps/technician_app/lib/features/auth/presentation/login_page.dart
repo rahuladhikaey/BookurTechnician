@@ -120,9 +120,26 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
           );
         }
       } else if (res is ApiFailure<bool>) {
-        setState(() {
-          _errorMsg = res.message;
-        });
+        if (mounted) {
+          if (!isLogin && (res.message.toLowerCase().contains('already exists') || res.message.toLowerCase().contains('log in'))) {
+            setState(() {
+              _selectedMode = 0; // Auto-switch to "Existing Partner Log In"
+              _loginEmailController.text = email;
+              _errorMsg = '⚠️ ${res.message}';
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ ${res.message}'),
+                backgroundColor: const Color(0xFFD97706),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          } else {
+            setState(() {
+              _errorMsg = res.message;
+            });
+          }
+        }
       }
     }
   }

@@ -63,16 +63,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final phone = _phoneCtrl.text.trim();
     final email = _emailCtrl.text.trim();
+    final isRegister = _selectedMode == 1;
+    final purpose = isRegister ? 'REGISTER' : 'LOGIN';
 
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final response = await ApiClient.post('/auth/request-otp', {
+      final payload = <String, dynamic>{
         'email': email,
-        'purpose': 'LOGIN',
-      });
+        'purpose': purpose,
+      };
+      if (isRegister && phone.isNotEmpty) {
+        payload['phone'] = phone;
+      }
+
+      final response = await ApiClient.post('/auth/request-otp', payload);
 
       setState(() {
         _isLoading = false;
@@ -81,25 +88,55 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         if (response.statusCode == 200) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Verification code sent to $email! Check inbox.')),
+            SnackBar(
+              content: Text('Verification code sent to $email! Check inbox.'),
+              backgroundColor: const Color(0xFF059669),
+            ),
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OtpScreen(
+                phoneNumber: isRegister ? phone : '',
+                emailAddress: email,
+              ),
+            ),
           );
         } else {
           final decoded = jsonDecode(response.body);
-          final msg = decoded['message'] ?? 'Connecting... Proceed to enter OTP code.';
+          final msg = decoded['message'] ?? 'Failed to send verification code.';
+
+          // If user already exists and attempted to register with same email
+          if (isRegister && (msg.toLowerCase().contains('already exists') || msg.toLowerCase().contains('log in'))) {
+            setState(() {
+              _selectedMode = 0; // Automatically switch to "Email Log In" tab
+              _emailCtrl.text = email;
+            });
+            _validateInputs();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ $msg'),
+                backgroundColor: const Color(0xFFD97706),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+            return;
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(msg)),
           );
-        }
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OtpScreen(
-              phoneNumber: _selectedMode == 1 ? phone : '',
-              emailAddress: email,
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => OtpScreen(
+                phoneNumber: isRegister ? phone : '',
+                emailAddress: email,
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       setState(() {
@@ -107,16 +144,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Connecting to server. Default test code: 123456'),
-            duration: const Duration(seconds: 4),
+            duration: Duration(seconds: 4),
           ),
         );
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => OtpScreen(
-              phoneNumber: _selectedMode == 1 ? phone : '',
+              phoneNumber: isRegister ? phone : '',
               emailAddress: email,
             ),
           ),
