@@ -97,8 +97,32 @@ public class Booking {
     @Column(name = "cancellation_reason")
     private String cancellationReason;
 
-    @Column(name = "cancelled_by", length = 30)
-    private String cancelledBy;
+    @Builder.Default
+    @Column(name = "is_force_assigned")
+    private boolean isForceAssigned = false;
+
+    @Column(name = "force_assigned_by", length = 100)
+    private String forceAssignedBy;
+
+    @Column(name = "force_assigned_at")
+    private Instant forceAssignedAt;
+
+    @Builder.Default
+    @Column(name = "start_otp_bypassed")
+    private boolean startOtpBypassed = false;
+
+    @Builder.Default
+    @Column(name = "end_otp_bypassed")
+    private boolean endOtpBypassed = false;
+
+    @Column(name = "otp_bypassed_by", length = 100)
+    private String otpBypassedBy;
+
+    @Column(name = "otp_bypassed_at")
+    private Instant otpBypassedAt;
+
+    @Column(name = "otp_bypass_reason")
+    private String otpBypassReason;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
