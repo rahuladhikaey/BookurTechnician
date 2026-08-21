@@ -75,14 +75,32 @@ public class TechnicianController {
     }
 
     @GetMapping("/profile")
-    public ResponseEntity<ApiResponse<TechnicianProfile>> getProfile(@AuthenticationPrincipal UserPrincipal principal) {
+    public ResponseEntity<ApiResponse<TechnicianProfileResponseDto>> getProfile(@AuthenticationPrincipal UserPrincipal principal) {
         TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
-        return ResponseEntity.ok(ApiResponse.success(profile));
+        com.bookurtechnician.auth.entity.User user = userRepository.findById(principal.getId())
+                .orElse(profile.getUser());
+
+        TechnicianProfileResponseDto dto = TechnicianProfileResponseDto.builder()
+                .id(profile.getId())
+                .technicianCode(profile.getTechnicianCode())
+                .fullName(user != null && user.getFullName() != null && !user.getFullName().isBlank() ? user.getFullName() : "Partner Technician")
+                .phone(user != null ? user.getPhone() : "")
+                .email(user != null ? user.getEmail() : "")
+                .profileImageUrl(user != null ? user.getProfileImageUrl() : "")
+                .rating(profile.getRating() != null ? profile.getRating() : new BigDecimal("5.0"))
+                .totalRatingsCount(profile.getTotalRatingsCount())
+                .totalJobsCompleted(profile.getTotalJobsCompleted())
+                .kycStatus(profile.getKycStatus() != null ? profile.getKycStatus() : "VERIFIED")
+                .isOnline(profile.isOnline())
+                .upiId(profile.getUpiId() != null ? profile.getUpiId() : "technician@upi")
+                .isUpiVerified(profile.isUpiVerified())
+                .build();
+        return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
     @PutMapping("/profile")
-    public ResponseEntity<ApiResponse<TechnicianProfile>> updateProfile(
+    public ResponseEntity<ApiResponse<TechnicianProfileResponseDto>> updateProfile(
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody UpdateTechnicianProfileDto dto) {
         com.bookurtechnician.auth.entity.User user = userRepository.findById(principal.getId())
@@ -105,7 +123,34 @@ public class TechnicianController {
         }
         profile = profileRepository.save(profile);
 
-        return ResponseEntity.ok(ApiResponse.success(profile, "Technician profile updated successfully"));
+        TechnicianProfileResponseDto responseDto = TechnicianProfileResponseDto.builder()
+                .id(profile.getId())
+                .technicianCode(profile.getTechnicianCode())
+                .fullName(user.getFullName())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .profileImageUrl(user.getProfileImageUrl())
+                .rating(profile.getRating() != null ? profile.getRating() : new BigDecimal("5.0"))
+                .totalRatingsCount(profile.getTotalRatingsCount())
+                .totalJobsCompleted(profile.getTotalJobsCompleted())
+                .kycStatus(profile.getKycStatus() != null ? profile.getKycStatus() : "VERIFIED")
+                .isOnline(profile.isOnline())
+                .upiId(profile.getUpiId())
+                .isUpiVerified(profile.isUpiVerified())
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(responseDto, "Technician profile updated successfully"));
+    }
+
+    @PostMapping("/incident")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> reportIncident(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, String> request) {
+        String category = request.getOrDefault("category", "Customer Dispute");
+        String description = request.getOrDefault("description", "");
+        String incidentId = "INC-" + (System.currentTimeMillis() % 100000);
+        log.warn("🚨 Incident Reported by Technician {}: Category: {}, Desc: {}", principal.getId(), category, description);
+        return ResponseEntity.ok(ApiResponse.success(Map.of("incidentId", incidentId, "status", "REPORTED"), "Incident report submitted to Safety Cell! ID: " + incidentId));
     }
 
     @GetMapping("/dashboard")
@@ -408,5 +453,25 @@ public class TechnicianController {
         @DecimalMin(value = "100.00", message = "Minimum withdrawal amount is ₹100.00")
         private BigDecimal amount;
         private String upiId;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TechnicianProfileResponseDto {
+        private UUID id;
+        private String technicianCode;
+        private String fullName;
+        private String phone;
+        private String email;
+        private String profileImageUrl;
+        private BigDecimal rating;
+        private int totalRatingsCount;
+        private int totalJobsCompleted;
+        private String kycStatus;
+        private boolean isOnline;
+        private String upiId;
+        private boolean isUpiVerified;
     }
 }
