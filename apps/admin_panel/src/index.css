@@ -11,17 +11,20 @@
    ========================================================================== */
 
 :root {
-  --primary: #1E40AF;
-  --primary-dark: #1D3FAF;
+  --primary: #0F172A;
+  --primary-dark: #020617;
   --primary-light: #F1F5F9;
-  --primary-hover: #1D3FAF;
+  --primary-hover: #1E293B;
   
-  --bg-main: #FFFFFF;
+  --accent-blue: #1E40AF;
+  --accent-blue-light: #EFF6FF;
+
+  --bg-main: #F8FAFC;
   --bg-white: #FFFFFF;
-  --bg-sidebar: #1E40AF;
-  --bg-sidebar-dark: #1D3FAF;
+  --bg-sidebar: #0B0F19;
+  --bg-sidebar-dark: #050811;
   
-  --text-main: #000000;
+  --text-main: #0F172A;
   --text-secondary: #475569;
   --text-muted: #64748B;
   --text-white: #FFFFFF;

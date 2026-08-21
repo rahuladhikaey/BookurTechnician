@@ -223,7 +223,7 @@ public class DispatchService {
     private DispatchMatchingConfig getEffectiveConfig() {
         return matchingConfigRepository.findFirstByOrderByCreatedAtAsc()
                 .orElse(DispatchMatchingConfig.builder()
-                        .searchRadiusKm(10.0)
+                        .searchRadiusKm(15.0)
                         .strictSkillMatching(true)
                         .notificationTimeoutSeconds(30)
                         .maxDispatchAttempts(5)

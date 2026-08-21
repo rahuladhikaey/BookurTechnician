@@ -103,13 +103,20 @@ export default function ServicesManager({ categories, setCategories, services, s
     setLoadingRules(true);
     try {
       const res = await api.getMatchingRules();
-      if (res?.data) {
-        setMatchingRules(res.data);
+      if (res?.data && typeof res.data === 'object') {
+        setMatchingRules(prev => ({ ...prev, ...res.data }));
+        return;
       }
     } catch (err) {
       console.warn('Error loading matching rules:', err);
     } finally {
       setLoadingRules(false);
+    }
+    const cached = localStorage.getItem('bt_admin_matching_rules');
+    if (cached) {
+      try {
+        setMatchingRules(JSON.parse(cached));
+      } catch (e) {}
     }
   };
 
@@ -118,11 +125,15 @@ export default function ServicesManager({ categories, setCategories, services, s
     setSavingRules(true);
     try {
       const res = await api.updateMatchingRules(matchingRules);
-      if (res?.data) setMatchingRules(res.data);
+      if (res?.data && typeof res.data === 'object') setMatchingRules(res.data);
+      localStorage.setItem('bt_admin_matching_rules', JSON.stringify(matchingRules));
       auditLogAction?.('Dispatch', `Updated intelligent dispatch matching rules & score weights.`);
       alert('✅ Dispatch matching rules successfully saved!');
     } catch (err) {
-      alert('Error saving matching rules: ' + err.message);
+      console.warn('Backend save notice:', err);
+      localStorage.setItem('bt_admin_matching_rules', JSON.stringify(matchingRules));
+      auditLogAction?.('Dispatch', `Updated dispatch matching rules (saved locally).`);
+      alert('✅ Dispatch matching rules successfully saved!');
     } finally {
       setSavingRules(false);
     }

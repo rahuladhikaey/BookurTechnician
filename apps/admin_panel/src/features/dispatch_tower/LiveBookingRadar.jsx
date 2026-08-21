@@ -4,12 +4,12 @@ import ForceAssignModal from './ForceAssignModal';
 import OtpDisputeModal from '../support/OtpDisputeModal';
 
 const STAGES = [
-  { key: 'PENDING', label: 'Unassigned (Pending)', color: 'border-amber-500/60 bg-amber-500/10 text-amber-300', dot: 'bg-amber-400' },
-  { key: 'ACCEPTED', label: 'Accepted / Dispatched', color: 'border-blue-500/60 bg-blue-500/10 text-blue-300', dot: 'bg-blue-400' },
-  { key: 'ARRIVED', label: 'Arrived at Doorstep', color: 'border-purple-500/60 bg-purple-500/10 text-purple-300', dot: 'bg-purple-400' },
-  { key: 'IN_PROGRESS', label: 'In Progress (Start OTP)', color: 'border-indigo-500/60 bg-indigo-500/10 text-indigo-300', dot: 'bg-indigo-400' },
-  { key: 'COMPLETED', label: 'Completed (Settled)', color: 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300', dot: 'bg-emerald-400' },
-  { key: 'CANCELLED', label: 'Cancelled / Refunded', color: 'border-rose-500/60 bg-rose-500/10 text-rose-300', dot: 'bg-rose-400' },
+  { key: 'PENDING', label: 'Unassigned (Pending)', bg: '#FFFBEB', border: '#FDE68A', text: '#D97706', dot: '#D97706' },
+  { key: 'ACCEPTED', label: 'Accepted / Dispatched', bg: '#EFF6FF', border: '#BFDBFE', text: '#1E40AF', dot: '#1E40AF' },
+  { key: 'ARRIVED', label: 'Arrived at Doorstep', bg: '#FAF5FF', border: '#E9D5FF', text: '#7E22CE', dot: '#7E22CE' },
+  { key: 'IN_PROGRESS', label: 'In Progress (Start OTP)', bg: '#EEF2FF', border: '#C7D2FE', text: '#4338CA', dot: '#4338CA' },
+  { key: 'COMPLETED', label: 'Completed (Settled)', bg: '#ECFDF5', border: '#A7F3D0', text: '#15803D', dot: '#15803D' },
+  { key: 'CANCELLED', label: 'Cancelled / Refunded', bg: '#FEF2F2', border: '#FCA5A5', text: '#DC2626', dot: '#DC2626' },
 ];
 
 export default function LiveBookingRadar() {
@@ -28,24 +28,23 @@ export default function LiveBookingRadar() {
 
   const fetchLiveBookings = useCallback(async () => {
     try {
-      const res = await api.getLiveBookingsRadar({
-        status: selectedStatus,
-        search: searchQuery,
+      const res = await api.getBookings({ status: selectedStatus !== 'ALL' ? selectedStatus : undefined });
+      const list = res?.data || (Array.isArray(res) ? res : []);
+      
+      const newSummary = { PENDING: 0, ACCEPTED: 0, ARRIVED: 0, IN_PROGRESS: 0, COMPLETED: 0, CANCELLED: 0, TOTAL: list.length };
+      list.forEach(b => {
+        const s = (b.status || 'PENDING').toUpperCase();
+        if (newSummary[s] !== undefined) newSummary[s]++;
       });
 
-      if (res && res.bookings) {
-        setBookings(res.bookings);
-        if (res.summary) setSummary(res.summary);
-      } else if (res && res.data) {
-        setBookings(res.data.bookings || []);
-        if (res.data.summary) setSummary(res.data.summary);
-      }
+      setBookings(list);
+      setSummary(newSummary);
     } catch (err) {
-      console.error('Failed to load live booking radar:', err);
+      console.warn('Live booking radar notice:', err);
     } finally {
       setLoading(false);
     }
-  }, [selectedStatus, searchQuery]);
+  }, [selectedStatus]);
 
   useEffect(() => {
     fetchLiveBookings();
@@ -65,76 +64,133 @@ export default function LiveBookingRadar() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const filteredBookings = bookings.filter(b => {
+    const s = (b.status || 'PENDING').toUpperCase();
+    const matchesStatus = selectedStatus === 'ALL' || s === selectedStatus;
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return matchesStatus;
+
+    const code = (b.bookingCode || b.id || '').toLowerCase();
+    const customer = (b.customer?.fullName || b.customerName || '').toLowerCase();
+    const tech = (b.technician?.user?.fullName || b.technician?.name || '').toLowerCase();
+    const service = (b.service?.name || b.serviceType || '').toLowerCase();
+
+    return matchesStatus && (code.includes(query) || customer.includes(query) || tech.includes(query) || service.includes(query));
+  });
+
   return (
-    <div className="space-y-6 animate-fadeIn text-slate-100">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-emerald-600 text-white rounded-xl shadow-2xl flex items-center gap-2 border border-emerald-400/40 text-xs font-semibold animate-bounce">
-          <i className="fa-solid fa-circle-check text-sm"></i>
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 999,
+          padding: '12px 18px',
+          backgroundColor: '#0F172A',
+          color: '#FFFFFF',
+          borderRadius: '8px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          fontWeight: '700'
+        }}>
+          <span>✓</span>
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Header & Metric Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-xl">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-              <i className="fa-solid fa-tower-broadcast text-xl animate-pulse"></i>
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+      {/* ─── 1. TOP OPERATIONS HEADER BAR ─── */}
+      <div className="panel" style={{ margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '8px',
+            backgroundColor: '#0F172A',
+            color: '#FFFFFF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '20px'
+          }}>
+            📡
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
                 Live Operations Radar & Dispatch Tower
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                  Real-time Stream
-                </span>
               </h2>
-              <p className="text-xs text-slate-400">
-                End-to-end pipeline monitoring, 15 km spatial force-assign, and dual-OTP dispute controls
-              </p>
+              <span className="live-badge" style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px' }}>
+                LIVE STREAM
+              </span>
             </div>
+            <p style={{ fontSize: '12.5px', color: '#64748B', margin: '2px 0 0' }}>
+              Real-time pipeline monitoring, 15 km spatial force-assign, and dual-OTP dispute controls
+            </p>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-3">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <button
             onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-2 transition-all ${
-              autoRefresh 
-                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' 
-                : 'bg-slate-800 border-slate-700 text-slate-400'
-            }`}
+            className="btn btn-outline btn-sm"
+            style={{
+              borderColor: autoRefresh ? '#10B981' : '#CBD5E1',
+              color: autoRefresh ? '#047857' : '#64748B',
+              backgroundColor: autoRefresh ? '#ECFDF5' : '#FFFFFF',
+              fontWeight: '700'
+            }}
           >
-            <i className={`fa-solid fa-rotate ${autoRefresh ? 'fa-spin' : ''}`}></i>
-            <span>{autoRefresh ? 'Auto-Sync: ON (8s)' : 'Auto-Sync: PAUSED'}</span>
+            <span>{autoRefresh ? '🔄 Auto-Sync: Active (8s)' : '⏸ Auto-Sync: Paused'}</span>
           </button>
 
-          <div className="flex items-center bg-slate-800 rounded-xl p-1 border border-slate-700">
+          <button onClick={fetchLiveBookings} className="btn btn-outline btn-sm" title="Refresh Live Data">
+            Refresh
+          </button>
+
+          <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '6px', padding: '2px', border: '1px solid #E2E8F0' }}>
             <button
               onClick={() => setViewMode('kanban')}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                viewMode === 'kanban' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '4px',
+                border: 'none',
+                backgroundColor: viewMode === 'kanban' ? '#0F172A' : 'transparent',
+                color: viewMode === 'kanban' ? '#FFFFFF' : '#64748B',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
             >
-              <i className="fa-solid fa-table-columns mr-1.5"></i> Kanban
+              Kanban Pipeline
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                viewMode === 'table' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              style={{
+                padding: '5px 12px',
+                borderRadius: '4px',
+                border: 'none',
+                backgroundColor: viewMode === 'table' ? '#0F172A' : 'transparent',
+                color: viewMode === 'table' ? '#FFFFFF' : '#64748B',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
             >
-              <i className="fa-solid fa-list mr-1.5"></i> Table
+              Table View
             </button>
           </div>
         </div>
       </div>
 
-      {/* Stage Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* ─── 2. STAGE SUMMARY STAT CARDS ─── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
         {STAGES.map(stage => {
           const count = summary[stage.key] || 0;
           const isSelected = selectedStatus === stage.key;
@@ -142,140 +198,228 @@ export default function LiveBookingRadar() {
             <div
               key={stage.key}
               onClick={() => setSelectedStatus(isSelected ? 'ALL' : stage.key)}
-              className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
-                isSelected
-                  ? `${stage.color} ring-2 ring-indigo-500 shadow-lg`
-                  : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
-              }`}
+              style={{
+                backgroundColor: '#FFFFFF',
+                border: `1.5px solid ${isSelected ? '#0F172A' : stage.border}`,
+                borderRadius: '8px',
+                padding: '12px 14px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                backgroundColor: isSelected ? stage.bg : '#FFFFFF'
+              }}
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{stage.key}</span>
-                <span className={`w-2 h-2 rounded-full ${stage.dot}`}></span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: stage.text, textTransform: 'uppercase' }}>
+                  {stage.key}
+                </span>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: stage.dot }}></span>
               </div>
-              <div className="text-2xl font-black text-white font-mono">{count}</div>
-              <div className="text-[10px] text-slate-400 mt-0.5 truncate">{stage.label}</div>
+              <div style={{ fontSize: '22px', fontWeight: '900', color: '#0F172A' }}>{count}</div>
+              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {stage.label}
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-        <div className="relative w-full sm:w-80">
-          <i className="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+      {/* ─── 3. SEARCH & FILTER TOOLBAR ─── */}
+      <div className="panel" style={{ margin: 0, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
           <input
             type="text"
-            placeholder="Search booking code, customer, technician..."
+            className="form-control"
+            placeholder="Search booking code, customer, technician, service..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            style={{ paddingLeft: '34px', fontSize: '13px' }}
           />
+          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}>
+            🔍
+          </span>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <span className="text-xs text-slate-400">
-            Showing <strong className="text-white">{bookings.length}</strong> active jobs
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: '#64748B' }}>
+          <span>
+            Showing <strong style={{ color: '#0F172A' }}>{filteredBookings.length}</strong> active jobs
           </span>
           {selectedStatus !== 'ALL' && (
             <button
               onClick={() => setSelectedStatus('ALL')}
-              className="text-xs text-indigo-400 hover:underline font-semibold ml-2"
+              className="btn btn-outline btn-sm"
+              style={{ fontSize: '11px', padding: '2px 8px' }}
             >
-              Clear Filter
+              Clear Filter ({selectedStatus})
             </button>
           )}
         </div>
       </div>
 
-      {/* Main View: Kanban Pipeline */}
+      {/* ─── 4. MAIN PIPELINE VIEW ─── */}
       {viewMode === 'kanban' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start overflow-x-auto pb-6">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: '14px',
+          alignItems: 'start'
+        }}>
           {STAGES.map(stage => {
-            const stageBookings = bookings.filter(b => b.status === stage.key);
+            const stageBookings = filteredBookings.filter(b => (b.status || 'PENDING').toUpperCase() === stage.key);
             return (
-              <div key={stage.key} className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 space-y-3 min-w-[240px]">
-                
+              <div
+                key={stage.key}
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '8px',
+                  padding: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  minHeight: '350px'
+                }}
+              >
                 {/* Column Header */}
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${stage.dot}`}></span>
-                    <span className="font-bold text-xs text-slate-200">{stage.key}</span>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingBottom: '10px',
+                  borderBottom: `2px solid ${stage.border}`
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: stage.dot }}></span>
+                    <span style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>{stage.key}</span>
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono font-bold">
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: '800',
+                    backgroundColor: stage.bg,
+                    color: stage.text,
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    border: `1px solid ${stage.border}`
+                  }}>
                     {stageBookings.length}
                   </span>
                 </div>
 
-                {/* Column Items */}
-                <div className="space-y-3 max-h-[650px] overflow-y-auto pr-1">
+                {/* Column Cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '600px', overflowY: 'auto' }}>
                   {stageBookings.length === 0 ? (
-                    <div className="py-8 text-center text-slate-600 text-xs border border-dashed border-slate-800 rounded-xl">
+                    <div style={{
+                      padding: '30px 10px',
+                      textAlign: 'center',
+                      color: '#94A3B8',
+                      fontSize: '12px',
+                      border: '1px dashed #E2E8F0',
+                      borderRadius: '6px'
+                    }}>
                       No jobs in this stage
                     </div>
                   ) : (
-                    stageBookings.map(b => (
-                      <div
-                        key={b._id || b.id}
-                        className="p-3.5 bg-slate-800/80 border border-slate-700/70 hover:border-indigo-500/70 rounded-xl space-y-2.5 transition-all shadow-md hover:shadow-indigo-500/10 group"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono font-bold text-xs text-amber-400">{b.bookingCode}</span>
-                          <span className="text-[11px] font-semibold text-slate-300">₹{b.payoutAmount || 450}</span>
-                        </div>
+                    stageBookings.map(b => {
+                      const code = b.bookingCode || b.id;
+                      const customer = b.customer?.fullName || b.customerName || 'Customer';
+                      const tech = b.technician?.user?.fullName || b.technician?.name;
+                      const service = b.service?.name || b.serviceType || 'Service Request';
+                      const payout = b.technicianPayoutAmount || b.payoutAmount || b.basePrice || 450;
+                      const address = b.address?.formattedAddress || b.customerAddress || 'Customer Premise';
 
-                        <div>
-                          <h4 className="text-xs font-bold text-white truncate">{b.serviceType}</h4>
-                          <p className="text-[11px] text-slate-400 truncate">{b.customerName || 'Customer'}</p>
-                        </div>
-
-                        <div className="text-[11px] text-slate-400 bg-slate-900/60 p-2 rounded-lg border border-slate-800 space-y-1">
-                          <div className="flex items-center gap-1.5 truncate">
-                            <i className="fa-solid fa-location-dot text-rose-400 text-[10px]"></i>
-                            <span className="truncate">{b.customerAddress || 'Local Address'}</span>
+                      return (
+                        <div
+                          key={b.id || b._id}
+                          style={{
+                            backgroundColor: '#FFFFFF',
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '6px',
+                            padding: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                            transition: 'border-color 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: '800', fontSize: '12px', color: '#0F172A' }}>
+                              {code}
+                            </span>
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: '#15803D' }}>
+                              ₹{payout}
+                            </span>
                           </div>
-                          
-                          {b.technician ? (
-                            <div className="flex items-center gap-1.5 text-indigo-300 truncate">
-                              <i className="fa-solid fa-user-gear text-[10px]"></i>
-                              <span className="truncate">{b.technician.name}</span>
-                              {b.isForceAssigned && (
-                                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">
-                                  FORCE
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-amber-400 text-[10px] font-semibold flex items-center gap-1">
-                              <i className="fa-solid fa-triangle-exclamation"></i>
-                              <span>Awaiting Partner Acceptance</span>
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Quick Action Buttons */}
-                        <div className="pt-1 flex items-center gap-1.5">
-                          {b.status === 'PENDING' && (
-                            <button
-                              onClick={() => setForceAssignTarget(b)}
-                              className="w-full py-1.5 bg-amber-600/20 hover:bg-amber-600 border border-amber-500/40 text-amber-300 hover:text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                            >
-                              <i className="fa-solid fa-bolt text-[10px]"></i>
-                              <span>Force Assign</span>
-                            </button>
-                          )}
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A' }}>
+                              {service}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#64748B' }}>
+                              {customer}
+                            </div>
+                          </div>
 
-                          {['ARRIVED', 'IN_PROGRESS'].includes(b.status) && (
-                            <button
-                              onClick={() => setOtpDisputeTarget(b)}
-                              className="w-full py-1.5 bg-rose-600/20 hover:bg-rose-600 border border-rose-500/40 text-rose-300 hover:text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all"
-                            >
-                              <i className="fa-solid fa-unlock-keyhole text-[10px]"></i>
-                              <span>Bypass OTP</span>
-                            </button>
-                          )}
+                          <div style={{
+                            backgroundColor: '#F8FAFC',
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            color: '#64748B',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '3px'
+                          }}>
+                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              📍 {address}
+                            </div>
+                            {tech ? (
+                              <div style={{ fontWeight: '700', color: '#0F172A' }}>
+                                👨‍🔧 {tech}
+                              </div>
+                            ) : (
+                              <div style={{ fontWeight: '700', color: '#D97706' }}>
+                                ⏳ Searching 15km radar...
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Quick Actions */}
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                            {stage.key === 'PENDING' && (
+                              <button
+                                onClick={() => setForceAssignTarget(b)}
+                                className="btn btn-sm"
+                                style={{
+                                  width: '100%',
+                                  backgroundColor: '#0F172A',
+                                  color: '#FFFFFF',
+                                  fontSize: '11px',
+                                  padding: '5px 8px'
+                                }}
+                              >
+                                ⚡ Force Assign
+                              </button>
+                            )}
+
+                            {['ARRIVED', 'IN_PROGRESS'].includes(stage.key) && (
+                              <button
+                                onClick={() => setOtpDisputeTarget(b)}
+                                className="btn btn-sm"
+                                style={{
+                                  width: '100%',
+                                  backgroundColor: '#FEF2F2',
+                                  color: '#DC2626',
+                                  border: '1px solid #FCA5A5',
+                                  fontSize: '11px',
+                                  padding: '5px 8px'
+                                }}
+                              >
+                                🔓 Bypass OTP
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -283,84 +427,86 @@ export default function LiveBookingRadar() {
           })}
         </div>
       ) : (
-        /* Table View */
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-800/80 text-slate-400 font-semibold border-b border-slate-700">
+        /* ─── TABLE VIEW ─── */
+        <div className="panel" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
+          <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Booking Code</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Customer</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Service</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Technician</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Status</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Payout</th>
+                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredBookings.length === 0 ? (
                 <tr>
-                  <th className="p-3.5">Booking Code</th>
-                  <th className="p-3.5">Customer</th>
-                  <th className="p-3.5">Service</th>
-                  <th className="p-3.5">Assigned Technician</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5">Payout</th>
-                  <th className="p-3.5 text-right">Actions</th>
+                  <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#94A3B8' }}>
+                    No active bookings found matching criteria.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {bookings.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-500">
-                      No active bookings found.
-                    </td>
-                  </tr>
-                ) : (
-                  bookings.map(b => (
-                    <tr key={b._id || b.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="p-3.5 font-mono font-bold text-amber-400">
-                        {b.bookingCode}
-                        {b.isForceAssigned && (
-                          <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            FORCE-ASSIGNED
-                          </span>
-                        )}
+              ) : (
+                filteredBookings.map(b => {
+                  const code = b.bookingCode || b.id;
+                  const customer = b.customer?.fullName || b.customerName || 'Customer';
+                  const tech = b.technician?.user?.fullName || b.technician?.name;
+                  const service = b.service?.name || b.serviceType || 'Service Request';
+                  const payout = b.technicianPayoutAmount || b.payoutAmount || b.basePrice || 450;
+                  const status = (b.status || 'PENDING').toUpperCase();
+
+                  return (
+                    <tr key={b.id || b._id} style={{ borderBottom: '1px solid #E2E8F0' }}>
+                      <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', color: '#0F172A' }}>
+                        {code}
                       </td>
-                      <td className="p-3.5">
-                        <div className="font-semibold text-white">{b.customerName || 'Customer'}</div>
-                        <div className="text-[11px] text-slate-400">{b.customerPhone || 'N/A'}</div>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontWeight: '700', color: '#0F172A' }}>{customer}</div>
+                        <div style={{ fontSize: '11px', color: '#64748B' }}>{b.customer?.phone || b.customerPhone || 'N/A'}</div>
                       </td>
-                      <td className="p-3.5 text-slate-200">{b.serviceType}</td>
-                      <td className="p-3.5">
-                        {b.technician ? (
-                          <div>
-                            <span className="font-semibold text-indigo-300">{b.technician.name}</span>
-                            <span className="text-[10px] text-slate-400 block font-mono">{b.technician.technicianCode}</span>
-                          </div>
+                      <td style={{ padding: '12px 16px', color: '#334155' }}>{service}</td>
+                      <td style={{ padding: '12px 16px' }}>
+                        {tech ? (
+                          <span style={{ fontWeight: '700', color: '#0F172A' }}>{tech}</span>
                         ) : (
-                          <span className="text-amber-400 text-xs italic">Unassigned</span>
+                          <span style={{ color: '#D97706', fontSize: '12px', fontWeight: '700' }}>Awaiting Partner</span>
                         )}
                       </td>
-                      <td className="p-3.5">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 border border-slate-700 text-slate-300">
-                          {b.status}
+                      <td style={{ padding: '12px 16px' }}>
+                        <span className={`badge badge-${status.toLowerCase()}`} style={{ fontWeight: '800' }}>
+                          {status}
                         </span>
                       </td>
-                      <td className="p-3.5 font-mono font-semibold text-white">₹{b.payoutAmount || 450}</td>
-                      <td className="p-3.5 text-right space-x-2">
-                        {b.status === 'PENDING' && (
+                      <td style={{ padding: '12px 16px', fontWeight: '800', color: '#15803D' }}>
+                        ₹{payout}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        {status === 'PENDING' && (
                           <button
                             onClick={() => setForceAssignTarget(b)}
-                            className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-semibold shadow"
+                            className="btn btn-sm"
+                            style={{ backgroundColor: '#0F172A', color: '#FFFFFF' }}
                           >
                             Force Assign
                           </button>
                         )}
-                        {['ARRIVED', 'IN_PROGRESS'].includes(b.status) && (
+                        {['ARRIVED', 'IN_PROGRESS'].includes(status) && (
                           <button
                             onClick={() => setOtpDisputeTarget(b)}
-                            className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold shadow"
+                            className="btn btn-sm btn-danger"
                           >
                             Bypass OTP
                           </button>
                         )}
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 

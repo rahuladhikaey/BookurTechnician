@@ -23,7 +23,7 @@ public class DispatchMatchingConfig {
 
     @Builder.Default
     @Column(name = "search_radius_km", nullable = false)
-    private double searchRadiusKm = 10.0; // 10 KM Search Radius
+    private double searchRadiusKm = 15.0; // 15 KM Search Radius
 
     @Builder.Default
     @Column(name = "strict_skill_matching", nullable = false)

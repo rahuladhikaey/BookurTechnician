@@ -69,11 +69,17 @@ class ApiClient {
         }
       }
 
-      if (response.status === 204) {
-        return { success: true, data: null };
+      const text = await response.text();
+      let data = null;
+      if (text && text.trim().length > 0) {
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          data = { message: text, data: text };
+        }
+      } else {
+        data = { success: response.ok, data: null };
       }
-
-      const data = await response.json();
 
       if (!response.ok) {
         const errorMessage = data?.message || data?.error || `HTTP ${response.status}: Request failed`;
