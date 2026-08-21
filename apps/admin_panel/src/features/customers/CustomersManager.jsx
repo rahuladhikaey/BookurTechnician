@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/apiClient';
 
 export default function CustomersManager({ customers = [], setCustomers, auditLogAction }) {
@@ -6,6 +6,27 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
   const [completionFilter, setCompletionFilter] = useState('ALL');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchLatestCustomers = useCallback(async () => {
+    try {
+      setIsRefreshing(true);
+      const res = await api.getCustomers();
+      if (res?.data && Array.isArray(res.data) && setCustomers) {
+        setCustomers(res.data);
+      }
+    } catch (err) {
+      console.warn('Auto-fetch customers warning:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [setCustomers]);
+
+  useEffect(() => {
+    fetchLatestCustomers();
+    const interval = setInterval(fetchLatestCustomers, 8000);
+    return () => clearInterval(interval);
+  }, [fetchLatestCustomers]);
 
   // Helper to dynamically calculate profile completion if not explicitly provided
   const getCustomerProfileData = (c) => {

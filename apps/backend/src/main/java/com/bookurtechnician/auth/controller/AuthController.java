@@ -24,7 +24,7 @@ public class AuthController {
     @PostMapping("/verify-otp")
     public ResponseEntity<ApiResponse<AuthDtos.AuthResponseDto>> verifyOtp(@Valid @RequestBody AuthDtos.VerifyOtpDto dto) {
         AuthDtos.AuthResponseDto response = authService.verifyOtpAndLogin(dto);
-        return ResponseEntity.ok(ApiResponse.success(response, "Authentication successful"));
+        return ResponseEntity.ok(ApiResponse.success(response, "Authenticated successfully"));
     }
 
     @PostMapping("/refresh-token")

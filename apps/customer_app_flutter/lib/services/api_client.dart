@@ -233,6 +233,41 @@ class ApiClient {
     return http.Response('{"status":"error","message":"Server unreachable"}', 503);
   }
 
+  static Future<http.Response> delete(String endpoint) async {
+    String? token = await getAccessToken();
+    Exception? lastException;
+
+    for (final base in _candidateBaseUrls) {
+      try {
+        final uri = Uri.parse('$base$endpoint');
+        var response = await http.delete(
+          uri,
+          headers: _buildHeaders(token),
+        ).timeout(AppConfig.requestTimeout);
+
+        if (response.statusCode == 401) {
+          final refreshed = await _attemptRefreshToken();
+          if (refreshed) {
+            token = await getAccessToken();
+            response = await http.delete(
+              uri,
+              headers: _buildHeaders(token),
+            ).timeout(AppConfig.requestTimeout);
+          }
+        }
+        if (response.statusCode < 500) {
+          return response;
+        }
+      } catch (e) {
+        lastException = e is Exception ? e : Exception(e.toString());
+        debugPrint('[ApiClient] DELETE $base$endpoint failed: $e. Retrying candidate...');
+      }
+    }
+
+    if (lastException != null) throw lastException;
+    return http.Response('{"status":"error","message":"Server unreachable"}', 503);
+  }
+
   static Future<bool> _attemptRefreshToken() async {
     final refreshToken = await getRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) return false;

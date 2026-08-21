@@ -58,12 +58,14 @@ public class AuthService {
         if ("REGISTER".equalsIgnoreCase(purpose)) {
             Optional<User> existingByEmail = userRepository.findByEmail(email);
             if (existingByEmail.isPresent()) {
-                throw new BadRequestException("Account already exists with this email (" + email + "). Please log in with your email.");
+                throw new BadRequestException(
+                        "Account already exists with this email (" + email + "). Please log in with your email.");
             }
             if (dto.getPhone() != null && !dto.getPhone().isBlank()) {
                 String normPhone = normalizePhone(dto.getPhone());
                 if (normPhone != null && userRepository.findByPhone(normPhone).isPresent()) {
-                    throw new BadRequestException("Account already exists with mobile " + dto.getPhone() + ". Please log in with your email.");
+                    throw new BadRequestException("Account already exists with mobile " + dto.getPhone()
+                            + ". Please log in with your email.");
                 }
             }
         }
@@ -83,7 +85,8 @@ public class AuthService {
         boolean isValid = otpService.verifyEmailOtp(email, purpose, otp);
         if (!isValid) {
             log.warn("Invalid/expired OTP verification attempt for email: {}", email);
-            throw new BadRequestException("Invalid or expired verification code. Please check your inbox and try again.");
+            throw new BadRequestException(
+                    "Invalid or expired verification code. Please check your inbox and try again.");
         }
 
         // 1. Check existing user by email first
@@ -105,7 +108,8 @@ public class AuthService {
         if (user.getEmail() == null || user.getEmail().isBlank()) {
             user.setEmail(email);
         }
-        if (normalizedPhone != null && !normalizedPhone.isBlank() && (user.getPhone() == null || user.getPhone().isBlank())) {
+        if (normalizedPhone != null && !normalizedPhone.isBlank()
+                && (user.getPhone() == null || user.getPhone().isBlank())) {
             user.setPhone(normalizedPhone);
         }
         // Retain administrative roles from DB; never escalate role from client input
@@ -128,7 +132,8 @@ public class AuthService {
             // Concurrent insert race condition safety fallback
             log.warn("Concurrent user record resolution for phone {} / email {}", normalizedPhone, email);
             savedUser = userRepository.findByEmail(email)
-                    .or(() -> (normalizedPhone != null) ? userRepository.findByPhone(normalizedPhone) : Optional.empty())
+                    .or(() -> (normalizedPhone != null) ? userRepository.findByPhone(normalizedPhone)
+                            : Optional.empty())
                     .orElse(user);
         }
 
@@ -140,7 +145,8 @@ public class AuthService {
                     .orElseGet(() -> {
                         CustomerProfile newProfile = CustomerProfile.builder()
                                 .user(customerUser)
-                                .hasValidName(customerUser.getFullName() != null && !customerUser.getFullName().isBlank())
+                                .hasValidName(
+                                        customerUser.getFullName() != null && !customerUser.getFullName().isBlank())
                                 .hasVerifiedPhone(true)
                                 .hasVerifiedEmail(true)
                                 .build();
@@ -160,7 +166,8 @@ public class AuthService {
             final User techUser = savedUser;
             TechnicianProfile techProfile = technicianProfileRepository.findByUser(techUser)
                     .orElseGet(() -> {
-                        String techCode = "BT-TECH-" + String.format("%06d", (userRepository.countByRole(Role.TECHNICIAN) + 1));
+                        String techCode = "BT-TECH-"
+                                + String.format("%06d", (userRepository.countByRole(Role.TECHNICIAN) + 1));
                         TechnicianProfile newTechProfile = TechnicianProfile.builder()
                                 .user(techUser)
                                 .technicianCode(techCode)
@@ -183,7 +190,8 @@ public class AuthService {
         }
 
         // Generate JWT Access and Refresh tokens
-        String accessToken = jwtTokenProvider.generateAccessToken(savedUser.getId(), savedUser.getEmail(), savedUser.getRole().name());
+        String accessToken = jwtTokenProvider.generateAccessToken(savedUser.getId(), savedUser.getEmail(),
+                savedUser.getRole().name());
         String refreshToken = jwtTokenProvider.generateRefreshToken(savedUser.getId());
 
         log.info("Authentication successful for {} with role {}", savedUser.getEmail(), savedUser.getRole());
@@ -268,7 +276,8 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UnauthorizedException("User session not found"));
 
-        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole().name());
+        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(),
+                user.getRole().name());
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
         int score = 100;
@@ -298,7 +307,8 @@ public class AuthService {
         if (dto != null && dto.getRefreshToken() != null && !dto.getRefreshToken().isBlank()) {
             try {
                 // Invalidate refresh token by storing in Redis blacklist
-                redisTemplate.opsForValue().set("token:blacklist:" + dto.getRefreshToken(), "revoked", java.time.Duration.ofDays(30));
+                redisTemplate.opsForValue().set("token:blacklist:" + dto.getRefreshToken(), "revoked",
+                        java.time.Duration.ofDays(30));
                 log.info("Token session invalidated successfully.");
             } catch (Exception ex) {
                 log.warn("Redis token blacklist warning: {}", ex.getMessage());
@@ -357,7 +367,8 @@ public class AuthService {
             log.warn("Failed to write audit log for admin direct access: {}", ex.getMessage());
         }
 
-        String accessToken = jwtTokenProvider.generateAccessToken(savedAdmin.getId(), savedAdmin.getEmail(), savedAdmin.getRole().name());
+        String accessToken = jwtTokenProvider.generateAccessToken(savedAdmin.getId(), savedAdmin.getEmail(),
+                savedAdmin.getRole().name());
         String refreshToken = jwtTokenProvider.generateRefreshToken(savedAdmin.getId());
 
         log.info("Direct Admin access granted for {} with role {}", savedAdmin.getEmail(), savedAdmin.getRole());

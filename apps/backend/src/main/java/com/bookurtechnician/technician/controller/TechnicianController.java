@@ -81,6 +81,33 @@ public class TechnicianController {
         return ResponseEntity.ok(ApiResponse.success(profile));
     }
 
+    @PutMapping("/profile")
+    public ResponseEntity<ApiResponse<TechnicianProfile>> updateProfile(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody UpdateTechnicianProfileDto dto) {
+        com.bookurtechnician.auth.entity.User user = userRepository.findById(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Technician user not found"));
+
+        if (dto.getFullName() != null && !dto.getFullName().isBlank()) {
+            user.setFullName(dto.getFullName().trim());
+        }
+        if (dto.getProfileImageUrl() != null && !dto.getProfileImageUrl().isBlank()) {
+            user.setProfileImageUrl(dto.getProfileImageUrl().trim());
+        }
+        userRepository.save(user);
+
+        TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
+
+        if (dto.getUpiId() != null && !dto.getUpiId().isBlank()) {
+            profile.setUpiId(dto.getUpiId().trim());
+            profile.setUpiVerified(true);
+        }
+        profile = profileRepository.save(profile);
+
+        return ResponseEntity.ok(ApiResponse.success(profile, "Technician profile updated successfully"));
+    }
+
     @GetMapping("/dashboard")
     public ResponseEntity<ApiResponse<TechnicianDashboardDto>> getDashboard(@AuthenticationPrincipal UserPrincipal principal) {
         TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
@@ -361,6 +388,15 @@ public class TechnicianController {
     @AllArgsConstructor
     public static class UpiUpdateDto {
         @NotBlank
+        private String upiId;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UpdateTechnicianProfileDto {
+        private String fullName;
+        private String profileImageUrl;
         private String upiId;
     }
 

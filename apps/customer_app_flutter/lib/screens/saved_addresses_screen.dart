@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import '../booking_provider.dart';
 import '../models/customer_profile_models.dart';
 import '../theme.dart';
@@ -263,6 +266,9 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
   late TextEditingController _landmarkCtrl;
   AddressType _type = AddressType.home;
   bool _isPrimary = true;
+  bool _isLocating = false;
+  double? _acquiredLat;
+  double? _acquiredLng;
 
   @override
   void initState() {
@@ -277,6 +283,8 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
     _landmarkCtrl = TextEditingController(text: edit?.landmark ?? '');
     _type = edit?.addressType ?? AddressType.home;
     _isPrimary = edit?.isPrimary ?? true;
+    _acquiredLat = edit?.latitude;
+    _acquiredLng = edit?.longitude;
   }
 
   @override
@@ -291,20 +299,114 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
     super.dispose();
   }
 
-  void _autofillViaGPS() {
-    setState(() {
-      _houseCtrl.text = 'Flat 402, Royal Palms';
-      _streetCtrl.text = 'Bellary Road';
-      _areaCtrl.text = 'Hebbal';
-      _cityCtrl.text = 'Bengaluru';
-      _stateCtrl.text = 'Karnataka';
-      _pinCtrl.text = '560024';
-      _landmarkCtrl.text = 'Near Hebbal Flyover';
-    });
+  Future<void> _autofillViaGPS() async {
+    setState(() => _isLocating = true);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Autofilled address via GPS location!')),
-    );
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enable device GPS / Location services.')),
+          );
+        }
+        setState(() => _isLocating = false);
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Location permission denied.')),
+            );
+          }
+          setState(() => _isLocating = false);
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions permanently denied in settings.')),
+          );
+        }
+        setState(() => _isLocating = false);
+        return;
+      }
+
+      Position pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      );
+
+      _acquiredLat = pos.latitude;
+      _acquiredLng = pos.longitude;
+
+      try {
+        final url = Uri.parse(
+          'https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.latitude}&lon=${pos.longitude}&zoom=18&addressdetails=1',
+        );
+        final response = await http.get(url, headers: {
+          'User-Agent': 'BookUrTechnician/1.0 (contact@bookurtechnician.com)',
+        }).timeout(const Duration(seconds: 6));
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final addressObj = data['address'] as Map<String, dynamic>?;
+
+          final road = addressObj?['road'] ?? addressObj?['street'] ?? '';
+          final houseNumber = addressObj?['house_number'] ?? addressObj?['building'] ?? '';
+          final suburb = addressObj?['suburb'] ?? addressObj?['neighbourhood'] ?? addressObj?['residential'] ?? addressObj?['subdistrict'] ?? '';
+          final city = addressObj?['city'] ?? addressObj?['town'] ?? addressObj?['county'] ?? 'Bengaluru';
+          final state = addressObj?['state'] ?? 'Karnataka';
+          final postcode = addressObj?['postcode'] ?? '560001';
+
+          if (mounted) {
+            setState(() {
+              if (houseNumber.toString().isNotEmpty) {
+                _houseCtrl.text = 'Premises $houseNumber';
+              } else if (_houseCtrl.text.isEmpty) {
+                _houseCtrl.text = 'Flat / House 101';
+              }
+              if (road.toString().isNotEmpty) {
+                _streetCtrl.text = road.toString();
+              }
+              if (suburb.toString().isNotEmpty) {
+                _areaCtrl.text = suburb.toString();
+              }
+              _cityCtrl.text = city.toString();
+              _stateCtrl.text = state.toString();
+              _pinCtrl.text = postcode.toString();
+            });
+          }
+        }
+      } catch (geocodingErr) {
+        debugPrint('Geocoding fallback: $geocodingErr');
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('📍 Live GPS coordinates & address acquired!'),
+            backgroundColor: Color(0xFF16A34A),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('GPS acquisition warning: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLocating = false);
+      }
+    }
   }
 
   void _save() {
@@ -324,6 +426,8 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
       state: _stateCtrl.text.trim(),
       postalCode: _pinCtrl.text.trim(),
       landmark: _landmarkCtrl.text.trim(),
+      latitude: _acquiredLat ?? 12.9716,
+      longitude: _acquiredLng ?? 77.5946,
       isPrimary: _isPrimary,
       createdAt: widget.editingAddress?.createdAt ?? now,
       updatedAt: now,
@@ -387,7 +491,7 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
                 children: [
                   // Fast Location Action
                   InkWell(
-                    onTap: _autofillViaGPS,
+                    onTap: _isLocating ? null : _autofillViaGPS,
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -396,13 +500,20 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: const Color(0xFFD9E2F2)),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.my_location_rounded, color: kBrandPrimary, size: 20),
-                          SizedBox(width: 10),
+                          if (_isLocating)
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary),
+                            )
+                          else
+                            const Icon(Icons.my_location_rounded, color: kBrandPrimary, size: 20),
+                          const SizedBox(width: 10),
                           Text(
-                            'Use Current GPS Location',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kBrandPrimary),
+                            _isLocating ? 'Acquiring GPS Location...' : 'Use Current GPS Location',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kBrandPrimary),
                           ),
                         ],
                       ),

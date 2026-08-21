@@ -143,16 +143,34 @@ public class AdminController {
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getCustomers(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status) {
-        List<User> users = userRepository.findByRole(Role.CUSTOMER);
-        
+        List<User> allUsers = userRepository.findAll();
+        List<User> users = allUsers.stream()
+                .filter(u -> u != null && (u.getRole() == Role.CUSTOMER || u.getRole() == null))
+                .sorted((a, b) -> {
+                    Instant t1 = a.getCreatedAt() != null ? a.getCreatedAt() : Instant.EPOCH;
+                    Instant t2 = b.getCreatedAt() != null ? b.getCreatedAt() : Instant.EPOCH;
+                    return t2.compareTo(t1);
+                })
+                .toList();
+
         List<Map<String, Object>> result = new ArrayList<>();
         for (User u : users) {
+            if (u == null) continue;
+
+            // Auto-heal missing role
+            if (u.getRole() == null) {
+                u.setRole(Role.CUSTOMER);
+                try {
+                    userRepository.save(u);
+                } catch (Exception ignored) {}
+            }
+
             if (search != null && !search.isBlank()) {
                 String q = search.toLowerCase();
                 boolean match = (u.getFullName() != null && u.getFullName().toLowerCase().contains(q)) ||
                                 (u.getEmail() != null && u.getEmail().toLowerCase().contains(q)) ||
                                 (u.getPhone() != null && u.getPhone().contains(q)) ||
-                                (u.getId().toString().toLowerCase().contains(q));
+                                (u.getId() != null && u.getId().toString().toLowerCase().contains(q));
                 if (!match) continue;
             }
             if (status != null && !status.isBlank()) {
@@ -160,12 +178,25 @@ public class AdminController {
                 if (!uStatus.equalsIgnoreCase(status)) continue;
             }
 
-            List<CustomerAddress> addresses = customerAddressRepository.findByCustomerId(u.getId());
+            List<CustomerAddress> addresses = u.getId() != null
+                    ? customerAddressRepository.findByCustomerId(u.getId())
+                    : Collections.emptyList();
+
             String primaryAddress = addresses.stream()
                     .filter(a -> a != null && a.isPrimary())
-                    .map(a -> a.getHouseFlat() + ", " + a.getArea() + ", " + a.getCity())
+                    .map(a -> {
+                        String h = a.getHouseFlat() != null ? a.getHouseFlat() : "";
+                        String ar = a.getArea() != null ? a.getArea() : "";
+                        String c = a.getCity() != null ? a.getCity() : "";
+                        return String.join(", ", java.util.Arrays.asList(h, ar, c).stream().filter(s -> !s.isBlank()).toList());
+                    })
                     .findFirst()
-                    .orElse(addresses.isEmpty() ? null : addresses.get(0).getHouseFlat() + ", " + addresses.get(0).getArea() + ", " + addresses.get(0).getCity());
+                    .orElse(addresses.isEmpty() ? null : addresses.stream().filter(java.util.Objects::nonNull).map(a -> {
+                        String h = a.getHouseFlat() != null ? a.getHouseFlat() : "";
+                        String ar = a.getArea() != null ? a.getArea() : "";
+                        String c = a.getCity() != null ? a.getCity() : "";
+                        return String.join(", ", java.util.Arrays.asList(h, ar, c).stream().filter(s -> !s.isBlank()).toList());
+                    }).findFirst().orElse(null));
 
             int score = 0;
             List<String> missing = new ArrayList<>();
@@ -178,10 +209,18 @@ public class AdminController {
             if (primaryAddress != null && !primaryAddress.isBlank()) score += 25;
             else missing.add("SERVICE_ADDRESS");
 
+            String phoneSuffix = (u.getPhone() != null && u.getPhone().length() >= 4)
+                    ? u.getPhone().substring(u.getPhone().length() - 4)
+                    : (u.getId() != null ? u.getId().toString().substring(0, 4) : "0000");
+
+            String customerName = (u.getFullName() != null && !u.getFullName().isBlank())
+                    ? u.getFullName().trim()
+                    : "Customer " + phoneSuffix;
+
             Map<String, Object> map = new HashMap<>();
-            map.put("id", u.getId().toString());
-            map.put("name", u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : "User " + u.getPhone().substring(Math.max(0, u.getPhone().length() - 4)));
-            map.put("phone", u.getPhone());
+            map.put("id", u.getId() != null ? u.getId().toString() : "");
+            map.put("name", customerName);
+            map.put("phone", u.getPhone() != null ? u.getPhone() : "N/A");
             map.put("email", u.getEmail() != null ? u.getEmail() : "unverified@bookurtechnician.online");
             map.put("status", u.isActive() ? "Active" : "Suspended");
             map.put("profileCompletion", score);

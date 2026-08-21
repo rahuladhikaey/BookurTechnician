@@ -67,10 +67,13 @@ class _SplashPageState extends ConsumerState<SplashPage>
     final hasSeenOnboarding = prefs.getBool('has_seen_technician_onboarding') ?? false;
     final authState = ref.read(authProvider);
 
+    // Direct token check from storage to avoid any async initialization delay
+    final directToken = await ref.read(authProvider.notifier).getStoredToken();
+
     if (!mounted) return;
 
     Widget targetScreen;
-    if (authState.status == AuthStatus.authenticated) {
+    if (authState.status == AuthStatus.authenticated || (directToken != null && directToken.isNotEmpty)) {
       targetScreen = const MainShellPage();
     } else if (!hasSeenOnboarding) {
       targetScreen = const TechnicianOnboardingPage();

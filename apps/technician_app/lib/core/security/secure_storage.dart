@@ -156,7 +156,15 @@ class SecureStorage {
     try {
       await _storage.deleteAll();
       final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+      final hasSeen = prefs.getBool('has_seen_technician_onboarding') ?? true;
+      await prefs.remove(_tokenKey);
+      await prefs.remove(_refreshTokenKey);
+      await prefs.remove(_userIdKey);
+      await prefs.remove(_userNameKey);
+      await prefs.remove(_userAgeKey);
+      await prefs.remove(_userPhoneKey);
+      await prefs.remove(_userEmailKey);
+      await prefs.setBool('has_seen_technician_onboarding', hasSeen);
     } catch (e) {
       debugPrint('SecureStorage.clearAll error: $e');
     }

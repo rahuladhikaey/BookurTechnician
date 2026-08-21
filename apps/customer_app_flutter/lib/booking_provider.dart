@@ -213,61 +213,95 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   Future<void> _syncProfileAndAddresses() async {
     try {
-      final res = await ApiClient.get('/customer/profile');
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(res.body);
-        final data = decoded['data'];
-        final user = data?['user'];
-        final addrList = data?['addresses'] as List? ?? [];
+      final profileRes = await ApiClient.get('/customer/profile');
+      final addressesRes = await ApiClient.get('/customer/addresses');
 
-        final List<CustomerAddress> parsedAddrs = [];
+      Map<String, dynamic>? user;
+      if (profileRes.statusCode == 200) {
+        final decoded = jsonDecode(profileRes.body);
+        final profileData = decoded['data'];
+        user = profileData?['user'];
+      }
+
+      final List<CustomerAddress> parsedAddrs = [];
+      if (addressesRes.statusCode == 200) {
+        final decoded = jsonDecode(addressesRes.body);
+        final addrList = decoded['data'] as List? ?? [];
         for (var a in addrList) {
           try {
+            double lat = 12.9716;
+            double lng = 77.5946;
+            if (a['coordinates'] != null && a['coordinates'] is Map) {
+              lat = (a['coordinates']['y'] as num?)?.toDouble() ?? 12.9716;
+              lng = (a['coordinates']['x'] as num?)?.toDouble() ?? 77.5946;
+            } else {
+              lat = (a['latitude'] as num?)?.toDouble() ?? 12.9716;
+              lng = (a['longitude'] as num?)?.toDouble() ?? 77.5946;
+            }
+
             parsedAddrs.add(CustomerAddress(
               id: a['id']?.toString() ?? '',
-              customerId: a['customerId']?.toString() ?? '',
-              addressType: (a['addressType'] == 'WORK') ? AddressType.work : AddressType.home,
+              customerId: a['customerId']?.toString() ?? (user?['id']?.toString() ?? state.profile.customerId),
+              addressType: (a['addressType']?.toString().toUpperCase() == 'WORK') ? AddressType.work : AddressType.home,
               houseFlat: a['houseFlat'] ?? '',
               street: a['street'] ?? '',
               area: a['area'] ?? '',
               city: a['city'] ?? '',
               state: a['state'] ?? 'Karnataka',
               postalCode: a['postalCode'] ?? '',
-              latitude: (a['latitude'] as num?)?.toDouble() ?? 12.9716,
-              longitude: (a['longitude'] as num?)?.toDouble() ?? 77.5946,
+              latitude: lat,
+              longitude: lng,
               isPrimary: a['primary'] == true || a['isPrimary'] == true,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
             ));
           } catch (_) {}
         }
+      }
 
-        final syncedProfile = CustomerProfile.createWithCalculation(
-          customerId: user?['id']?.toString() ?? state.profile.customerId,
-          userId: user?['id']?.toString() ?? state.profile.userId,
-          fullName: user?['fullName'] ?? state.profile.fullName,
-          phone: user?['phone'] ?? state.profile.phone,
-          isPhoneVerified: true,
-          email: user?['email'] ?? state.profile.email,
-          isEmailVerified: true,
-          addresses: parsedAddrs,
+      final updatedName = user?['fullName'] ?? state.profile.fullName;
+      final updatedPhone = user?['phone'] ?? state.profile.phone;
+      final updatedEmail = user?['email'] ?? state.profile.email;
+      final updatedUserId = user?['id']?.toString() ?? state.profile.userId;
+
+      final syncedProfile = CustomerProfile.createWithCalculation(
+        customerId: updatedUserId,
+        userId: updatedUserId,
+        fullName: updatedName,
+        phone: updatedPhone,
+        isPhoneVerified: true,
+        email: updatedEmail,
+        isEmailVerified: true,
+        addresses: parsedAddrs,
+      );
+
+      state = state.copyWith(
+        isGuest: false,
+        profile: syncedProfile,
+      );
+
+      // Keep locally saved session in sync
+      final currentSession = await ApiClient.getUserSession();
+      if (currentSession['accessToken'] != null) {
+        await ApiClient.saveUserSession(
+          accessToken: currentSession['accessToken']!,
+          refreshToken: currentSession['refreshToken'] ?? '',
+          userId: updatedUserId,
+          name: updatedName,
+          phone: updatedPhone,
+          email: updatedEmail,
         );
+      }
 
-        state = state.copyWith(
-          isGuest: false,
-          profile: syncedProfile,
-        );
-
-        if (parsedAddrs.isNotEmpty && state.selectedLatitude == null) {
-          final primary = syncedProfile.primaryAddress;
-          if (primary != null) {
-            state = state.copyWith(
-              address: primary.formattedAddress,
-              selectedAddressTitle: primary.area.isNotEmpty ? primary.area : primary.city,
-              selectedLatitude: primary.latitude,
-              selectedLongitude: primary.longitude,
-            );
-          }
+      if (parsedAddrs.isNotEmpty) {
+        final primary = syncedProfile.primaryAddress;
+        if (primary != null) {
+          state = state.copyWith(
+            address: primary.formattedAddress,
+            selectedAddressTitle: primary.area.isNotEmpty ? primary.area : primary.city,
+            selectedLatitude: primary.latitude,
+            selectedLongitude: primary.longitude,
+          );
         }
       }
     } catch (e) {
@@ -441,8 +475,8 @@ class BookingNotifier extends StateNotifier<AppState> {
     );
   }
 
-  /// Update profile details
-  void updateProfileDetails({
+  /// Update profile details and sync to backend
+  Future<void> updateProfileDetails({
     String? fullName,
     String? email,
     bool? isEmailVerified,
@@ -455,7 +489,7 @@ class BookingNotifier extends StateNotifier<AppState> {
     DateTime? anniversary,
     bool clearAnniversary = false,
     String? gender,
-  }) {
+  }) async {
     final updated = state.profile.copyWith(
       fullName: fullName,
       email: email,
@@ -472,10 +506,41 @@ class BookingNotifier extends StateNotifier<AppState> {
     );
 
     state = state.copyWith(profile: updated);
+
+    // Persist to session locally
+    final session = await ApiClient.getUserSession();
+    if (session['accessToken'] != null) {
+      await ApiClient.saveUserSession(
+        accessToken: session['accessToken']!,
+        refreshToken: session['refreshToken'] ?? '',
+        userId: state.profile.userId,
+        name: updated.fullName,
+        phone: updated.phone,
+        email: updated.email,
+      );
+    }
+
+    // Persist to backend database
+    try {
+      final payload = <String, dynamic>{};
+      if (fullName != null && fullName.trim().isNotEmpty) {
+        payload['fullName'] = fullName.trim();
+      }
+      if (gender != null) {
+        payload['gender'] = gender;
+      }
+      if (dateOfBirth != null) {
+        payload['dateOfBirth'] = "${dateOfBirth.year.toString().padLeft(4, '0')}-${dateOfBirth.month.toString().padLeft(2, '0')}-${dateOfBirth.day.toString().padLeft(2, '0')}";
+      }
+
+      await ApiClient.put('/customer/profile', payload);
+    } catch (e) {
+      debugPrint('Profile update backend sync warning: $e');
+    }
   }
 
-  /// Add a new service address
-  void addCustomerAddress(CustomerAddress address) {
+  /// Add a new service address and persist to backend
+  Future<void> addCustomerAddress(CustomerAddress address) async {
     final currentList = [...state.profile.addresses];
     final shouldBePrimary = address.isPrimary || currentList.isEmpty;
     final updatedList = currentList.map((a) => shouldBePrimary ? a.copyWith(isPrimary: false) : a).toList();
@@ -493,10 +558,35 @@ class BookingNotifier extends StateNotifier<AppState> {
       selectedLatitude: primary?.latitude ?? state.selectedLatitude,
       selectedLongitude: primary?.longitude ?? state.selectedLongitude,
     );
+
+    // Sync to backend database
+    try {
+      final payload = {
+        'houseFlat': address.houseFlat,
+        'street': address.street,
+        'area': address.area,
+        'city': address.city,
+        'state': address.state,
+        'postalCode': address.postalCode,
+        'landmark': address.landmark,
+        'addressType': address.typeLabel.toUpperCase(),
+        'latitude': address.latitude,
+        'longitude': address.longitude,
+        'primary': shouldBePrimary,
+      };
+
+      final res = await ApiClient.post('/customer/addresses', payload);
+      if (res.statusCode == 200) {
+        // Sync refreshed IDs from backend
+        _syncProfileAndAddresses();
+      }
+    } catch (e) {
+      debugPrint('Add address backend sync warning: $e');
+    }
   }
 
-  /// Update an existing address
-  void updateCustomerAddress(CustomerAddress address) {
+  /// Update an existing address and sync to backend
+  Future<void> updateCustomerAddress(CustomerAddress address) async {
     final updatedList = state.profile.addresses.map((a) {
       if (a.id == address.id) {
         return address;
@@ -516,10 +606,30 @@ class BookingNotifier extends StateNotifier<AppState> {
       selectedAddressTitle: primary?.area.isNotEmpty == true ? primary!.area : (primary?.city ?? state.selectedAddressTitle),
       selectedAddressType: primary?.typeLabel ?? state.selectedAddressType,
     );
+
+    try {
+      final payload = {
+        'houseFlat': address.houseFlat,
+        'street': address.street,
+        'area': address.area,
+        'city': address.city,
+        'state': address.state,
+        'postalCode': address.postalCode,
+        'landmark': address.landmark,
+        'addressType': address.typeLabel.toUpperCase(),
+        'latitude': address.latitude,
+        'longitude': address.longitude,
+        'primary': address.isPrimary,
+      };
+
+      await ApiClient.put('/customer/addresses/${address.id}', payload);
+    } catch (e) {
+      debugPrint('Update address backend sync warning: $e');
+    }
   }
 
-  /// Delete a service address
-  bool deleteCustomerAddress(String addressId) {
+  /// Delete a service address and sync to backend
+  Future<bool> deleteCustomerAddress(String addressId) async {
     final currentList = [...state.profile.addresses];
     final target = currentList.firstWhere((a) => a.id == addressId, orElse: () => currentList.first);
     
@@ -539,11 +649,17 @@ class BookingNotifier extends StateNotifier<AppState> {
       selectedAddressType: primary?.typeLabel ?? 'Home',
     );
 
+    try {
+      await ApiClient.delete('/customer/addresses/$addressId');
+    } catch (e) {
+      debugPrint('Delete address backend sync warning: $e');
+    }
+
     return true;
   }
 
   /// Set an address as primary
-  void setPrimaryAddress(String addressId) {
+  Future<void> setPrimaryAddress(String addressId) async {
     final updatedList = state.profile.addresses.map((a) {
       return a.copyWith(isPrimary: a.id == addressId);
     }).toList();
@@ -559,6 +675,10 @@ class BookingNotifier extends StateNotifier<AppState> {
       selectedLatitude: primary?.latitude ?? state.selectedLatitude,
       selectedLongitude: primary?.longitude ?? state.selectedLongitude,
     );
+
+    if (primary != null) {
+      await updateCustomerAddress(primary);
+    }
   }
 
   /// Update selected service address with real GPS coordinates

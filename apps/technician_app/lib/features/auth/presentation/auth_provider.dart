@@ -303,6 +303,37 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     }
   }
 
+  Future<String?> getStoredToken() async {
+    return await _secureStorage.getToken();
+  }
+
+  Future<void> updateTechnicianProfile({
+    String? fullName,
+    String? profileImageUrl,
+    String? upiId,
+  }) async {
+    if (fullName != null && fullName.isNotEmpty) {
+      state = state.copyWith(fullName: fullName);
+      await _secureStorage.saveUserDetails(
+        name: fullName,
+        phone: state.phone,
+        email: state.email,
+        age: state.age?.toString(),
+      );
+    }
+
+    try {
+      final payload = <String, dynamic>{};
+      if (fullName != null) payload['fullName'] = fullName;
+      if (profileImageUrl != null) payload['profileImageUrl'] = profileImageUrl;
+      if (upiId != null) payload['upiId'] = upiId;
+
+      await _dioClient.dio.put('/technician/profile', data: payload);
+    } catch (e) {
+      debugPrint('[AuthNotifier] updateTechnicianProfile backend warning: $e');
+    }
+  }
+
   Future<void> logout() async {
     try {
       final refreshToken = await _secureStorage.getRefreshToken();
