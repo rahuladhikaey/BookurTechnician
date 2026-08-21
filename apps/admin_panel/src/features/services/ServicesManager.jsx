@@ -201,19 +201,43 @@ export default function ServicesManager({ categories, setCategories, services, s
     setShowCategoryModal(true);
   };
 
-  const handleSaveCategory = (e) => {
+  const handleSaveCategory = async (e) => {
     e.preventDefault();
     if (editingCategory) {
-      setCategories(prev => prev.map(c => c.id === editingCategory ? { ...c, ...categoryForm } : c));
+      const updated = {
+        name: categoryForm.name,
+        iconUrl: categoryForm.imageUrl,
+        bannerUrl: categoryForm.imageUrl,
+        imageUrl: categoryForm.imageUrl,
+        isActive: categoryForm.isActive
+      };
+      try {
+        await api.updateCategory(editingCategory, updated);
+      } catch (err) {
+        console.warn('Update category API fallback:', err);
+      }
+      const newList = categories.map(c => c.id === editingCategory ? { ...c, ...categoryForm } : c);
+      setCategories(newList);
+      localStorage.setItem('bt_admin_categories_list', JSON.stringify(newList));
       auditLogAction?.('Services', `Updated category "${categoryForm.name}"`);
     } else {
       const newCat = {
         id: `cat_${Date.now()}`,
         name: categoryForm.name,
+        iconUrl: categoryForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
+        bannerUrl: categoryForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
         imageUrl: categoryForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
         isActive: categoryForm.isActive
       };
-      setCategories(prev => [...prev, newCat]);
+      try {
+        const res = await api.createCategory(newCat);
+        if (res?.data?.id) newCat.id = res.data.id;
+      } catch (err) {
+        console.warn('Create category API fallback:', err);
+      }
+      const newList = [...categories, newCat];
+      setCategories(newList);
+      localStorage.setItem('bt_admin_categories_list', JSON.stringify(newList));
       auditLogAction?.('Services', `Created new category "${newCat.name}"`);
     }
     setShowCategoryModal(false);
@@ -1175,6 +1199,42 @@ export default function ServicesManager({ categories, setCategories, services, s
                     value={categoryForm.imageUrl}
                     onChange={e => setCategoryForm({ ...categoryForm, imageUrl: e.target.value })}
                   />
+                  {/* Live Active Image Preview */}
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px', backgroundColor: '#F8FAFC', padding: '8px 12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '6px',
+                      border: '1px solid #CBD5E1',
+                      backgroundColor: '#FFFFFF',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      {categoryForm.imageUrl ? (
+                        <img
+                          src={categoryForm.imageUrl}
+                          alt="Live Preview"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'block';
+                          }}
+                          onLoad={(e) => {
+                            e.target.style.display = 'block';
+                            if (e.target.nextSibling) e.target.nextSibling.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      <span style={{ fontSize: '20px', display: categoryForm.imageUrl ? 'none' : 'block' }}>🖼️</span>
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#64748B' }}>
+                      <strong style={{ color: '#0F172A', display: 'block' }}>Live Thumbnail Preview</strong>
+                      Paste any direct image link (.jpg, .png, Unsplash, CDN).
+                    </div>
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Category Status</label>

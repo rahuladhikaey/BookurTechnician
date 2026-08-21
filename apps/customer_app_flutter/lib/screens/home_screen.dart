@@ -96,69 +96,47 @@ class _HomeBody extends StatelessWidget {
             ),
           ),
           
-          // 3. Compact Categories Grid (2x4)
+          // 3. Compact Dynamic Categories Grid (2x4 / Dynamic)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 4,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.85,
-              children: [
-                _CategoryGridCard(
-                  title: 'AC Service',
-                  icon: Icons.ac_unit_outlined,
-                  color: const Color(0xFFE0F2FE),
-                  onTap: () => Navigator.pushNamed(context, '/category', arguments: 'cat_ac'),
-                ),
-                _CategoryGridCard(
-                  title: 'Electrician',
-                  icon: Icons.electrical_services_outlined,
-                  color: const Color(0xFFFEF9C3),
-                  onTap: () => Navigator.pushNamed(context, '/category', arguments: 'cat_light'),
-                ),
-                _CategoryGridCard(
-                  title: 'Fan Service',
-                  icon: Icons.wind_power_outlined,
-                  color: const Color(0xFFDCFCE7),
-                  onTap: () => Navigator.pushNamed(context, '/category', arguments: 'cat_fan'),
-                ),
-                _CategoryGridCard(
-                  title: 'Refrigerator',
-                  icon: Icons.kitchen_outlined,
-                  color: const Color(0xFFF3E8FF),
-                  onTap: () => Navigator.pushNamed(context, '/category', arguments: 'cat_refrigerator'),
-                ),
-                _CategoryGridCard(
-                  title: 'Washing Machine',
-                  icon: Icons.local_laundry_service_outlined,
-                  color: const Color(0xFFE0FFFE),
-                  onTap: () => Navigator.pushNamed(context, '/category', arguments: 'cat_washing'),
-                ),
-                _CategoryGridCard(
-                  title: 'Lighting',
-                  icon: Icons.lightbulb_outline,
-                  color: const Color(0xFFFEE2E2),
-                  onTap: () => Navigator.pushNamed(context, '/category', arguments: 'cat_light'),
-                ),
-                _CategoryGridCard(
-                  title: 'Laptop Service',
-                  icon: Icons.laptop_chromebook_outlined,
-                  color: const Color(0xFFE2E8F0),
-                  onTap: () => Navigator.pushNamed(context, '/category', arguments: 'cat_laptop'),
-                ),
-                _CategoryGridCard(
-                  title: 'All Services',
-                  icon: Icons.grid_view_outlined,
-                  color: const Color(0xFFF1F5F9),
-                  onTap: () {
-                    // Navigate to first category as fallback
-                    Navigator.pushNamed(context, '/category', arguments: 'cat_ac');
+            child: Builder(
+              builder: (context) {
+                final displayCategories = state.categories.isNotEmpty ? state.categories : MockData.categoriesList;
+                final colors = [
+                  const Color(0xFFE0F2FE),
+                  const Color(0xFFFEF9C3),
+                  const Color(0xFFDCFCE7),
+                  const Color(0xFFF3E8FF),
+                  const Color(0xFFE0FFFE),
+                  const Color(0xFFFEE2E2),
+                  const Color(0xFFE2E8F0),
+                  const Color(0xFFF1F5F9),
+                ];
+
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.85,
+                  ),
+                  itemCount: displayCategories.length.clamp(0, 8),
+                  itemBuilder: (context, index) {
+                    final cat = displayCategories[index];
+                    final color = colors[index % colors.length];
+
+                    return _CategoryGridCard(
+                      title: cat.name,
+                      imageUrl: cat.imageUrl,
+                      icon: Icons.home_repair_service_outlined,
+                      color: color,
+                      onTap: () => Navigator.pushNamed(context, '/category', arguments: cat.id),
+                    );
                   },
-                ),
-              ],
+                );
+              },
             ),
           ),
 
@@ -882,12 +860,14 @@ void _showAllCategoriesSheet(BuildContext context, List<Category> categories) {
 // ─── 2. Compact Grid Category Item Widget ────────────────────────────────────
 class _CategoryGridCard extends StatelessWidget {
   final String title;
+  final String? imageUrl;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
   const _CategoryGridCard({
     required this.title,
+    this.imageUrl,
     required this.icon,
     required this.color,
     required this.onTap,
@@ -895,6 +875,8 @@ class _CategoryGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -906,11 +888,25 @@ class _CategoryGridCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
             ),
-            child: Icon(
-              icon,
-              color: kTextNavy,
-              size: 24,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: hasImage
+                  ? Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Icon(
+                        icon,
+                        color: kTextNavy,
+                        size: 24,
+                      ),
+                    )
+                  : Icon(
+                      icon,
+                      color: kTextNavy,
+                      size: 24,
+                    ),
             ),
           ),
           const SizedBox(height: 6),
@@ -918,6 +914,7 @@ class _CategoryGridCard extends StatelessWidget {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,

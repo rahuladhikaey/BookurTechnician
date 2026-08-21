@@ -660,16 +660,17 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   Future<void> _recalculatePrices() async {
     state = state.copyWith(isCalculatingPrice: true);
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(milliseconds: 50));
     final base = state.cartItems.fold(0.0, (sum, s) => sum + s.price);
-    final bookingCharge = base > 0 ? 49.0 : 0.0;
+    final bookingCharge = state.cartItems.isNotEmpty
+        ? state.cartItems.map((s) => s.bookingCharge).reduce((a, b) => a > b ? a : b)
+        : 0.0;
     final taxable = base + bookingCharge;
     final gst = taxable * 0.18;
     final total = taxable + gst;
     state = state.copyWith(
       baseCost: base,
       visitFee: bookingCharge,
-      discount: 0.0,
       gstTax: gst,
       grandTotal: total,
       isCalculatingPrice: false,

@@ -977,6 +977,9 @@ public class AdminController {
                 .orElseThrow(() -> new ResourceNotFoundException("Service not found: " + id));
         item.setName(updated.getName());
         item.setPrice(updated.getPrice());
+        if (updated.getBookingCharge() != null) item.setBookingCharge(updated.getBookingCharge());
+        if (updated.getAdvancePrepaymentPct() > 0) item.setAdvancePrepaymentPct(updated.getAdvancePrepaymentPct());
+        if (updated.getTechnicianPayoutAmount() != null) item.setTechnicianPayoutAmount(updated.getTechnicianPayoutAmount());
         item.setDescription(updated.getDescription());
         item.setDurationMinutes(updated.getDurationMinutes());
         item.setImageUrl(updated.getImageUrl());
@@ -1012,13 +1015,25 @@ public class AdminController {
         ServiceItem item = serviceItemRepository.findById(serviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Service not found: " + serviceId));
 
-        if (body.containsKey("price")) {
+        if (body.containsKey("price") && body.get("price") != null) {
             item.setPrice(new BigDecimal(body.get("price").toString()));
+        }
+        if (body.containsKey("bookingCharge") && body.get("bookingCharge") != null) {
+            item.setBookingCharge(new BigDecimal(body.get("bookingCharge").toString()));
+        }
+        if (body.containsKey("advancePrepaymentPct") && body.get("advancePrepaymentPct") != null) {
+            item.setAdvancePrepaymentPct(Integer.parseInt(body.get("advancePrepaymentPct").toString()));
+        }
+        if (body.containsKey("technicianPayoutAmount") && body.get("technicianPayoutAmount") != null) {
+            item.setTechnicianPayoutAmount(new BigDecimal(body.get("technicianPayoutAmount").toString()));
+        }
+        if (body.containsKey("durationMinutes") && body.get("durationMinutes") != null) {
+            item.setDurationMinutes(Integer.parseInt(body.get("durationMinutes").toString()));
         }
         item = serviceItemRepository.save(item);
 
         recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "UPDATE_PRICING", "ServiceItem", serviceId.toString(), "Price updated to " + item.getPrice());
+                "UPDATE_PRICING", "ServiceItem", serviceId.toString(), "Price updated: Price=" + item.getPrice() + ", BookingFee=" + item.getBookingCharge());
         return ResponseEntity.ok(ApiResponse.success(item, "Pricing updated"));
     }
 

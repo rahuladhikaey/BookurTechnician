@@ -43,4 +43,13 @@ public class ServiceCategory {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
+
+    public String getImageUrl() {
+        return iconUrl != null && !iconUrl.isBlank() ? iconUrl : bannerUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.iconUrl = imageUrl;
+        this.bannerUrl = imageUrl;
+    }
 }

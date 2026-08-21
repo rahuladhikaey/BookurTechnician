@@ -25,6 +25,9 @@ class ServiceItem {
   final String id;
   final String name;
   final double price;
+  final double bookingCharge;
+  final int advancePrepaymentPct;
+  final double technicianPayoutAmount;
   final double rating;
   final int reviewsCount;
   final int durationMinutes;
@@ -39,6 +42,9 @@ class ServiceItem {
     required this.id,
     required this.name,
     required this.price,
+    this.bookingCharge = 49.0,
+    this.advancePrepaymentPct = 30,
+    this.technicianPayoutAmount = 0.0,
     this.rating = 4.8,
     this.reviewsCount = 120,
     this.durationMinutes = 45,
@@ -51,10 +57,18 @@ class ServiceItem {
   });
 
   factory ServiceItem.fromJson(Map<String, dynamic> json) {
+    final rawPrice = (json['price'] as num?)?.toDouble() ?? 0.0;
+    final rawBooking = (json['bookingCharge'] as num?)?.toDouble() ?? (rawPrice >= 1000 ? 99.0 : 49.0);
+    final rawPct = json['advancePrepaymentPct'] as int? ?? 30;
+    final rawPayout = (json['technicianPayoutAmount'] as num?)?.toDouble() ?? (rawPrice * 0.8);
+
     return ServiceItem(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      price: rawPrice,
+      bookingCharge: rawBooking,
+      advancePrepaymentPct: rawPct,
+      technicianPayoutAmount: rawPayout,
       durationMinutes: json['durationMinutes'] as int? ?? 45,
       warrantyText: json['warrantyText']?.toString() ?? '30-Day Service Warranty',
       description: json['description']?.toString() ?? '',
