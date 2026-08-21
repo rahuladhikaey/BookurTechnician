@@ -76,8 +76,8 @@ public class DispatchService {
         double lat = booking.getAddress().getCoordinates().getY();
         double lng = booking.getAddress().getCoordinates().getX();
 
-        // Query PostGIS for all online verified technicians within radius with fresh GPS fixes
-        java.time.Instant freshnessCutoff = Instant.now().minus(java.time.Duration.ofMinutes(30));
+        // Query PostGIS for all online technicians within 15-km radius
+        java.time.Instant freshnessCutoff = Instant.now().minus(java.time.Duration.ofHours(24));
         List<TechnicianProfile> nearbyTechnicians = technicianProfileRepository.findNearbyAvailableTechnicians(
                 lat, lng, radiusMeters, freshnessCutoff, 25
         );

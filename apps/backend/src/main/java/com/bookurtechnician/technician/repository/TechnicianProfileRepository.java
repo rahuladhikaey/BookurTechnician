@@ -21,13 +21,13 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
     long countByKycStatus(String kycStatus);
     long countByOnlineTrue();
 
-    // ─── POSTGIS NATIVE 10-KM SPATIAL DISPATCH QUERY ──────────────────────────
+    // ─── POSTGIS NATIVE 15-KM SPATIAL DISPATCH QUERY ──────────────────────────
     @Query(value = """
         SELECT t.* FROM technician_profiles t
         WHERE t.is_online = true
-          AND t.kyc_status = 'VERIFIED'
+          AND (t.kyc_status = 'VERIFIED' OR t.kyc_status = 'APPROVED' OR t.kyc_status = 'SUBMITTED' OR t.kyc_status IS NULL)
           AND t.current_location IS NOT NULL
-          AND (t.location_updated_at IS NOT NULL AND t.location_updated_at >= :freshnessCutoff)
+          AND (t.location_updated_at IS NULL OR t.location_updated_at >= :freshnessCutoff)
           AND ST_DWithin(
                 t.current_location::geography,
                 ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,

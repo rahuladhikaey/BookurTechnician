@@ -46,6 +46,7 @@ public class BookingService {
     private final RefundRepository refundRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final BrevoEmailService brevoEmailService;
+    private final DispatchService dispatchService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
@@ -72,6 +73,9 @@ public class BookingService {
         String startOtp = String.valueOf(1000 + secureRandom.nextInt(9000));
         Instant startOtpExpiresAt = Instant.now().plus(Duration.ofHours(3)); // 3-Hour Validity
 
+        boolean prepaymentRequired = service.getAdvancePrepaymentPct() > 0;
+        String initialStatus = prepaymentRequired ? "PAYMENT_PENDING" : "SEARCHING_TECHNICIAN";
+
         Booking booking = Booking.builder()
                 .bookingCode(bookingCode)
                 .customer(customer)
@@ -88,11 +92,15 @@ public class BookingService {
                 .startServiceOtp(startOtp)
                 .startOtpExpiresAt(startOtpExpiresAt)
                 .failedOtpAttempts(0)
-                .status("PAYMENT_PENDING")
+                .status(initialStatus)
                 .build();
 
         booking = bookingRepository.save(booking);
-        log.info("Created booking {} with 3-hr Start OTP. Amount: ₹{}", booking.getBookingCode(), grandTotal);
+        log.info("Created booking {} with Start OTP. Status: {}, Amount: ₹{}", booking.getBookingCode(), initialStatus, grandTotal);
+
+        if (!prepaymentRequired) {
+            dispatchService.startSequentialDispatch(booking.getId());
+        }
 
         return mapToResponse(booking);
     }

@@ -59,8 +59,8 @@ app:
     api-key: ${CLOUDINARY_API_KEY:}
     api-secret: ${CLOUDINARY_API_SECRET:}
   razorpay:
-    key-id: ${RAZORPAY_KEY_ID:}
-    key-secret: ${RAZORPAY_KEY_SECRET:}
-    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+    key-id: ${RAZORPAY_KEY_ID:rzp_test_ShRpqbs6hVT6Ie}
+    key-secret: ${RAZORPAY_KEY_SECRET:5LUjZ94LMDnjwlLyB9cUU5cb}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:bt_rzp_webhook_secret_secure_2026}
   firebase:
     credentials-json-base64: ${FIREBASE_CREDENTIALS_JSON:}
