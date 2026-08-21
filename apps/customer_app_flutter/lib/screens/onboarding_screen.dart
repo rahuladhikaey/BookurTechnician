@@ -269,7 +269,7 @@ class _SlideData {
 
 class BrandLogoIcon extends StatelessWidget {
   final double size;
-  const BrandLogoIcon({super.key, this.size = 56});
+  const BrandLogoIcon({super.key, this.size = 36});
 
   @override
   Widget build(BuildContext context) {
@@ -277,165 +277,27 @@ class BrandLogoIcon extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(size * 0.25),
+        shape: BoxShape.circle,
         boxShadow: const [
           BoxShadow(
-            color: Color(0x33077E9B),
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            color: Color(0x1F000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
           ),
         ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: CustomPaint(
-        size: Size(size, size),
-        painter: _LogoPainter(),
+      child: ClipOval(
+        child: Image.asset(
+          'assets/images/app_logo.png',
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }
 }
 
-class _LogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    
-    // Draw diagonal background split: Royal Blue and Deep Royal Blue
-    final paintLight = Paint()..color = const Color(0xFF1E40AF);
-    final paintDark = Paint()..color = const Color(0xFF1D3FAF);
-    
-    // Fill the entire canvas with the Royal Blue color
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), paintLight);
-    
-    // Draw bottom-right region with Deep Royal Blue
-    final pathBg = Path()
-      ..moveTo(0, h)
-      ..lineTo(w, h)
-      ..lineTo(w, 0)
-      ..close();
-    canvas.drawPath(pathBg, paintDark);
-    
-    // Scale everything relative to a 100x100 design canvas
-    final scaleX = w / 100.0;
-    final scaleY = h / 100.0;
-    
-    final paintWhite = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-      
-    // 1. Draw "B" vertical stem and backing
-    final pathB = Path()
-      ..moveTo(24 * scaleX, 25 * scaleY)
-      ..lineTo(32 * scaleX, 25 * scaleY)
-      ..lineTo(32 * scaleX, 61 * scaleY)
-      ..lineTo(24 * scaleX, 61 * scaleY)
-      ..close();
-      
-    // Top loop of "B"
-    final pathBLoop = Path()
-      ..moveTo(32 * scaleX, 25 * scaleY)
-      ..lineTo(44 * scaleX, 25 * scaleY)
-      ..cubicTo(
-        52 * scaleX, 25 * scaleY,
-        52 * scaleX, 43 * scaleY,
-        44 * scaleX, 43 * scaleY,
-      )
-      ..lineTo(32 * scaleX, 43 * scaleY)
-      ..close();
-      
-    // Hole in top loop of "B"
-    final pathBHole = Path()
-      ..moveTo(32 * scaleX, 31 * scaleY)
-      ..lineTo(40 * scaleX, 31 * scaleY)
-      ..cubicTo(
-        44 * scaleX, 31 * scaleY,
-        44 * scaleX, 37 * scaleY,
-        40 * scaleX, 37 * scaleY,
-      )
-      ..lineTo(32 * scaleX, 37 * scaleY)
-      ..close();
-
-    var finalB = Path.combine(PathOperation.union, pathB, pathBLoop);
-    finalB = Path.combine(PathOperation.difference, finalB, pathBHole);
-
-    // 2. Draw "T"
-    final pathT = Path()
-      ..moveTo(51 * scaleX, 43 * scaleY)
-      ..lineTo(78 * scaleX, 43 * scaleY)
-      ..lineTo(78 * scaleX, 50 * scaleY)
-      ..lineTo(68.5 * scaleX, 50 * scaleY)
-      ..lineTo(68.5 * scaleX, 76 * scaleY)
-      ..lineTo(60.5 * scaleX, 76 * scaleY)
-      ..lineTo(60.5 * scaleX, 50 * scaleY)
-      ..lineTo(51 * scaleX, 50 * scaleY)
-      ..close();
-
-    // 3. Draw Wrench Jaw as the bottom loop of "B"
-    // Wrench head center is at (46, 59)
-    final cx = 46.0 * scaleX;
-    final cy = 59.0 * scaleY;
-    final outerRadius = 12.0 * scaleX;
-    final innerRadius = 6.0 * scaleX;
-    
-    final wrenchOuter = Path()
-      ..addOval(Rect.fromCircle(center: Offset(cx, cy), radius: outerRadius));
-      
-    final wrenchInner = Path()
-      ..addOval(Rect.fromCircle(center: Offset(cx, cy), radius: innerRadius));
-
-    // Wrench cutout slot (rotated by -45 degrees)
-    final slotPath = Path();
-    const angle = -0.785; // -45 degrees in radians
-    final cosA = math.cos(angle);
-    final sinA = math.sin(angle);
-    
-    Offset rotPoint(double x, double y) {
-      return Offset(
-        cx + (x * cosA - y * sinA) * scaleX,
-        cy + (x * sinA + y * cosA) * scaleY,
-      );
-    }
-    
-    slotPath.moveTo(rotPoint(0, -4.5).dx, rotPoint(0, -4.5).dy);
-    slotPath.lineTo(rotPoint(16, -4.5).dx, rotPoint(16, -4.5).dy);
-    slotPath.lineTo(rotPoint(16, 4.5).dx, rotPoint(16, 4.5).dy);
-    slotPath.lineTo(rotPoint(0, 4.5).dx, rotPoint(0, 4.5).dy);
-    slotPath.close();
-
-    var wrench = Path.combine(PathOperation.difference, wrenchOuter, wrenchInner);
-    wrench = Path.combine(PathOperation.difference, wrench, slotPath);
-
-    // Connector from B stem to wrench head
-    final connector = Path()
-      ..moveTo(32 * scaleX, 43 * scaleY)
-      ..lineTo(32 * scaleX, 53 * scaleY)
-      ..quadraticBezierTo(32 * scaleX, 59 * scaleY, cx, 59 * scaleY)
-      ..lineTo(cx, 47 * scaleY)
-      ..quadraticBezierTo(32 * scaleX, 47 * scaleY, 32 * scaleX, 43 * scaleY)
-      ..close();
-
-    // Combine all shapes
-    var logoText = Path.combine(PathOperation.union, finalB, pathT);
-    logoText = Path.combine(PathOperation.union, logoText, wrench);
-    logoText = Path.combine(PathOperation.union, logoText, connector);
-    
-    // Draw diagonal subtle shadow
-    final paintShadow = Paint()
-      ..color = const Color(0x33000000)
-      ..style = PaintingStyle.fill;
-      
-    for (double i = 1.0; i <= 4.0; i += 1.0) {
-      canvas.drawPath(logoText.shift(Offset(i * 0.8 * scaleX, i * 0.8 * scaleY)), paintShadow);
-    }
-    
-    // Draw logo shapes in white
-    canvas.drawPath(logoText, paintWhite);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
 
 // ─── FLOATING ASSET UTILITY ──────────────────────────────────────────────────
 

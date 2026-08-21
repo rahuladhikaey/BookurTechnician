@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,7 +17,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   late AnimationController _controller;
   late Animation<double> _logoScale;
   late Animation<double> _logoOpacity;
-  late Animation<double> _wrenchRotation;
   late Animation<double> _textOpacity;
 
   @override
@@ -27,45 +25,37 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3000),
+      duration: const Duration(milliseconds: 2400),
     );
 
-    // 0–900 ms: Logo scales from 85% to 100% (Interval: 0.0 to 0.30)
-    _logoScale = Tween<double>(begin: 0.85, end: 1.0).animate(
+    // 0–800 ms: Logo scales smoothly from 80% to 100%
+    _logoScale = Tween<double>(begin: 0.80, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.30, curve: Curves.easeOutBack),
+        curve: const Interval(0.0, 0.40, curve: Curves.easeOutBack),
       ),
     );
 
-    // 0–750 ms: Logo opacity fades from 0% to 100%
+    // 0–600 ms: Logo opacity fades in
     _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.0, 0.25, curve: Curves.easeIn),
+        curve: const Interval(0.0, 0.30, curve: Curves.easeIn),
       ),
     );
 
-    // 750–1500 ms: Wrench rotates subtly into place (-15 degrees to 0 degrees)
-    _wrenchRotation = Tween<double>(begin: -0.26, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.25, 0.50, curve: Curves.easeInOut),
-      ),
-    );
-
-    // 1200–2100 ms: Text fades in below the logo
+    // 600–1400 ms: Text fades in below the logo
     _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.40, 0.70, curve: Curves.easeIn),
+        curve: const Interval(0.30, 0.65, curve: Curves.easeIn),
       ),
     );
 
-    // Start splash timeline animation
+    // Start splash animation
     _controller.forward();
 
-    // Navigate to next screen after animation completes (at 3000ms)
+    // Navigate to next screen after animation completes
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         _navigateToNextScreen();
@@ -122,20 +112,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Official BT Logo Container
+                // Official BT Circular Logo Container
                 Opacity(
                   opacity: _logoOpacity.value,
                   child: Transform.scale(
                     scale: _logoScale.value,
                     child: Container(
-                      width: 110,
-                      height: 110,
+                      width: 120,
+                      height: 120,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF1E3A8A).withValues(alpha: 0.2),
-                            blurRadius: 24,
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 28,
+                            spreadRadius: 2,
                             offset: const Offset(0, 8),
                           ),
                         ],
@@ -143,21 +134,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                       child: ClipOval(
                         child: Image.asset(
                           'assets/images/app_logo.png',
-                          width: 110,
-                          height: 110,
-                          fit: BoxFit.cover,
-                          errorBuilder: (ctx, err, stack) => CustomPaint(
-                            size: const Size(110, 110),
-                            painter: _SplashLogoPainter(
-                              wrenchAngle: _wrenchRotation.value,
-                            ),
-                          ),
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.contain,
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 // Brand Name below logo
                 Opacity(
                   opacity: _textOpacity.value,
@@ -166,7 +151,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                       RichText(
                         text: const TextSpan(
                           style: TextStyle(
-                            fontSize: 26,
+                            fontSize: 28,
                             fontFamily: 'Inter',
                             letterSpacing: -0.6,
                           ),
@@ -174,25 +159,25 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                             TextSpan(
                               text: 'bookur',
                               style: TextStyle(
-                                color: Color(0xFF1E3A8A),
+                                color: Color(0xFF0F172A),
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
                             TextSpan(
                               text: 'technician',
                               style: TextStyle(
-                                color: Color(0xFF0284C7),
+                                color: Color(0xFF1E40AF),
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
                         'Expert Help. Just a Booking Away.',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.grey.shade600,
                           letterSpacing: 0.2,
@@ -210,151 +195,3 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   }
 }
 
-class _SplashLogoPainter extends CustomPainter {
-  final double wrenchAngle;
-  _SplashLogoPainter({required this.wrenchAngle});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    
-    // Draw diagonal background split: Royal Blue and Deep Royal Blue
-    final paintLight = Paint()..color = const Color(0xFF1E40AF);
-    final paintDark = Paint()..color = const Color(0xFF1D3FAF);
-    
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), paintLight);
-    
-    final pathBg = Path()
-      ..moveTo(0, h)
-      ..lineTo(w, h)
-      ..lineTo(w, 0)
-      ..close();
-    canvas.drawPath(pathBg, paintDark);
-    
-    final scaleX = w / 100.0;
-    final scaleY = h / 100.0;
-    
-    final paintWhite = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-      
-    // 1. Draw "B" vertical stem and backing
-    final pathB = Path()
-      ..moveTo(24 * scaleX, 25 * scaleY)
-      ..lineTo(32 * scaleX, 25 * scaleY)
-      ..lineTo(32 * scaleX, 61 * scaleY)
-      ..lineTo(24 * scaleX, 61 * scaleY)
-      ..close();
-      
-    // Top loop of "B"
-    final pathBLoop = Path()
-      ..moveTo(32 * scaleX, 25 * scaleY)
-      ..lineTo(44 * scaleX, 25 * scaleY)
-      ..cubicTo(
-        52 * scaleX, 25 * scaleY,
-        52 * scaleX, 43 * scaleY,
-        44 * scaleX, 43 * scaleY,
-      )
-      ..lineTo(32 * scaleX, 43 * scaleY)
-      ..close();
-      
-    // Hole in top loop of "B"
-    final pathBHole = Path()
-      ..moveTo(32 * scaleX, 31 * scaleY)
-      ..lineTo(40 * scaleX, 31 * scaleY)
-      ..cubicTo(
-        44 * scaleX, 31 * scaleY,
-        44 * scaleX, 37 * scaleY,
-        40 * scaleX, 37 * scaleY,
-      )
-      ..lineTo(32 * scaleX, 37 * scaleY)
-      ..close();
-
-    var finalB = Path.combine(PathOperation.union, pathB, pathBLoop);
-    finalB = Path.combine(PathOperation.difference, finalB, pathBHole);
-
-    // 2. Draw "T"
-    final pathT = Path()
-      ..moveTo(51 * scaleX, 43 * scaleY)
-      ..lineTo(78 * scaleX, 43 * scaleY)
-      ..lineTo(78 * scaleX, 50 * scaleY)
-      ..lineTo(68.5 * scaleX, 50 * scaleY)
-      ..lineTo(68.5 * scaleX, 76 * scaleY)
-      ..lineTo(60.5 * scaleX, 76 * scaleY)
-      ..lineTo(60.5 * scaleX, 50 * scaleY)
-      ..lineTo(51 * scaleX, 50 * scaleY)
-      ..close();
-
-    // 3. Draw Wrench Jaw as the bottom loop of "B" (centered at 46, 59)
-    final cx = 46.0 * scaleX;
-    final cy = 59.0 * scaleY;
-    final outerRadius = 12.0 * scaleX;
-    final innerRadius = 6.0 * scaleX;
-    
-    final wrenchOuter = Path()
-      ..addOval(Rect.fromCircle(center: Offset(cx, cy), radius: outerRadius));
-      
-    final wrenchInner = Path()
-      ..addOval(Rect.fromCircle(center: Offset(cx, cy), radius: innerRadius));
-
-    // Wrench cutout slot (rotated by -45 degrees + dynamic wrenchAngle)
-    final slotPath = Path();
-    final totalAngle = -0.785 + wrenchAngle; 
-    final cosA = math.cos(totalAngle);
-    final sinA = math.sin(totalAngle);
-    
-    Offset rotPoint(double x, double y) {
-      return Offset(
-        cx + (x * cosA - y * sinA) * scaleX,
-        cy + (x * sinA + y * cosA) * scaleY,
-      );
-    }
-    
-    slotPath.moveTo(rotPoint(0, -4.5).dx, rotPoint(0, -4.5).dy);
-    slotPath.lineTo(rotPoint(16, -4.5).dx, rotPoint(16, -4.5).dy);
-    slotPath.lineTo(rotPoint(16, 4.5).dx, rotPoint(16, 4.5).dy);
-    slotPath.lineTo(rotPoint(0, 4.5).dx, rotPoint(0, 4.5).dy);
-    slotPath.close();
-
-    var wrench = Path.combine(PathOperation.difference, wrenchOuter, wrenchInner);
-    wrench = Path.combine(PathOperation.difference, wrench, slotPath);
-
-    // Rotate wrench around center (cx, cy)
-    if (wrenchAngle != 0.0) {
-      final Matrix4 matrix = Matrix4.identity()
-        ..multiply(Matrix4.translationValues(cx, cy, 0.0))
-        ..rotateZ(wrenchAngle)
-        ..multiply(Matrix4.translationValues(-cx, -cy, 0.0));
-      wrench = wrench.transform(matrix.storage);
-    }
-
-    // Connector from B stem to wrench head
-    final connector = Path()
-      ..moveTo(32 * scaleX, 43 * scaleY)
-      ..lineTo(32 * scaleX, 53 * scaleY)
-      ..quadraticBezierTo(32 * scaleX, 59 * scaleY, cx, 59 * scaleY)
-      ..lineTo(cx, 47 * scaleY)
-      ..quadraticBezierTo(32 * scaleX, 47 * scaleY, 32 * scaleX, 43 * scaleY)
-      ..close();
-
-    var logoText = Path.combine(PathOperation.union, finalB, pathT);
-    logoText = Path.combine(PathOperation.union, logoText, wrench);
-    logoText = Path.combine(PathOperation.union, logoText, connector);
-    
-    // Draw diagonal subtle shadow
-    final paintShadow = Paint()
-      ..color = const Color(0x33000000)
-      ..style = PaintingStyle.fill;
-      
-    for (double i = 1.0; i <= 4.0; i += 1.0) {
-      canvas.drawPath(logoText.shift(Offset(i * 0.8 * scaleX, i * 0.8 * scaleY)), paintShadow);
-    }
-    
-    canvas.drawPath(logoText, paintWhite);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SplashLogoPainter oldDelegate) =>
-      oldDelegate.wrenchAngle != wrenchAngle;
-}

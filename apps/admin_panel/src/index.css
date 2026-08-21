@@ -1081,6 +1081,248 @@ textarea.form-control {
   border-color: var(--primary);
 }
 
+/* ─── Digital ID Card Manager (Flat 2D) ─── */
+.id-card-layout-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 20px;
+}
+
+.tech-selector-panel {
+  background-color: var(--bg-white);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.tech-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.tech-select-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background-color: var(--bg-white);
+  transition: all 0.15s ease;
+}
+
+.tech-select-card:hover {
+  background-color: var(--primary-light);
+}
+
+.tech-select-card.active {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+}
+
+.tech-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.tech-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tech-info strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.id-card-preview-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--bg-white);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 24px;
+}
+
+.digital-id-card-mockup {
+  width: 100%;
+  max-width: 380px;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.id-header-bar {
+  background-color: var(--primary);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #FFFFFF;
+}
+
+.brand-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-logo-circle {
+  font-size: 16px;
+}
+
+.brand-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+.member-pill {
+  font-size: 9.5px;
+  font-weight: 800;
+  background-color: rgba(255, 255, 255, 0.2);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.5px;
+}
+
+.id-card-body {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.avatar-frame-wrap {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 12px;
+}
+
+.id-avatar-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary);
+}
+
+.verified-check-bubble {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 22px;
+  height: 22px;
+  background-color: #15803D;
+  color: #FFFFFF;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  border: 2px solid #FFFFFF;
+}
+
+.id-tech-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 2px;
+}
+
+.id-tech-role {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.id-meta-box {
+  width: 100%;
+  background-color: #F8FAFC;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.id-meta-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.id-meta-row:last-child {
+  border-bottom: none;
+}
+
+.id-meta-row span {
+  color: var(--text-secondary);
+}
+
+.id-meta-row strong {
+  color: var(--text-main);
+}
+
+.id-status-badge {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+}
+
+.id-status-badge.approved {
+  background-color: #ECFDF5;
+  color: #15803D;
+  border: 1px solid #A7F3D0;
+}
+
+.id-status-badge.pending {
+  background-color: #FFFBEB;
+  color: #D97706;
+  border: 1px solid #FDE68A;
+}
+
+.id-qr-trigger-box {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  background-color: #F8FAFC;
+}
+
+.id-qr-trigger-box:hover {
+  background-color: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.id-card-actions-grid {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 /* ─── Responsive Breakdown ─── */
 @media (max-width: 1024px) {
   .sidebar {
@@ -1088,6 +1330,9 @@ textarea.form-control {
     min-width: 220px;
   }
   .charts-grid {
+    grid-template-columns: 1fr;
+  }
+  .id-card-layout-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1111,3 +1356,4 @@ textarea.form-control {
     display: none;
   }
 }
+

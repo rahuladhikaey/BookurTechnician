@@ -19,61 +19,79 @@ class LocationTrackingService {
   static const int notificationId = 888;
 
   Future<void> initializeService() async {
-    final service = FlutterBackgroundService();
+    try {
+      final service = FlutterBackgroundService();
 
-    // Android notification channel setup
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      notificationChannelId,
-      'Partner Duty Active',
-      description: 'Ongoing foreground notification for live technician location sync',
-      importance: Importance.low,
-    );
+      // Android notification channel setup
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        notificationChannelId,
+        'Partner Duty Active',
+        description: 'Ongoing foreground notification for live technician location sync',
+        importance: Importance.low,
+      );
 
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+      await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
 
-    await service.configure(
-      androidConfiguration: AndroidConfiguration(
-        onStart: onStart,
-        autoStart: false,
-        isForegroundMode: true,
-        notificationChannelId: notificationChannelId,
-        initialNotificationTitle: 'Partner Duty Active',
-        initialNotificationContent: 'GPS tracking initializing...',
-        foregroundServiceNotificationId: notificationId,
-        foregroundServiceTypes: [AndroidForegroundType.location],
-      ),
-      iosConfiguration: IosConfiguration(
-        autoStart: false,
-        onForeground: onStart,
-        onBackground: onIosBackground,
-      ),
-    );
+      await service.configure(
+        androidConfiguration: AndroidConfiguration(
+          onStart: onStart,
+          autoStart: false,
+          isForegroundMode: true,
+          notificationChannelId: notificationChannelId,
+          initialNotificationTitle: 'Partner Duty Active',
+          initialNotificationContent: 'GPS tracking initializing...',
+          foregroundServiceNotificationId: notificationId,
+          foregroundServiceTypes: [AndroidForegroundType.location],
+        ),
+        iosConfiguration: IosConfiguration(
+          autoStart: false,
+          onForeground: onStart,
+          onBackground: onIosBackground,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[LocationTrackingService] initializeService error: $e');
+    }
   }
 
   Future<bool> startTracking() async {
-    final service = FlutterBackgroundService();
-    final isRunning = await service.isRunning();
-    if (!isRunning) {
-      return await service.startService();
+    try {
+      final service = FlutterBackgroundService();
+      final isRunning = await service.isRunning();
+      if (!isRunning) {
+        return await service.startService();
+      }
+      return true;
+    } catch (e) {
+      debugPrint('[LocationTrackingService] startTracking error: $e');
+      return false;
     }
-    return true;
   }
 
   Future<void> stopTracking() async {
-    final service = FlutterBackgroundService();
-    final isRunning = await service.isRunning();
-    if (isRunning) {
-      service.invoke('stopService');
+    try {
+      final service = FlutterBackgroundService();
+      final isRunning = await service.isRunning();
+      if (isRunning) {
+        service.invoke('stopService');
+      }
+    } catch (e) {
+      debugPrint('[LocationTrackingService] stopTracking error: $e');
     }
   }
 
   Future<bool> isTrackingRunning() async {
-    final service = FlutterBackgroundService();
-    return await service.isRunning();
+    try {
+      final service = FlutterBackgroundService();
+      return await service.isRunning();
+    } catch (e) {
+      debugPrint('[LocationTrackingService] isTrackingRunning error: $e');
+      return false;
+    }
   }
 
   @pragma('vm:entry-point')

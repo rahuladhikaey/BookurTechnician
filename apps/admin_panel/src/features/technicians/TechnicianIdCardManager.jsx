@@ -88,8 +88,8 @@ export default function TechnicianIdCardManager({ technicians, setTechnicians, a
         {selectedTech && (
           <div className="id-card-preview-panel">
             <div className="digital-id-card-mockup">
-              {/* Top Gradient Header Bar */}
-              <div className="id-header-gradient">
+              {/* Top Solid Header Bar */}
+              <div className="id-header-bar">
                 <div className="brand-badge-row">
                   <div className="brand-logo-circle">🛠️</div>
                   <span className="brand-title">BookurTechnician</span>

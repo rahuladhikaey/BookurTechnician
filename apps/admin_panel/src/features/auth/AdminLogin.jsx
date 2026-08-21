@@ -268,52 +268,49 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'radial-gradient(ellipse at top, #1E293B 0%, #0F172A 70%, #020617 100%)',
+    backgroundColor: '#F8FAFC',
     padding: '24px 16px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    fontFamily: "'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
   },
   card: {
     width: '100%',
     maxWidth: '460px',
-    background: 'rgba(30, 41, 59, 0.95)',
-    backdropFilter: 'blur(16px)',
-    borderRadius: '20px',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#FFFFFF',
+    borderRadius: '8px',
+    border: '1px solid #E2E8F0',
     padding: '36px 32px',
-    color: '#F8FAFC'
+    color: '#0F172A'
   },
   header: {
     textAlign: 'center',
     marginBottom: '26px'
   },
   logoBadge: {
-    fontSize: '38px',
-    marginBottom: '8px',
-    filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))'
+    fontSize: '34px',
+    marginBottom: '8px'
   },
   title: {
-    fontSize: '24px',
+    fontSize: '22px',
     fontWeight: '800',
-    color: '#FFFFFF',
-    margin: '0 0 8px 0',
-    letterSpacing: '-0.5px'
+    color: '#1E40AF',
+    margin: '0 0 6px 0',
+    letterSpacing: '-0.4px'
   },
   badge: {
     display: 'inline-block',
-    padding: '4px 12px',
-    background: 'rgba(33, 70, 168, 0.25)',
-    border: '1px solid #3B82F6',
-    color: '#93C5FD',
+    padding: '4px 10px',
+    backgroundColor: '#EFF6FF',
+    border: '1px solid #BFDBFE',
+    color: '#1E40AF',
     fontSize: '11px',
     fontWeight: '800',
-    borderRadius: '20px',
-    letterSpacing: '1.2px',
-    marginBottom: '12px'
+    borderRadius: '4px',
+    letterSpacing: '0.8px',
+    marginBottom: '10px'
   },
   subtitle: {
     fontSize: '13px',
-    color: '#94A3B8',
+    color: '#64748B',
     margin: 0,
     lineHeight: '1.5'
   },
@@ -322,10 +319,10 @@ const styles = {
     alignItems: 'center',
     gap: '10px',
     padding: '12px 14px',
-    background: 'rgba(239, 68, 68, 0.15)',
-    border: '1px solid #EF4444',
-    borderRadius: '10px',
-    color: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    border: '1px solid #FCA5A5',
+    borderRadius: '6px',
+    color: '#DC2626',
     fontSize: '13px',
     marginBottom: '18px',
     lineHeight: '1.4'
@@ -335,10 +332,10 @@ const styles = {
     alignItems: 'center',
     gap: '10px',
     padding: '12px 14px',
-    background: 'rgba(34, 197, 94, 0.15)',
-    border: '1px solid #22C55E',
-    borderRadius: '10px',
-    color: '#86EFAC',
+    backgroundColor: '#ECFDF5',
+    border: '1px solid #A7F3D0',
+    borderRadius: '6px',
+    color: '#15803D',
     fontSize: '13px',
     marginBottom: '18px',
     lineHeight: '1.4'
@@ -350,7 +347,7 @@ const styles = {
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '18px'
+    gap: '16px'
   },
   inputGroup: {
     display: 'flex',
@@ -368,15 +365,15 @@ const styles = {
     justifyContent: 'space-between',
     fontSize: '12px',
     fontWeight: '700',
-    color: '#CBD5E1',
+    color: '#334155',
     textTransform: 'uppercase',
-    letterSpacing: '0.6px'
+    letterSpacing: '0.5px'
   },
   reqBadge: {
     fontSize: '10px',
     fontWeight: '600',
-    color: '#60A5FA',
-    background: 'rgba(59, 130, 246, 0.15)',
+    color: '#1E40AF',
+    backgroundColor: '#EFF6FF',
     padding: '2px 6px',
     borderRadius: '4px',
     textTransform: 'none',
@@ -392,18 +389,18 @@ const styles = {
     left: '12px',
     fontSize: '14px',
     pointerEvents: 'none',
-    opacity: 0.7
+    opacity: 0.8
   },
   inputWithIcon: {
     width: '100%',
-    padding: '12px 42px 12px 38px',
-    background: '#0F172A',
-    border: '1px solid #334155',
-    borderRadius: '10px',
-    color: '#FFFFFF',
+    padding: '11px 42px 11px 38px',
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #CBD5E1',
+    borderRadius: '6px',
+    color: '#0F172A',
     fontSize: '14px',
     outline: 'none',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
+    transition: 'border-color 0.15s ease',
     boxSizing: 'border-box'
   },
   eyeButton: {
@@ -417,27 +414,25 @@ const styles = {
     opacity: 0.7,
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'opacity 0.2s'
+    justifyContent: 'center'
   },
   primaryButton: {
     marginTop: '6px',
-    padding: '14px 20px',
-    background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+    padding: '12px 20px',
+    backgroundColor: '#1E40AF',
     color: '#FFFFFF',
-    border: 'none',
-    borderRadius: '10px',
-    fontSize: '15px',
+    border: '1px solid #1E40AF',
+    borderRadius: '6px',
+    fontSize: '14px',
     fontWeight: '700',
     letterSpacing: '0.3px',
-    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)',
-    transition: 'transform 0.1s, opacity 0.2s, box-shadow 0.2s'
+    transition: 'background-color 0.15s ease'
   },
   helperSection: {
-    marginTop: '20px',
-    background: 'rgba(15, 23, 42, 0.6)',
-    border: '1px dashed #334155',
-    borderRadius: '10px',
+    marginTop: '18px',
+    backgroundColor: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+    borderRadius: '6px',
     padding: '12px 14px'
   },
   helperHeader: {
@@ -449,17 +444,17 @@ const styles = {
   helperTitle: {
     fontSize: '11px',
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: '0.5px'
   },
   quickFillButton: {
-    background: 'rgba(59, 130, 246, 0.15)',
-    border: '1px solid #3B82F6',
-    color: '#93C5FD',
+    backgroundColor: '#EFF6FF',
+    border: '1px solid #BFDBFE',
+    color: '#1E40AF',
     fontSize: '11px',
-    fontWeight: '600',
-    borderRadius: '6px',
+    fontWeight: '700',
+    borderRadius: '4px',
     padding: '3px 8px',
     cursor: 'pointer'
   },
@@ -473,12 +468,12 @@ const styles = {
   keyItem: {
     wordBreak: 'break-all',
     fontFamily: 'monospace',
-    color: '#94A3B8'
+    color: '#334155'
   },
   securityFooter: {
-    marginTop: '24px',
-    paddingTop: '14px',
-    borderTop: '1px solid #334155',
+    marginTop: '20px',
+    paddingTop: '12px',
+    borderTop: '1px solid #E2E8F0',
     textAlign: 'center',
     fontSize: '11px',
     color: '#64748B'
