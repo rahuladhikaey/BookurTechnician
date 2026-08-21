@@ -105,6 +105,19 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
             </p>
           </div>
           <div className="page-actions-group">
+            <button
+              className="btn btn-outline"
+              onClick={async () => {
+                try {
+                  const res = await api.getCustomers();
+                  if (res?.data && setCustomers) setCustomers(res.data);
+                } catch (err) {
+                  console.warn('Customer refresh fallback:', err);
+                }
+              }}
+            >
+              🔄 Refresh Directory
+            </button>
             <button className="btn btn-outline" onClick={() => alert('Exporting customer compliance CSV...')}>
               📥 Export CSV
             </button>

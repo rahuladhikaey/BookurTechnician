@@ -185,6 +185,19 @@ export default function TechniciansManager({ technicians = [], setTechnicians, a
           <p className="page-subtitle">Verify KYC identity documents, issue digital ID credentials, and monitor real GPS online availability</p>
         </div>
         <div className="page-actions-group">
+          <button
+            className="btn btn-outline"
+            onClick={async () => {
+              try {
+                const res = await api.getTechnicians();
+                if (res?.data && setTechnicians) setTechnicians(res.data);
+              } catch (err) {
+                console.warn('Technicians refresh fallback:', err);
+              }
+            }}
+          >
+            🔄 Refresh Directory
+          </button>
           <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
             + Register New Technician
           </button>
