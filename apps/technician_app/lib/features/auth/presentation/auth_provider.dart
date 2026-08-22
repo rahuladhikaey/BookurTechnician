@@ -193,11 +193,12 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     }
 
     try {
+      final isRegister = targetPhone.isNotEmpty;
       final payload = <String, dynamic>{
         'email': targetEmail,
         'otp': targetOtp,
         'role': 'TECHNICIAN',
-        'purpose': 'LOGIN',
+        'purpose': isRegister ? 'REGISTER' : 'LOGIN',
       };
       if (targetPhone.isNotEmpty) {
         payload['phone'] = targetPhone;

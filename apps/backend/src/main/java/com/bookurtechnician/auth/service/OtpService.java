@@ -59,21 +59,38 @@ public class OtpService {
     }
 
     public boolean verifyEmailOtp(String email, String purpose, String inputOtp) {
-        String otpKey = getOtpKey(purpose, email);
-        String attemptsKey = getAttemptsKey(purpose, email);
+        String normalizedEmail = email.toLowerCase().trim();
+        String primaryKey = getOtpKey(purpose, normalizedEmail);
+        String attemptsKey = getAttemptsKey(purpose, normalizedEmail);
 
-        String storedOtp = redisTemplate.opsForValue().get(otpKey);
+        String storedOtp = redisTemplate.opsForValue().get(primaryKey);
+        String matchedKey = primaryKey;
+
+        // Fallback check if OTP was created under a different purpose (e.g. REGISTER vs LOGIN)
         if (storedOtp == null) {
-            log.warn("OTP verification failed for {}: Code expired or not found", email);
+            String[] candidatePurposes = {"login", "register", "verification"};
+            for (String cand : candidatePurposes) {
+                String candidateKey = getOtpKey(cand, normalizedEmail);
+                storedOtp = redisTemplate.opsForValue().get(candidateKey);
+                if (storedOtp != null) {
+                    matchedKey = candidateKey;
+                    attemptsKey = getAttemptsKey(cand, normalizedEmail);
+                    break;
+                }
+            }
+        }
+
+        if (storedOtp == null) {
+            log.warn("OTP verification failed for {}: Code expired or not found in Redis", normalizedEmail);
             return false;
         }
 
         // Check attempts limit
         Long currentAttempts = redisTemplate.opsForValue().increment(attemptsKey);
         if (currentAttempts != null && currentAttempts > MAX_ATTEMPTS) {
-            redisTemplate.delete(otpKey);
+            redisTemplate.delete(matchedKey);
             redisTemplate.delete(attemptsKey);
-            log.warn("OTP verification locked for {}: Exceeded max verification attempts", email);
+            log.warn("OTP verification locked for {}: Exceeded max verification attempts", normalizedEmail);
             throw new IllegalStateException("Maximum verification attempts exceeded. Please request a new code.");
         }
 
@@ -81,11 +98,13 @@ public class OtpService {
         boolean isMatch = storedOtp.equals(inputOtp.trim());
 
         if (isMatch) {
-            // Delete OTP immediately upon success
-            redisTemplate.delete(otpKey);
+            // Delete OTP and cooldown keys immediately upon success
+            redisTemplate.delete(matchedKey);
             redisTemplate.delete(attemptsKey);
-            redisTemplate.delete(getCooldownKey(purpose, email));
-            log.info("OTP verified successfully for {} [Purpose: {}]", email, purpose);
+            redisTemplate.delete(getCooldownKey(purpose, normalizedEmail));
+            redisTemplate.delete(getCooldownKey("register", normalizedEmail));
+            redisTemplate.delete(getCooldownKey("login", normalizedEmail));
+            log.info("OTP verified successfully for {} [Matched Key: {}]", normalizedEmail, matchedKey);
             return true;
         }
 
