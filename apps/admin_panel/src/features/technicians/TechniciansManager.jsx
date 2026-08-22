@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../../api/apiClient';
 
-export default function TechniciansManager({ technicians = [], setTechnicians, auditLogAction, subTab = 'list', onNavigateToIdCard }) {
+export default function TechniciansManager({ technicians = [], setTechnicians, auditLogAction, subTab = 'list', onNavigateToIdCard, onReload }) {
   const [filterTab, setFilterTab] = useState(subTab === 'kyc' ? 'PENDING' : 'ALL');
   const [selectedTech, setSelectedTech] = useState(null);
   const [showKycModal, setShowKycModal] = useState(false);
@@ -11,6 +11,18 @@ export default function TechniciansManager({ technicians = [], setTechnicians, a
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [rejectionReason, setRejectionReason] = useState('Incomplete or blurry identity documents');
+
+  useEffect(() => {
+    api.getTechnicians()
+      .then(res => {
+        if (res?.data && Array.isArray(res.data) && setTechnicians) {
+          setTechnicians(res.data);
+        }
+      })
+      .catch(err => {
+        console.warn('Error fetching technicians:', err);
+      });
+  }, []);
 
   const openSkillsModal = async (tech) => {
     setSelectedTech(tech);
