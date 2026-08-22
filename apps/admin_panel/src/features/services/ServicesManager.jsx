@@ -203,57 +203,47 @@ export default function ServicesManager({ categories, setCategories, services, s
 
   const handleSaveCategory = async (e) => {
     e.preventDefault();
-    if (editingCategory) {
-      const updated = {
-        name: categoryForm.name,
-        iconUrl: categoryForm.imageUrl,
-        bannerUrl: categoryForm.imageUrl,
-        imageUrl: categoryForm.imageUrl,
-        isActive: categoryForm.isActive
-      };
-      try {
-        await api.updateCategory(editingCategory, updated);
-      } catch (err) {
-        console.warn('Update category API fallback:', err);
+    const payload = {
+      name: categoryForm.name.trim(),
+      iconUrl: categoryForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
+      bannerUrl: categoryForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
+      active: categoryForm.isActive !== false
+    };
+
+    try {
+      if (editingCategory) {
+        const res = await api.updateCategory(editingCategory, payload);
+        const saved = res?.data || { ...payload, id: editingCategory };
+        setCategories(categories.map(c => c.id === editingCategory ? saved : c));
+        auditLogAction?.('Services', `Updated category "${payload.name}"`);
+      } else {
+        const res = await api.createCategory(payload);
+        const saved = res?.data;
+        if (saved) {
+          setCategories(prev => [...prev, saved]);
+        }
+        auditLogAction?.('Services', `Created new category "${payload.name}"`);
       }
-      const newList = categories.map(c => c.id === editingCategory ? { ...c, ...categoryForm } : c);
-      setCategories(newList);
-      localStorage.setItem('bt_admin_categories_list', JSON.stringify(newList));
-      auditLogAction?.('Services', `Updated category "${categoryForm.name}"`);
-    } else {
-      const newCat = {
-        id: `cat_${Date.now()}`,
-        name: categoryForm.name,
-        iconUrl: categoryForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
-        bannerUrl: categoryForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
-        imageUrl: categoryForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
-        isActive: categoryForm.isActive
-      };
-      try {
-        const res = await api.createCategory(newCat);
-        if (res?.data?.id) newCat.id = res.data.id;
-      } catch (err) {
-        console.warn('Create category API fallback:', err);
-      }
-      const newList = [...categories, newCat];
-      setCategories(newList);
-      localStorage.setItem('bt_admin_categories_list', JSON.stringify(newList));
-      auditLogAction?.('Services', `Created new category "${newCat.name}"`);
+      onReload?.();
+      setShowCategoryModal(false);
+      alert(`✅ Category "${payload.name}" successfully saved in PostgreSQL!`);
+    } catch (err) {
+      console.error('Error saving category:', err);
+      alert('Failed to save category in database: ' + err.message);
     }
-    setShowCategoryModal(false);
   };
 
   const handleDeleteCategory = async (id, name) => {
     if (window.confirm(`Are you sure you want to delete category "${name}"?`)) {
       try {
         await api.deleteCategory(id);
+        setCategories(categories.filter(c => c.id !== id));
+        onReload?.();
+        auditLogAction?.('Services', `Deleted category "${name}"`);
       } catch (err) {
         console.warn('Delete category API notice:', err);
+        alert('Failed to delete category: ' + err.message);
       }
-      const newList = categories.filter(c => c.id !== id);
-      setCategories(newList);
-      localStorage.setItem('bt_admin_categories_list', JSON.stringify(newList));
-      auditLogAction?.('Services', `Deleted category "${name}"`);
     }
   };
 
@@ -264,7 +254,8 @@ export default function ServicesManager({ categories, setCategories, services, s
       setServiceForm({
         name: srv.name,
         imageUrl: srv.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
-        category: srv.category,
+        category: srv.category?.name || srv.category || categories[0]?.name || '',
+        categoryId: srv.category?.id || categories[0]?.id,
         description: srv.description || '',
         price: srv.price,
         originalPrice: srv.originalPrice || Math.round(srv.price * 1.3),
@@ -280,6 +271,7 @@ export default function ServicesManager({ categories, setCategories, services, s
         name: '',
         imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
         category: categories[0]?.name || 'AC Service',
+        categoryId: categories[0]?.id,
         description: '',
         price: 499,
         originalPrice: 699,
@@ -295,51 +287,57 @@ export default function ServicesManager({ categories, setCategories, services, s
 
   const handleSaveService = async (e) => {
     e.preventDefault();
+    const selectedCategory = categories.find(c => c.id === serviceForm.categoryId || c.name === serviceForm.category) || categories[0];
+    if (!selectedCategory?.id) {
+      alert('Please select or create a Category first.');
+      return;
+    }
+
     const payload = {
-      name: serviceForm.name,
-      imageUrl: serviceForm.imageUrl,
-      category: serviceForm.category,
-      description: serviceForm.description,
-      price: Number(serviceForm.price),
-      originalPrice: Number(serviceForm.originalPrice),
-      durationMinutes: Number(serviceForm.durationMinutes),
-      isActive: serviceForm.isActive,
-      rating: Number(serviceForm.rating) || 4.8,
-      inclusions: serviceForm.inclusions.split('\n').filter(x => x.trim()),
-      exclusions: serviceForm.exclusions.split('\n').filter(x => x.trim())
+      name: serviceForm.name.trim(),
+      imageUrl: serviceForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
+      category: { id: selectedCategory.id },
+      description: serviceForm.description || '',
+      price: Number(serviceForm.price) || 499,
+      durationMinutes: Number(serviceForm.durationMinutes) || 45,
+      active: serviceForm.isActive !== false,
+      popular: false
     };
 
-    if (editingService) {
-      try {
-        await api.updateService(editingService, payload);
-      } catch (err) {
-        console.warn('Update service API notice:', err);
-      }
-      setServices(prev => prev.map(s => s.id === editingService ? { ...s, ...payload } : s));
-      auditLogAction?.('Services', `Updated service "${payload.name}"`);
-    } else {
-      const newSrv = { id: `srv_${Date.now()}`, ...payload };
-      try {
+    try {
+      if (editingService) {
+        const res = await api.updateService(editingService, payload);
+        const saved = res?.data || { ...payload, id: editingService };
+        setServices(prev => prev.map(s => s.id === editingService ? saved : s));
+        auditLogAction?.('Services', `Updated service "${payload.name}"`);
+      } else {
         const res = await api.createService(payload);
-        if (res?.data?.id) newSrv.id = res.data.id;
-      } catch (err) {
-        console.warn('Create service API notice:', err);
+        const saved = res?.data;
+        if (saved) {
+          setServices(prev => [...prev, saved]);
+        }
+        auditLogAction?.('Services', `Added new service "${payload.name}"`);
       }
-      setServices(prev => [...prev, newSrv]);
-      auditLogAction?.('Services', `Added new service "${newSrv.name}"`);
+      onReload?.();
+      setShowServiceModal(false);
+      alert(`✅ Service "${payload.name}" successfully saved in PostgreSQL!`);
+    } catch (err) {
+      console.error('Error saving service:', err);
+      alert('Failed to save service in database: ' + err.message);
     }
-    setShowServiceModal(false);
   };
 
   const handleDeleteService = async (id, name) => {
     if (window.confirm(`Are you sure you want to delete service "${name}"?`)) {
       try {
         await api.deleteService(id);
+        setServices(prev => prev.filter(s => s.id !== id));
+        onReload?.();
+        auditLogAction?.('Services', `Deleted service "${name}"`);
       } catch (err) {
         console.warn('Delete service API notice:', err);
+        alert('Failed to delete service: ' + err.message);
       }
-      setServices(prev => prev.filter(s => s.id !== id));
-      auditLogAction?.('Services', `Deleted service "${name}"`);
     }
   };
 
