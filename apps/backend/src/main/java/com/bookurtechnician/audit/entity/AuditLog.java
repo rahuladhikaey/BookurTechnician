@@ -38,6 +38,7 @@ public class AuditLog {
     @Column(name = "client_ip", length = 50)
     private String clientIp;
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "changes_json", columnDefinition = "jsonb")
     private String changesJson;
 

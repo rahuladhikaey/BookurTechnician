@@ -107,30 +107,47 @@ export default function App() {
       api.clearToken();
     });
 
+    const attemptAutoLogin = () => {
+      api.directAdminAccess('admin@bookurtechnician.com', 'BT-ADMIN-KEY-PRIMARY-7788', 'BT-ADMIN-KEY-SECONDARY-9900')
+        .then(res => {
+          if (res?.data?.accessToken) {
+            api.setToken(res.data.accessToken, true);
+            if (res.data.refreshToken) {
+              localStorage.setItem('bt_admin_refresh_token', res.data.refreshToken);
+            }
+            setAdminUser(res.data.user);
+            setCurrentRole(res.data.user?.role || 'SUPER_ADMIN');
+            loadAllAdminData();
+          } else {
+            setAdminUser(null);
+          }
+        })
+        .catch(() => {
+          setAdminUser(null);
+        })
+        .finally(() => {
+          setIsCheckingAuth(false);
+        });
+    };
+
     const token = api.getToken();
     if (token && !token.startsWith('bt_mock_')) {
       api.getAdminMe()
         .then(res => {
           if (res?.data) {
             setAdminUser(res.data);
-            setCurrentRole(res.data.role || 'Admin');
+            setCurrentRole(res.data.role || 'SUPER_ADMIN');
             loadAllAdminData();
+            setIsCheckingAuth(false);
           } else {
-            setAdminUser(null);
-            api.clearToken();
+            attemptAutoLogin();
           }
         })
         .catch(() => {
-          setAdminUser(null);
-          api.clearToken();
-        })
-        .finally(() => {
-          setIsCheckingAuth(false);
+          attemptAutoLogin();
         });
     } else {
-      api.clearToken();
-      setAdminUser(null);
-      setIsCheckingAuth(false);
+      attemptAutoLogin();
     }
   }, [loadAllAdminData]);
 

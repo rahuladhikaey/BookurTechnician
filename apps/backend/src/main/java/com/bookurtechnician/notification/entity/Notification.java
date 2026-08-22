@@ -39,6 +39,7 @@ public class Notification {
     @Builder.Default
     private String type = "GENERAL";
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "metadata_json", columnDefinition = "jsonb")
     private String metadataJson;
 
