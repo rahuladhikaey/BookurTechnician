@@ -181,24 +181,78 @@ class BookingNotifier extends StateNotifier<AppState> {
       final name = session['name'];
       final phone = session['phone'];
       final email = session['email'];
+      final userId = session['userId'];
+      final profileJson = session['profileJson'];
 
-      if (token != null && token.isNotEmpty) {
-        // Immediate in-memory session restore from persistent storage
-        final restoredProfile = CustomerProfile.createWithCalculation(
-          customerId: session['userId'] ?? 'user',
-          userId: session['userId'] ?? 'user',
-          fullName: name ?? 'Customer',
-          phone: phone ?? '',
-          isPhoneVerified: phone != null && phone.isNotEmpty,
-          email: email ?? '',
-          isEmailVerified: email != null && email.isNotEmpty,
-          addresses: const [],
-        );
+      final hasSession = (token != null && token.isNotEmpty) || (userId != null && userId.isNotEmpty) || (phone != null && phone.isNotEmpty) || (email != null && email.isNotEmpty);
+
+      if (hasSession) {
+        CustomerProfile restoredProfile;
+
+        if (profileJson != null && profileJson.isNotEmpty) {
+          try {
+            final Map<String, dynamic> decoded = jsonDecode(profileJson);
+            final List<CustomerAddress> addrs = [];
+            if (decoded['addresses'] is List) {
+              for (var a in (decoded['addresses'] as List)) {
+                try {
+                  addrs.add(CustomerAddress.fromJson(a as Map<String, dynamic>));
+                } catch (_) {}
+              }
+            }
+            restoredProfile = CustomerProfile.createWithCalculation(
+              customerId: decoded['customerId'] ?? userId ?? 'user',
+              userId: decoded['userId'] ?? userId ?? 'user',
+              fullName: decoded['fullName'] ?? name ?? 'Customer',
+              phone: decoded['phone'] ?? phone ?? '',
+              isPhoneVerified: decoded['isPhoneVerified'] ?? (phone != null && phone.isNotEmpty),
+              email: decoded['email'] ?? email ?? '',
+              isEmailVerified: decoded['isEmailVerified'] ?? (email != null && email.isNotEmpty),
+              profilePhotoUrl: decoded['profilePhotoUrl'],
+              dateOfBirth: decoded['dateOfBirth'] != null ? DateTime.tryParse(decoded['dateOfBirth']) : null,
+              anniversary: decoded['anniversary'] != null ? DateTime.tryParse(decoded['anniversary']) : null,
+              gender: decoded['gender'],
+              addresses: addrs,
+            );
+          } catch (e) {
+            restoredProfile = CustomerProfile.createWithCalculation(
+              customerId: userId ?? 'user',
+              userId: userId ?? 'user',
+              fullName: name ?? 'Customer',
+              phone: phone ?? '',
+              isPhoneVerified: phone != null && phone.isNotEmpty,
+              email: email ?? '',
+              isEmailVerified: email != null && email.isNotEmpty,
+              addresses: const [],
+            );
+          }
+        } else {
+          restoredProfile = CustomerProfile.createWithCalculation(
+            customerId: userId ?? 'user',
+            userId: userId ?? 'user',
+            fullName: name ?? 'Customer',
+            phone: phone ?? '',
+            isPhoneVerified: phone != null && phone.isNotEmpty,
+            email: email ?? '',
+            isEmailVerified: email != null && email.isNotEmpty,
+            addresses: const [],
+          );
+        }
 
         state = state.copyWith(
           isGuest: false,
           profile: restoredProfile,
         );
+
+        final primary = restoredProfile.primaryAddress;
+        if (primary != null) {
+          state = state.copyWith(
+            address: primary.formattedAddress,
+            selectedAddressTitle: primary.area.isNotEmpty ? primary.area : primary.city,
+            selectedLatitude: primary.latitude,
+            selectedLongitude: primary.longitude,
+          );
+        }
 
         // Asynchronously sync latest profile & saved addresses from backend
         _syncProfileAndAddresses();
@@ -217,9 +271,10 @@ class BookingNotifier extends StateNotifier<AppState> {
       final addressesRes = await ApiClient.get('/customer/addresses');
 
       Map<String, dynamic>? user;
+      Map<String, dynamic>? profileData;
       if (profileRes.statusCode == 200) {
         final decoded = jsonDecode(profileRes.body);
-        final profileData = decoded['data'];
+        profileData = decoded['data'];
         user = profileData?['user'];
       }
 
@@ -263,6 +318,9 @@ class BookingNotifier extends StateNotifier<AppState> {
       final updatedPhone = user?['phone'] ?? state.profile.phone;
       final updatedEmail = user?['email'] ?? state.profile.email;
       final updatedUserId = user?['id']?.toString() ?? state.profile.userId;
+      final dobStr = profileData?['dateOfBirth']?.toString();
+      final annivStr = profileData?['anniversaryDate']?.toString();
+      final gender = profileData?['gender']?.toString() ?? state.profile.gender;
 
       final syncedProfile = CustomerProfile.createWithCalculation(
         customerId: updatedUserId,
@@ -272,7 +330,11 @@ class BookingNotifier extends StateNotifier<AppState> {
         isPhoneVerified: true,
         email: updatedEmail,
         isEmailVerified: true,
-        addresses: parsedAddrs,
+        gender: gender,
+        dateOfBirth: dobStr != null ? DateTime.tryParse(dobStr) : state.profile.dateOfBirth,
+        anniversary: annivStr != null ? DateTime.tryParse(annivStr) : state.profile.anniversary,
+        profilePhotoUrl: state.profile.profilePhotoUrl,
+        addresses: parsedAddrs.isNotEmpty ? parsedAddrs : state.profile.addresses,
       );
 
       state = state.copyWith(
@@ -282,16 +344,27 @@ class BookingNotifier extends StateNotifier<AppState> {
 
       // Keep locally saved session in sync
       final currentSession = await ApiClient.getUserSession();
-      if (currentSession['accessToken'] != null) {
-        await ApiClient.saveUserSession(
-          accessToken: currentSession['accessToken']!,
-          refreshToken: currentSession['refreshToken'] ?? '',
-          userId: updatedUserId,
-          name: updatedName,
-          phone: updatedPhone,
-          email: updatedEmail,
-        );
-      }
+      final activeToken = currentSession['accessToken'] ?? 'sess_jwt_${DateTime.now().millisecondsSinceEpoch}';
+      await ApiClient.saveUserSession(
+        accessToken: activeToken,
+        refreshToken: currentSession['refreshToken'] ?? activeToken,
+        userId: updatedUserId,
+        name: updatedName,
+        phone: updatedPhone,
+        email: updatedEmail,
+        profileJson: {
+          'customerId': updatedUserId,
+          'userId': updatedUserId,
+          'fullName': updatedName,
+          'phone': updatedPhone,
+          'email': updatedEmail,
+          'gender': gender,
+          'dateOfBirth': syncedProfile.dateOfBirth?.toIso8601String(),
+          'anniversary': syncedProfile.anniversary?.toIso8601String(),
+          'profilePhotoUrl': syncedProfile.profilePhotoUrl,
+          'addresses': syncedProfile.addresses.map((a) => a.toJson()).toList(),
+        },
+      );
 
       if (parsedAddrs.isNotEmpty) {
         final primary = syncedProfile.primaryAddress;
@@ -369,17 +442,43 @@ class BookingNotifier extends StateNotifier<AppState> {
           final displayName = data['display_name'] as String?;
           final addressObj = data['address'] as Map<String, dynamic>?;
 
+          final houseNumber = addressObj?['house_number'] ?? '';
+          final road = addressObj?['road'] ?? addressObj?['street'] ?? '';
           final suburb = addressObj?['suburb'] ?? addressObj?['neighbourhood'] ?? addressObj?['residential'] ?? addressObj?['subdistrict'] ?? '';
           final city = addressObj?['city'] ?? addressObj?['town'] ?? addressObj?['county'] ?? 'Bengaluru';
+          final stateName = addressObj?['state'] ?? 'Karnataka';
+          final postcode = addressObj?['postcode'] ?? '560001';
           final title = suburb.isNotEmpty ? suburb : city;
+          final formattedAddr = displayName ?? '$title, $city';
 
           state = state.copyWith(
             selectedLatitude: lat,
             selectedLongitude: lng,
             selectedAddressTitle: title,
-            address: displayName ?? '$title, $city',
+            address: formattedAddr,
             isAcquiringLocation: false,
           );
+
+          // If user is logged in and has no saved address, automatically save this live GPS location to their profile
+          if (!state.isGuest && state.profile.userId.isNotEmpty && state.profile.addresses.isEmpty) {
+            final autoAddress = CustomerAddress(
+              id: 'addr_${DateTime.now().millisecondsSinceEpoch}',
+              customerId: state.profile.customerId,
+              addressType: AddressType.home,
+              houseFlat: houseNumber.isNotEmpty ? houseNumber : 'Live Location',
+              street: road.isNotEmpty ? road : 'Current Location',
+              area: suburb.isNotEmpty ? suburb : city,
+              city: city,
+              state: stateName,
+              postalCode: postcode,
+              latitude: lat,
+              longitude: lng,
+              isPrimary: true,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+            addCustomerAddress(autoAddress);
+          }
           return;
         }
       } catch (e) {
@@ -418,18 +517,27 @@ class BookingNotifier extends StateNotifier<AppState> {
   }) async {
     final cleanPhone = phone.startsWith('+91') ? phone : '+91 $phone';
     final uid = userId ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
+    final token = accessToken ?? 'bt_jwt_${DateTime.now().millisecondsSinceEpoch}';
+    final rToken = refreshToken ?? token;
 
     // Persist credentials locally
-    if (accessToken != null && refreshToken != null) {
-      await ApiClient.saveUserSession(
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-        userId: uid,
-        name: name.trim(),
-        phone: cleanPhone,
-        email: email.trim(),
-      );
-    }
+    await ApiClient.saveUserSession(
+      accessToken: token,
+      refreshToken: rToken,
+      userId: uid,
+      name: name.trim(),
+      phone: cleanPhone,
+      email: email.trim(),
+      profileJson: {
+        'customerId': uid,
+        'userId': uid,
+        'fullName': name.trim(),
+        'phone': cleanPhone,
+        'email': email.trim(),
+        'isPhoneVerified': true,
+        'isEmailVerified': true,
+      },
+    );
 
     final userProfile = CustomerProfile.createWithCalculation(
       customerId: uid,
@@ -439,7 +547,7 @@ class BookingNotifier extends StateNotifier<AppState> {
       isPhoneVerified: true,
       email: email.trim(),
       isEmailVerified: true,
-      addresses: const [],
+      addresses: state.profile.addresses,
     );
 
     state = state.copyWith(
@@ -509,16 +617,27 @@ class BookingNotifier extends StateNotifier<AppState> {
 
     // Persist to session locally
     final session = await ApiClient.getUserSession();
-    if (session['accessToken'] != null) {
-      await ApiClient.saveUserSession(
-        accessToken: session['accessToken']!,
-        refreshToken: session['refreshToken'] ?? '',
-        userId: state.profile.userId,
-        name: updated.fullName,
-        phone: updated.phone,
-        email: updated.email,
-      );
-    }
+    final token = session['accessToken'] ?? 'sess_jwt_${DateTime.now().millisecondsSinceEpoch}';
+    await ApiClient.saveUserSession(
+      accessToken: token,
+      refreshToken: session['refreshToken'] ?? token,
+      userId: state.profile.userId,
+      name: updated.fullName,
+      phone: updated.phone,
+      email: updated.email,
+      profileJson: {
+        'customerId': state.profile.customerId,
+        'userId': state.profile.userId,
+        'fullName': updated.fullName,
+        'phone': updated.phone,
+        'email': updated.email,
+        'gender': updated.gender,
+        'dateOfBirth': updated.dateOfBirth?.toIso8601String(),
+        'anniversary': updated.anniversary?.toIso8601String(),
+        'profilePhotoUrl': updated.profilePhotoUrl,
+        'addresses': updated.addresses.map((a) => a.toJson()).toList(),
+      },
+    );
 
     // Persist to backend database
     try {
@@ -531,6 +650,9 @@ class BookingNotifier extends StateNotifier<AppState> {
       }
       if (dateOfBirth != null) {
         payload['dateOfBirth'] = "${dateOfBirth.year.toString().padLeft(4, '0')}-${dateOfBirth.month.toString().padLeft(2, '0')}-${dateOfBirth.day.toString().padLeft(2, '0')}";
+      }
+      if (anniversary != null) {
+        payload['anniversaryDate'] = "${anniversary.year.toString().padLeft(4, '0')}-${anniversary.month.toString().padLeft(2, '0')}-${anniversary.day.toString().padLeft(2, '0')}";
       }
 
       await ApiClient.put('/customer/profile', payload);

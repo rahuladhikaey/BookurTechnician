@@ -18,6 +18,7 @@ import 'screens/profile_completion_wizard_screen.dart';
 import 'screens/profile_details_screen.dart';
 import 'screens/saved_addresses_screen.dart';
 import 'screens/booking_status_map_screen.dart';
+import 'screens/razorpay_payment_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: CustomerApp()));
@@ -61,6 +62,18 @@ class CustomerApp extends StatelessWidget {
             return MaterialPageRoute(builder: (_) => ServiceDetailScreen(serviceId: srvId));
           case '/cart':
             return MaterialPageRoute(builder: (_) => const CartScreen());
+          case '/payment':
+            final args = settings.arguments as Map<String, dynamic>? ?? {};
+            return MaterialPageRoute(
+              builder: (_) => RazorpayPaymentScreen(
+                bookingId: args['bookingId']?.toString() ?? '',
+                bookingCode: args['bookingCode']?.toString() ?? '',
+                serviceName: args['serviceName']?.toString() ?? 'Service Booking',
+                amount: (args['amount'] as num?)?.toDouble() ?? 0.0,
+                schedule: args['schedule']?.toString() ?? '',
+                address: args['address']?.toString() ?? '',
+              ),
+            );
           case '/tracking':
             final bId = settings.arguments as String? ?? '';
             return MaterialPageRoute(builder: (_) => BookingTrackingScreen(bookingId: bId));

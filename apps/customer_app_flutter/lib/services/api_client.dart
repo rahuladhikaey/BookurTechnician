@@ -272,30 +272,36 @@ class ApiClient {
     final refreshToken = await getRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) return false;
 
-    try {
-      final uri = Uri.parse('$activeBaseUrl/auth/refresh-token');
-      final res = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refreshToken': refreshToken}),
-      ).timeout(const Duration(seconds: 5));
+    for (final base in _candidateBaseUrls) {
+      try {
+        final uri = Uri.parse('$base/auth/refresh-token');
+        final res = await http.post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'refreshToken': refreshToken}),
+        ).timeout(const Duration(seconds: 8));
 
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(res.body);
-        final data = decoded['data'];
-        if (data != null && data['accessToken'] != null) {
-          await saveTokens(
-            accessToken: data['accessToken'],
-            refreshToken: data['refreshToken'] ?? refreshToken,
-          );
-          return true;
+        if (res.statusCode == 200) {
+          final decoded = jsonDecode(res.body);
+          final data = decoded['data'];
+          if (data != null && data['accessToken'] != null) {
+            await saveTokens(
+              accessToken: data['accessToken'],
+              refreshToken: data['refreshToken'] ?? refreshToken,
+            );
+            return true;
+          }
+        } else if (res.statusCode == 401 || res.statusCode == 403) {
+          // Token is definitively invalid/expired on the server
+          await clearTokens();
+          return false;
         }
+      } catch (e) {
+        debugPrint('[ApiClient] Token refresh attempt failed: $e');
       }
-    } catch (e) {
-      debugPrint('Token refresh failed: $e');
     }
 
-    await clearTokens();
+    // Do NOT clear tokens on network timeouts or temporary server offline
     return false;
   }
 }

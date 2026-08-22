@@ -64,4 +64,14 @@ public class CustomerAddress {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("latitude")
+    public Double getLatitude() {
+        return coordinates != null ? coordinates.getY() : null;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("longitude")
+    public Double getLongitude() {
+        return coordinates != null ? coordinates.getX() : null;
+    }
 }

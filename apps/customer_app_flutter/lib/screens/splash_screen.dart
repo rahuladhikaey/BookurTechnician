@@ -69,9 +69,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
     
     // Check if an existing authenticated session exists in storage
     final isRestored = await ref.read(bookingProvider.notifier).restoreSession();
-    final token = await ApiClient.getAccessToken();
+    final session = await ApiClient.getUserSession();
+    final hasActiveSession = isRestored || 
+        (session['accessToken'] != null && session['accessToken']!.isNotEmpty) ||
+        (session['userId'] != null && session['userId']!.isNotEmpty) ||
+        (!ref.read(bookingProvider).isGuest && ref.read(bookingProvider).profile.userId.isNotEmpty);
 
-    if ((isRestored || (token != null && token.isNotEmpty)) && mounted) {
+    if (hasActiveSession && mounted) {
       Navigator.of(context).pushReplacementNamed('/home');
       return;
     }

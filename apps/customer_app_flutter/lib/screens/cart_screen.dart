@@ -5,6 +5,7 @@ import '../theme.dart';
 import '../booking_provider.dart';
 import '../models.dart';
 import 'profile_completion_wizard_screen.dart';
+import 'razorpay_payment_screen.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
@@ -267,91 +268,34 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       return;
     }
 
-    // Secure Online Payment Gateway Processing Simulation
-    setState(() => _isProcessingPayment = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    setState(() => _isProcessingPayment = false);
-
-    final bookingId = 'BT-${10000000 + Random().nextInt(90000000)}';
+    final bookingCode = 'BT-${10000000 + Random().nextInt(90000000)}';
+    final bookingId = 'bkg_${DateTime.now().millisecondsSinceEpoch}';
     final confirmedService = state.cartItems.isNotEmpty ? state.cartItems.first.name : 'Service Booking';
     final confirmedAmount = state.grandTotal;
     final schedule = '${state.selectedScheduleDate} • ${state.selectedScheduleSlot}';
     final address = state.selectedAddressTitle;
 
-    // Confirm order in state
-    ref.read(bookingProvider.notifier).confirmOrder(state.selectedScheduleDate, state.selectedScheduleSlot);
-
-    if (!mounted) return;
-    // Show Booking Confirmation Dialog
-    showDialog(
-      context: context,
-        barrierDismissible: false,
-        builder: (confirmCtx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          contentPadding: const EdgeInsets.all(24),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: const BoxDecoration(color: Color(0xFFDCFCE7), shape: BoxShape.circle),
-                child: const Icon(Icons.check_circle_rounded, color: kSuccessGreen, size: 40),
-              ),
-              const SizedBox(height: 16),
-              const Text('🎉 Booking Confirmed', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kPrimaryText)),
-              const SizedBox(height: 6),
-              Text('Booking ID: $bookingId', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kBrandPrimary, fontFamily: 'monospace')),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: kBorderColor)),
-                child: Column(
-                  children: [
-                    _confirmRow('Service', confirmedService),
-                    const Divider(height: 14, color: kBorderColor),
-                    _confirmRow('Schedule', schedule),
-                    const Divider(height: 14, color: kBorderColor),
-                    _confirmRow('Address', address),
-                    const Divider(height: 14, color: kBorderColor),
-                    _confirmRow('Paid Amount', '₹${confirmedAmount.toStringAsFixed(2)}', isBold: true),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 44,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(confirmCtx);
-                    Navigator.pushReplacementNamed(context, '/home');
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
-                  child: const Text('View Booking & Track Technician'),
-                ),
-              ),
-            ],
+    setState(() => _isProcessingPayment = true);
+    try {
+      // Navigate directly to Razorpay Payment Screen
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RazorpayPaymentScreen(
+            bookingId: bookingId,
+            bookingCode: bookingCode,
+            serviceName: confirmedService,
+            amount: confirmedAmount,
+            schedule: schedule,
+            address: address,
           ),
         ),
       );
-  }
-
-  Widget _confirmRow(String label, String value, {bool isBold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: kSecondaryText)),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.bold : FontWeight.w600, color: isBold ? kSuccessGreen : kPrimaryText),
-          ),
-        ),
-      ],
-    );
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessingPayment = false);
+      }
+    }
   }
 
   @override

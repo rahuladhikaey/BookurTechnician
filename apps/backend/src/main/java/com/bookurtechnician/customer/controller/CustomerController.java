@@ -9,9 +9,7 @@ import com.bookurtechnician.customer.entity.CustomerAddress;
 import com.bookurtechnician.customer.entity.CustomerProfile;
 import com.bookurtechnician.customer.repository.CustomerAddressRepository;
 import com.bookurtechnician.customer.repository.CustomerProfileRepository;
-import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +37,18 @@ public class CustomerController {
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<CustomerProfile>> getProfile(@AuthenticationPrincipal UserPrincipal principal) {
         CustomerProfile profile = profileRepository.findByUserId(principal.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer profile not found"));
+                .orElseGet(() -> {
+                    User user = userRepository.findById(principal.getId())
+                            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + principal.getId()));
+                    CustomerProfile newProfile = CustomerProfile.builder()
+                            .user(user)
+                            .hasValidName(user.getFullName() != null && !user.getFullName().isBlank())
+                            .hasVerifiedPhone(user.getPhone() != null && !user.getPhone().isBlank())
+                            .hasVerifiedEmail(user.getEmail() != null && !user.getEmail().isBlank())
+                            .build();
+                    newProfile.recalculateScore();
+                    return profileRepository.save(newProfile);
+                });
         return ResponseEntity.ok(ApiResponse.success(profile));
     }
 
@@ -61,8 +70,15 @@ public class CustomerController {
         if (user.getFullName() != null && !user.getFullName().isBlank()) {
             profile.setHasValidName(true);
         }
-        profile.setGender(dto.getGender());
-        profile.setDateOfBirth(dto.getDateOfBirth());
+        if (dto.getGender() != null) {
+            profile.setGender(dto.getGender());
+        }
+        if (dto.getDateOfBirth() != null) {
+            profile.setDateOfBirth(dto.getDateOfBirth());
+        }
+        if (dto.getAnniversaryDate() != null) {
+            profile.setAnniversaryDate(dto.getAnniversaryDate());
+        }
         profile.recalculateScore();
 
         profile = profileRepository.save(profile);
@@ -196,6 +212,7 @@ public class CustomerController {
         private String fullName;
         private String gender;
         private java.time.LocalDate dateOfBirth;
+        private java.time.LocalDate anniversaryDate;
     }
 
     @Data
