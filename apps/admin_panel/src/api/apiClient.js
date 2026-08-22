@@ -3,11 +3,22 @@
 // Production-Ready Token Interception, Error Handling, and REST Integration
 // ============================================================================
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+const PRIMARY_API_BASE_URL = 'https://api.bookurtechnician.online/api/v1';
+const FALLBACK_API_BASE_URL = 'https://bookurtechnician-backend.onrender.com/api/v1';
+
+const getInitialBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL !== '/api/v1') {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  return PRIMARY_API_BASE_URL;
+};
+
+const API_BASE_URL = getInitialBaseUrl();
 
 class ApiClient {
   constructor() {
     this.baseUrl = API_BASE_URL;
+    this.fallbackBaseUrl = FALLBACK_API_BASE_URL;
     this.onUnauthorizedCallback = null;
   }
 
@@ -47,7 +58,7 @@ class ApiClient {
   }
 
   async request(endpoint, options = {}) {
-    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    let url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
     const headers = this.getHeaders(options.headers || {});
 
     const config = {
@@ -60,11 +71,22 @@ class ApiClient {
     }
 
     try {
-      const response = await fetch(url, config);
+      let response;
+      try {
+        response = await fetch(url, config);
+      } catch (fetchErr) {
+        if (url.includes('api.bookurtechnician.online')) {
+          const fallbackUrl = url.replace('https://api.bookurtechnician.online/api/v1', this.fallbackBaseUrl);
+          console.warn(`Primary API unreachable. Retrying with fallback: ${fallbackUrl}`);
+          response = await fetch(fallbackUrl, config);
+        } else {
+          throw fetchErr;
+        }
+      }
 
       if (response.status === 401) {
         console.warn('Unauthorized request to:', url);
-        if (this.onUnauthorizedCallback && !url.includes('/auth/verify-otp') && !url.includes('/auth/request-otp')) {
+        if (this.onUnauthorizedCallback && !url.includes('/auth/verify-otp') && !url.includes('/auth/request-otp') && !url.includes('/auth/admin/direct-access')) {
           this.onUnauthorizedCallback();
         }
       }
