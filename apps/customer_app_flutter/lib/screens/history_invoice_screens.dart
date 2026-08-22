@@ -4,11 +4,32 @@ import '../booking_provider.dart';
 import '../models.dart';
 import '../theme.dart';
 
-class BookingHistoryScreen extends ConsumerWidget {
+class BookingHistoryScreen extends ConsumerStatefulWidget {
   const BookingHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BookingHistoryScreen> createState() => _BookingHistoryScreenState();
+}
+
+class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchHistory();
+  }
+
+  Future<void> _fetchHistory() async {
+    setState(() => _isLoading = true);
+    await ref.read(bookingProvider.notifier).loadBookingHistory();
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(bookingProvider);
     final allBookings = [
       if (state.activeBooking != null) state.activeBooking!,
@@ -16,18 +37,68 @@ class BookingHistoryScreen extends ConsumerWidget {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Bookings')),
-      body: allBookings.isEmpty
-          ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text('📋', style: TextStyle(fontSize: 64)),
-              SizedBox(height: 16),
-              Text('No bookings yet', style: TextStyle(fontSize: 16, color: kTextGray)),
-            ]))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: allBookings.length,
-              itemBuilder: (_, i) => _BookingCard(booking: allBookings[i]),
-            ),
+      appBar: AppBar(
+        title: const Text('My Bookings'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchHistory,
+            tooltip: 'Refresh Bookings',
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _fetchHistory,
+        child: _isLoading && allBookings.isEmpty
+            ? const Center(child: CircularProgressIndicator(color: kBrandPrimary))
+            : (allBookings.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: kBrandPrimary.withValues(alpha: 0.08),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.assignment_outlined, size: 54, color: kBrandPrimary),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'No Bookings Yet',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'You haven\'t booked any services yet. Explore expert technicians near you and book instantly!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 13, color: kTextGray, height: 1.4),
+                          ),
+                          const SizedBox(height: 24),
+                          ElevatedButton.icon(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.search_rounded, size: 18),
+                            label: const Text('EXPLORE SERVICES', style: TextStyle(fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: kBrandPrimary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: allBookings.length,
+                    itemBuilder: (_, i) => _BookingCard(booking: allBookings[i]),
+                  )),
+      ),
     );
   }
 }

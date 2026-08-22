@@ -199,13 +199,12 @@ export default function LiveBookingRadar() {
               key={stage.key}
               onClick={() => setSelectedStatus(isSelected ? 'ALL' : stage.key)}
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: isSelected ? stage.bg : '#FFFFFF',
                 border: `1.5px solid ${isSelected ? '#0F172A' : stage.border}`,
                 borderRadius: '8px',
                 padding: '12px 14px',
                 cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                backgroundColor: isSelected ? stage.bg : '#FFFFFF'
+                transition: 'all 0.15s ease'
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>

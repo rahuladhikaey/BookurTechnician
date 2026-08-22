@@ -22,8 +22,9 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
   GoogleMapController? _mapController;
   Map<String, dynamic> _booking = {};
   bool _isResendingEmail = false;
+  bool _isLoading = false;
 
-  // Default fallback coords (Bangalore central)
+  // Default coordinate center
   LatLng _userPos = const LatLng(12.9716, 77.5946);
   LatLng _techPos = const LatLng(12.9780, 77.6050);
 
@@ -31,39 +32,62 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
   void initState() {
     super.initState();
     _initBookingData();
+    _fetchLiveBooking();
   }
 
   void _initBookingData() {
     if (widget.initialBookingData != null) {
       _booking = Map<String, dynamic>.from(widget.initialBookingData!);
-    } else {
-      _booking = {
-        'id': 'BK-9901',
-        'bookingCode': 'BT-884210',
-        'serviceName': 'AC Deep Cleaning & Servicing',
-        'status': 'ACCEPTED',
-        'scheduledSlot': '1 Hour Service Slot (02:00 PM - 03:00 PM)',
-        'startServiceOtp': '5829',
-        'startOtpExpiresAt': DateTime.now().add(const Duration(hours: 3)).toIso8601String(),
-        'technicianName': 'Vikram Singh',
-        'technicianPhone': '+91 98765 43210',
-        'technicianRating': 4.9,
-        'technicianCategory': 'HVAC Expert',
-        'userLat': 12.9716,
-        'userLng': 77.5946,
-        'techLat': 12.9850,
-        'techLng': 77.6100,
-        'fullAddress': 'Flat 302, Palm Heights, Indiranagar',
-      };
+      _syncCoordinates();
     }
+  }
 
-    final double uLat = (_booking['userLat'] as num?)?.toDouble() ?? 12.9716;
-    final double uLng = (_booking['userLng'] as num?)?.toDouble() ?? 77.5946;
-    final double tLat = (_booking['techLat'] as num?)?.toDouble() ?? (uLat + 0.015);
-    final double tLng = (_booking['techLng'] as num?)?.toDouble() ?? (uLng + 0.015);
+  void _syncCoordinates() {
+    final double? uLat = (_booking['customerLatitude'] ?? _booking['userLat']) != null
+        ? ((_booking['customerLatitude'] ?? _booking['userLat']) as num).toDouble()
+        : null;
+    final double? uLng = (_booking['customerLongitude'] ?? _booking['userLng']) != null
+        ? ((_booking['customerLongitude'] ?? _booking['userLng']) as num).toDouble()
+        : null;
+    final double? tLat = (_booking['technicianLatitude'] ?? _booking['techLat']) != null
+        ? ((_booking['technicianLatitude'] ?? _booking['techLat']) as num).toDouble()
+        : null;
+    final double? tLng = (_booking['technicianLongitude'] ?? _booking['techLng']) != null
+        ? ((_booking['technicianLongitude'] ?? _booking['techLng']) as num).toDouble()
+        : null;
 
-    _userPos = LatLng(uLat, uLng);
-    _techPos = LatLng(tLat, tLng);
+    if (uLat != null && uLng != null) {
+      _userPos = LatLng(uLat, uLng);
+    }
+    if (tLat != null && tLng != null) {
+      _techPos = LatLng(tLat, tLng);
+    } else if (uLat != null && uLng != null) {
+      _techPos = LatLng(uLat + 0.008, uLng + 0.008);
+    }
+  }
+
+  Future<void> _fetchLiveBooking() async {
+    final bookingId = _booking['id'] ?? _booking['bookingId'];
+    if (bookingId == null || bookingId.toString().isEmpty) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final res = await ApiClient.get('/bookings/$bookingId');
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        if (decoded['data'] != null && mounted) {
+          setState(() {
+            _booking = Map<String, dynamic>.from(decoded['data']);
+            _syncCoordinates();
+          });
+          _fitBounds();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching live booking status: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   double _calculateDistanceKm(LatLng p1, LatLng p2) {
@@ -182,6 +206,23 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2146A8)),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              tooltip: 'Refresh Booking',
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF2146A8)),
+              onPressed: _fetchLiveBooking,
+            ),
           IconButton(
             tooltip: 'Fit Map View',
             icon: const Icon(Icons.center_focus_strong_rounded, color: Color(0xFF2146A8)),
@@ -239,7 +280,9 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _booking['serviceName'] ?? 'Home Service',
+                          _booking['serviceName']?.toString().isNotEmpty == true
+                              ? _booking['serviceName']
+                              : 'Home Service',
                           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -320,7 +363,9 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _booking['technicianName'] ?? 'Vikram Singh',
+                              _booking['technicianName']?.toString().isNotEmpty == true
+                                  ? _booking['technicianName']
+                                  : 'Assigning nearest partner...',
                               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)),
                             ),
                             const SizedBox(height: 2),
@@ -329,12 +374,14 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                                 const Icon(Icons.star_rounded, size: 16, color: Color(0xFFF59E0B)),
                                 const SizedBox(width: 3),
                                 Text(
-                                  '${_booking['technicianRating'] ?? 4.9}',
+                                  (_booking['technicianRating'] is num && (_booking['technicianRating'] as num) > 0)
+                                      ? (_booking['technicianRating'] as num).toStringAsFixed(1)
+                                      : '5.0',
                                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  '• ${_booking['technicianCategory'] ?? 'Service Partner'}',
+                                  '• ${_booking['technicianCategory'] ?? _booking['serviceName'] ?? 'Service Partner'}',
                                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                                 ),
                               ],
@@ -342,14 +389,15 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                           ],
                         ),
                       ),
-                      IconButton.filled(
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFF16A34A),
-                          foregroundColor: Colors.white,
+                      if (_booking['technicianPhone'] != null && _booking['technicianPhone'].toString().isNotEmpty)
+                        IconButton.filled(
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFF16A34A),
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.phone_rounded, size: 20),
+                          onPressed: () => _callTechnician(_booking['technicianPhone']),
                         ),
-                        icon: const Icon(Icons.phone_rounded, size: 20),
-                        onPressed: () => _callTechnician(_booking['technicianPhone'] ?? '+919876543210'),
-                      ),
                     ],
                   ),
 

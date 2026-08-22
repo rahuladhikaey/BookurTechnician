@@ -35,6 +35,13 @@ public class BookingController {
         return ResponseEntity.ok(ApiResponse.success(bookings));
     }
 
+    @GetMapping("/{bookingId}")
+    public ResponseEntity<ApiResponse<BookingDtos.BookingResponse>> getBookingById(
+            @PathVariable UUID bookingId) {
+        BookingDtos.BookingResponse response = bookingService.getBookingById(bookingId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @PatchMapping("/{bookingId}/status")
     public ResponseEntity<ApiResponse<BookingDtos.BookingResponse>> updateStatus(
             @PathVariable UUID bookingId,

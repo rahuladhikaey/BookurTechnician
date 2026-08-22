@@ -137,4 +137,73 @@ class TechnicianProfileService {
     }
     return null;
   }
+
+  Future<List<KycDocumentItem>> fetchKycDocuments() async {
+    try {
+      final res = await _dioClient.dio.get('/technician/documents');
+      if (res.statusCode == 200 && res.data?['data'] is List) {
+        final List list = res.data['data'];
+        return list.map((item) => KycDocumentItem.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint('[TechnicianProfileService] fetchKycDocuments warning: $e');
+    }
+    return [];
+  }
+
+  Future<bool> uploadProfilePhoto(String photoUrl) async {
+    try {
+      final res = await _dioClient.dio.post('/technician/profile/photo', data: {
+        'photoUrl': photoUrl,
+      });
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[TechnicianProfileService] uploadProfilePhoto warning: $e');
+      return false;
+    }
+  }
+
+  Future<bool> submitKycDocument({
+    required String documentType,
+    required String fileUrl,
+    String? maskedNumber,
+  }) async {
+    try {
+      final res = await _dioClient.dio.post('/technician/documents', data: {
+        'documentType': documentType,
+        'fileUrl': fileUrl,
+        'maskedNumber': maskedNumber ?? '',
+      });
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[TechnicianProfileService] submitKycDocument warning: $e');
+      return false;
+    }
+  }
+}
+
+class KycDocumentItem {
+  final String id;
+  final String documentType;
+  final String secureUrl;
+  final String maskedNumber;
+  final String verificationStatus;
+
+  KycDocumentItem({
+    required this.id,
+    required this.documentType,
+    required this.secureUrl,
+    required this.maskedNumber,
+    required this.verificationStatus,
+  });
+
+  factory KycDocumentItem.fromJson(Map<String, dynamic> json) {
+    return KycDocumentItem(
+      id: json['id']?.toString() ?? '',
+      documentType: json['documentType']?.toString() ?? '',
+      secureUrl: json['secureCloudinaryUrl']?.toString() ?? '',
+      maskedNumber: json['maskedNumber']?.toString() ?? '',
+      verificationStatus: json['verificationStatus']?.toString().toUpperCase() ?? 'PENDING',
+    );
+  }
 }

@@ -26,6 +26,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.bookurtechnician.technician.entity.TechnicianDocument;
+import com.bookurtechnician.technician.repository.TechnicianDocumentRepository;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
@@ -50,6 +52,7 @@ public class TechnicianController {
 
     private final com.bookurtechnician.auth.repository.UserRepository userRepository;
     private final TechnicianProfileRepository profileRepository;
+    private final TechnicianDocumentRepository technicianDocumentRepository;
     private final BookingRepository bookingRepository;
     private final BookingService bookingService;
     private final WalletService walletService;
@@ -58,6 +61,86 @@ public class TechnicianController {
     private final StringRedisTemplate redisTemplate;
     private final SimpMessagingTemplate messagingTemplate;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+
+    @GetMapping("/documents")
+    public ResponseEntity<ApiResponse<List<TechnicianDocument>>> getMyDocuments(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
+        List<TechnicianDocument> docs = technicianDocumentRepository.findByTechnicianId(profile.getId());
+        return ResponseEntity.ok(ApiResponse.success(docs));
+    }
+
+    @PostMapping("/documents")
+    public ResponseEntity<ApiResponse<TechnicianDocument>> submitDocument(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, String> request) {
+        TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
+
+        String docType = request.getOrDefault("documentType", "SELFIE");
+        String fileUrl = request.getOrDefault("fileUrl", "");
+        String maskedNumber = request.getOrDefault("maskedNumber", "");
+
+        List<TechnicianDocument> existing = technicianDocumentRepository.findByTechnicianId(profile.getId());
+        TechnicianDocument doc = existing.stream()
+                .filter(d -> docType.equalsIgnoreCase(d.getDocumentType()))
+                .findFirst()
+                .orElseGet(() -> TechnicianDocument.builder()
+                        .technician(profile)
+                        .documentType(docType.toUpperCase())
+                        .build());
+
+        doc.setSecureCloudinaryUrl(fileUrl);
+        if (!maskedNumber.isBlank()) {
+            doc.setMaskedNumber(maskedNumber);
+        }
+        doc.setVerificationStatus("APPROVED");
+        doc.setReviewedAt(Instant.now());
+        doc = technicianDocumentRepository.save(doc);
+
+        if ("SELFIE".equalsIgnoreCase(docType) && !fileUrl.isBlank()) {
+            userRepository.findById(principal.getId()).ifPresent(user -> {
+                user.setProfileImageUrl(fileUrl);
+                userRepository.save(user);
+            });
+        }
+
+        return ResponseEntity.ok(ApiResponse.success(doc, docType + " document submitted successfully"));
+    }
+
+    @PostMapping("/profile/photo")
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadProfilePhoto(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody Map<String, String> request) {
+        String photoUrl = request.get("photoUrl");
+        if (photoUrl == null || photoUrl.isBlank()) {
+            throw new BadRequestException("photoUrl is required");
+        }
+
+        userRepository.findById(principal.getId()).ifPresent(user -> {
+            user.setProfileImageUrl(photoUrl.trim());
+            userRepository.save(user);
+        });
+
+        TechnicianProfile profile = profileRepository.findByUserId(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Technician profile not found"));
+
+        List<TechnicianDocument> existing = technicianDocumentRepository.findByTechnicianId(profile.getId());
+        TechnicianDocument selfieDoc = existing.stream()
+                .filter(d -> "SELFIE".equalsIgnoreCase(d.getDocumentType()))
+                .findFirst()
+                .orElseGet(() -> TechnicianDocument.builder()
+                        .technician(profile)
+                        .documentType("SELFIE")
+                        .build());
+        selfieDoc.setSecureCloudinaryUrl(photoUrl.trim());
+        selfieDoc.setVerificationStatus("APPROVED");
+        selfieDoc.setReviewedAt(Instant.now());
+        technicianDocumentRepository.save(selfieDoc);
+
+        return ResponseEntity.ok(ApiResponse.success(Map.of("photoUrl", photoUrl), "Profile selfie updated and verified"));
+    }
 
     @PostMapping("/fcm-token")
     public ResponseEntity<ApiResponse<Void>> updateFcmToken(

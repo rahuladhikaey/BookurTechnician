@@ -286,6 +286,12 @@ public class BookingService {
         }
     }
 
+    public BookingDtos.BookingResponse getBookingById(UUID bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found: " + bookingId));
+        return mapToResponse(booking);
+    }
+
     public List<BookingDtos.BookingResponse> getCustomerBookings(UUID customerId) {
         return bookingRepository.findByCustomerIdOrderByCreatedAtDesc(customerId).stream()
                 .map(this::mapToResponse)

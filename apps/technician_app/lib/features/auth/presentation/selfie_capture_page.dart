@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
+import '../../dashboard/data/technician_profile_service.dart';
 
 class SelfieCapturePage extends StatefulWidget {
   final String currentPhotoUrl;
@@ -8,7 +11,7 @@ class SelfieCapturePage extends StatefulWidget {
 
   const SelfieCapturePage({
     super.key,
-    this.currentPhotoUrl = 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=600',
+    this.currentPhotoUrl = '',
     this.onSelfieConfirmed,
   });
 
@@ -17,47 +20,97 @@ class SelfieCapturePage extends StatefulWidget {
 }
 
 class _SelfieCapturePageState extends State<SelfieCapturePage> {
-  bool _isCaptured = false;
-  String _capturedUrl = '';
+  final ImagePicker _picker = ImagePicker();
+  final TechnicianProfileService _profileService = TechnicianProfileService();
 
-  // Realistic sample selfie options for demonstration
-  final List<String> _sampleSelfies = [
-    'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=600',
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600',
-  ];
-  int _selfieIndex = 0;
+  bool _isCaptured = false;
+  bool _isUploading = false;
+  String? _localPhotoPath;
+  String _networkPhotoUrl = '';
 
   @override
   void initState() {
     super.initState();
-    _capturedUrl = widget.currentPhotoUrl;
+    _networkPhotoUrl = widget.currentPhotoUrl;
+    if (_networkPhotoUrl.isNotEmpty) {
+      _isCaptured = true;
+    }
   }
 
-  void _capturePhoto() {
-    setState(() {
-      _selfieIndex = (_selfieIndex + 1) % _sampleSelfies.length;
-      _capturedUrl = _sampleSelfies[_selfieIndex];
-      _isCaptured = true;
-    });
+  Future<void> _capturePhoto({ImageSource source = ImageSource.camera}) async {
+    try {
+      final XFile? photo = await _picker.pickImage(
+        source: source,
+        preferredCameraDevice: CameraDevice.front,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (photo != null) {
+        setState(() {
+          _localPhotoPath = photo.path;
+          _isCaptured = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red.shade800,
+            content: Text('Camera error: $e. Try selecting from gallery.'),
+          ),
+        );
+      }
+    }
   }
 
   void _retakePhoto() {
     setState(() {
+      _localPhotoPath = null;
       _isCaptured = false;
     });
   }
 
-  void _confirmPhoto() {
-    widget.onSelfieConfirmed?.call(_capturedUrl);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: AppColors.success,
-        content: Text('Selfie updated successfully! Syncing with Digital ID Card...'),
-      ),
-    );
-    Navigator.pop(context, _capturedUrl);
+  Future<void> _confirmPhoto() async {
+    final photoRef = _localPhotoPath ?? _networkPhotoUrl;
+    if (photoRef.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please capture a selfie first.')),
+      );
+      return;
+    }
+
+    setState(() => _isUploading = true);
+
+    try {
+      // Sync with backend profile & KYC document vault
+      await _profileService.submitKycDocument(
+        documentType: 'SELFIE',
+        fileUrl: photoRef,
+      );
+      await _profileService.uploadProfilePhoto(photoRef);
+
+      widget.onSelfieConfirmed?.call(photoRef);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppColors.success,
+            content: Text('Live selfie verified & synced with Digital ID Card!'),
+          ),
+        );
+        Navigator.pop(context, photoRef);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to sync selfie: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
   }
 
   @override
@@ -110,13 +163,22 @@ class _SelfieCapturePageState extends State<SelfieCapturePage> {
                           width: 280,
                           height: 360,
                           color: const Color(0xFF1E293B),
-                          child: Image.network(
-                            _capturedUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(Icons.person, size: 100, color: Colors.white24),
-                            ),
-                          ),
+                          child: _localPhotoPath != null
+                              ? Image.file(
+                                  File(_localPhotoPath!),
+                                  fit: BoxFit.cover,
+                                )
+                              : (_networkPhotoUrl.isNotEmpty
+                                  ? Image.network(
+                                      _networkPhotoUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Center(
+                                        child: Icon(Icons.person, size: 100, color: Colors.white24),
+                                      ),
+                                    )
+                                  : const Center(
+                                      child: Icon(Icons.person, size: 100, color: Colors.white24),
+                                    )),
                         ),
                       ),
 
@@ -201,59 +263,76 @@ class _SelfieCapturePageState extends State<SelfieCapturePage> {
             // Action Buttons (Shutter / Retake / Confirm)
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: _isCaptured
-                  ? Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _retakePhoto,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(color: Colors.white38),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            child: const Text('RETAKE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton(
-                            onPressed: _confirmPhoto,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF16A34A),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            child: const Text(
-                              'USE THIS PHOTO',
-                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.5),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton.icon(
-                        onPressed: _capturePhoto,
-                        icon: const Icon(Icons.camera_alt_rounded, size: 20),
-                        label: const Text(
-                          'CAPTURE SELFIE',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.5),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.black,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
+              child: _isUploading
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: CircularProgressIndicator(color: AppColors.primary),
                       ),
-                    ),
+                    )
+                  : (_isCaptured
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _retakePhoto,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: const BorderSide(color: Colors.white38),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: const Text('RETAKE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton(
+                                onPressed: _confirmPhoto,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF16A34A),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: const Text(
+                                  'USE THIS PHOTO',
+                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.5),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton.icon(
+                                onPressed: () => _capturePhoto(source: ImageSource.camera),
+                                icon: const Icon(Icons.camera_alt_rounded, size: 20),
+                                label: const Text(
+                                  'CAPTURE LIVE SELFIE',
+                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.5),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2563EB),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton.icon(
+                              onPressed: () => _capturePhoto(source: ImageSource.gallery),
+                              icon: const Icon(Icons.photo_library_outlined, size: 18, color: Colors.white70),
+                              label: const Text('Or select photo from gallery', style: TextStyle(color: Colors.white70, fontSize: 12.5)),
+                            ),
+                          ],
+                        )),
             ),
           ],
         ),

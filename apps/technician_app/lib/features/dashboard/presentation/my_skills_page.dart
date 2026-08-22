@@ -168,9 +168,14 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
   }
 
   Widget _buildPerformanceHeaderCard() {
-    final rating = _profile?.rating ?? 4.88;
-    final totalRatings = _profile?.totalRatingsCount ?? 142;
-    final jobsCount = _profile?.totalJobsCompleted ?? 89;
+    final rating = _profile?.rating ?? 0.0;
+    final totalRatings = _profile?.totalRatingsCount ?? 0;
+    final jobsCount = _profile?.totalJobsCompleted ?? 0;
+    final techId = (_profile?.technicianCode.isNotEmpty == true)
+        ? _profile!.technicianCode
+        : (_profile?.technicianId.isNotEmpty == true
+            ? 'BT-${_profile!.technicianId.replaceAll("-", "").substring(0, 8).toUpperCase()}'
+            : 'BT-PARTNER');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -208,7 +213,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _profile?.fullName ?? 'Partner Technician',
+                      _profile?.fullName.isNotEmpty == true ? _profile!.fullName : 'Partner Technician',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -217,7 +222,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'ID: ${_profile?.technicianCode.isNotEmpty == true ? _profile!.technicianCode : "BT-PARTNER-ACTIVE"}',
+                      'ID: $techId',
                       style: const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],
@@ -242,7 +247,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                         const Icon(Icons.star_rounded, color: Color(0xFFFBBF24), size: 18),
                         const SizedBox(width: 4),
                         Text(
-                          rating.toStringAsFixed(1),
+                          rating > 0 ? rating.toStringAsFixed(1) : '5.0',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -253,7 +258,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$totalRatings Reviews',
+                      totalRatings > 0 ? '$totalRatings Reviews' : '0 Reviews',
                       style: const TextStyle(color: Colors.white70, fontSize: 11),
                     ),
                   ],

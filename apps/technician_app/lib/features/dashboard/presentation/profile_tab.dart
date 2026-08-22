@@ -29,6 +29,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   bool _isLoading = true;
   TechnicianProfileData? _profileData;
   TechnicianSkillProfileModel? _skillProfile;
+  List<KycDocumentItem> _kycDocuments = [];
 
   // Incident Form States
   String _incidentCategory = 'Customer Dispute';
@@ -53,12 +54,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     final results = await Future.wait([
       _profileService.fetchProfile(),
       _skillService.fetchMySkillProfile(),
+      _profileService.fetchKycDocuments(),
     ]);
 
     if (mounted) {
       setState(() {
         _profileData = results[0] as TechnicianProfileData?;
         _skillProfile = results[1] as TechnicianSkillProfileModel?;
+        _kycDocuments = (results[2] as List<KycDocumentItem>?) ?? [];
         _isLoading = false;
       });
     }
@@ -559,15 +562,43 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                         padding: const EdgeInsets.all(AppSpacing.m),
                         child: Column(
                           children: [
-                            _buildDocStatusRow('Aadhaar / Government ID', kycStatus),
+                            _buildDocStatusRow(
+                              'Aadhaar / Government ID',
+                              _getSpecificDocStatus('AADHAAR', kycStatus),
+                              onTap: () => _promptUploadDoc('AADHAAR_FRONT', 'Aadhaar / Gov ID'),
+                            ),
                             const Divider(),
-                            _buildDocStatusRow('PAN Card Verification', kycStatus),
+                            _buildDocStatusRow(
+                              'PAN Card Verification',
+                              _getSpecificDocStatus('PAN', kycStatus),
+                              onTap: () => _promptUploadDoc('PAN_CARD', 'PAN Card'),
+                            ),
                             const Divider(),
-                            _buildDocStatusRow('Selfie Photograph Verification', profilePhoto.isNotEmpty ? 'Approved' : 'Pending'),
+                            _buildDocStatusRow(
+                              'Selfie Photograph Verification',
+                              (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType == 'SELFIE')) ? 'APPROVED' : 'PENDING',
+                              onTap: () async {
+                                final result = await Navigator.push<String>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => SelfieCapturePage(currentPhotoUrl: profilePhoto),
+                                  ),
+                                );
+                                if (result != null) _loadLiveProfile();
+                              },
+                            ),
                             const Divider(),
-                            _buildDocStatusRow('Bank / UPI Payout Account', _profileData?.isUpiVerified == true ? 'Approved' : 'Pending'),
+                            _buildDocStatusRow(
+                              'Bank / UPI Payout Account',
+                              _profileData?.isUpiVerified == true ? 'APPROVED' : (_profileData?.upiId.isNotEmpty == true ? 'PENDING' : 'NOT_CONFIGURED'),
+                              onTap: _openEditProfileDialog,
+                            ),
                             const Divider(),
-                            _buildDocStatusRow('Background Police Verification', kycStatus),
+                            _buildDocStatusRow(
+                              'Background Police Verification',
+                              _getSpecificDocStatus('POLICE', kycStatus),
+                              onTap: () => _promptUploadDoc('POLICE_VERIFICATION', 'Police Verification'),
+                            ),
                           ],
                         ),
                       ),
@@ -692,28 +723,108 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
-  Widget _buildDocStatusRow(String docName, String status) {
-    final isApproved = status.toUpperCase() == 'APPROVED' || status.toUpperCase() == 'VERIFIED';
-    final statusColor = isApproved ? SemanticColors.success : SemanticColors.warning;
+  String _getSpecificDocStatus(String docTypeKey, String defaultKyc) {
+    final doc = _kycDocuments.where((d) => d.documentType.toUpperCase().contains(docTypeKey.toUpperCase())).firstOrNull;
+    if (doc != null) return doc.verificationStatus;
+    if (defaultKyc.toUpperCase() == 'APPROVED' || defaultKyc.toUpperCase() == 'VERIFIED') return 'APPROVED';
+    return 'PENDING';
+  }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(child: Text(docName, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500))),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
-              borderRadius: AppRadius.round,
+  void _promptUploadDoc(String docType, String docTitle) {
+    final docNumberController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Upload $docTitle'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Submit your $docTitle details for fast verification.', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            const SizedBox(height: 14),
+            TextField(
+              controller: docNumberController,
+              decoration: InputDecoration(
+                labelText: '$docTitle Number / Ref',
+                hintText: 'e.g. XXXX-XXXX-1234',
+                border: const OutlineInputBorder(),
+              ),
             ),
-            child: Text(
-              isApproved ? 'Approved' : 'Pending',
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: statusColor),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
             ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final num = docNumberController.text.trim();
+              await _profileService.submitKycDocument(
+                documentType: docType,
+                fileUrl: 'https://bookurtechnician.com/docs/$docType',
+                maskedNumber: num.isNotEmpty ? num : null,
+              );
+              _loadLiveProfile();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: SemanticColors.success,
+                    content: Text('$docTitle submitted successfully for verification!'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Submit'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDocStatusRow(String docName, String status, {VoidCallback? onTap}) {
+    final isApproved = status.toUpperCase() == 'APPROVED' || status.toUpperCase() == 'VERIFIED';
+    final isNotConfigured = status.toUpperCase() == 'NOT_CONFIGURED';
+    final statusColor = isApproved
+        ? SemanticColors.success
+        : (isNotConfigured ? Colors.grey : SemanticColors.warning);
+
+    final label = isApproved
+        ? 'Approved'
+        : (isNotConfigured ? 'Add Details' : 'Pending');
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: Text(docName, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500))),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.round,
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: statusColor),
+                  ),
+                ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

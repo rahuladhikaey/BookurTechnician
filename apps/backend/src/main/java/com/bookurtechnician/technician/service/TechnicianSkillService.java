@@ -140,7 +140,7 @@ public class TechnicianSkillService {
 
         BigDecimal rating = (avgRating != null && avgRating > 0)
                 ? BigDecimal.valueOf(avgRating).setScale(2, RoundingMode.HALF_UP)
-                : (profile.getRating() != null ? profile.getRating() : new BigDecimal("4.9"));
+                : (profile.getRating() != null ? profile.getRating() : BigDecimal.ZERO);
 
         int totalRatings = (int) ratingsCount;
         if (totalRatings == 0 && profile.getTotalRatingsCount() > 0) {
@@ -149,7 +149,7 @@ public class TechnicianSkillService {
 
         return TechnicianSkillDtos.TechnicianSkillProfileResponse.builder()
                 .technicianId(profile.getId())
-                .technicianCode(profile.getTechnicianCode())
+                .technicianCode(profile.getTechnicianCode() != null && !profile.getTechnicianCode().isBlank() ? profile.getTechnicianCode() : "BT-" + profile.getId().toString().substring(0, 8).toUpperCase())
                 .fullName(profile.getUser() != null ? profile.getUser().getFullName() : "Partner Technician")
                 .profileImageUrl(profile.getUser() != null ? profile.getUser().getProfileImageUrl() : null)
                 .rating(rating)
