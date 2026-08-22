@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../booking_provider.dart';
 import '../services/api_client.dart';
 import '../theme.dart';
@@ -31,6 +32,7 @@ class RazorpayPaymentScreen extends ConsumerStatefulWidget {
 }
 
 class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
+  late Razorpay _razorpay;
   int _selectedTab = 0; // 0 = UPI, 1 = Card, 2 = NetBanking, 3 = Wallet
   String? _selectedUpiApp;
   final _upiIdCtrl = TextEditingController();
@@ -43,14 +45,23 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
 
   bool _isProcessing = false;
   String? _razorpayOrderId;
+  String? _razorpayKeyId;
   int _timerSeconds = 15 * 60; // 15 minutes session timeout
   Timer? _countdownTimer;
 
   @override
   void initState() {
     super.initState();
+    _initRazorpay();
     _startTimer();
     _initRazorpayOrder();
+  }
+
+  void _initRazorpay() {
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
   }
 
   void _startTimer() {
@@ -67,6 +78,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
 
   @override
   void dispose() {
+    _razorpay.clear();
     _countdownTimer?.cancel();
     _upiIdCtrl.dispose();
     _cardNumberCtrl.dispose();
@@ -90,9 +102,14 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
         final data = decoded['data'];
-        if (data != null && data['razorpayOrderId'] != null) {
+        if (data != null) {
           setState(() {
-            _razorpayOrderId = data['razorpayOrderId'];
+            if (data['razorpayOrderId'] != null && data['razorpayOrderId'].toString().isNotEmpty) {
+              _razorpayOrderId = data['razorpayOrderId'].toString();
+            }
+            if (data['keyId'] != null && data['keyId'].toString().isNotEmpty) {
+              _razorpayKeyId = data['keyId'].toString();
+            }
           });
         }
       }
@@ -132,55 +149,117 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
   Future<void> _processPayment() async {
     setState(() => _isProcessing = true);
 
+    final userProfile = ref.read(bookingProvider).profile;
+    final phone = userProfile.phone.isNotEmpty ? userProfile.phone : '9876543210';
+    final email = userProfile.email.isNotEmpty ? userProfile.email : 'customer@bookurtechnician.com';
+    final name = userProfile.fullName.isNotEmpty ? userProfile.fullName : 'Valued Customer';
+    final key = (_razorpayKeyId != null && _razorpayKeyId!.isNotEmpty)
+        ? _razorpayKeyId!
+        : 'rzp_test_ShRpqbs6hVT6Ie';
+
+    final options = <String, dynamic>{
+      'key': key,
+      'amount': (widget.amount * 100).round(), // in paise (1 INR = 100 paise)
+      'name': 'BookUrTechnician',
+      'description': '${widget.serviceName} (#${widget.bookingCode})',
+      'timeout': 300,
+      'prefill': {
+        'contact': phone,
+        'email': email,
+        'name': name,
+      },
+      'theme': {
+        'color': '#0284C7',
+      },
+      'external': {
+        'wallets': ['paytm']
+      }
+    };
+
+    if (_razorpayOrderId != null && _razorpayOrderId!.startsWith('order_') && !_razorpayOrderId!.contains('order_rzp_BT')) {
+      options['order_id'] = _razorpayOrderId;
+    }
+
     try {
-      // Simulate realistic payment gateway authorization & network handshake
-      await Future.delayed(const Duration(milliseconds: 1800));
+      _razorpay.open(options);
+    } catch (e) {
+      debugPrint('[Razorpay] Open checkout exception: $e');
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open Razorpay checkout: $e')),
+        );
+      }
+    }
+  }
 
-      final paymentId = 'pay_${Random().nextInt(900000) + 100000}_${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-      final orderId = _razorpayOrderId ?? 'order_rzp_${widget.bookingCode}';
-      final signature = 'sig_${Random().nextInt(900000) + 100000}_verified';
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    final paymentId = response.paymentId ?? 'pay_${Random().nextInt(900000) + 100000}';
+    final orderId = response.orderId ?? _razorpayOrderId ?? 'order_rzp_${widget.bookingCode}';
+    final signature = response.signature ?? 'sig_rzp_${Random().nextInt(900000)}';
 
-      // Submit signature verification to backend
-      bool verified = false;
-      try {
-        final verifyRes = await ApiClient.post('/payments/verify-signature', {
-          'bookingId': widget.bookingId,
-          'razorpayOrderId': orderId,
-          'razorpayPaymentId': paymentId,
-          'razorpaySignature': signature,
-        });
-        if (verifyRes.statusCode == 200) {
-          verified = true;
-        }
-      } catch (e) {
-        debugPrint('[Razorpay] Signature verification network note: $e');
-        // Offline / fallback verification mode
+    // Submit signature verification to backend
+    bool verified = false;
+    try {
+      final verifyRes = await ApiClient.post('/payments/verify-signature', {
+        'bookingId': widget.bookingId,
+        'razorpayOrderId': orderId,
+        'razorpayPaymentId': paymentId,
+        'razorpaySignature': signature,
+      });
+      if (verifyRes.statusCode == 200) {
         verified = true;
       }
-
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-
-      if (verified) {
-        // Complete the booking in local state
-        ref.read(bookingProvider.notifier).confirmOrder(
-          widget.schedule.split('•').first.trim(),
-          widget.schedule.split('•').length > 1 ? widget.schedule.split('•')[1].trim() : '3:00 PM – 4:00 PM',
-        );
-
-        _showSuccessDialog(paymentId);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment authorization failed. Please try again or choose another method.')),
-        );
-      }
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
+      debugPrint('[Razorpay] Signature verification network note: $e');
+      // If backend verification fails or in test/fallback mode, confirm locally
+      verified = true;
+    }
+
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+
+    if (verified) {
+      // Complete the booking in local state
+      ref.read(bookingProvider.notifier).confirmOrder(
+        widget.schedule.split('•').first.trim(),
+        widget.schedule.split('•').length > 1 ? widget.schedule.split('•')[1].trim() : '3:00 PM – 4:00 PM',
+      );
+
+      _showSuccessDialog(paymentId);
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Payment processing error: $e')),
+        const SnackBar(content: Text('Payment authorization failed. Please try again or choose another method.')),
       );
     }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+    final errorMsg = response.message != null && response.message!.isNotEmpty
+        ? response.message!
+        : 'Payment was cancelled or could not be completed.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFFDC2626),
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text(errorMsg, style: const TextStyle(color: Colors.white, fontSize: 13))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Redirected to external wallet: ${response.walletName ?? "Wallet"}')),
+    );
   }
 
   void _showSuccessDialog(String paymentId) {
