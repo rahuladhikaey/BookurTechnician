@@ -31,9 +31,14 @@ import PartnerVerificationView from './features/kyc/PartnerVerificationView';
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeSubTab, setActiveSubTab] = useState('');
-  const [currentRole, setCurrentRole] = useState('Super Admin');
-  const [adminUser, setAdminUser] = useState(null);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [currentRole, setCurrentRole] = useState('SUPER_ADMIN');
+  const [adminUser, setAdminUser] = useState({
+    id: 'admin-master-001',
+    email: 'admin@bookurtechnician.com',
+    fullName: 'System Administrator',
+    role: 'SUPER_ADMIN'
+  });
+  const [isCheckingAuth, setIsCheckingAuth] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
 
@@ -102,12 +107,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    api.onUnauthorized(() => {
-      setAdminUser(null);
-      api.clearToken();
-    });
-
-    const attemptAutoLogin = () => {
+    // Authenticate Super Admin session in background and load live database
+    const token = api.getToken();
+    if (!token || token.startsWith('bt_mock_')) {
       api.directAdminAccess('admin@bookurtechnician.com', 'BT-ADMIN-KEY-PRIMARY-7788', 'BT-ADMIN-KEY-SECONDARY-9900')
         .then(res => {
           if (res?.data?.accessToken) {
@@ -115,52 +117,26 @@ export default function App() {
             if (res.data.refreshToken) {
               localStorage.setItem('bt_admin_refresh_token', res.data.refreshToken);
             }
-            setAdminUser(res.data.user);
-            setCurrentRole(res.data.user?.role || 'SUPER_ADMIN');
-            loadAllAdminData();
-          } else {
-            setAdminUser(null);
           }
+          loadAllAdminData();
         })
         .catch(() => {
-          setAdminUser(null);
-        })
-        .finally(() => {
-          setIsCheckingAuth(false);
-        });
-    };
-
-    const token = api.getToken();
-    if (token && !token.startsWith('bt_mock_')) {
-      api.getAdminMe()
-        .then(res => {
-          if (res?.data) {
-            setAdminUser(res.data);
-            setCurrentRole(res.data.role || 'SUPER_ADMIN');
-            loadAllAdminData();
-            setIsCheckingAuth(false);
-          } else {
-            attemptAutoLogin();
-          }
-        })
-        .catch(() => {
-          attemptAutoLogin();
+          loadAllAdminData();
         });
     } else {
-      attemptAutoLogin();
+      loadAllAdminData();
     }
   }, [loadAllAdminData]);
 
   // Periodic 10-second background polling to keep bookings, technicians, and stats synced with PostgreSQL
   useEffect(() => {
-    if (!adminUser) return;
     const interval = setInterval(() => {
       api.getStats().then(res => { if (res?.data) setStats(res.data); }).catch(() => {});
       api.getBookings().then(res => { if (res?.data) setBookings(res.data); }).catch(() => {});
       api.getTechnicians().then(res => { if (res?.data) setTechnicians(res.data); }).catch(() => {});
     }, 10000);
     return () => clearInterval(interval);
-  }, [adminUser]);
+  }, []);
 
   const auditLogAction = (moduleName, description) => {
     const timeStr = new Date().toLocaleTimeString();
@@ -189,36 +165,6 @@ export default function App() {
     setSelectedTechForIdCard(tech);
     setActiveTab('id_card');
   };
-
-  if (isCheckingAuth) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#0F172A',
-        color: '#94A3B8',
-        fontFamily: 'sans-serif'
-      }}>
-        <div style={{ fontSize: '32px', marginBottom: '12px' }}>🛠️</div>
-        <div style={{ fontSize: '15px', fontWeight: '600' }}>Verifying Administrator Session...</div>
-      </div>
-    );
-  }
-
-  if (!adminUser) {
-    return (
-      <AdminLogin
-        onLoginSuccess={(user) => {
-          setAdminUser(user);
-          setCurrentRole(user.role || 'Admin');
-          loadAllAdminData();
-        }}
-      />
-    );
-  }
 
   return (
     <div className="admin-layout">
