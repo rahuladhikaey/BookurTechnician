@@ -338,18 +338,20 @@ public class AdminController {
 
             // Declared & Verified Skills
             List<com.bookurtechnician.technician.entity.TechnicianSkill> skills = technicianSkillRepository.findByTechnicianIdOrderByCreatedAtAsc(t.getId());
-            List<Map<String, Object>> skillMaps = skills.stream().map(sk -> {
+            List<Map<String, Object>> skillMaps = skills != null ? skills.stream().map(sk -> {
                 Map<String, Object> sm = new HashMap<>();
-                sm.put("id", sk.getId().toString());
-                sm.put("skillName", sk.getSkill().getName());
-                sm.put("categoryName", sk.getSkill().getCategory().getName());
+                sm.put("id", sk.getId() != null ? sk.getId().toString() : "");
+                String sName = (sk.getSkill() != null && sk.getSkill().getName() != null) ? sk.getSkill().getName() : "General Maintenance";
+                String cName = (sk.getSkill() != null && sk.getSkill().getCategory() != null && sk.getSkill().getCategory().getName() != null) ? sk.getSkill().getCategory().getName() : "General";
+                sm.put("skillName", sName);
+                sm.put("categoryName", cName);
                 sm.put("experienceYears", sk.getExperienceYears());
-                sm.put("verificationStatus", sk.getVerificationStatus());
+                sm.put("verificationStatus", sk.getVerificationStatus() != null ? sk.getVerificationStatus() : "VERIFIED");
                 sm.put("enabled", sk.isEnabled());
                 return sm;
-            }).toList();
+            }).toList() : Collections.emptyList();
             map.put("skills", skillMaps);
-            map.put("verifiedSkillsCount", skills.stream().filter(s -> "VERIFIED".equalsIgnoreCase(s.getVerificationStatus())).count());
+            map.put("verifiedSkillsCount", skillMaps.stream().filter(s -> "VERIFIED".equalsIgnoreCase((String) s.get("verificationStatus"))).count());
 
             map.put("upiId", t.getUpiId());
             map.put("isUpiVerified", t.isUpiVerified());

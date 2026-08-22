@@ -207,19 +207,19 @@ export default function App() {
           <div className={`nav-item ${activeTab === 'bookings' ? 'active' : ''}`} onClick={() => selectView('bookings')}>
             <span className="nav-icon">📋</span>
             <span>Bookings</span>
-            <span className="nav-item-badge">{bookings.length}</span>
+            <span className="nav-item-badge">{stats?.totalBookings !== undefined && stats?.totalBookings !== null ? stats.totalBookings : bookings.length}</span>
           </div>
 
           <div className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`} onClick={() => selectView('customers')}>
             <span className="nav-icon">👥</span>
             <span>Customers</span>
-            <span className="nav-item-badge">{customers.length}</span>
+            <span className="nav-item-badge">{stats?.totalCustomers !== undefined && stats?.totalCustomers !== null ? stats.totalCustomers : customers.length}</span>
           </div>
 
           <div className={`nav-item ${activeTab === 'technicians' || activeTab === 'id_card' ? 'active' : ''}`} onClick={() => selectView('technicians')}>
             <span className="nav-icon">👨🔧</span>
             <span>Technicians</span>
-            <span className="nav-item-badge">{technicians.length}</span>
+            <span className="nav-item-badge">{stats?.totalTechnicians !== undefined && stats?.totalTechnicians !== null ? stats.totalTechnicians : technicians.length}</span>
           </div>
 
           <div className="nav-group-label">Catalog & Growth</div>
