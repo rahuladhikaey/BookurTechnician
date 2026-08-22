@@ -70,7 +70,10 @@ export default function App() {
 
       // 2. Technicians
       api.getTechnicians()
-        .then(res => { if (res?.data) setTechnicians(res.data); })
+        .then(res => {
+          const list = res?.data || (Array.isArray(res) ? res : []);
+          if (Array.isArray(list)) setTechnicians(list);
+        })
         .catch(() => {});
 
       // 3. Bookings

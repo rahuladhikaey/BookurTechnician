@@ -17,8 +17,9 @@ export default function TechniciansManager({ technicians = [], setTechnicians, a
     setLoadingTechs(true);
     api.getTechnicians()
       .then(res => {
-        if (res?.data && Array.isArray(res.data) && setTechnicians) {
-          setTechnicians(res.data);
+        const list = res?.data || (Array.isArray(res) ? res : []);
+        if (Array.isArray(list) && setTechnicians) {
+          setTechnicians(list);
         }
       })
       .catch(err => {
