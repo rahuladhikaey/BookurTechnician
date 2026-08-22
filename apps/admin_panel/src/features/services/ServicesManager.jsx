@@ -1,9 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/apiClient';
 
-export default function ServicesManager({ categories, setCategories, services, setServices, auditLogAction, subTab = 'categories' }) {
+export default function ServicesManager({ categories, setCategories, services, setServices, auditLogAction, subTab = 'categories', onReload }) {
   const [activeTab, setActiveTab] = useState(subTab);
   
+  // Reusable File / Gallery Upload Handler
+  const handleFileUpload = (e, callback) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        if (uploadEvent.target?.result) {
+          callback(uploadEvent.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Dynamic Popular Services from Catalog
   const [popularServices, setPopularServices] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -1211,12 +1225,23 @@ export default function ServicesManager({ categories, setCategories, services, s
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Image Thumbnail URL</label>
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Category Image / Thumbnail</span>
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}>
+                      📁 Choose from Gallery / Files
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={e => handleFileUpload(e, (dataUrl) => setCategoryForm(prev => ({ ...prev, imageUrl: dataUrl })))}
+                      />
+                    </label>
+                  </label>
                   <input
-                    type="url"
+                    type="text"
                     required
                     className="form-control"
-                    placeholder="https://..."
+                    placeholder="Paste image URL or click 'Choose from Gallery' above..."
                     value={categoryForm.imageUrl}
                     onChange={e => setCategoryForm({ ...categoryForm, imageUrl: e.target.value })}
                   />
@@ -1251,10 +1276,20 @@ export default function ServicesManager({ categories, setCategories, services, s
                       ) : null}
                       <span style={{ fontSize: '20px', display: categoryForm.imageUrl ? 'none' : 'block' }}>🖼️</span>
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#64748B' }}>
+                    <div style={{ fontSize: '11.5px', color: '#64748B', flex: 1 }}>
                       <strong style={{ color: '#0F172A', display: 'block' }}>Live Thumbnail Preview</strong>
-                      Paste any direct image link (.jpg, .png, Unsplash, CDN).
+                      Uploaded from gallery or pasted direct image link.
                     </div>
+                    {categoryForm.imageUrl && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
+                        onClick={() => setCategoryForm(prev => ({ ...prev, imageUrl: '' }))}
+                      >
+                        ✕ Clear
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="form-group">
@@ -1344,14 +1379,72 @@ export default function ServicesManager({ categories, setCategories, services, s
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Image URL</label>
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Service Image / Thumbnail</span>
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', padding: '3px 8px', fontSize: '11px' }}>
+                      📁 Choose from Gallery / Files
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={e => handleFileUpload(e, (dataUrl) => setServiceForm(prev => ({ ...prev, imageUrl: dataUrl })))}
+                      />
+                    </label>
+                  </label>
                   <input
-                    type="url"
+                    type="text"
                     required
                     className="form-control"
+                    placeholder="Paste image URL or click 'Choose from Gallery' above..."
                     value={serviceForm.imageUrl}
                     onChange={e => setServiceForm({ ...serviceForm, imageUrl: e.target.value })}
                   />
+                  {/* Live Active Image Preview */}
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px', backgroundColor: '#F8FAFC', padding: '8px 12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                    <div style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '6px',
+                      border: '1px solid #CBD5E1',
+                      backgroundColor: '#FFFFFF',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      {serviceForm.imageUrl ? (
+                        <img
+                          src={serviceForm.imageUrl}
+                          alt="Service Preview"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'block';
+                          }}
+                          onLoad={(e) => {
+                            e.target.style.display = 'block';
+                            if (e.target.nextSibling) e.target.nextSibling.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      <span style={{ fontSize: '20px', display: serviceForm.imageUrl ? 'none' : 'block' }}>🛠️</span>
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#64748B', flex: 1 }}>
+                      <strong style={{ color: '#0F172A', display: 'block' }}>Live Thumbnail Preview</strong>
+                      Uploaded from device gallery or pasted URL link.
+                    </div>
+                    {serviceForm.imageUrl && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
+                        onClick={() => setServiceForm(prev => ({ ...prev, imageUrl: '' }))}
+                      >
+                        ✕ Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="form-group">
