@@ -39,6 +39,7 @@ import com.bookurtechnician.wallet.entity.WithdrawalRequest;
 import com.bookurtechnician.wallet.repository.TechnicianWalletRepository;
 import com.bookurtechnician.wallet.repository.WithdrawalRequestRepository;
 import lombok.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -49,6 +50,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
@@ -323,8 +325,8 @@ public class AdminController {
                 } catch (Exception ignored) {}
 
                 map.put("rating", displayRating);
-                map.put("totalRatingsCount", totalReviews > 0 ? totalReviews : (t.getTotalRatingsCount() != null ? t.getTotalRatingsCount() : 0));
-                map.put("totalJobsCompleted", t.getTotalJobsCompleted() != null ? t.getTotalJobsCompleted() : 0);
+                map.put("totalRatingsCount", totalReviews > 0 ? totalReviews : t.getTotalRatingsCount());
+                map.put("totalJobsCompleted", t.getTotalJobsCompleted());
                 map.put("acceptanceRate", 98.5);
                 map.put("totalProposalsReceived", 0);
                 map.put("cancellationRate", 1.0);
@@ -342,7 +344,7 @@ public class AdminController {
                             String cName = (sk.getSkill() != null && sk.getSkill().getCategory() != null && sk.getSkill().getCategory().getName() != null) ? sk.getSkill().getCategory().getName() : "General";
                             sm.put("skillName", sName);
                             sm.put("categoryName", cName);
-                            sm.put("experienceYears", sk.getExperienceYears() != null ? sk.getExperienceYears() : 2);
+                            sm.put("experienceYears", sk.getExperienceYears());
                             sm.put("verificationStatus", sk.getVerificationStatus() != null ? sk.getVerificationStatus() : "VERIFIED");
                             sm.put("enabled", sk.isEnabled());
                             skillMaps.add(sm);
