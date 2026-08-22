@@ -74,7 +74,6 @@ public class AdminController {
     private final AiFaqRepository aiFaqRepository;
     private final AuditLogRepository auditLogRepository;
     private final com.bookurtechnician.technician.repository.TechnicianSkillRepository technicianSkillRepository;
-    private final com.bookurtechnician.dispatch.repository.BookingProposalRepository proposalRepository;
     private final com.bookurtechnician.review.repository.ReviewRepository reviewRepository;
     private final com.bookurtechnician.notification.service.FcmNotificationService fcmNotificationService;
 
