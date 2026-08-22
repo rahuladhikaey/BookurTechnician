@@ -108,7 +108,7 @@ export default function App() {
     });
 
     const token = api.getToken();
-    if (token) {
+    if (token && !token.startsWith('bt_mock_')) {
       api.getAdminMe()
         .then(res => {
           if (res?.data) {
@@ -128,6 +128,8 @@ export default function App() {
           setIsCheckingAuth(false);
         });
     } else {
+      api.clearToken();
+      setAdminUser(null);
       setIsCheckingAuth(false);
     }
   }, [loadAllAdminData]);

@@ -42,60 +42,26 @@ export default function AdminLogin({ onLoginSuccess }) {
     setIsLoading(true);
 
     try {
-      // 1. Attempt Backend Direct Security Verification
-      let authUser = null;
-      let accessToken = null;
-      let refreshToken = null;
-
-      try {
-        const response = await api.directAdminAccess(trimmedEmail, trimmedKey1, trimmedKey2);
-        if (response?.data) {
-          authUser = response.data.user;
-          accessToken = response.data.accessToken;
-          refreshToken = response.data.refreshToken;
-        }
-      } catch (backendErr) {
-        // If the backend returns an explicit 401 / bad request, check keys locally or propagate error
-        const isClientKeyValid = (trimmedKey1 === DEFAULT_KEY_1 || trimmedKey1.length >= 8) && 
-                                 (trimmedKey2 === DEFAULT_KEY_2 || trimmedKey2.length >= 8);
-
-        if (backendErr?.message?.includes('Invalid Access Keys') || (!isClientKeyValid && backendErr?.message)) {
-          throw new Error(backendErr?.message || 'Invalid Access Credentials: Key 1 or Key 2 is incorrect.');
-        }
-
-        // Local development fallback if backend is offline or unreachable
-        if (trimmedKey1 === DEFAULT_KEY_1 && trimmedKey2 === DEFAULT_KEY_2) {
-          console.info('Direct Key Authentication verified locally via Master Keys.');
-          authUser = {
-            id: 'admin-master-001',
-            email: trimmedEmail,
-            fullName: 'System Administrator',
-            role: 'SUPER_ADMIN',
-            phone: '9999999999',
-            profileCompleted: true
-          };
-          accessToken = 'bt_mock_super_admin_access_token_' + Date.now();
-        } else {
-          throw new Error(backendErr?.message || 'Access Denied: Invalid Security Keys or Email.');
-        }
+      // 1. Direct Security Verification with Backend
+      const response = await api.directAdminAccess(trimmedEmail, trimmedKey1, trimmedKey2);
+      if (!response?.data?.accessToken) {
+        throw new Error(response?.message || 'Authentication failed. Please check your credentials.');
       }
 
-      if (!authUser) {
-        throw new Error('Access Denied: Invalid Security Keys or Email.');
-      }
+      const authUser = response.data.user;
+      const accessToken = response.data.accessToken;
+      const refreshToken = response.data.refreshToken;
 
-      if (accessToken) {
-        api.setToken(accessToken, true);
-        if (refreshToken) {
-          localStorage.setItem('bt_admin_refresh_token', refreshToken);
-        }
+      api.setToken(accessToken, true);
+      if (refreshToken) {
+        localStorage.setItem('bt_admin_refresh_token', refreshToken);
       }
 
       setSuccessMessage('Credentials verified successfully! Opening Admin Panel...');
       
       setTimeout(() => {
         onLoginSuccess(authUser);
-      }, 500);
+      }, 300);
 
     } catch (err) {
       setErrorMessage(err?.message || 'Access Denied: Keys or email do not match authorized credentials.');
