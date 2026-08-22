@@ -4,15 +4,43 @@ import api from '../../api/apiClient';
 export default function ServicesManager({ categories, setCategories, services, setServices, auditLogAction, subTab = 'categories', onReload }) {
   const [activeTab, setActiveTab] = useState(subTab);
   
-  // Reusable File / Gallery Upload Handler
+  // Reusable File / Gallery Upload Handler with Instant Canvas Compression
   const handleFileUpload = (e, callback) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (uploadEvent) => {
-        if (uploadEvent.target?.result) {
-          callback(uploadEvent.target.result);
-        }
+        const rawData = uploadEvent.target?.result;
+        if (!rawData) return;
+        
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          callback(compressedDataUrl);
+        };
+        img.src = rawData;
       };
       reader.readAsDataURL(file);
     }

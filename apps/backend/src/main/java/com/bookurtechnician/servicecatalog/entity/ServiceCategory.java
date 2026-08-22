@@ -26,10 +26,10 @@ public class ServiceCategory {
     @Column(nullable = false, unique = true, length = 100)
     private String slug;
 
-    @Column(name = "icon_url")
+    @Column(name = "icon_url", columnDefinition = "TEXT")
     private String iconUrl;
 
-    @Column(name = "banner_url")
+    @Column(name = "banner_url", columnDefinition = "TEXT")
     private String bannerUrl;
 
     @Builder.Default
