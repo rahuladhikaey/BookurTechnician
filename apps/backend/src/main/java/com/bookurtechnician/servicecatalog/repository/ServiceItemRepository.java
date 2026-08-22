@@ -20,4 +20,5 @@ public interface ServiceItemRepository extends JpaRepository<ServiceItem, UUID> 
     List<ServiceItem> findByActiveTrue();
 
     Optional<ServiceItem> findBySlug(String slug);
+    boolean existsBySlug(String slug);
 }

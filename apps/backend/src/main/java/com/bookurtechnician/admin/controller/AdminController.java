@@ -959,9 +959,17 @@ public class AdminController {
     public ResponseEntity<ApiResponse<ServiceCategory>> createCategory(
             @RequestBody ServiceCategory cat,
             @AuthenticationPrincipal UserPrincipal principal) {
-        if (cat.getSlug() == null || cat.getSlug().isBlank()) {
-            cat.setSlug(cat.getName().toLowerCase().replaceAll("[^a-z0-9]+", "-"));
+        String baseSlug = (cat.getSlug() != null && !cat.getSlug().isBlank())
+                ? cat.getSlug().toLowerCase().replaceAll("[^a-z0-9]+", "-")
+                : (cat.getName() != null ? cat.getName().toLowerCase().replaceAll("[^a-z0-9]+", "-") : "category");
+        if (baseSlug.isBlank()) baseSlug = "category";
+        String uniqueSlug = baseSlug;
+        int counter = 1;
+        while (serviceCategoryRepository.existsBySlug(uniqueSlug)) {
+            uniqueSlug = baseSlug + "-" + (++counter);
         }
+        cat.setSlug(uniqueSlug);
+
         cat = serviceCategoryRepository.save(cat);
         recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
                 "CREATE_CATEGORY", "ServiceCategory", cat.getId().toString(), cat.getName());
@@ -1005,9 +1013,17 @@ public class AdminController {
     public ResponseEntity<ApiResponse<ServiceItem>> createService(
             @RequestBody ServiceItem item,
             @AuthenticationPrincipal UserPrincipal principal) {
-        if (item.getSlug() == null || item.getSlug().isBlank()) {
-            item.setSlug(item.getName().toLowerCase().replaceAll("[^a-z0-9]+", "-"));
+        String baseSlug = (item.getSlug() != null && !item.getSlug().isBlank())
+                ? item.getSlug().toLowerCase().replaceAll("[^a-z0-9]+", "-")
+                : (item.getName() != null ? item.getName().toLowerCase().replaceAll("[^a-z0-9]+", "-") : "service");
+        if (baseSlug.isBlank()) baseSlug = "service";
+        String uniqueSlug = baseSlug;
+        int counter = 1;
+        while (serviceItemRepository.existsBySlug(uniqueSlug)) {
+            uniqueSlug = baseSlug + "-" + (++counter);
         }
+        item.setSlug(uniqueSlug);
+
         item = serviceItemRepository.save(item);
         recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
                 "CREATE_SERVICE", "ServiceItem", item.getId().toString(), item.getName());
