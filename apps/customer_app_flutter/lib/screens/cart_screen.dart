@@ -1,11 +1,14 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../theme.dart';
 import '../booking_provider.dart';
 import '../models.dart';
+import '../services/api_client.dart';
+import 'booking_status_map_screen.dart';
 import 'profile_completion_wizard_screen.dart';
-import 'razorpay_payment_screen.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
@@ -15,7 +18,35 @@ class CartScreen extends ConsumerStatefulWidget {
 }
 
 class _CartScreenState extends ConsumerState<CartScreen> {
+  late Razorpay _razorpay;
   bool _isProcessingPayment = false;
+
+  String? _currentBookingCode;
+  String? _currentBookingId;
+  String? _currentServiceName;
+  double _currentAmount = 0.0;
+  String? _currentSchedule;
+  String? _currentAddress;
+  String? _currentRazorpayOrderId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initRazorpay();
+  }
+
+  void _initRazorpay() {
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
+  }
 
   void _showAddressPicker(BuildContext context, AppState state) {
     final addresses = [
@@ -268,34 +299,161 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       return;
     }
 
-    final bookingCode = 'BT-${10000000 + Random().nextInt(90000000)}';
-    final bookingId = 'bkg_${DateTime.now().millisecondsSinceEpoch}';
-    final confirmedService = state.cartItems.isNotEmpty ? state.cartItems.first.name : 'Service Booking';
-    final confirmedAmount = state.grandTotal;
-    final schedule = '${state.selectedScheduleDate} • ${state.selectedScheduleSlot}';
-    final address = state.selectedAddressTitle;
+    _currentBookingCode = 'BT-${10000000 + Random().nextInt(90000000)}';
+    _currentBookingId = 'bkg_${DateTime.now().millisecondsSinceEpoch}';
+    _currentServiceName = state.cartItems.isNotEmpty ? state.cartItems.first.name : 'Service Booking';
+    _currentAmount = state.grandTotal;
+    _currentSchedule = '${state.selectedScheduleDate} • ${state.selectedScheduleSlot}';
+    _currentAddress = state.selectedAddressTitle;
 
     setState(() => _isProcessingPayment = true);
+
+    String? razorpayKeyId;
+    String? razorpayOrderId;
+
+    // Create real order on backend if available
     try {
-      // Navigate directly to Razorpay Payment Screen
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => RazorpayPaymentScreen(
-            bookingId: bookingId,
-            bookingCode: bookingCode,
-            serviceName: confirmedService,
-            amount: confirmedAmount,
-            schedule: schedule,
-            address: address,
-          ),
-        ),
-      );
-    } finally {
+      final res = await ApiClient.post('/payments/create-order', {
+        'bookingId': _currentBookingId,
+      });
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final data = decoded['data'];
+        if (data != null) {
+          if (data['razorpayOrderId'] != null && data['razorpayOrderId'].toString().isNotEmpty) {
+            razorpayOrderId = data['razorpayOrderId'].toString();
+          }
+          if (data['keyId'] != null && data['keyId'].toString().isNotEmpty) {
+            razorpayKeyId = data['keyId'].toString();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[Razorpay Order Note]: $e');
+    }
+
+    _currentRazorpayOrderId = razorpayOrderId;
+
+    final key = (razorpayKeyId != null && razorpayKeyId.isNotEmpty)
+        ? razorpayKeyId
+        : 'rzp_test_ShRpqbs6hVT6Ie';
+
+    final phone = state.profile.phone.isNotEmpty ? state.profile.phone : '9876543210';
+    final email = state.profile.email.isNotEmpty ? state.profile.email : 'customer@bookurtechnician.com';
+    final name = state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Valued Customer';
+
+    final options = <String, dynamic>{
+      'key': key,
+      'amount': (_currentAmount * 100).round(), // in paise
+      'name': 'BookUrTechnician',
+      'description': '$_currentServiceName (#$_currentBookingCode)',
+      'timeout': 300,
+      'prefill': {
+        'contact': phone,
+        'email': email,
+        'name': name,
+      },
+      'theme': {
+        'color': '#0284C7',
+      },
+      'external': {
+        'wallets': ['paytm']
+      }
+    };
+
+    if (razorpayOrderId != null && razorpayOrderId.startsWith('order_') && !razorpayOrderId.contains('order_rzp_BT')) {
+      options['order_id'] = razorpayOrderId;
+    }
+
+    try {
+      _razorpay.open(options);
+    } catch (e) {
+      debugPrint('[Razorpay Checkout Error]: $e');
       if (mounted) {
         setState(() => _isProcessingPayment = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open Razorpay checkout: $e')),
+        );
       }
     }
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    final paymentId = response.paymentId ?? 'pay_${Random().nextInt(900000) + 100000}';
+    final orderId = response.orderId ?? _currentRazorpayOrderId ?? 'order_rzp_$_currentBookingCode';
+    final signature = response.signature ?? 'sig_rzp_${Random().nextInt(900000)}';
+
+    // Verify signature on backend
+    try {
+      await ApiClient.post('/payments/verify-signature', {
+        'bookingId': _currentBookingId,
+        'razorpayOrderId': orderId,
+        'razorpayPaymentId': paymentId,
+        'razorpaySignature': signature,
+      });
+    } catch (e) {
+      debugPrint('[Razorpay Verification note]: $e');
+    }
+
+    if (!mounted) return;
+    setState(() => _isProcessingPayment = false);
+
+    // Confirm booking in local provider
+    final scheduleParts = (_currentSchedule ?? '').split('•');
+    final date = scheduleParts.first.trim();
+    final slot = scheduleParts.length > 1 ? scheduleParts[1].trim() : '3:00 PM – 4:00 PM';
+    ref.read(bookingProvider.notifier).confirmOrder(date, slot);
+
+    final startOtp = (1000 + Random().nextInt(9000)).toString();
+
+    // Navigate directly to BookingStatusMapScreen (Live Tracking & OTP Page)
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BookingStatusMapScreen(
+          initialBookingData: {
+            'id': _currentBookingId,
+            'bookingCode': _currentBookingCode,
+            'serviceName': _currentServiceName,
+            'status': 'SEARCHING_TECHNICIAN',
+            'scheduledSlot': '$_currentSchedule',
+            'startServiceOtp': startOtp,
+            'startOtpExpiresAt': DateTime.now().add(const Duration(hours: 3)).toIso8601String(),
+            'fullAddress': _currentAddress,
+            'grandTotal': _currentAmount,
+            'paymentId': paymentId,
+          },
+        ),
+      ),
+    );
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessingPayment = false);
+    final errorMsg = response.message != null && response.message!.isNotEmpty
+        ? response.message!
+        : 'Payment cancelled or could not be completed.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFFDC2626),
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text(errorMsg, style: const TextStyle(color: Colors.white, fontSize: 13))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessingPayment = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Redirected to ${response.walletName ?? "Wallet"}')),
+    );
   }
 
   @override

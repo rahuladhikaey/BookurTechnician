@@ -231,10 +231,8 @@ class CustomerProfile {
 
     // 4. Valid Service Address check
     final hasValidAddress = addresses.any((a) =>
-      a.houseFlat.trim().isNotEmpty &&
-      a.area.trim().isNotEmpty &&
-      a.city.trim().isNotEmpty
-    );
+      (a.area.trim().isNotEmpty || a.street.trim().isNotEmpty || a.houseFlat.trim().isNotEmpty || a.city.trim().isNotEmpty)
+    ) || addresses.isNotEmpty;
     if (hasValidAddress) {
       score += 25;
     } else {

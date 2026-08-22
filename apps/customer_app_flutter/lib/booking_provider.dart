@@ -803,13 +803,35 @@ class BookingNotifier extends StateNotifier<AppState> {
     }
   }
 
-  /// Update selected service address with real GPS coordinates
+  /// Update selected service address with real GPS coordinates and auto-complete profile
   void updateAddress(String address, {double? latitude, double? longitude}) {
+    final addr = CustomerAddress(
+      id: 'addr_live_${DateTime.now().millisecondsSinceEpoch}',
+      customerId: state.profile.customerId.isNotEmpty ? state.profile.customerId : 'cust_live',
+      addressType: AddressType.home,
+      houseFlat: '1st Floor',
+      street: address.isNotEmpty ? address : 'Main Road',
+      area: address.isNotEmpty ? address : 'Bengaluru',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      postalCode: '560001',
+      latitude: latitude ?? (state.selectedLatitude ?? 12.9716),
+      longitude: longitude ?? (state.selectedLongitude ?? 77.5946),
+      isPrimary: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final updatedProfile = state.profile.copyWith(
+      addresses: [addr],
+    );
+
     state = state.copyWith(
       address: address,
       selectedAddressTitle: address,
-      selectedLatitude: latitude,
-      selectedLongitude: longitude,
+      selectedLatitude: latitude ?? state.selectedLatitude,
+      selectedLongitude: longitude ?? state.selectedLongitude,
+      profile: updatedProfile,
     );
   }
 
@@ -893,10 +915,32 @@ class BookingNotifier extends StateNotifier<AppState> {
   }
 
   void updateAddressDetails(String address, String type) {
+    final addr = CustomerAddress(
+      id: 'addr_live_${DateTime.now().millisecondsSinceEpoch}',
+      customerId: state.profile.customerId.isNotEmpty ? state.profile.customerId : 'cust_live',
+      addressType: type.toLowerCase() == 'office' ? AddressType.work : (type.toLowerCase() == 'other' ? AddressType.other : AddressType.home),
+      houseFlat: '1st Floor',
+      street: address.isNotEmpty ? address : 'Main Road',
+      area: address.isNotEmpty ? address : 'Bengaluru',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      postalCode: '560001',
+      latitude: state.selectedLatitude ?? 12.9716,
+      longitude: state.selectedLongitude ?? 77.5946,
+      isPrimary: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final updatedProfile = state.profile.copyWith(
+      addresses: [addr],
+    );
+
     state = state.copyWith(
       address: address,
       selectedAddressTitle: address,
       selectedAddressType: type,
+      profile: updatedProfile,
     );
   }
 

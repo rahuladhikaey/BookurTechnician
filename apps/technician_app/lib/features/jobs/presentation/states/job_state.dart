@@ -24,6 +24,13 @@ class JobState {
   final TechJob? proposedJob;
   final String? activeProposalId;
 
+  // Categorized Jobs Lists
+  final List<TechJob> allJobs;
+  final List<TechJob> todayJobs;
+  final List<TechJob> tomorrowJobs;
+  final List<TechJob> nextDayJobs;
+  final List<TechJob> completedJobs;
+
   JobState({
     this.activeJob,
     this.isLoading = false,
@@ -38,6 +45,11 @@ class JobState {
     this.jobAlertCountdown = 30,
     this.proposedJob,
     this.activeProposalId,
+    this.allJobs = const [],
+    this.todayJobs = const [],
+    this.tomorrowJobs = const [],
+    this.nextDayJobs = const [],
+    this.completedJobs = const [],
   });
 
   JobState copyWith({
@@ -54,6 +66,11 @@ class JobState {
     int? jobAlertCountdown,
     TechJob? proposedJob,
     String? activeProposalId,
+    List<TechJob>? allJobs,
+    List<TechJob>? todayJobs,
+    List<TechJob>? tomorrowJobs,
+    List<TechJob>? nextDayJobs,
+    List<TechJob>? completedJobs,
   }) {
     return JobState(
       activeJob: activeJob ?? this.activeJob,
@@ -69,6 +86,11 @@ class JobState {
       jobAlertCountdown: jobAlertCountdown ?? this.jobAlertCountdown,
       proposedJob: proposedJob ?? this.proposedJob,
       activeProposalId: activeProposalId ?? this.activeProposalId,
+      allJobs: allJobs ?? this.allJobs,
+      todayJobs: todayJobs ?? this.todayJobs,
+      tomorrowJobs: tomorrowJobs ?? this.tomorrowJobs,
+      nextDayJobs: nextDayJobs ?? this.nextDayJobs,
+      completedJobs: completedJobs ?? this.completedJobs,
     );
   }
 }
@@ -81,7 +103,9 @@ class JobStateNotifier extends StateNotifier<JobState> {
 
   JobStateNotifier({SecureStorage? storage})
       : _dioClient = DioClient(storage ?? SecureStorage()),
-        super(JobState());
+        super(JobState()) {
+    fetchAssignedJobs();
+  }
 
   @override
   void dispose() {
@@ -89,6 +113,108 @@ class JobStateNotifier extends StateNotifier<JobState> {
     _countdownTimer?.cancel();
     _proposalPollingTimer?.cancel();
     super.dispose();
+  }
+
+  // Fetch and categorize technician jobs from backend API
+  Future<void> fetchAssignedJobs() async {
+    try {
+      final response = await _dioClient.dio.get('/technician/jobs');
+      final list = response.data['data'] as List?;
+      if (list != null) {
+        final List<TechJob> mapped = [];
+        final now = DateTime.now();
+        final todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+        final tomorrow = now.add(const Duration(days: 1));
+        final tomorrowStr = "${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}";
+        final nextDay = now.add(const Duration(days: 2));
+        final nextDayStr = "${nextDay.year}-${nextDay.month.toString().padLeft(2, '0')}-${nextDay.day.toString().padLeft(2, '0')}";
+
+        for (final item in list) {
+          final m = item as Map<String, dynamic>;
+          final id = m['id']?.toString() ?? '';
+          final service = m['service'] as Map<String, dynamic>?;
+          final title = service?['name'] ?? 'Home Appliance Service';
+          final categoryName = service?['category']?['name'] ?? 'Appliance Repair';
+          final price = (m['technicianPayoutAmount'] as num?)?.toDouble() ?? (m['basePrice'] as num?)?.toDouble() ?? 450.0;
+          final customer = m['customer'] as Map<String, dynamic>?;
+          final customerName = customer?['fullName'] ?? 'Customer';
+          final customerPhone = customer?['phone'] ?? '';
+          final address = m['address'] as Map<String, dynamic>?;
+          final area = address != null
+              ? '${address['houseFlat'] ?? ''} ${address['street'] ?? ''} ${address['area'] ?? ''}, ${address['city'] ?? ''}'.trim()
+              : 'Customer Premise';
+          final lat = (address?['latitude'] as num?)?.toDouble();
+          final lng = (address?['longitude'] as num?)?.toDouble();
+          final rawStatus = m['status']?.toString() ?? 'ASSIGNED';
+          final scheduleDate = m['scheduleDate']?.toString() ?? todayStr;
+          final scheduleSlot = m['scheduleSlot']?.toString() ?? '10:00 AM - 11:00 AM';
+          final bookingCode = m['bookingCode']?.toString() ?? 'BT-${id.length > 6 ? id.substring(0, 6) : id}';
+
+          TechJobStatus status = TechJobStatus.accepted;
+          if (rawStatus == 'ON_THE_WAY' || rawStatus == 'EN_ROUTE') {
+            status = TechJobStatus.onTheWay;
+          } else if (rawStatus == 'ARRIVED') {
+            status = TechJobStatus.arrived;
+          } else if (rawStatus == 'WORK_STARTED' || rawStatus == 'IN_PROGRESS') {
+            status = TechJobStatus.serviceStarted;
+          } else if (rawStatus == 'COMPLETED') {
+            status = TechJobStatus.completed;
+          }
+
+          mapped.add(TechJob(
+            id: id,
+            title: title,
+            price: price,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            customerAddress: area,
+            customerLatitude: lat,
+            customerLongitude: lng,
+            status: status,
+            scheduleDate: scheduleDate,
+            scheduleSlot: scheduleSlot,
+            bookingCode: bookingCode,
+            categoryName: categoryName,
+          ));
+        }
+
+        final todayList = mapped.where((j) {
+          if (j.status == TechJobStatus.completed) return false;
+          final d = j.scheduleDate ?? '';
+          return d.contains(todayStr) || d.toLowerCase().contains('today') || d.isEmpty;
+        }).toList();
+
+        final tomorrowList = mapped.where((j) {
+          if (j.status == TechJobStatus.completed) return false;
+          final d = j.scheduleDate ?? '';
+          return d.contains(tomorrowStr) || d.toLowerCase().contains('tomorrow');
+        }).toList();
+
+        final nextDayList = mapped.where((j) {
+          if (j.status == TechJobStatus.completed) return false;
+          final d = j.scheduleDate ?? '';
+          return d.contains(nextDayStr) || d.toLowerCase().contains('day after') || (!todayList.contains(j) && !tomorrowList.contains(j));
+        }).toList();
+
+        final completedList = mapped.where((j) => j.status == TechJobStatus.completed).toList();
+
+        TechJob? active = state.activeJob;
+        if (active == null && todayList.isNotEmpty) {
+          active = todayList.first;
+        }
+
+        state = state.copyWith(
+          allJobs: mapped,
+          todayJobs: todayList,
+          tomorrowJobs: tomorrowList,
+          nextDayJobs: nextDayList,
+          completedJobs: completedList,
+          activeJob: active,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching assigned technician jobs: $e');
+    }
   }
 
   // Toggle Shift online/offline
@@ -136,6 +262,7 @@ class JobStateNotifier extends StateNotifier<JobState> {
         });
 
         _startProposalPolling();
+        await fetchAssignedJobs();
         state = state.copyWith(isLoading: false, isShiftOnline: true, errorMessage: null);
       } else {
         // Going offline
@@ -165,7 +292,7 @@ class JobStateNotifier extends StateNotifier<JobState> {
 
   void _startProposalPolling() {
     _proposalPollingTimer?.cancel();
-    _proposalPollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _proposalPollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       _fetchPendingProposals();
     });
     _fetchPendingProposals();
@@ -179,7 +306,7 @@ class JobStateNotifier extends StateNotifier<JobState> {
   }
 
   Future<void> _fetchPendingProposals() async {
-    if (!state.isShiftOnline || state.activeJob != null) return;
+    if (!state.isShiftOnline) return;
 
     try {
       final response = await _dioClient.dio.get('/dispatch/proposals/pending');
@@ -188,62 +315,26 @@ class JobStateNotifier extends StateNotifier<JobState> {
       if (data != null && data.isNotEmpty) {
         final first = data.first as Map<String, dynamic>;
         final String proposalId = first['id'];
-        final booking = first['booking'] as Map<String, dynamic>?;
 
-        if (booking != null && state.activeProposalId != proposalId) {
-          final String bookingId = booking['id'];
-          final String bookingCode = booking['bookingCode'] ?? 'BT-REQ';
-          final service = booking['service'] as Map<String, dynamic>?;
-          final address = booking['address'] as Map<String, dynamic>?;
-          final String title = service?['name'] ?? 'Home Appliance Repair';
-          final double price = (first['estimatedEarnings'] != null)
-              ? (first['estimatedEarnings'] as num).toDouble()
-              : (booking['technicianPayoutAmount'] as num?)?.toDouble() ?? 450.0;
-          final String area = address != null ? '${address['area'] ?? ''}, ${address['city'] ?? ''}' : 'Customer Location';
-          double? custLat = (address?['latitude'] as num?)?.toDouble();
-          double? custLng = (address?['longitude'] as num?)?.toDouble();
+        // Auto-assign directly (Delete accept/reject countdown concept)
+        try {
+          await _dioClient.dio.post('/dispatch/proposals/$proposalId/accept');
+        } catch (_) {}
 
-          final proposedJob = TechJob(
-            id: bookingId,
-            title: '$title ($bookingCode)',
-            price: price,
-            customerName: booking['customer']?['fullName'] ?? 'Customer',
-            customerAddress: area,
-            customerLatitude: custLat,
-            customerLongitude: custLng,
-            status: TechJobStatus.accepted,
-          );
-
-          state = state.copyWith(
-            showJobAlert: true,
-            proposedJob: proposedJob,
-            activeProposalId: proposalId,
-            jobAlertCountdown: 30,
-          );
-
-          _startCountdownTimer();
-        }
+        await fetchAssignedJobs();
+      } else {
+        // Periodic sync of assigned jobs
+        await fetchAssignedJobs();
       }
     } catch (e) {
       debugPrint('Error polling proposals: $e');
     }
   }
 
-  void _startCountdownTimer() {
-    _countdownTimer?.cancel();
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (state.jobAlertCountdown <= 1) {
-        timer.cancel();
-        state = state.copyWith(showJobAlert: false, proposedJob: null, activeProposalId: null);
-      } else {
-        state = state.copyWith(jobAlertCountdown: state.jobAlertCountdown - 1);
-      }
-    });
-  }
-
   void acceptJob(String id, String title, double price, String name, String address) {
-    state = state.copyWith(
-      activeJob: TechJob(
+    final target = state.allJobs.firstWhere(
+      (j) => j.id == id,
+      orElse: () => TechJob(
         id: id,
         title: title,
         price: price,
@@ -252,6 +343,7 @@ class JobStateNotifier extends StateNotifier<JobState> {
         status: TechJobStatus.accepted,
       ),
     );
+    state = state.copyWith(activeJob: target);
   }
 
   Future<void> acceptProposedJob() async {

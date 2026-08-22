@@ -9,6 +9,9 @@ import 'notifications_tab.dart';
 import 'my_skills_page.dart';
 import 'job_execution_screen.dart';
 
+import '../../jobs/presentation/states/job_state.dart';
+import '../../jobs/presentation/job_details_page.dart';
+
 class PartnerHomeScreen extends ConsumerStatefulWidget {
   final ValueChanged<int>? onNavigateTab;
 
@@ -28,6 +31,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
     _fetchSkillProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(dashboardProvider.notifier).fetchAndUpdateLocation();
+      ref.read(jobStateProvider.notifier).fetchAssignedJobs();
     });
   }
 
@@ -39,9 +43,6 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
       });
     }
   }
-
-  // Real dynamic schedule jobs list
-  final List<Map<String, dynamic>> _scheduleJobs = [];
 
   Future<void> _launchMaps(String destination) async {
     final query = Uri.encodeComponent(destination);
@@ -951,15 +952,18 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
 
   // ─── 5. Today's Schedule (Upcoming Jobs List) ──────────────────────────────
   Widget _buildTodayScheduleSection(BuildContext context, DashboardNotifier notifier) {
+    final jobState = ref.watch(jobStateProvider);
+    final todayJobs = jobState.todayJobs;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              "Today's Schedule",
-              style: TextStyle(
+            Text(
+              "Today's Schedule (${todayJobs.length})",
+              style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF0F172A),
@@ -983,7 +987,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        if (_scheduleJobs.isEmpty)
+        if (todayJobs.isEmpty)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -1007,7 +1011,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'New customer bookings will appear here in real-time.',
+                    'New customer bookings within 15km will be assigned automatically.',
                     style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                   ),
                 ],
@@ -1018,116 +1022,141 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _scheduleJobs.length,
+            itemCount: todayJobs.length,
             separatorBuilder: (context, index) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
-              final job = _scheduleJobs[index];
-              return Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+              final job = todayJobs[index];
+              return InkWell(
+                onTap: () {
+                  ref.read(jobStateProvider.notifier).acceptJob(
+                        job.id,
+                        job.title,
+                        job.price,
+                        job.customerName,
+                        job.customerAddress,
+                      );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => JobDetailsPage(bookingId: job.id),
                     ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Service Icon Box
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(10),
+                  );
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFBFDBFE), width: 1.2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
-                      child: const Icon(
-                        Icons.build_circle_outlined,
-                        color: Color(0xFF1E3A8A),
-                        size: 24,
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Service Icon Box
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.build_circle_outlined,
+                          color: Color(0xFF1E3A8A),
+                          size: 26,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
+                      const SizedBox(width: 12),
 
-                    // Middle Content: Title, Time slot, Address snippet
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            job['title'] ?? 'Service Job',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
+                      // Middle Content: Title, Time slot, Address snippet
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              job.title,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 3),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.access_time_rounded,
-                                size: 13,
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.access_time_rounded,
+                                  size: 13,
+                                  color: Color(0xFF1E3A8A),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  job.scheduleSlot ?? 'Standard Slot',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1E3A8A),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              job.customerAddress,
+                              style: const TextStyle(
+                                fontSize: 11.5,
                                 color: Color(0xFF64748B),
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                job['timeSlot'] ?? '',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            job['address'] ?? '',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF94A3B8),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Expected Payout aligned to the right + Start Button
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₹${job.price.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF059669),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'Start →',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF1E3A8A),
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Expected Payout aligned to the right
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '₹${(job['payout'] ?? 0.0).toString()}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF10B981),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          job['distance'] ?? '',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },

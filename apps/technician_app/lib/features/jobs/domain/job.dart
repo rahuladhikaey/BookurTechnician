@@ -25,6 +25,11 @@ class TechJob {
   final double? techLatitude;
   final double? techLongitude;
   final int? currentPathIndex;
+  final String? scheduleDate;
+  final String? scheduleSlot;
+  final String? customerPhone;
+  final String? bookingCode;
+  final String? categoryName;
 
   TechJob({
     required this.id,
@@ -41,6 +46,11 @@ class TechJob {
     this.techLatitude,
     this.techLongitude,
     this.currentPathIndex,
+    this.scheduleDate,
+    this.scheduleSlot,
+    this.customerPhone,
+    this.bookingCode,
+    this.categoryName,
   });
 
   TechJob copyWith({
@@ -58,6 +68,11 @@ class TechJob {
     double? techLatitude,
     double? techLongitude,
     int? currentPathIndex,
+    String? scheduleDate,
+    String? scheduleSlot,
+    String? customerPhone,
+    String? bookingCode,
+    String? categoryName,
   }) {
     return TechJob(
       id: id ?? this.id,
@@ -74,6 +89,11 @@ class TechJob {
       techLatitude: techLatitude ?? this.techLatitude,
       techLongitude: techLongitude ?? this.techLongitude,
       currentPathIndex: currentPathIndex ?? this.currentPathIndex,
+      scheduleDate: scheduleDate ?? this.scheduleDate,
+      scheduleSlot: scheduleSlot ?? this.scheduleSlot,
+      customerPhone: customerPhone ?? this.customerPhone,
+      bookingCode: bookingCode ?? this.bookingCode,
+      categoryName: categoryName ?? this.categoryName,
     );
   }
 }

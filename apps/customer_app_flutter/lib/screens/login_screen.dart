@@ -15,6 +15,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   int _selectedMode = 0; // 0 = Registered Email Log In, 1 = New Customer Registration
+  final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   bool _isLoading = false;
@@ -23,14 +24,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    _nameCtrl.addListener(_validateInputs);
     _phoneCtrl.addListener(_validateInputs);
     _emailCtrl.addListener(_validateInputs);
   }
 
   @override
   void dispose() {
+    _nameCtrl.removeListener(_validateInputs);
     _phoneCtrl.removeListener(_validateInputs);
     _emailCtrl.removeListener(_validateInputs);
+    _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
     super.dispose();
@@ -46,9 +50,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // Log In mode: only requires registered email
       valid = isEmailValid;
     } else {
-      // Register mode: requires both 10-digit phone and valid email
+      // Register mode: requires full name, 10-digit phone and valid email
       final phone = _phoneCtrl.text.trim();
-      valid = phone.length == 10 && isEmailValid;
+      final name = _nameCtrl.text.trim();
+      valid = name.isNotEmpty && phone.length == 10 && isEmailValid;
     }
 
     if (valid != _isValid) {
@@ -61,6 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _sendOtp() async {
     if (!_isValid) return;
 
+    final name = _nameCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final isRegister = _selectedMode == 1;
@@ -75,8 +81,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         'email': email,
         'purpose': purpose,
       };
-      if (isRegister && phone.isNotEmpty) {
-        payload['phone'] = phone;
+      if (isRegister) {
+        if (phone.isNotEmpty) payload['phone'] = phone;
+        if (name.isNotEmpty) payload['fullName'] = name;
       }
 
       final response = await ApiClient.post('/auth/request-otp', payload);
@@ -99,6 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               builder: (context) => OtpScreen(
                 phoneNumber: isRegister ? phone : '',
                 emailAddress: email,
+                fullName: isRegister ? name : '',
               ),
             ),
           );
@@ -133,6 +141,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               builder: (context) => OtpScreen(
                 phoneNumber: isRegister ? phone : '',
                 emailAddress: email,
+                fullName: isRegister ? name : '',
               ),
             ),
           );
@@ -155,6 +164,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             builder: (context) => OtpScreen(
               phoneNumber: isRegister ? phone : '',
               emailAddress: email,
+              fullName: isRegister ? name : '',
             ),
           ),
         );
@@ -451,6 +461,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         if (_selectedMode == 1) ...[
                           const SizedBox(height: 16),
 
+                          // Full Name Input Field (For Registration)
+                          const Text(
+                            'Full Name',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFE4E7EC)),
+                            ),
+                            child: TextField(
+                              controller: _nameCtrl,
+                              textCapitalization: TextCapitalization.words,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF111827),
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: 'Enter your full name',
+                                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.normal),
+                                prefixIcon: Icon(Icons.person_outline, color: Color(0xFF64748B), size: 20),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                border: InputBorder.none,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
                           // Mobile Number Input Field (For Registration)
                           const Text(
                             'Mobile Number',
@@ -679,11 +724,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 class OtpScreen extends ConsumerStatefulWidget {
   final String phoneNumber;
   final String emailAddress;
+  final String fullName;
 
   const OtpScreen({
     super.key,
     required this.phoneNumber,
     required this.emailAddress,
+    this.fullName = '',
   });
 
   @override
@@ -752,6 +799,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       if (widget.phoneNumber.trim().isNotEmpty) {
         payload['phone'] = widget.phoneNumber.trim();
       }
+      if (widget.fullName.trim().isNotEmpty) {
+        payload['fullName'] = widget.fullName.trim();
+      }
 
       final response = await ApiClient.post('/auth/verify-otp', payload);
 
@@ -770,8 +820,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               await ApiClient.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
             }
 
+            final resolvedName = user?['fullName'] ?? (widget.fullName.isNotEmpty ? widget.fullName : (widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'Customer'));
+
             ref.read(bookingProvider.notifier).loginUser(
-              name: user?['fullName'] ?? (widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'User'),
+              name: resolvedName,
               phone: user?['phone'] ?? widget.phoneNumber,
               email: user?['email'] ?? widget.emailAddress,
               userId: user?['id']?.toString(),
@@ -779,19 +831,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
               refreshToken: refreshToken,
             );
 
-            final profileCompleted = user?['profileCompleted'] == true;
             if (!mounted) return;
-            if (profileCompleted) {
-              Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-            } else {
-              Navigator.pushNamedAndRemoveUntil(context, '/profile_completion_wizard', (route) => false);
-            }
+            Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
             return;
           }
         }
 
         // If backend returned non-200 or is sleeping, allow offline/fallback sign in
-        final fallbackName = widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'Customer';
+        final fallbackName = widget.fullName.isNotEmpty ? widget.fullName : (widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'Customer');
         ref.read(bookingProvider.notifier).loginUser(
           name: fallbackName,
           phone: widget.phoneNumber.isNotEmpty ? widget.phoneNumber : '+91 9883637054',
@@ -800,7 +847,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         );
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('🎉 Verification successful! Welcome to BookUrTechnician.')),
+          const SnackBar(content: Text('🎉 Signed in successfully!')),
         );
         Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
       }
@@ -808,7 +855,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       setState(() => _isVerifying = false);
       if (mounted) {
         // Fallback login when server is offline
-        final fallbackName = widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'Customer';
+        final fallbackName = widget.fullName.isNotEmpty ? widget.fullName : (widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'Customer');
         ref.read(bookingProvider.notifier).loginUser(
           name: fallbackName,
           phone: widget.phoneNumber.isNotEmpty ? widget.phoneNumber : '+91 9883637054',
@@ -817,7 +864,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         );
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('🎉 Verified! Welcome to BookUrTechnician.')),
+          const SnackBar(content: Text('🎉 Signed in successfully!')),
         );
         Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
       }

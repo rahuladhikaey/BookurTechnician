@@ -5,19 +5,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class LeadAlertDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> leadData;
   final VoidCallback onAccept;
-  final VoidCallback onDecline;
+  final VoidCallback? onDecline;
 
   const LeadAlertDialog({
     super.key,
     required this.leadData,
     required this.onAccept,
-    required this.onDecline,
+    this.onDecline,
   });
 
-  static Future<bool?> show(BuildContext context, Map<String, dynamic> leadData, {required VoidCallback onAccept, required VoidCallback onDecline}) {
+  static Future<bool?> show(BuildContext context, Map<String, dynamic> leadData, {required VoidCallback onAccept, VoidCallback? onDecline}) {
     return showDialog<bool>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (_) => LeadAlertDialog(
         leadData: leadData,
         onAccept: onAccept,
@@ -30,44 +30,12 @@ class LeadAlertDialog extends ConsumerStatefulWidget {
   ConsumerState<LeadAlertDialog> createState() => _LeadAlertDialogState();
 }
 
-class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> with SingleTickerProviderStateMixin {
-  int _remainingSeconds = 45;
-  Timer? _timer;
-  late AnimationController _animCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _animCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 45),
-    )..forward();
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_remainingSeconds > 1) {
-        setState(() => _remainingSeconds--);
-      } else {
-        t.cancel();
-        if (mounted) {
-          Navigator.pop(context, false);
-          widget.onDecline();
-        }
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _animCtrl.dispose();
-    super.dispose();
-  }
-
+class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> {
   @override
   Widget build(BuildContext context) {
     final title = widget.leadData['title'] ?? widget.leadData['serviceType'] ?? 'New Service Request';
     final address = widget.leadData['customerAddress'] ?? widget.leadData['address'] ?? 'Customer Premise';
-    final distance = widget.leadData['distanceKm'] != null ? '${widget.leadData['distanceKm']} km away' : (widget.leadData['distance'] ?? '2.4 km away');
+    final distance = widget.leadData['distanceKm'] != null ? '${widget.leadData['distanceKm']} km away' : (widget.leadData['distance'] ?? 'Nearby Customer');
     final payout = widget.leadData['payoutAmount'] != null ? '₹${widget.leadData['payoutAmount']}' : (widget.leadData['payout'] != null ? '₹${widget.leadData['payout']}' : '₹450');
     final slot = widget.leadData['scheduledSlot'] ?? '1 Hour Service Window';
 
@@ -85,52 +53,38 @@ class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> with SingleTi
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Top Badge & Countdown Progress Ring
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 76,
-                  height: 76,
-                  child: AnimatedBuilder(
-                    animation: _animCtrl,
-                    builder: (context, child) {
-                      return CircularProgressIndicator(
-                        value: 1.0 - _animCtrl.value,
-                        strokeWidth: 5,
-                        backgroundColor: const Color(0xFFE2E8F0),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          _remainingSeconds < 15 ? const Color(0xFFDC2626) : const Color(0xFF1E3A8A),
-                        ),
-                      );
-                    },
-                  ),
+            // Top Badge Icon
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF93C5FD), width: 2),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.assignment_turned_in_rounded,
+                  color: Color(0xFF1E3A8A),
+                  size: 34,
                 ),
-                Text(
-                  '${_remainingSeconds}s',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: _remainingSeconds < 15 ? const Color(0xFFDC2626) : const Color(0xFF1E3A8A),
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Incoming Lead Title
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: const Color(0xFFECFDF5),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
-                '⚡ NEW 15KM LEAD REQUEST',
+                '🎯 NEW JOB AUTO-ASSIGNED (15KM RADAR)',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E3A8A),
+                  color: Color(0xFF059669),
                   letterSpacing: 0.5,
                 ),
               ),
@@ -217,49 +171,35 @@ class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> with SingleTi
               ),
             ),
 
-            const SizedBox(height: 22),
+            const SizedBox(height: 20),
 
-            // Action Buttons (Decline / Accept)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(context, false);
-                      widget.onDecline();
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text(
-                      'Decline',
-                      style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF64748B)),
-                    ),
-                  ),
+            // Direct Open Job Action Button (Auto-Assigned)
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context, true);
+                  widget.onAccept();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A8A),
+                  foregroundColor: Colors.white,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context, true);
-                      widget.onAccept();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E3A8A),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.navigation_rounded, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'OPEN WORK DETAILS / START',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.3),
                     ),
-                    child: const Text(
-                      'Accept Lead',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ],
         ),

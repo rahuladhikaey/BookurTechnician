@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_radius.dart';
-import '../../../core/theme/semantic_colors.dart';
 import '../domain/job.dart';
 import 'states/job_state.dart';
 import 'job_details_page.dart';
@@ -22,6 +19,9 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(jobStateProvider.notifier).fetchAssignedJobs();
+    });
   }
 
   @override
@@ -30,209 +30,328 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
     super.dispose();
   }
 
-  List<Map<String, dynamic>> _getJobsForStatus(String tabName) {
-    return const [];
-  }
-
   @override
   Widget build(BuildContext context) {
     final jobState = ref.watch(jobStateProvider);
-    final activeJob = jobState.activeJob;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('My Bookings Log'),
+        title: const Text(
+          'My Bookings Log',
+          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
-          indicatorColor: AppColors.primary,
-          tabs: const [
-            Tab(text: 'Active'),
-            Tab(text: 'Upcoming'),
-            Tab(text: 'Completed'),
-            Tab(text: 'Cancelled'),
+          labelColor: const Color(0xFF1E3A8A),
+          unselectedLabelColor: const Color(0xFF64748B),
+          indicatorColor: const Color(0xFF1E3A8A),
+          indicatorWeight: 3,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          tabs: [
+            Tab(text: 'Today (${jobState.todayJobs.length})'),
+            Tab(text: 'Tomorrow (${jobState.tomorrowJobs.length})'),
+            Tab(text: 'Day After (${jobState.nextDayJobs.length})'),
+            Tab(text: 'History (${jobState.completedJobs.length})'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          // tab 1: Active
-          _buildActiveTab(activeJob),
+          // Tab 1: Today
+          _buildJobsList(
+            jobs: jobState.todayJobs,
+            emptyTitle: 'No assigned jobs for Today',
+            emptySubtitle: 'New 15km work requests will be automatically assigned to you when online.',
+            isTodayTab: true,
+          ),
 
-          // tab 2: Upcoming
-          _buildStaticListTab('Upcoming'),
+          // Tab 2: Tomorrow
+          _buildJobsList(
+            jobs: jobState.tomorrowJobs,
+            emptyTitle: 'No bookings for Tomorrow',
+            emptySubtitle: 'Advance customer scheduled bookings for tomorrow will appear here.',
+            isTodayTab: false,
+          ),
 
-          // tab 3: Completed
-          _buildStaticListTab('Completed'),
+          // Tab 3: Day After
+          _buildJobsList(
+            jobs: jobState.nextDayJobs,
+            emptyTitle: 'No bookings for Day After',
+            emptySubtitle: 'Advance bookings for upcoming days will be listed here.',
+            isTodayTab: false,
+          ),
 
-          // tab 4: Cancelled
-          _buildStaticListTab('Cancelled'),
+          // Tab 4: History / Completed
+          _buildJobsList(
+            jobs: jobState.completedJobs,
+            emptyTitle: 'No completed job history',
+            emptySubtitle: 'Your completed work history and payout summaries will show here.',
+            isTodayTab: false,
+            isHistoryTab: true,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildActiveTab(TechJob? activeJob) {
-    if (activeJob == null || activeJob.status == TechJobStatus.completed) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(AppSpacing.l),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.work_history, size: 64, color: AppColors.textSecondary),
-              SizedBox(height: AppSpacing.s),
-              Text(
-                'No active accepted job in progress.',
-                style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-              ),
-              SizedBox(height: AppSpacing.xxs),
-              Text(
-                'Switch your availability to ONLINE on the Home screen to receive new job dispatch proposals.',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.m),
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.m),
-          side: const BorderSide(color: AppColors.primary, width: 1.5),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.m),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: AppRadius.round,
-                    ),
-                    child: Text(
-                      'ACTIVE: ${activeJob.status.name.toUpperCase()}',
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+  Widget _buildJobsList({
+    required List<TechJob> jobs,
+    required String emptyTitle,
+    required String emptySubtitle,
+    bool isTodayTab = false,
+    bool isHistoryTab = false,
+  }) {
+    return RefreshIndicator(
+      color: const Color(0xFF1E3A8A),
+      onRefresh: () async {
+        await ref.read(jobStateProvider.notifier).fetchAssignedJobs();
+      },
+      child: jobs.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.l),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 38,
+                            color: Color(0xFF1E3A8A),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.m),
+                        Text(
+                          emptyTitle,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            emptySubtitle,
+                            style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ),
+              ],
+            )
+          : ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              itemCount: jobs.length,
+              itemBuilder: (context, index) {
+                final job = jobs[index];
+                return _buildJobCard(job, isTodayTab: isTodayTab, isHistoryTab: isHistoryTab);
+              },
+            ),
+    );
+  }
+
+  Widget _buildJobCard(TechJob job, {bool isTodayTab = false, bool isHistoryTab = false}) {
+    final statusColor = isHistoryTab
+        ? const Color(0xFF059669)
+        : isTodayTab
+            ? const Color(0xFF1E3A8A)
+            : const Color(0xFFD97706);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isTodayTab ? const Color(0xFFBFDBFE) : const Color(0xFFE2E8F0),
+          width: isTodayTab ? 1.5 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E3A8A).withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Header: Booking Code + Price
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    job.bookingCode ?? 'BOOKING #${job.id.length > 6 ? job.id.substring(0, 6) : job.id}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: statusColor,
+                    ),
+                  ),
+                ),
+                Text(
+                  '₹${job.price.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF059669),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Service Title
+            Text(
+              job.title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Customer Name & Phone
+            Row(
+              children: [
+                const Icon(Icons.person_rounded, size: 15, color: Color(0xFF64748B)),
+                const SizedBox(width: 5),
+                Text(
+                  job.customerName,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                ),
+                if (job.customerPhone != null && job.customerPhone!.isNotEmpty) ...[
+                  const SizedBox(width: 8),
                   Text(
-                    '₹${activeJob.price.toStringAsFixed(0)}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: SemanticColors.success),
+                    '(${job.customerPhone})',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 4),
+
+            // Address
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(Icons.location_on_rounded, size: 15, color: Color(0xFFEF4444)),
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    job.customerAddress,
+                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), height: 1.3),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
+            // Schedule Slot
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.access_time_filled_rounded, size: 14, color: Color(0xFF1E3A8A)),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Slot: ${job.scheduleSlot ?? "Standard Window"}',
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF1E3A8A)),
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.s),
-              Text(activeJob.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('Customer: ${activeJob.customerName}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              const SizedBox(height: 2),
-              Text('Address: ${activeJob.customerAddress}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-              const SizedBox(height: AppSpacing.m),
-              ElevatedButton(
+            ),
+            const SizedBox(height: 14),
+
+            // Action Button
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
                 onPressed: () {
+                  ref.read(jobStateProvider.notifier).acceptJob(
+                        job.id,
+                        job.title,
+                        job.price,
+                        job.customerName,
+                        job.customerAddress,
+                      );
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => JobDetailsPage(bookingId: activeJob.id),
+                      builder: (context) => JobDetailsPage(bookingId: job.id),
                     ),
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.black,
-                  minimumSize: const Size(double.infinity, 44),
-                  shape: const RoundedRectangleBorder(borderRadius: AppRadius.small),
+                  backgroundColor: isHistoryTab ? const Color(0xFF334155) : const Color(0xFF1E3A8A),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: const Text('TRACK ACTIVE JOB TIMELINE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isHistoryTab ? Icons.receipt_long_rounded : Icons.navigation_rounded,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isHistoryTab
+                          ? 'VIEW COMPLETED WORK SUMMARY'
+                          : isTodayTab
+                              ? 'TRACK & START TODAY WORK →'
+                              : 'VIEW WORK DETAILS & SCHEDULE',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, letterSpacing: 0.3),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildStaticListTab(String tabName) {
-    final jobs = _getJobsForStatus(tabName);
-    if (jobs.isEmpty) {
-      return const Center(child: Text('No bookings in this category.'));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(AppSpacing.m),
-      itemCount: jobs.length,
-      itemBuilder: (context, index) {
-        final job = jobs[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: AppSpacing.s),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.m),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('ID: ${job['id']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                    Text(
-                      '₹${job['price'].toStringAsFixed(0)}',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(job['title'], style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                Text('Client: ${job['customerName']}', style: const TextStyle(fontSize: 12)),
-                Text('Address: ${job['customerAddress']}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                const SizedBox(height: AppSpacing.s),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Scheduled: ${job['date']} | ${job['timeSlot']}',
-                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                    ),
-                    if (tabName == 'Upcoming')
-                      ElevatedButton(
-                        onPressed: () {
-                          ref.read(jobStateProvider.notifier).acceptJob(
-                            job['id'],
-                            job['title'],
-                            job['price'],
-                            job['customerName'],
-                            job['customerAddress'],
-                          );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Accepted Job #${job['id']}! Navigate from Home tab.')),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: SemanticColors.success,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text('Start Work', style: TextStyle(color: Colors.white, fontSize: 11)),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 }
