@@ -10,6 +10,9 @@ const getInitialBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL !== '/api/v1') {
     return import.meta.env.VITE_API_BASE_URL;
   }
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:8080/api/v1';
+  }
   return PRIMARY_API_BASE_URL;
 };
 
@@ -175,6 +178,11 @@ class ApiClient {
 
   getTechnicians(params) { return this.get('/admin/technicians', params); }
   getOnlineTechnicians() { return this.get('/admin/technicians/online'); }
+  getTechnicianDocuments(id) { return this.get(`/admin/technicians/${id}/documents`); }
+  getTechnicianSkills(techId) { return this.get(`/technician/skills/technician/${techId}`); }
+  verifyTechnicianSkill(technicianSkillId, status, rejectionReason = '') {
+    return this.post(`/technician/skills/admin/${technicianSkillId}/verify`, { status, rejectionReason });
+  }
   updateKyc(id, status, reason = '') { return this.patch(`/admin/technicians/${id}/kyc`, { status, reason }); }
   updateTechnicianStatus(id, status) { return this.patch(`/admin/technicians/${id}/status`, { status }); }
 

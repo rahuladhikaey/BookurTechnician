@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import api from '../../api/apiClient';
 
 const STATUS_LIFECYCLE = [
   'PENDING',
@@ -11,7 +12,7 @@ const STATUS_LIFECYCLE = [
   'COMPLETED'
 ];
 
-export default function BookingsManager({ bookings, setBookings, technicians, auditLogAction, subTab = 'all' }) {
+export default function BookingsManager({ bookings, setBookings, technicians, auditLogAction, subTab = 'all', onReload }) {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -52,52 +53,71 @@ export default function BookingsManager({ bookings, setBookings, technicians, au
     };
   };
 
-  const handleUpdateStatus = (bookingId, newStatus) => {
-    const old = bookings.find(b => b.id === bookingId);
-    setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: newStatus } : b));
-    auditLogAction?.('Bookings', `Updated status of ${bookingId} from ${old?.status} to ${newStatus}`);
-    if (selectedBooking && selectedBooking.id === bookingId) {
-      setSelectedBooking(prev => ({ ...prev, status: newStatus }));
+  const handleUpdateStatus = async (bookingId, newStatus) => {
+    try {
+      await api.updateBookingStatus(bookingId, newStatus);
+      const old = bookings.find(b => b.id === bookingId);
+      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: newStatus } : b));
+      auditLogAction?.('Bookings', `Updated status of ${bookingId} from ${old?.status} to ${newStatus}`);
+      if (selectedBooking && selectedBooking.id === bookingId) {
+        setSelectedBooking(prev => ({ ...prev, status: newStatus }));
+      }
+      onReload?.();
+    } catch (err) {
+      alert('Failed to update booking status in database: ' + err.message);
     }
   };
 
-  const handleReassignTechnician = (bookingId) => {
+  const handleReassignTechnician = async (bookingId) => {
     if (!selectedNewTech) return;
     const techObj = technicians.find(t => t.id === selectedNewTech || t.name === selectedNewTech);
-    const techName = techObj ? techObj.name : selectedNewTech;
+    const techId = techObj ? techObj.id : selectedNewTech;
+    const techName = techObj ? (techObj.fullName || techObj.name) : selectedNewTech;
 
-    setBookings(prev => prev.map(b => b.id === bookingId ? {
-      ...b,
-      technician: techName,
-      status: 'TECHNICIAN_ASSIGNED'
-    } : b));
+    try {
+      await api.assignBooking(bookingId, techId);
+      setBookings(prev => prev.map(b => b.id === bookingId ? {
+        ...b,
+        technician: techName,
+        status: 'TECHNICIAN_ASSIGNED'
+      } : b));
 
-    auditLogAction?.('Bookings', `Reassigned booking ${bookingId} to technician ${techName}`);
-    setReassignTechModal(false);
-    if (selectedBooking) {
-      setSelectedBooking(prev => ({ ...prev, technician: techName, status: 'TECHNICIAN_ASSIGNED' }));
+      auditLogAction?.('Bookings', `Reassigned booking ${bookingId} to technician ${techName}`);
+      setReassignTechModal(false);
+      if (selectedBooking) {
+        setSelectedBooking(prev => ({ ...prev, technician: techName, status: 'TECHNICIAN_ASSIGNED' }));
+      }
+      onReload?.();
+    } catch (err) {
+      alert('Failed to assign technician in database: ' + err.message);
     }
   };
 
-  const handleCancelBooking = (bookingId) => {
+  const handleCancelBooking = async (bookingId) => {
     const pricing = calculatePricing(selectedBooking?.price || 1899);
     const refundableAmount = pricing.serviceCost;
     
-    setBookings(prev => prev.map(b => b.id === bookingId ? {
-      ...b,
-      status: 'CANCELLED',
-      refundStatus: 'ELIGIBLE',
-      refundableAmount,
-      cancellationReason: 'Cancelled by Operations Admin'
-    } : b));
+    try {
+      await api.cancelBooking(bookingId, 'Cancelled by Operations Admin');
+      setBookings(prev => prev.map(b => b.id === bookingId ? {
+        ...b,
+        status: 'CANCELLED',
+        refundStatus: 'ELIGIBLE',
+        refundableAmount,
+        cancellationReason: 'Cancelled by Operations Admin'
+      } : b));
 
-    auditLogAction?.(
-      'Bookings',
-      `Cancelled booking ${bookingId}. Auto-computed eligible refund of ₹${refundableAmount.toFixed(2)}`
-    );
+      auditLogAction?.(
+        'Bookings',
+        `Cancelled booking ${bookingId}. Auto-computed eligible refund of ₹${refundableAmount.toFixed(2)}`
+      );
 
-    if (selectedBooking) {
-      setSelectedBooking(prev => ({ ...prev, status: 'CANCELLED', refundStatus: 'ELIGIBLE' }));
+      if (selectedBooking) {
+        setSelectedBooking(prev => ({ ...prev, status: 'CANCELLED', refundStatus: 'ELIGIBLE' }));
+      }
+      onReload?.();
+    } catch (err) {
+      alert('Failed to cancel booking: ' + err.message);
     }
   };
 

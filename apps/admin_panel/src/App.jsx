@@ -132,6 +132,17 @@ export default function App() {
     }
   }, [loadAllAdminData]);
 
+  // Periodic 10-second background polling to keep bookings, technicians, and stats synced with PostgreSQL
+  useEffect(() => {
+    if (!adminUser) return;
+    const interval = setInterval(() => {
+      api.getStats().then(res => { if (res?.data) setStats(res.data); }).catch(() => {});
+      api.getBookings().then(res => { if (res?.data) setBookings(res.data); }).catch(() => {});
+      api.getTechnicians().then(res => { if (res?.data) setTechnicians(res.data); }).catch(() => {});
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [adminUser]);
+
   const auditLogAction = (moduleName, description) => {
     const timeStr = new Date().toLocaleTimeString();
     const newLog = {
@@ -437,6 +448,7 @@ export default function App() {
               technicians={technicians}
               auditLogAction={auditLogAction}
               subTab={activeSubTab || 'all'}
+              onReload={loadAllAdminData}
             />
           )}
 
@@ -455,6 +467,7 @@ export default function App() {
               auditLogAction={auditLogAction}
               subTab={activeSubTab}
               onNavigateToIdCard={handleNavigateToIdCard}
+              onReload={loadAllAdminData}
             />
           )}
 
@@ -474,6 +487,7 @@ export default function App() {
               setServices={setServices}
               auditLogAction={auditLogAction}
               subTab={activeSubTab || 'categories'}
+              onReload={loadAllAdminData}
             />
           )}
 

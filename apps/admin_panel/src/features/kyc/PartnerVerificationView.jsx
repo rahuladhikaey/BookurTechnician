@@ -5,12 +5,31 @@ export default function PartnerVerificationView() {
   const [partners, setPartners] = useState([]);
   const [filterStatus, setFilterStatus] = useState('ALL'); // 'ALL' | 'PENDING_APPROVAL' | 'ACTIVE' | 'SUSPENDED' | 'REJECTED'
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartner, setSelectedPartner] = useState(null);
+  const [partnerDocs, setPartnerDocs] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [suspensionReason, setSuspensionReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+
+  const openPartnerModal = async (partner) => {
+    setSelectedPartner(partner);
+    setLoadingDocs(true);
+    try {
+      const res = await api.getTechnicianDocuments(partner.id || partner._id);
+      if (res?.data) {
+        setPartnerDocs(res.data);
+      } else {
+        setPartnerDocs([]);
+      }
+    } catch (err) {
+      console.warn('Error fetching technician documents:', err);
+      setPartnerDocs([]);
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
 
   const loadPartners = useCallback(async () => {
     setLoading(true);
@@ -280,7 +299,7 @@ export default function PartnerVerificationView() {
 
               {/* Action Button */}
               <button
-                onClick={() => setSelectedPartner(partner)}
+                onClick={() => openPartnerModal(partner)}
                 className="btn btn-outline btn-sm"
                 style={{ width: '100%', justifyContent: 'center', fontWeight: '700' }}
               >
@@ -348,62 +367,81 @@ export default function PartnerVerificationView() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <label className="form-label">Submitted Identity & Background Proofs</label>
                 
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '10px 14px',
-                  backgroundColor: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
-                  borderRadius: '6px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>🪪</span>
-                    <div>
-                      <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Aadhaar / Government Photo ID</div>
-                      <div style={{ fontSize: '11px', color: '#64748B' }}>Verified against UIDAI format</div>
+                {loadingDocs ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: '#64748B' }}>Loading uploaded KYC vault documents...</div>
+                ) : partnerDocs.length > 0 ? (
+                  partnerDocs.map(doc => (
+                    <div key={doc.id} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 14px',
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '6px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>🪪</span>
+                        <div>
+                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>{doc.documentType}</div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>{doc.maskedNumber || 'Encrypted Proof Reference'}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {doc.secureCloudinaryUrl && (
+                          <a href={doc.secureCloudinaryUrl} target="_blank" rel="noreferrer" className="btn btn-outline btn-xs" style={{ fontSize: '10px' }}>
+                            View Proof ↗
+                          </a>
+                        )}
+                        <span className={`badge ${doc.verificationStatus === 'APPROVED' ? 'badge-completed' : 'badge-pending'}`}>
+                          {doc.verificationStatus || 'PENDING'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <span className="badge badge-completed">✓ VERIFIED</span>
-                </div>
+                  ))
+                ) : (
+                  <>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 14px',
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '6px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>🪪</span>
+                        <div>
+                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Aadhaar / Government Photo ID</div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>Verified against UIDAI format</div>
+                        </div>
+                      </div>
+                      <span className={`badge ${selectedPartner.kycStatus === 'VERIFIED' ? 'badge-completed' : 'badge-pending'}`}>
+                        {selectedPartner.kycStatus || 'PENDING'}
+                      </span>
+                    </div>
 
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '10px 14px',
-                  backgroundColor: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
-                  borderRadius: '6px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>📜</span>
-                    <div>
-                      <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Technical Trade Skill Certification</div>
-                      <div style={{ fontSize: '11px', color: '#64748B' }}>National Skill Development / ITI Certified</div>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 14px',
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '6px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>🏦</span>
+                        <div>
+                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Bank Account & UPI Settlement Handle</div>
+                          <div style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{selectedPartner.upiId || 'partner@upi'}</div>
+                        </div>
+                      </div>
+                      <span className="badge badge-completed">✓ ACTIVE</span>
                     </div>
-                  </div>
-                  <span className="badge badge-completed">✓ VERIFIED</span>
-                </div>
-
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '10px 14px',
-                  backgroundColor: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
-                  borderRadius: '6px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>🏦</span>
-                    <div>
-                      <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Bank Account & UPI Settlement Handle</div>
-                      <div style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{selectedPartner.upiId || 'partner@upi'}</div>
-                    </div>
-                  </div>
-                  <span className="badge badge-completed">✓ ACTIVE</span>
-                </div>
+                  </>
+                )}
               </div>
 
               {/* Compliance Actions */}

@@ -243,9 +243,16 @@ export default function ServicesManager({ categories, setCategories, services, s
     setShowCategoryModal(false);
   };
 
-  const handleDeleteCategory = (id, name) => {
+  const handleDeleteCategory = async (id, name) => {
     if (window.confirm(`Are you sure you want to delete category "${name}"?`)) {
-      setCategories(prev => prev.filter(c => c.id !== id));
+      try {
+        await api.deleteCategory(id);
+      } catch (err) {
+        console.warn('Delete category API notice:', err);
+      }
+      const newList = categories.filter(c => c.id !== id);
+      setCategories(newList);
+      localStorage.setItem('bt_admin_categories_list', JSON.stringify(newList));
       auditLogAction?.('Services', `Deleted category "${name}"`);
     }
   };
@@ -286,7 +293,7 @@ export default function ServicesManager({ categories, setCategories, services, s
     setShowServiceModal(true);
   };
 
-  const handleSaveService = (e) => {
+  const handleSaveService = async (e) => {
     e.preventDefault();
     const payload = {
       name: serviceForm.name,
@@ -303,18 +310,34 @@ export default function ServicesManager({ categories, setCategories, services, s
     };
 
     if (editingService) {
+      try {
+        await api.updateService(editingService, payload);
+      } catch (err) {
+        console.warn('Update service API notice:', err);
+      }
       setServices(prev => prev.map(s => s.id === editingService ? { ...s, ...payload } : s));
       auditLogAction?.('Services', `Updated service "${payload.name}"`);
     } else {
       const newSrv = { id: `srv_${Date.now()}`, ...payload };
+      try {
+        const res = await api.createService(payload);
+        if (res?.data?.id) newSrv.id = res.data.id;
+      } catch (err) {
+        console.warn('Create service API notice:', err);
+      }
       setServices(prev => [...prev, newSrv]);
       auditLogAction?.('Services', `Added new service "${newSrv.name}"`);
     }
     setShowServiceModal(false);
   };
 
-  const handleDeleteService = (id, name) => {
+  const handleDeleteService = async (id, name) => {
     if (window.confirm(`Are you sure you want to delete service "${name}"?`)) {
+      try {
+        await api.deleteService(id);
+      } catch (err) {
+        console.warn('Delete service API notice:', err);
+      }
       setServices(prev => prev.filter(s => s.id !== id));
       auditLogAction?.('Services', `Deleted service "${name}"`);
     }
