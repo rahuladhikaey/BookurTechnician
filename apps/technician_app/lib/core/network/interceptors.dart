@@ -22,9 +22,38 @@ class AuthInterceptor extends Interceptor {
 
 class ErrorInterceptor extends Interceptor {
   @override
-  void onError(DioException err, ErrorInterceptorHandler handler) {
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
+    final originalRequest = err.requestOptions;
+    
+    // Automatically retry against Render backend URL if primary domain is unreachable
+    if ((err.type == DioExceptionType.connectionTimeout ||
+         err.type == DioExceptionType.connectionError ||
+         err.type == DioExceptionType.unknown) &&
+        originalRequest.baseUrl.contains('api.bookurtechnician.online') &&
+        originalRequest.extra['retried_fallback'] != true) {
+      try {
+        final fallbackOptions = Options(
+          method: originalRequest.method,
+          headers: originalRequest.headers,
+          extra: {'retried_fallback': true},
+        );
+        final fallbackDio = Dio(BaseOptions(baseUrl: 'https://bookurtechnician-backend.onrender.com/api/v1'));
+        final response = await fallbackDio.request(
+          originalRequest.path,
+          data: originalRequest.data,
+          queryParameters: originalRequest.queryParameters,
+          options: fallbackOptions,
+        );
+        return handler.resolve(response);
+      } catch (retryErr) {
+        if (retryErr is DioException) {
+          return handler.next(retryErr);
+        }
+      }
+    }
+    
     if (err.response?.statusCode == 401) {
-      // Handle token expiration / redirect to logout
+      // Token expiration
     }
     handler.next(err);
   }

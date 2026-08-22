@@ -837,36 +837,31 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           }
         }
 
-        // If backend returned non-200 or is sleeping, allow offline/fallback sign in
-        final fallbackName = widget.fullName.isNotEmpty ? widget.fullName : (widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'Customer');
-        ref.read(bookingProvider.notifier).loginUser(
-          name: fallbackName,
-          phone: widget.phoneNumber.isNotEmpty ? widget.phoneNumber : '+91 9883637054',
-          email: widget.emailAddress,
-          userId: 'usr_${DateTime.now().millisecondsSinceEpoch}',
-        );
+        // Backend returned non-200 status
+        String errorMsg = 'Invalid verification code. Please check the 6-digit OTP sent to your email.';
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded['message'] != null) {
+            errorMsg = decoded['message'].toString();
+          }
+        } catch (_) {}
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('🎉 Signed in successfully!')),
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: kErrorRed,
+          ),
         );
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
       }
     } catch (e) {
       setState(() => _isVerifying = false);
       if (mounted) {
-        // Fallback login when server is offline
-        final fallbackName = widget.fullName.isNotEmpty ? widget.fullName : (widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'Customer');
-        ref.read(bookingProvider.notifier).loginUser(
-          name: fallbackName,
-          phone: widget.phoneNumber.isNotEmpty ? widget.phoneNumber : '+91 9883637054',
-          email: widget.emailAddress,
-          userId: 'usr_${DateTime.now().millisecondsSinceEpoch}',
-        );
-
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('🎉 Signed in successfully!')),
+          const SnackBar(
+            content: Text('Could not connect to authentication server. Please check your internet connection and try again.'),
+            backgroundColor: kErrorRed,
+          ),
         );
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
       }
     }
   }

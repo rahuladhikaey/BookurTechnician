@@ -253,53 +253,17 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         }
       }
 
-      // Fallback verification for offline / demo mode
-      final fallbackToken = 'jwt_offline_${DateTime.now().millisecondsSinceEpoch}';
-      await _secureStorage.saveToken(fallbackToken);
-      await _secureStorage.saveUserId(targetPhone.isNotEmpty ? targetPhone : 'tech_user');
-      await _secureStorage.saveUserDetails(
-        name: targetName,
-        age: targetAge?.toString(),
-        phone: targetPhone,
-        email: targetEmail,
-      );
-
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        phone: targetPhone,
-        email: targetEmail,
-        fullName: targetName,
-        age: targetAge,
-        token: fallbackToken,
-        latitude: currentLat,
-        longitude: currentLng,
-      );
-
-      return ApiSuccess(fallbackToken);
+      final errorMsg = response.data?['message'] ?? 'Verification failed. Please check the OTP code entered.';
+      state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: errorMsg);
+      return ApiFailure(errorMsg);
     } catch (e) {
-      debugPrint('[AuthNotifier] verifyOtp fallback: $e');
-      final fallbackToken = 'jwt_offline_${DateTime.now().millisecondsSinceEpoch}';
-      await _secureStorage.saveToken(fallbackToken);
-      await _secureStorage.saveUserId(targetPhone.isNotEmpty ? targetPhone : 'tech_user');
-      await _secureStorage.saveUserDetails(
-        name: targetName,
-        age: targetAge?.toString(),
-        phone: targetPhone,
-        email: targetEmail,
-      );
-
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        phone: targetPhone,
-        email: targetEmail,
-        fullName: targetName,
-        age: targetAge,
-        token: fallbackToken,
-        latitude: currentLat,
-        longitude: currentLng,
-      );
-
-      return ApiSuccess(fallbackToken);
+      debugPrint('[AuthNotifier] verifyOtp error: $e');
+      String errorMsg = 'Could not verify OTP with server. Please try again.';
+      if (e is DioException) {
+        errorMsg = e.response?.data?['message']?.toString() ?? e.message ?? errorMsg;
+      }
+      state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: errorMsg);
+      return ApiFailure(errorMsg);
     }
   }
 
