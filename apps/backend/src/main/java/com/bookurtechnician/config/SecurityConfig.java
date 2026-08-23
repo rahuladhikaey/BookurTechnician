@@ -32,8 +32,8 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public Endpoints
-                        .requestMatchers("/", "/admin", "/admin/**", "/assets/**", "/favicon.ico", "/*.html", "/*.js", "/*.css", "/*.png", "/*.svg", "/*.ico").permitAll()
+                        // Public Endpoints & Web SPA Assets (All non-API routes permitted for UI rendering)
+                        .requestMatchers(request -> !request.getRequestURI().startsWith("/api/")).permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/banners/**").permitAll()
@@ -47,7 +47,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "FINANCE_ADMIN")
                         // Technician Protected Endpoints
                         .requestMatchers("/api/v1/technician/**").hasAnyRole("TECHNICIAN", "ADMIN")
-                        // Authenticated All
+                        // Authenticated All Other API Endpoints
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
