@@ -32,6 +32,10 @@ if errorlevel 1 (
     echo [ERROR] npm run build failed!
     goto :err
 )
+
+echo Copying built assets to backend resources...
+if not exist "%ROOT%apps\backend\src\main\resources\static\admin" mkdir "%ROOT%apps\backend\src\main\resources\static\admin"
+xcopy /E /I /Y "%ROOT%apps\admin_panel\dist\*" "%ROOT%apps\backend\src\main\resources\static\admin\" >nul
 echo [SUCCESS] Admin Frontend compiled into apps\backend\src\main\resources\static\admin\
 echo.
 
