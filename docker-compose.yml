@@ -1,5 +1,7 @@
+version: '3.8'
+
 services:
-  # ─── PostgreSQL 16 with PostGIS Extension ──────────────────
+  # ─── 1. PostgreSQL 16 with PostGIS ─────────────────────────────────
   postgres:
     image: postgis/postgis:16-3.4-alpine
     container_name: bookurtechnician-postgres
@@ -13,7 +15,17 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  # ─── Redis 7 In-Memory Cache & Message Broker ──────────────
+  # ─── 2. MongoDB 7.0 (Unstructured Catalogs & KYC Store) ────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: bookurtechnician-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+  # ─── 3. Redis 7 (In-Memory Cache & 15km Live GPS Index) ───────────
   redis:
     image: redis:7-alpine
     container_name: bookurtechnician-redis
@@ -23,6 +35,45 @@ services:
     volumes:
       - redisdata:/data
 
+  # ─── 4. Node.js Core Service & API Gateway ────────────────────────
+  node-core-service:
+    build:
+      context: ./backend/node-core-service
+      dockerfile: Dockerfile
+    container_name: bookurtechnician-node-core
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      MONGO_URI: mongodb://mongodb:27017/bookurtechnician_core
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: bookurtechnician_db
+      PG_USER: postgres
+      PG_PASSWORD: postgrespassword
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PYTHON_AI_SERVICE_URL: http://python-ai-service:8000
+      JAVA_COMPUTE_SERVICE_URL: http://java-compute-service:8080
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+
+  # ─── 5. Python FastAPI AI & Matchmaking Service ───────────────────
+  python-ai-service:
+    build:
+      context: ./backend/python-ai-service
+      dockerfile: Dockerfile
+    container_name: bookurtechnician-python-ai
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
 volumes:
   pgdata:
+  mongodata:
   redisdata:

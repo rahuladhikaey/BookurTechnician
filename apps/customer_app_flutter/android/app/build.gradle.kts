@@ -15,7 +15,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.bookurtechnician.app"
+        applicationId = "com.booktechnician.customer"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

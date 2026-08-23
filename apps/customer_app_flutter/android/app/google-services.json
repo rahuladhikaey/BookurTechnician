@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "946427465815",
+    "project_id": "bookmytechnician-53d94",
+    "storage_bucket": "bookmytechnician-53d94.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:946427465815:android:2fc570b9e9e9108a54d312",
+        "android_client_info": {
+          "package_name": "com.booktechnician.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhCvnUH_jA5bAhlGlIy3eX2lnM43gFRdE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:946427465815:android:9f46258e7601915a54d312",
+        "android_client_info": {
+          "package_name": "com.booktechnician.technician"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhCvnUH_jA5bAhlGlIy3eX2lnM43gFRdE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

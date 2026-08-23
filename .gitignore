@@ -11,6 +11,8 @@ build_outputs/
 *.key
 *.jks
 *.keystore
+*service-account*.json
+*firebase-adminsdk*.json
 
 # ─── Node & Web ──────────────────────────────────────────────────────────────
 node_modules/

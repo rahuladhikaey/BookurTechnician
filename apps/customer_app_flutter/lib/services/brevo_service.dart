@@ -2,7 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 class BrevoService {
-  static const String apiKey = ''; // Developer can enter their Brevo API key here
+  static const String apiKey = String.fromEnvironment(
+    'BREVO_API_KEY',
+    defaultValue: '',
+  );
+  static const String senderEmail = 'admin@bookurtechnician.online';
 
   static Future<bool> sendOtpEmail({
     required String email,
@@ -31,7 +35,7 @@ class BrevoService {
         data: {
           'sender': {
             'name': 'BookUrTechnician',
-            'email': 'no-reply@bookurtechnician.com'
+            'email': senderEmail
           },
           'to': [
             {

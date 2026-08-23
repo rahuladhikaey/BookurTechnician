@@ -7,11 +7,11 @@ const PRIMARY_API_BASE_URL = 'https://api.bookurtechnician.online/api/v1';
 const FALLBACK_API_BASE_URL = 'https://bookurtechnician-backend.onrender.com/api/v1';
 
 const getInitialBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL !== '/api/v1') {
+  if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return 'http://localhost:8080/api/v1';
+  if (typeof window !== 'undefined') {
+    return '/api/v1';
   }
   return PRIMARY_API_BASE_URL;
 };
