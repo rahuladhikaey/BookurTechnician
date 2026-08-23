@@ -15,8 +15,9 @@ WORKDIR /app
 # Copy all backend & project files
 COPY . .
 
-# Copy built admin static assets into Spring Boot static resources
+# Copy built admin static assets into Spring Boot static resources (both /admin and root /)
 COPY --from=frontend-builder /admin/dist/ apps/backend/src/main/resources/static/admin/
+COPY --from=frontend-builder /admin/dist/ apps/backend/src/main/resources/static/
 
 # Build unified executable JAR
 RUN mvn clean package -DskipTests -B && cp target/*.jar app.jar
