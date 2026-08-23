@@ -207,11 +207,13 @@ class ApiClient {
   cancelBooking(id, reason) { return this.post(`/admin/bookings/${id}/cancel`, { reason }); }
 
   getCategories() { return this.get('/admin/categories'); }
+  getCatalogCategories() { return this.get('/catalog/categories'); }
   createCategory(category) { return this.post('/admin/categories', category); }
   updateCategory(id, category) { return this.put(`/admin/categories/${id}`, category); }
   deleteCategory(id) { return this.delete(`/admin/categories/${id}`); }
 
   getServices() { return this.get('/admin/services'); }
+  getCatalogServices() { return this.get('/catalog/services'); }
   createService(service) { return this.post('/admin/services', service); }
   updateService(id, service) { return this.put(`/admin/services/${id}`, service); }
   deleteService(id) { return this.delete(`/admin/services/${id}`); }

@@ -73,13 +73,19 @@ export default function App() {
         }),
         api.getBookings().then(res => { if (res?.data) setBookings(res.data); }),
         api.getCustomers().then(res => { if (res?.data) setCustomers(res.data); }),
-        api.getCategories().then(res => { if (res?.data) setCategories(res.data); }),
-        api.getServices().then(res => { if (res?.data) setServices(res.data); }),
+        api.getCategories().then(res => {
+          const list = res?.data || (Array.isArray(res) ? res : []);
+          if (Array.isArray(list)) setCategories(list);
+        }),
+        api.getServices().then(res => {
+          const list = res?.data || (Array.isArray(res) ? res : []);
+          if (Array.isArray(list)) setServices(list);
+        }),
         api.getSupportTickets().then(res => { if (res?.data) setSupportTickets(res.data); }),
         api.getAuditLogs().then(res => { if (res?.data) setAuditLogs(res.data); }),
       ]);
     } catch (err) {
-      console.error('Error fetching admin data:', err);
+      console.error('Error fetching admin data from PostgreSQL:', err);
     } finally {
       setTimeout(() => setIsSyncing(false), 300);
     }

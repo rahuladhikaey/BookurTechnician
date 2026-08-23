@@ -37,6 +37,19 @@ public class ServiceCatalogController {
         return ResponseEntity.ok(ApiResponse.success(items));
     }
 
+    @GetMapping("/services")
+    public ResponseEntity<ApiResponse<List<ServiceItem>>> getAllActiveServices() {
+        List<ServiceItem> items = itemRepository.findByActiveTrueOrderByPriceAsc();
+        return ResponseEntity.ok(ApiResponse.success(items));
+    }
+
+    @GetMapping("/services/{serviceId}")
+    public ResponseEntity<ApiResponse<ServiceItem>> getServiceById(@PathVariable UUID serviceId) {
+        ServiceItem item = itemRepository.findById(serviceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Service item not found: " + serviceId));
+        return ResponseEntity.ok(ApiResponse.success(item));
+    }
+
     @GetMapping("/services/popular")
     public ResponseEntity<ApiResponse<List<ServiceItem>>> getPopularServices() {
         List<ServiceItem> popular = itemRepository.findByPopularTrueAndActiveTrue();

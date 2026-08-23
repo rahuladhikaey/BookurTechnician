@@ -355,8 +355,10 @@ export default function ServicesManager({ categories, setCategories, services, s
     try {
       if (editingService) {
         const res = await api.updateService(editingService, payload);
-        const saved = res?.data || { ...payload, id: editingService };
-        setServices(prev => prev.map(s => s.id === editingService ? saved : s));
+        const saved = res?.data;
+        if (saved) {
+          setServices(prev => prev.map(s => s.id === editingService ? saved : s));
+        }
         auditLogAction?.('Services', `Updated service "${payload.name}"`);
       } else {
         const res = await api.createService(payload);
@@ -366,12 +368,14 @@ export default function ServicesManager({ categories, setCategories, services, s
         }
         auditLogAction?.('Services', `Added new service "${payload.name}"`);
       }
-      onReload?.();
+      if (onReload) {
+        await onReload();
+      }
       setShowServiceModal(false);
       alert(`✅ Service "${payload.name}" successfully saved in PostgreSQL!`);
     } catch (err) {
       console.error('Error saving service:', err);
-      alert('Failed to save service in database: ' + err.message);
+      alert('Failed to save service in database: ' + (err.message || 'Request failed'));
     }
   };
 
@@ -380,11 +384,13 @@ export default function ServicesManager({ categories, setCategories, services, s
       try {
         await api.deleteService(id);
         setServices(prev => prev.filter(s => s.id !== id));
-        onReload?.();
+        if (onReload) {
+          await onReload();
+        }
         auditLogAction?.('Services', `Deleted service "${name}"`);
       } catch (err) {
-        console.warn('Delete service API notice:', err);
-        alert('Failed to delete service: ' + err.message);
+        console.error('Delete service API notice:', err);
+        alert('Failed to delete service: ' + (err.message || 'Request failed'));
       }
     }
   };
@@ -786,11 +792,18 @@ export default function ServicesManager({ categories, setCategories, services, s
                 </tr>
               </thead>
               <tbody>
-                {filteredServices.map(srv => (
-                  <tr key={srv.id}>
-                    <td>
-                      <img src={srv.imageUrl} alt={srv.name} className="table-img-thumb" />
+                {filteredServices.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                      🛠️ No services found. Click "+ Add Service" to create a new service in the database.
                     </td>
+                  </tr>
+                ) : (
+                  filteredServices.map(srv => (
+                    <tr key={srv.id}>
+                      <td>
+                        <img src={srv.imageUrl} alt={srv.name} className="table-img-thumb" />
+                      </td>
                     <td>
                       <strong style={{ color: 'var(--text-main)' }}>{srv.name}</strong>
                       <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -819,7 +832,8 @@ export default function ServicesManager({ categories, setCategories, services, s
                       </div>
                     </td>
                   </tr>
-                ))}
+                ))
+              )}
               </tbody>
             </table>
           </div>

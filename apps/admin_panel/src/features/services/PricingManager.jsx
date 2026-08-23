@@ -1,81 +1,3 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import api from '../../api/apiClient';
-
-const DEFAULT_SERVICES = [
-  {
-    id: 'srv_ac_install',
-    name: 'Split AC Installation & Core Drill',
-    category: 'AC Service',
-    price: 1499,
-    bookingCharge: 99,
-    advancePrepaymentPct: 30,
-    technicianPayoutAmount: 1200,
-    durationMinutes: 90,
-    isActive: true,
-    description: 'Complete copper piping setup, outdoor unit bracket mounting & vacuum leak test.'
-  },
-  {
-    id: 'srv_ac_wash',
-    name: 'AC Foam Jet Deep Washing & Servicing',
-    category: 'AC Service',
-    price: 499,
-    bookingCharge: 49,
-    advancePrepaymentPct: 30,
-    technicianPayoutAmount: 380,
-    durationMinutes: 45,
-    isActive: true,
-    description: 'High-pressure foam jet cleaning for indoor cooling coils and outdoor condensor fins.'
-  },
-  {
-    id: 'srv_ac_gas',
-    name: 'AC Refrigerant Gas Top-Up / Full Refill',
-    category: 'AC Service',
-    price: 1899,
-    bookingCharge: 99,
-    advancePrepaymentPct: 30,
-    technicianPayoutAmount: 1450,
-    durationMinutes: 60,
-    isActive: true,
-    description: 'Complete R32/R410A gas refill with nitrogen pressure test.'
-  },
-  {
-    id: 'srv_fan_repair',
-    name: 'Ceiling Fan Blade & Motor Repair',
-    category: 'Electrician',
-    price: 199,
-    bookingCharge: 29,
-    advancePrepaymentPct: 30,
-    technicianPayoutAmount: 150,
-    durationMinutes: 30,
-    isActive: true,
-    description: 'Capacitor replacement, bearing lubrication and balancing.'
-  },
-  {
-    id: 'srv_purifier_install',
-    name: 'RO Water Purifier Installation & Plumbing',
-    category: 'Plumbing',
-    price: 399,
-    bookingCharge: 49,
-    advancePrepaymentPct: 30,
-    technicianPayoutAmount: 310,
-    durationMinutes: 45,
-    isActive: true,
-    description: 'Inlet diverter valve installation and waste water pipeline routing.'
-  },
-  {
-    id: 'srv_fridge_repair',
-    name: 'Single / Double Door Refrigerator Diagnostics',
-    category: 'Refrigerator',
-    price: 299,
-    bookingCharge: 49,
-    advancePrepaymentPct: 30,
-    technicianPayoutAmount: 230,
-    durationMinutes: 40,
-    isActive: true,
-    description: 'Compressor relay and thermostat cooling check.'
-  }
-];
-
 export default function PricingManager({ auditLogAction }) {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -105,28 +27,16 @@ export default function PricingManager({ auditLogAction }) {
   const loadPricingData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.getPricing();
+      const res = await api.getServices();
       let list = res?.data || (Array.isArray(res) ? res : []);
-      if (!list || list.length === 0) {
-        const cached = localStorage.getItem('bt_admin_services_pricing');
-        if (cached) {
-          list = JSON.parse(cached);
-        } else {
-          list = DEFAULT_SERVICES;
-        }
-      }
+      if (!Array.isArray(list)) list = [];
       setServices(list);
       if (list.length > 0 && !simServiceId) {
         setSimServiceId(list[0].id);
       }
     } catch (err) {
-      console.warn('Failed to load pricing from API, using fallback:', err);
-      const cached = localStorage.getItem('bt_admin_services_pricing');
-      const list = cached ? JSON.parse(cached) : DEFAULT_SERVICES;
-      setServices(list);
-      if (list.length > 0 && !simServiceId) {
-        setSimServiceId(list[0].id);
-      }
+      console.error('Failed to load pricing from PostgreSQL database:', err);
+      setServices([]);
     } finally {
       setLoading(false);
     }
@@ -168,16 +78,15 @@ export default function PricingManager({ auditLogAction }) {
         technicianPayoutAmount: updated.technicianPayoutAmount,
         durationMinutes: updated.durationMinutes
       });
+      const newList = services.map(s => s.id === editingService.id ? updated : s);
+      setServices(newList);
+      auditLogAction?.('Pricing', `Updated dynamic rate card for "${editingService.name}": Base=₹${updated.price}, BookingFee=₹${updated.bookingCharge}, Payout=₹${updated.technicianPayoutAmount}`);
+      showToast(`✓ Pricing updated for "${editingService.name}"`);
+      setEditingService(null);
     } catch (err) {
-      console.warn('API update pricing fallback:', err);
+      console.error('API update pricing error:', err);
+      alert('Failed to update pricing in database: ' + err.message);
     }
-
-    const newList = services.map(s => s.id === editingService.id ? updated : s);
-    setServices(newList);
-    localStorage.setItem('bt_admin_services_pricing', JSON.stringify(newList));
-    auditLogAction?.('Pricing', `Updated dynamic rate card for "${editingService.name}": Base=₹${updated.price}, BookingFee=₹${updated.bookingCharge}, Payout=₹${updated.technicianPayoutAmount}`);
-    showToast(`✓ Pricing updated for "${editingService.name}"`);
-    setEditingService(null);
   };
 
   // Filtered Services
@@ -191,7 +100,7 @@ export default function PricingManager({ auditLogAction }) {
   });
 
   // Simulator Math
-  const activeSim = services.find(s => s.id === simServiceId) || services[0] || DEFAULT_SERVICES[0];
+  const activeSim = services.find(s => s.id === simServiceId) || services[0] || null;
   const simBase = Number(activeSim?.price) || 0;
   const simBookingFee = Number(activeSim?.bookingCharge) || 0;
   const simGst = ((simBase + simBookingFee) * gstRate) / 100;
