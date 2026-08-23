@@ -124,6 +124,7 @@ public class CatalogService {
                 .build();
 
         skill = skillRepository.save(skill);
+        log.info("Created new catalog skill: ID={}, name={}, slug={}", skill.getId(), skill.getName(), skill.getSlug());
         return mapToSkillDto(skill);
     }
 
@@ -146,6 +147,7 @@ public class CatalogService {
         }
 
         skill = skillRepository.save(skill);
+        log.info("Updated catalog skill: ID={}, name={}, active={}", skill.getId(), skill.getName(), skill.isActive());
         return mapToSkillDto(skill);
     }
 
@@ -155,6 +157,7 @@ public class CatalogService {
                 .orElseThrow(() -> new ResourceNotFoundException("Skill not found: " + skillId));
         skill.setActive(false);
         skillRepository.save(skill);
+        log.info("Soft deleted catalog skill: ID={}, name={}", skill.getId(), skill.getName());
     }
 
     public CatalogDtos.SkillDto mapToSkillDto(ServiceSkill skill) {
