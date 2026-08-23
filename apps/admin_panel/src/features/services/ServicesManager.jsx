@@ -594,6 +594,39 @@ export default function ServicesManager({ categories, setCategories, services, s
     return matchesSearch && matchesCat;
   });
 
+  // Dynamic Derived States for Visual Asset Repository & Popular Services
+  const activePopular = popularServices.length > 0 
+    ? popularServices 
+    : (services || []).filter(s => s.popular || s.isPopular || s.is_popular).map((s, idx) => ({
+        id: s.id,
+        name: s.name,
+        category: getCategoryName(s),
+        imageUrl: s.imageUrl,
+        displayOrder: idx + 1,
+        isActive: s.isActive !== false
+      }));
+
+  const activeImages = serviceImages.length > 0
+    ? serviceImages
+    : [
+        ...(services || []).filter(s => s.imageUrl).map(s => ({
+          id: s.id,
+          url: s.imageUrl,
+          title: s.name,
+          category: getCategoryName(s),
+          resolution: '400x400',
+          tags: 'Service, Thumbnail'
+        })),
+        ...(categories || []).filter(c => c.imageUrl || c.iconUrl).map(c => ({
+          id: c.id,
+          url: c.imageUrl || c.iconUrl,
+          title: c.name,
+          category: 'Category Vertical',
+          resolution: '500x500',
+          tags: 'Category, Icon'
+        }))
+      ];
+
   return (
     <div className="services-manager-view">
       {/* ─── FLAT TABS NAVIGATION (7 TABS) ─── */}
@@ -611,10 +644,10 @@ export default function ServicesManager({ categories, setCategories, services, s
           ⚙️ Matching Rules
         </div>
         <div className={`flat-tab ${activeTab === 'popular' ? 'active' : ''}`} onClick={() => setActiveTab('popular')}>
-          ⭐ Popular Services ({popularServices.length})
+          ⭐ Popular Services ({activePopular.length})
         </div>
         <div className={`flat-tab ${activeTab === 'images' ? 'active' : ''}`} onClick={() => setActiveTab('images')}>
-          🖼️ Service Images ({serviceImages.length})
+          🖼️ Service Images ({activeImages.length})
         </div>
         <div className={`flat-tab ${activeTab === 'brands' ? 'active' : ''}`} onClick={() => setActiveTab('brands')}>
           🏷️ Brands Management ({brands.length})
@@ -1108,36 +1141,44 @@ export default function ServicesManager({ categories, setCategories, services, s
                 </tr>
               </thead>
               <tbody>
-                {popularServices.map(pop => (
-                  <tr key={pop.id}>
-                    <td>
-                      <span className="badge badge-info" style={{ fontWeight: '700' }}>#{pop.displayOrder}</span>
-                    </td>
-                    <td>
-                      <img src={pop.imageUrl} alt={pop.name} className="table-img-thumb" />
-                    </td>
-                    <td>
-                      <strong style={{ color: 'var(--text-main)' }}>{pop.name}</strong>
-                    </td>
-                    <td>
-                      <span className="badge badge-info">{pop.category}</span>
-                    </td>
-                    <td>
-                      <span className={`badge ${pop.isActive ? 'badge-completed' : 'badge-cancelled'}`}>
-                        {pop.isActive ? 'Active' : 'Disabled'}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div className="page-actions-group" style={{ justifyContent: 'flex-end' }}>
-                        <button className="btn btn-outline btn-sm" onClick={() => handleTogglePopularStatus(pop.id)}>
-                          {pop.isActive ? 'Disable' : 'Enable'}
-                        </button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => openPopularModal(pop)}>Edit</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDeletePopular(pop.id)}>Remove</button>
-                      </div>
+                {activePopular.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-secondary)' }}>
+                      ⭐ No popular services pinned yet. Click <strong>+ Add Popular Service</strong> to highlight one.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  activePopular.map(pop => (
+                    <tr key={pop.id}>
+                      <td>
+                        <span className="badge badge-info" style={{ fontWeight: '700' }}>#{pop.displayOrder}</span>
+                      </td>
+                      <td>
+                        <img src={pop.imageUrl} alt={pop.name} className="table-img-thumb" />
+                      </td>
+                      <td>
+                        <strong style={{ color: 'var(--text-main)' }}>{pop.name}</strong>
+                      </td>
+                      <td>
+                        <span className="badge badge-info">{pop.category}</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${pop.isActive ? 'badge-completed' : 'badge-cancelled'}`}>
+                          {pop.isActive ? 'Active' : 'Disabled'}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="page-actions-group" style={{ justifyContent: 'flex-end' }}>
+                          <button className="btn btn-outline btn-sm" onClick={() => handleTogglePopularStatus(pop.id)}>
+                            {pop.isActive ? 'Disable' : 'Enable'}
+                          </button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => openPopularModal(pop)}>Edit</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleDeletePopular(pop.id)}>Remove</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -1172,28 +1213,36 @@ export default function ServicesManager({ categories, setCategories, services, s
                 </tr>
               </thead>
               <tbody>
-                {serviceImages.map(img => (
-                  <tr key={img.id}>
-                    <td>
-                      <img src={img.url} alt={img.title} className="table-img-thumb" style={{ width: '56px', height: '56px' }} />
-                    </td>
-                    <td>
-                      <strong style={{ color: 'var(--text-main)' }}>{img.title}</strong>
-                    </td>
-                    <td>
-                      <span className="badge badge-info">{img.category}</span>
-                    </td>
-                    <td>{img.resolution}</td>
-                    <td>
-                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{img.tags}</span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button className="btn btn-outline btn-sm" onClick={() => navigator.clipboard.writeText(img.url).then(() => alert('Image URL copied to clipboard!'))}>
-                        Copy URL
-                      </button>
+                {activeImages.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-secondary)' }}>
+                      🖼️ No image assets found. Add services or categories with images to populate this gallery.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  activeImages.map(img => (
+                    <tr key={img.id}>
+                      <td>
+                        <img src={img.url} alt={img.title} className="table-img-thumb" style={{ width: '56px', height: '56px' }} />
+                      </td>
+                      <td>
+                        <strong style={{ color: 'var(--text-main)' }}>{img.title}</strong>
+                      </td>
+                      <td>
+                        <span className="badge badge-info">{img.category}</span>
+                      </td>
+                      <td>{img.resolution}</td>
+                      <td>
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{img.tags}</span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button className="btn btn-outline btn-sm" onClick={() => navigator.clipboard.writeText(img.url).then(() => alert('Image URL copied to clipboard!'))}>
+                          Copy URL
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
