@@ -11,8 +11,8 @@ import com.bookurtechnician.review.entity.Review;
 import com.bookurtechnician.review.repository.ReviewRepository;
 import com.bookurtechnician.technician.entity.TechnicianProfile;
 import com.bookurtechnician.technician.repository.TechnicianProfileRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,14 +22,24 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class ReviewService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReviewService.class);
 
     private final ReviewRepository reviewRepository;
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final TechnicianProfileRepository technicianProfileRepository;
+
+    public ReviewService(ReviewRepository reviewRepository,
+                         BookingRepository bookingRepository,
+                         UserRepository userRepository,
+                         TechnicianProfileRepository technicianProfileRepository) {
+        this.reviewRepository = reviewRepository;
+        this.bookingRepository = bookingRepository;
+        this.userRepository = userRepository;
+        this.technicianProfileRepository = technicianProfileRepository;
+    }
 
     @Transactional
     public ReviewDtos.ReviewResponse submitReview(UUID customerId, ReviewDtos.CreateReviewRequest req) {

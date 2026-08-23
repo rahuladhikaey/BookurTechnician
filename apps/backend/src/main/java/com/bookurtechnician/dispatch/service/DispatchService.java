@@ -10,12 +10,6 @@ import com.bookurtechnician.dispatch.repository.BookingProposalRepository;
 import com.bookurtechnician.technician.entity.TechnicianProfile;
 import com.bookurtechnician.technician.repository.TechnicianProfileRepository;
 import com.bookurtechnician.technician.repository.TechnicianSkillRepository;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -28,9 +22,9 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class DispatchService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DispatchService.class);
 
     private final TechnicianProfileRepository technicianProfileRepository;
     private final TechnicianSkillRepository technicianSkillRepository;
@@ -40,6 +34,24 @@ public class DispatchService {
     private final com.bookurtechnician.notification.service.FcmNotificationService fcmNotificationService;
     private final com.bookurtechnician.dispatch.repository.DispatchMatchingConfigRepository matchingConfigRepository;
     private final com.bookurtechnician.servicecatalog.repository.SkillServiceCompatibilityRepository compatibilityRepository;
+
+    public DispatchService(TechnicianProfileRepository technicianProfileRepository,
+                           TechnicianSkillRepository technicianSkillRepository,
+                           BookingProposalRepository proposalRepository,
+                           BookingRepository bookingRepository,
+                           SimpMessagingTemplate messagingTemplate,
+                           com.bookurtechnician.notification.service.FcmNotificationService fcmNotificationService,
+                           com.bookurtechnician.dispatch.repository.DispatchMatchingConfigRepository matchingConfigRepository,
+                           com.bookurtechnician.servicecatalog.repository.SkillServiceCompatibilityRepository compatibilityRepository) {
+        this.technicianProfileRepository = technicianProfileRepository;
+        this.technicianSkillRepository = technicianSkillRepository;
+        this.proposalRepository = proposalRepository;
+        this.bookingRepository = bookingRepository;
+        this.messagingTemplate = messagingTemplate;
+        this.fcmNotificationService = fcmNotificationService;
+        this.matchingConfigRepository = matchingConfigRepository;
+        this.compatibilityRepository = compatibilityRepository;
+    }
 
     @Transactional
     public void startSequentialDispatch(UUID bookingId) {
@@ -344,10 +356,6 @@ public class DispatchService {
         }
     }
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class JobProposalDto {
         private UUID proposalId;
         private UUID bookingId;
@@ -359,12 +367,72 @@ public class DispatchService {
         private String scheduleSlot;
         private Instant expiresAt;
         private int timeoutSeconds;
+
+        public JobProposalDto() {}
+
+        public static Builder builder() { return new Builder(); }
+
+        public static class Builder {
+            private UUID proposalId;
+            private UUID bookingId;
+            private String bookingCode;
+            private String serviceName;
+            private String customerArea;
+            private BigDecimal distanceKm;
+            private BigDecimal estimatedEarnings;
+            private String scheduleSlot;
+            private Instant expiresAt;
+            private int timeoutSeconds;
+
+            public Builder proposalId(UUID proposalId) { this.proposalId = proposalId; return this; }
+            public Builder bookingId(UUID bookingId) { this.bookingId = bookingId; return this; }
+            public Builder bookingCode(String bookingCode) { this.bookingCode = bookingCode; return this; }
+            public Builder serviceName(String serviceName) { this.serviceName = serviceName; return this; }
+            public Builder customerArea(String customerArea) { this.customerArea = customerArea; return this; }
+            public Builder distanceKm(BigDecimal distanceKm) { this.distanceKm = distanceKm; return this; }
+            public Builder estimatedEarnings(BigDecimal estimatedEarnings) { this.estimatedEarnings = estimatedEarnings; return this; }
+            public Builder scheduleSlot(String scheduleSlot) { this.scheduleSlot = scheduleSlot; return this; }
+            public Builder expiresAt(Instant expiresAt) { this.expiresAt = expiresAt; return this; }
+            public Builder timeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; return this; }
+
+            public JobProposalDto build() {
+                JobProposalDto dto = new JobProposalDto();
+                dto.proposalId = this.proposalId;
+                dto.bookingId = this.bookingId;
+                dto.bookingCode = this.bookingCode;
+                dto.serviceName = this.serviceName;
+                dto.customerArea = this.customerArea;
+                dto.distanceKm = this.distanceKm;
+                dto.estimatedEarnings = this.estimatedEarnings;
+                dto.scheduleSlot = this.scheduleSlot;
+                dto.expiresAt = this.expiresAt;
+                dto.timeoutSeconds = this.timeoutSeconds;
+                return dto;
+            }
+        }
+
+        public UUID getProposalId() { return proposalId; }
+        public void setProposalId(UUID proposalId) { this.proposalId = proposalId; }
+        public UUID getBookingId() { return bookingId; }
+        public void setBookingId(UUID bookingId) { this.bookingId = bookingId; }
+        public String getBookingCode() { return bookingCode; }
+        public void setBookingCode(String bookingCode) { this.bookingCode = bookingCode; }
+        public String getServiceName() { return serviceName; }
+        public void setServiceName(String serviceName) { this.serviceName = serviceName; }
+        public String getCustomerArea() { return customerArea; }
+        public void setCustomerArea(String customerArea) { this.customerArea = customerArea; }
+        public BigDecimal getDistanceKm() { return distanceKm; }
+        public void setDistanceKm(BigDecimal distanceKm) { this.distanceKm = distanceKm; }
+        public BigDecimal getEstimatedEarnings() { return estimatedEarnings; }
+        public void setEstimatedEarnings(BigDecimal estimatedEarnings) { this.estimatedEarnings = estimatedEarnings; }
+        public String getScheduleSlot() { return scheduleSlot; }
+        public void setScheduleSlot(String scheduleSlot) { this.scheduleSlot = scheduleSlot; }
+        public Instant getExpiresAt() { return expiresAt; }
+        public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
+        public int getTimeoutSeconds() { return timeoutSeconds; }
+        public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
     }
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class DispatchStatusEvent {
         private UUID bookingId;
         private String bookingCode;
@@ -375,5 +443,64 @@ public class DispatchService {
         private String technicianCode;
         private String startServiceOtp;
         private Instant timestamp;
+
+        public DispatchStatusEvent() {}
+
+        public static Builder builder() { return new Builder(); }
+
+        public static class Builder {
+            private UUID bookingId;
+            private String bookingCode;
+            private String status;
+            private String message;
+            private String technicianName;
+            private String technicianPhone;
+            private String technicianCode;
+            private String startServiceOtp;
+            private Instant timestamp;
+
+            public Builder bookingId(UUID bookingId) { this.bookingId = bookingId; return this; }
+            public Builder bookingCode(String bookingCode) { this.bookingCode = bookingCode; return this; }
+            public Builder status(String status) { this.status = status; return this; }
+            public Builder message(String message) { this.message = message; return this; }
+            public Builder technicianName(String technicianName) { this.technicianName = technicianName; return this; }
+            public Builder technicianPhone(String technicianPhone) { this.technicianPhone = technicianPhone; return this; }
+            public Builder technicianCode(String technicianCode) { this.technicianCode = technicianCode; return this; }
+            public Builder startServiceOtp(String startServiceOtp) { this.startServiceOtp = startServiceOtp; return this; }
+            public Builder timestamp(Instant timestamp) { this.timestamp = timestamp; return this; }
+
+            public DispatchStatusEvent build() {
+                DispatchStatusEvent ev = new DispatchStatusEvent();
+                ev.bookingId = this.bookingId;
+                ev.bookingCode = this.bookingCode;
+                ev.status = this.status;
+                ev.message = this.message;
+                ev.technicianName = this.technicianName;
+                ev.technicianPhone = this.technicianPhone;
+                ev.technicianCode = this.technicianCode;
+                ev.startServiceOtp = this.startServiceOtp;
+                ev.timestamp = this.timestamp;
+                return ev;
+            }
+        }
+
+        public UUID getBookingId() { return bookingId; }
+        public void setBookingId(UUID bookingId) { this.bookingId = bookingId; }
+        public String getBookingCode() { return bookingCode; }
+        public void setBookingCode(String bookingCode) { this.bookingCode = bookingCode; }
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        public String getTechnicianName() { return technicianName; }
+        public void setTechnicianName(String technicianName) { this.technicianName = technicianName; }
+        public String getTechnicianPhone() { return technicianPhone; }
+        public void setTechnicianPhone(String technicianPhone) { this.technicianPhone = technicianPhone; }
+        public String getTechnicianCode() { return technicianCode; }
+        public void setTechnicianCode(String technicianCode) { this.technicianCode = technicianCode; }
+        public String getStartServiceOtp() { return startServiceOtp; }
+        public void setStartServiceOtp(String startServiceOtp) { this.startServiceOtp = startServiceOtp; }
+        public Instant getTimestamp() { return timestamp; }
+        public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
     }
 }

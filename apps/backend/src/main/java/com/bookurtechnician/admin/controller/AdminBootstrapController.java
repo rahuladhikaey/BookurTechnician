@@ -11,8 +11,8 @@ import com.bookurtechnician.common.exception.UnauthorizedException;
 import com.bookurtechnician.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -29,13 +29,21 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/internal/admin")
-@RequiredArgsConstructor
-@Slf4j
 public class AdminBootstrapController {
+
+    private static final Logger log = LoggerFactory.getLogger(AdminBootstrapController.class);
 
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
     private final StringRedisTemplate redisTemplate;
+
+    public AdminBootstrapController(UserRepository userRepository,
+                                    AuditLogRepository auditLogRepository,
+                                    StringRedisTemplate redisTemplate) {
+        this.userRepository = userRepository;
+        this.auditLogRepository = auditLogRepository;
+        this.redisTemplate = redisTemplate;
+    }
 
     @Value("${app.security.admin.access-key-1:}")
     private String serverAccessKey1;

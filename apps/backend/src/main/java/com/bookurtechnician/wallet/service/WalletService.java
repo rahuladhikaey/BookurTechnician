@@ -10,8 +10,6 @@ import com.bookurtechnician.wallet.entity.WithdrawalRequest;
 import com.bookurtechnician.wallet.repository.TechnicianWalletRepository;
 import com.bookurtechnician.wallet.repository.WalletLedgerRepository;
 import com.bookurtechnician.wallet.repository.WithdrawalRequestRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,14 +19,24 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class WalletService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(WalletService.class);
 
     private final TechnicianWalletRepository walletRepository;
     private final WalletLedgerRepository ledgerRepository;
     private final WithdrawalRequestRepository withdrawalRequestRepository;
     private final TechnicianProfileRepository technicianProfileRepository;
+
+    public WalletService(TechnicianWalletRepository walletRepository,
+                         WalletLedgerRepository ledgerRepository,
+                         WithdrawalRequestRepository withdrawalRequestRepository,
+                         TechnicianProfileRepository technicianProfileRepository) {
+        this.walletRepository = walletRepository;
+        this.ledgerRepository = ledgerRepository;
+        this.withdrawalRequestRepository = withdrawalRequestRepository;
+        this.technicianProfileRepository = technicianProfileRepository;
+    }
 
     @Transactional
     public void creditTechnicianEarning(TechnicianProfile technician, BigDecimal amount, String bookingCode) {

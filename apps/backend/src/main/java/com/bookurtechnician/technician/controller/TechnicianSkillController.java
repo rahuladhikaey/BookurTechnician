@@ -4,7 +4,6 @@ import com.bookurtechnician.auth.security.UserPrincipal;
 import com.bookurtechnician.common.response.ApiResponse;
 import com.bookurtechnician.technician.dto.TechnicianSkillDtos;
 import com.bookurtechnician.technician.service.TechnicianSkillService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -13,10 +12,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/technician/skills")
-@RequiredArgsConstructor
 public class TechnicianSkillController {
 
     private final TechnicianSkillService skillService;
+
+    public TechnicianSkillController(TechnicianSkillService skillService) {
+        this.skillService = skillService;
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<TechnicianSkillDtos.TechnicianSkillProfileResponse>> getMySkillProfile(

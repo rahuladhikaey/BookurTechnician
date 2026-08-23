@@ -8,8 +8,8 @@ import com.bookurtechnician.servicecatalog.entity.ServiceSkill;
 import com.bookurtechnician.servicecatalog.repository.ServiceCategoryRepository;
 import com.bookurtechnician.servicecatalog.repository.ServiceItemRepository;
 import com.bookurtechnician.servicecatalog.repository.ServiceSkillRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,15 +23,27 @@ import com.bookurtechnician.servicecatalog.entity.SkillServiceCompatibility;
 import com.bookurtechnician.servicecatalog.repository.SkillServiceCompatibilityRepository;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class CatalogService {
+
+    private static final Logger log = LoggerFactory.getLogger(CatalogService.class);
 
     private final ServiceCategoryRepository categoryRepository;
     private final ServiceItemRepository serviceItemRepository;
     private final ServiceSkillRepository skillRepository;
     private final SkillServiceCompatibilityRepository compatibilityRepository;
     private final DispatchMatchingConfigRepository matchingConfigRepository;
+
+    public CatalogService(ServiceCategoryRepository categoryRepository,
+                          ServiceItemRepository serviceItemRepository,
+                          ServiceSkillRepository skillRepository,
+                          SkillServiceCompatibilityRepository compatibilityRepository,
+                          DispatchMatchingConfigRepository matchingConfigRepository) {
+        this.categoryRepository = categoryRepository;
+        this.serviceItemRepository = serviceItemRepository;
+        this.skillRepository = skillRepository;
+        this.compatibilityRepository = compatibilityRepository;
+        this.matchingConfigRepository = matchingConfigRepository;
+    }
 
     @Transactional(readOnly = true)
     public List<CatalogDtos.CategoryHierarchyDto> getFullHierarchy() {
@@ -166,22 +178,22 @@ public class CatalogService {
                 .orElseThrow(() -> new ResourceNotFoundException("Skill not found: " + skillId));
 
         List<SkillServiceCompatibility> compatibilities = compatibilityRepository.findBySkillId(skillId);
-        List<CatalogDtos.CompatibleServiceSummary> summaries = compatibilities.stream().map(c -> {
+        List<CatalogDtos.CompatibleServiceSummary> summaries = compatibilities.stream().map((SkillServiceCompatibility c) -> {
             ServiceItem s = c.getServiceItem();
-            return CatalogDtos.CompatibleServiceSummary.builder()
-                    .serviceId(s.getId())
-                    .serviceName(s.getName())
-                    .categoryName(s.getCategory() != null ? s.getCategory().getName() : "")
-                    .price(s.getPrice())
-                    .build();
-        }).toList();
+            CatalogDtos.CompatibleServiceSummary summary = new CatalogDtos.CompatibleServiceSummary();
+            summary.setServiceId(s.getId());
+            summary.setServiceName(s.getName());
+            summary.setCategoryName(s.getCategory() != null ? s.getCategory().getName() : "");
+            summary.setPrice(s.getPrice());
+            return summary;
+        }).collect(Collectors.toList());
 
-        return CatalogDtos.SkillCompatibilityDto.builder()
-                .skillId(skill.getId())
-                .skillName(skill.getName())
-                .categoryName(skill.getCategory().getName())
-                .compatibleServices(summaries)
-                .build();
+        CatalogDtos.SkillCompatibilityDto result = new CatalogDtos.SkillCompatibilityDto();
+        result.setSkillId(skill.getId());
+        result.setSkillName(skill.getName());
+        result.setCategoryName(skill.getCategory() != null ? skill.getCategory().getName() : "");
+        result.setCompatibleServices(summaries);
+        return result;
     }
 
     @Transactional
@@ -257,20 +269,20 @@ public class CatalogService {
     }
 
     private CatalogDtos.DispatchMatchingConfigDto mapToConfigDto(DispatchMatchingConfig c) {
-        return CatalogDtos.DispatchMatchingConfigDto.builder()
-                .id(c.getId())
-                .searchRadiusKm(c.getSearchRadiusKm())
-                .strictSkillMatching(c.isStrictSkillMatching())
-                .scoreWeightDistance(c.getScoreWeightDistance())
-                .scoreWeightRating(c.getScoreWeightRating())
-                .scoreWeightAcceptance(c.getScoreWeightAcceptance())
-                .scoreWeightExperience(c.getScoreWeightExperience())
-                .priorityPolicy(c.getPriorityPolicy())
-                .notificationTimeoutSeconds(c.getNotificationTimeoutSeconds())
-                .maxDispatchAttempts(c.getMaxDispatchAttempts())
-                .autoEscalateToAdmin(c.isAutoEscalateToAdmin())
-                .updatedByEmail(c.getUpdatedByEmail())
-                .build();
+        CatalogDtos.DispatchMatchingConfigDto dto = new CatalogDtos.DispatchMatchingConfigDto();
+        dto.setId(c.getId());
+        dto.setSearchRadiusKm(c.getSearchRadiusKm());
+        dto.setStrictSkillMatching(c.isStrictSkillMatching());
+        dto.setScoreWeightDistance(c.getScoreWeightDistance());
+        dto.setScoreWeightRating(c.getScoreWeightRating());
+        dto.setScoreWeightAcceptance(c.getScoreWeightAcceptance());
+        dto.setScoreWeightExperience(c.getScoreWeightExperience());
+        dto.setPriorityPolicy(c.getPriorityPolicy());
+        dto.setNotificationTimeoutSeconds(c.getNotificationTimeoutSeconds());
+        dto.setMaxDispatchAttempts(c.getMaxDispatchAttempts());
+        dto.setAutoEscalateToAdmin(c.isAutoEscalateToAdmin());
+        dto.setUpdatedByEmail(c.getUpdatedByEmail());
+        return dto;
     }
 
     private String generateSlug(String text) {

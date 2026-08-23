@@ -38,8 +38,8 @@ import com.bookurtechnician.wallet.entity.TechnicianWallet;
 import com.bookurtechnician.wallet.entity.WithdrawalRequest;
 import com.bookurtechnician.wallet.repository.TechnicianWalletRepository;
 import com.bookurtechnician.wallet.repository.WithdrawalRequestRepository;
-import lombok.*;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -50,12 +50,12 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/v1/admin")
-@RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'FINANCE_ADMIN')")
 public class AdminController {
+
+    private static final Logger log = LoggerFactory.getLogger(AdminController.class);
 
     private final UserRepository userRepository;
     private final CustomerAddressRepository customerAddressRepository;
@@ -76,6 +76,46 @@ public class AdminController {
     private final com.bookurtechnician.technician.repository.TechnicianSkillRepository technicianSkillRepository;
     private final com.bookurtechnician.review.repository.ReviewRepository reviewRepository;
     private final com.bookurtechnician.notification.service.FcmNotificationService fcmNotificationService;
+
+    public AdminController(UserRepository userRepository,
+                           CustomerAddressRepository customerAddressRepository,
+                           TechnicianProfileRepository technicianRepository,
+                           TechnicianDocumentRepository technicianDocumentRepository,
+                           TechnicianWalletRepository technicianWalletRepository,
+                           BookingRepository bookingRepository,
+                           PaymentRepository paymentRepository,
+                           RefundRepository refundRepository,
+                           WithdrawalRequestRepository withdrawalRequestRepository,
+                           ServiceCategoryRepository serviceCategoryRepository,
+                           ServiceItemRepository serviceItemRepository,
+                           SupportTicketRepository supportTicketRepository,
+                           NotificationRepository notificationRepository,
+                           AiKnowledgeDocumentRepository aiKnowledgeDocumentRepository,
+                           AiFaqRepository aiFaqRepository,
+                           AuditLogRepository auditLogRepository,
+                           com.bookurtechnician.technician.repository.TechnicianSkillRepository technicianSkillRepository,
+                           com.bookurtechnician.review.repository.ReviewRepository reviewRepository,
+                           com.bookurtechnician.notification.service.FcmNotificationService fcmNotificationService) {
+        this.userRepository = userRepository;
+        this.customerAddressRepository = customerAddressRepository;
+        this.technicianRepository = technicianRepository;
+        this.technicianDocumentRepository = technicianDocumentRepository;
+        this.technicianWalletRepository = technicianWalletRepository;
+        this.bookingRepository = bookingRepository;
+        this.paymentRepository = paymentRepository;
+        this.refundRepository = refundRepository;
+        this.withdrawalRequestRepository = withdrawalRequestRepository;
+        this.serviceCategoryRepository = serviceCategoryRepository;
+        this.serviceItemRepository = serviceItemRepository;
+        this.supportTicketRepository = supportTicketRepository;
+        this.notificationRepository = notificationRepository;
+        this.aiKnowledgeDocumentRepository = aiKnowledgeDocumentRepository;
+        this.aiFaqRepository = aiFaqRepository;
+        this.auditLogRepository = auditLogRepository;
+        this.technicianSkillRepository = technicianSkillRepository;
+        this.reviewRepository = reviewRepository;
+        this.fcmNotificationService = fcmNotificationService;
+    }
 
     // ─── 1. CURRENT ADMIN PROFILE ─────────────────────────────────────────────
     @GetMapping("/me")
@@ -296,18 +336,19 @@ public class AdminController {
 
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", t.getId() != null ? t.getId().toString() : UUID.randomUUID().toString());
+                map.put("userId", t.getUser() != null && t.getUser().getId() != null ? t.getUser().getId().toString() : null);
                 String tName = (t.getUser() != null && t.getUser().getFullName() != null && !t.getUser().getFullName().isBlank())
                         ? t.getUser().getFullName()
                         : (t.getTechnicianCode() != null ? "Technician " + t.getTechnicianCode() : "Registered Partner");
                 map.put("name", tName);
+                map.put("fullName", tName);
                 map.put("phone", t.getUser() != null && t.getUser().getPhone() != null ? t.getUser().getPhone() : "");
                 map.put("email", t.getUser() != null && t.getUser().getEmail() != null ? t.getUser().getEmail() : "");
                 map.put("code", t.getTechnicianCode() != null ? t.getTechnicianCode() : "BT-TECH");
                 map.put("technicianCode", t.getTechnicianCode() != null ? t.getTechnicianCode() : "BT-TECH");
-                map.put("kycStatus", t.getKycStatus() != null ? t.getKycStatus() : "VERIFIED");
+                map.put("kycStatus", t.getKycStatus() != null ? t.getKycStatus() : "PENDING");
                 map.put("isOnline", t.isOnline());
                 map.put("online", t.isOnline());
-                map.put("category", "General Electrical & Appliances");
 
                 // Active Job / Availability state
                 String availability = t.isOnline() ? "ONLINE" : "OFFLINE";
@@ -332,9 +373,10 @@ public class AdminController {
 
                 // Declared & Verified Skills
                 List<Map<String, Object>> skillMaps = new ArrayList<>();
+                String primaryCatName = "General Electrical & Appliances";
                 try {
                     List<com.bookurtechnician.technician.entity.TechnicianSkill> skills = technicianSkillRepository.findByTechnicianIdOrderByCreatedAtAsc(t.getId());
-                    if (skills != null) {
+                    if (skills != null && !skills.isEmpty()) {
                         for (com.bookurtechnician.technician.entity.TechnicianSkill sk : skills) {
                             if (sk == null) continue;
                             Map<String, Object> sm = new HashMap<>();
@@ -348,17 +390,105 @@ public class AdminController {
                             sm.put("enabled", sk.isEnabled());
                             skillMaps.add(sm);
                         }
+                        if (!skillMaps.isEmpty() && skillMaps.get(0).get("categoryName") != null) {
+                            primaryCatName = (String) skillMaps.get(0).get("categoryName");
+                        }
                     }
                 } catch (Exception ignored) {}
+                map.put("category", primaryCatName);
                 map.put("skills", skillMaps);
-                map.put("verifiedSkillsCount", skillMaps.size());
+                map.put("verifiedSkillsCount", skillMaps.stream().filter(s -> "VERIFIED".equalsIgnoreCase((String) s.get("verificationStatus"))).count());
+
+                // Uploaded KYC Documents
+                List<Map<String, Object>> docMaps = new ArrayList<>();
+                boolean hasAadhaar = false;
+                boolean hasVoterCard = false;
+                boolean hasLivePic = (t.getUser() != null && t.getUser().getProfileImageUrl() != null && !t.getUser().getProfileImageUrl().isBlank());
+                String aadhaarNumber = "";
+                String voterCardNumber = "";
+                String aadhaarUrl = "";
+                String voterCardUrl = "";
+                String livePicUrl = (t.getUser() != null && t.getUser().getProfileImageUrl() != null) ? t.getUser().getProfileImageUrl() : "";
+
+                try {
+                    List<TechnicianDocument> docs = technicianDocumentRepository.findByTechnicianId(t.getId());
+                    if (docs != null) {
+                        for (TechnicianDocument doc : docs) {
+                            if (doc == null) continue;
+                            String dtype = doc.getDocumentType() != null ? doc.getDocumentType().toUpperCase() : "ID_CARD";
+                            Map<String, Object> dm = new HashMap<>();
+                            dm.put("id", doc.getId() != null ? doc.getId().toString() : "");
+                            dm.put("documentType", dtype);
+                            dm.put("secureCloudinaryUrl", doc.getSecureCloudinaryUrl() != null ? doc.getSecureCloudinaryUrl() : "");
+                            dm.put("maskedNumber", doc.getMaskedNumber() != null ? doc.getMaskedNumber() : "");
+                            dm.put("verificationStatus", doc.getVerificationStatus() != null ? doc.getVerificationStatus() : "PENDING");
+                            dm.put("reviewedAt", doc.getReviewedAt() != null ? doc.getReviewedAt().toString() : null);
+                            dm.put("reviewerNotes", doc.getReviewerNotes() != null ? doc.getReviewerNotes() : "");
+                            docMaps.add(dm);
+
+                            if (dtype.contains("AADHAAR")) {
+                                hasAadhaar = true;
+                                if (doc.getMaskedNumber() != null && !doc.getMaskedNumber().isBlank()) aadhaarNumber = doc.getMaskedNumber();
+                                if (doc.getSecureCloudinaryUrl() != null && !doc.getSecureCloudinaryUrl().isBlank()) aadhaarUrl = doc.getSecureCloudinaryUrl();
+                            } else if (dtype.contains("VOTER")) {
+                                hasVoterCard = true;
+                                if (doc.getMaskedNumber() != null && !doc.getMaskedNumber().isBlank()) voterCardNumber = doc.getMaskedNumber();
+                                if (doc.getSecureCloudinaryUrl() != null && !doc.getSecureCloudinaryUrl().isBlank()) voterCardUrl = doc.getSecureCloudinaryUrl();
+                            } else if (dtype.contains("SELFIE") || dtype.contains("LIVE_PIC")) {
+                                hasLivePic = true;
+                                if (doc.getSecureCloudinaryUrl() != null && !doc.getSecureCloudinaryUrl().isBlank()) livePicUrl = doc.getSecureCloudinaryUrl();
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+                map.put("documents", docMaps);
+
+                boolean hasNameAndPhone = (t.getUser() != null && t.getUser().getFullName() != null && !t.getUser().getFullName().isBlank() && t.getUser().getPhone() != null && !t.getUser().getPhone().isBlank());
+                boolean hasSkills = !skillMaps.isEmpty();
+
+                int completionScore = 0;
+                List<String> missing = new ArrayList<>();
+                if (hasNameAndPhone) completionScore += 25; else missing.add("Full Name & Phone");
+                if (hasLivePic) completionScore += 25; else missing.add("Real Live Photo / Selfie");
+                if (hasAadhaar) completionScore += 25; else missing.add("Aadhaar Card");
+                if (hasVoterCard) completionScore += 25; else missing.add("Voter Card");
+                if (!hasSkills) missing.add("At least 1 Service Skill");
+
+                map.put("profileCompletion", completionScore);
+                map.put("isProfileComplete", completionScore == 100 && hasSkills);
+                map.put("hasLivePic", hasLivePic);
+                map.put("hasAadhaar", hasAadhaar);
+                map.put("hasVoterCard", hasVoterCard);
+                map.put("hasSkills", hasSkills);
+                map.put("missingRequirements", missing);
+                map.put("aadhaarNumber", aadhaarNumber);
+                map.put("aadhaarUrl", aadhaarUrl);
+                map.put("voterCardNumber", voterCardNumber);
+                map.put("voterCardUrl", voterCardUrl);
+                map.put("livePicUrl", livePicUrl);
+
+                // Wallet details
+                try {
+                    Optional<TechnicianWallet> wallet = technicianWalletRepository.findByTechnicianId(t.getId());
+                    if (wallet.isPresent()) {
+                        map.put("availableBalance", wallet.get().getAvailableBalance());
+                        map.put("totalWithdrawn", wallet.get().getTotalWithdrawn());
+                    } else {
+                        map.put("availableBalance", BigDecimal.ZERO);
+                        map.put("totalWithdrawn", BigDecimal.ZERO);
+                    }
+                } catch (Exception ignored) {
+                    map.put("availableBalance", BigDecimal.ZERO);
+                }
 
                 map.put("upiId", t.getUpiId());
                 map.put("isUpiVerified", t.isUpiVerified());
                 map.put("rejectionReason", t.getRejectionReason());
-                map.put("photo", (t.getUser() != null && t.getUser().getProfileImageUrl() != null && !t.getUser().getProfileImageUrl().isBlank())
-                        ? t.getUser().getProfileImageUrl()
-                        : "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=150&q=80");
+                map.put("photo", (!livePicUrl.isBlank())
+                        ? livePicUrl
+                        : (t.getUser() != null && t.getUser().getProfileImageUrl() != null && !t.getUser().getProfileImageUrl().isBlank()
+                                ? t.getUser().getProfileImageUrl()
+                                : "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=150&q=80"));
                 map.put("status", (t.getUser() != null && !t.getUser().isActive()) ? "Suspended" : "Active");
                 map.put("createdAt", t.getCreatedAt() != null ? t.getCreatedAt().toString() : Instant.now().toString());
 
@@ -367,6 +497,8 @@ public class AdminController {
                     map.put("longitude", t.getCurrentLocation().getX());
                     map.put("locationUpdatedAt", t.getLocationUpdatedAt() != null ? t.getLocationUpdatedAt().toString() : Instant.now().toString());
                 } else {
+                    map.put("latitude", null);
+                    map.put("longitude", null);
                     map.put("locationUpdatedAt", null);
                 }
 
@@ -377,6 +509,151 @@ public class AdminController {
         }
 
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @PostMapping("/technicians")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createTechnician(
+            @RequestBody Map<String, Object> body,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        String name = (String) body.get("name");
+        String phone = (String) body.get("phone");
+        String email = (String) body.get("email");
+        String category = (String) body.get("category");
+        String photo = (String) body.get("photo");
+        String upiId = (String) body.get("upiId");
+
+        if (name == null || name.trim().isBlank()) {
+            throw new BadRequestException("Technician full name is required");
+        }
+        if (phone == null || phone.trim().isBlank()) {
+            throw new BadRequestException("Mobile number is required");
+        }
+
+        String normPhone = phone.replaceAll("[^0-9]", "");
+        if (normPhone.length() == 12 && normPhone.startsWith("91")) {
+            normPhone = normPhone.substring(2);
+        }
+        if (normPhone.length() == 11 && normPhone.startsWith("0")) {
+            normPhone = normPhone.substring(1);
+        }
+        if (normPhone.length() != 10) {
+            normPhone = "9" + String.format("%09d", Math.abs(name.hashCode() % 1000000000L));
+        }
+
+        final String finalEmail = (email != null && !email.isBlank())
+                ? email.trim().toLowerCase()
+                : "tech." + normPhone + "@bookurtechnician.online";
+        final String finalPhone = normPhone;
+        final String finalName = name.trim();
+
+        User user = userRepository.findByEmail(finalEmail)
+                .or(() -> userRepository.findByPhone(finalPhone))
+                .orElseGet(() -> User.builder()
+                        .fullName(finalName)
+                        .phone(finalPhone)
+                        .email(finalEmail)
+                        .role(Role.TECHNICIAN)
+                        .profileImageUrl(photo != null && !photo.isBlank() ? photo.trim() : null)
+                        .active(true)
+                        .emailVerified(true)
+                        .phoneVerified(true)
+                        .build());
+
+        user.setFullName(finalName);
+        user.setRole(Role.TECHNICIAN);
+        user.setActive(true);
+        if (photo != null && !photo.isBlank()) {
+            user.setProfileImageUrl(photo.trim());
+        }
+        user = userRepository.save(user);
+
+        final User savedUser = user;
+        long totalCount = technicianRepository.count();
+        String code = "BT-TECH-" + String.format("%06d", totalCount + 1);
+
+        TechnicianProfile profile = technicianRepository.findByUserId(savedUser.getId())
+                .orElseGet(() -> TechnicianProfile.builder()
+                        .user(savedUser)
+                        .technicianCode(code)
+                        .kycStatus("VERIFIED")
+                        .online(true)
+                        .rating(new BigDecimal("5.0"))
+                        .upiId(upiId != null && !upiId.isBlank() ? upiId.trim() : "technician@upi")
+                        .upiVerified(true)
+                        .build());
+
+        if (upiId != null && !upiId.isBlank()) {
+            profile.setUpiId(upiId.trim());
+            profile.setUpiVerified(true);
+        }
+        profile = technicianRepository.save(profile);
+
+        if (technicianWalletRepository.findByTechnician(profile).isEmpty()) {
+            TechnicianWallet wallet = TechnicianWallet.builder()
+                    .technician(profile)
+                    .availableBalance(BigDecimal.ZERO)
+                    .totalWithdrawn(BigDecimal.ZERO)
+                    .build();
+            technicianWalletRepository.save(wallet);
+        }
+
+        String aadhaarNumber = (String) body.get("aadhaarNumber");
+        if (aadhaarNumber != null && !aadhaarNumber.isBlank()) {
+            TechnicianDocument aDoc = TechnicianDocument.builder()
+                    .technician(profile)
+                    .documentType("AADHAAR")
+                    .maskedNumber(aadhaarNumber.trim())
+                    .secureCloudinaryUrl("https://bookurtechnician.com/docs/aadhaar/" + profile.getTechnicianCode())
+                    .verificationStatus("APPROVED")
+                    .reviewedAt(Instant.now())
+                    .build();
+            technicianDocumentRepository.save(aDoc);
+        }
+
+        String voterCardNumber = (String) body.get("voterCardNumber");
+        if (voterCardNumber != null && !voterCardNumber.isBlank()) {
+            TechnicianDocument vDoc = TechnicianDocument.builder()
+                    .technician(profile)
+                    .documentType("VOTER_CARD")
+                    .maskedNumber(voterCardNumber.trim())
+                    .secureCloudinaryUrl("https://bookurtechnician.com/docs/voter/" + profile.getTechnicianCode())
+                    .verificationStatus("APPROVED")
+                    .reviewedAt(Instant.now())
+                    .build();
+            technicianDocumentRepository.save(vDoc);
+        }
+
+        recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
+                "REGISTER_TECHNICIAN", "TechnicianProfile", profile.getId().toString(),
+                "Manually onboarded technician: " + profile.getTechnicianCode() + " (" + finalName + ")");
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", profile.getId().toString());
+        map.put("userId", savedUser.getId().toString());
+        map.put("name", finalName);
+        map.put("fullName", finalName);
+        map.put("phone", savedUser.getPhone());
+        map.put("email", savedUser.getEmail());
+        map.put("code", profile.getTechnicianCode());
+        map.put("technicianCode", profile.getTechnicianCode());
+        map.put("category", category != null && !category.isBlank() ? category : "General Maintenance");
+        map.put("kycStatus", profile.getKycStatus());
+        map.put("status", savedUser.isActive() ? "Active" : "Suspended");
+        map.put("isOnline", profile.isOnline());
+        map.put("rating", 5.0);
+        map.put("totalRatingsCount", 0);
+        map.put("totalJobsCompleted", 0);
+        map.put("acceptanceRate", 98.5);
+        map.put("cancellationRate", 1.0);
+        map.put("upiId", profile.getUpiId());
+        map.put("isUpiVerified", profile.isUpiVerified());
+        map.put("availableBalance", BigDecimal.ZERO);
+        map.put("photo", savedUser.getProfileImageUrl() != null ? savedUser.getProfileImageUrl() : "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=150&q=80");
+        map.put("createdAt", profile.getCreatedAt() != null ? profile.getCreatedAt().toString() : Instant.now().toString());
+        map.put("documents", Collections.emptyList());
+        map.put("skills", Collections.emptyList());
+
+        return ResponseEntity.ok(ApiResponse.success(map, "Technician partner successfully registered & onboarded"));
     }
 
     @GetMapping("/technicians/online")
@@ -405,15 +682,19 @@ public class AdminController {
     @GetMapping("/technicians/{id}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getTechnicianDetails(@PathVariable UUID id) {
         TechnicianProfile tech = technicianRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Technician not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Technician not found: " + id));
         List<TechnicianDocument> docs = technicianDocumentRepository.findByTechnicianId(id);
         Optional<TechnicianWallet> wallet = technicianWalletRepository.findByTechnicianId(id);
         List<Booking> bookings = bookingRepository.findByTechnicianIdOrderByCreatedAtDesc(id);
+        List<com.bookurtechnician.technician.entity.TechnicianSkill> skills = technicianSkillRepository.findByTechnicianIdOrderByCreatedAtAsc(id);
 
         Map<String, Object> map = new HashMap<>();
         map.put("technician", tech);
+        map.put("user", tech.getUser());
         map.put("documents", docs);
         map.put("wallet", wallet.orElse(null));
+        map.put("skills", skills);
+        map.put("bookingsCount", bookings.size());
         map.put("bookings", bookings);
         return ResponseEntity.ok(ApiResponse.success(map));
     }
@@ -951,116 +1232,341 @@ public class AdminController {
 
     // ─── 12. SERVICE CATALOG & PRICING CRUD ───────────────────────────────────
     @GetMapping("/categories")
-    public ResponseEntity<ApiResponse<List<ServiceCategory>>> getCategories() {
-        return ResponseEntity.ok(ApiResponse.success(serviceCategoryRepository.findAll()));
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getCategories() {
+        List<ServiceCategory> categories = serviceCategoryRepository.findAll();
+        List<Map<String, Object>> list = categories.stream().map(c -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", c.getId().toString());
+            m.put("name", c.getName());
+            m.put("slug", c.getSlug());
+            m.put("iconUrl", c.getIconUrl());
+            m.put("bannerUrl", c.getBannerUrl());
+            m.put("imageUrl", c.getImageUrl() != null ? c.getImageUrl() : "https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500");
+            m.put("displayOrder", c.getDisplayOrder());
+            m.put("active", c.isActive());
+            m.put("isActive", c.isActive());
+            m.put("servicesCount", serviceItemRepository.findByCategoryIdAndActiveTrue(c.getId()).size());
+            return m;
+        }).toList();
+        return ResponseEntity.ok(ApiResponse.success(list));
     }
 
     @PostMapping("/categories")
-    public ResponseEntity<ApiResponse<ServiceCategory>> createCategory(
-            @RequestBody ServiceCategory cat,
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createCategory(
+            @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal UserPrincipal principal) {
-        String baseSlug = (cat.getSlug() != null && !cat.getSlug().isBlank())
-                ? cat.getSlug().toLowerCase().replaceAll("[^a-z0-9]+", "-")
-                : (cat.getName() != null ? cat.getName().toLowerCase().replaceAll("[^a-z0-9]+", "-") : "category");
+        String name = (String) body.get("name");
+        if (name == null || name.isBlank()) {
+            throw new BadRequestException("Category name is required");
+        }
+        String iconUrl = (String) body.getOrDefault("iconUrl", (String) body.getOrDefault("imageUrl", "https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500"));
+        String bannerUrl = (String) body.getOrDefault("bannerUrl", iconUrl);
+        boolean active = Boolean.TRUE.equals(body.get("active")) || Boolean.TRUE.equals(body.get("isActive")) || !body.containsKey("active");
+        int displayOrder = body.get("displayOrder") instanceof Number ? ((Number) body.get("displayOrder")).intValue() : 0;
+
+        String baseSlug = name.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
         if (baseSlug.isBlank()) baseSlug = "category";
         String uniqueSlug = baseSlug;
         int counter = 1;
         while (serviceCategoryRepository.existsBySlug(uniqueSlug)) {
             uniqueSlug = baseSlug + "-" + (++counter);
         }
-        cat.setSlug(uniqueSlug);
 
+        ServiceCategory cat = ServiceCategory.builder()
+                .name(name.trim())
+                .slug(uniqueSlug)
+                .iconUrl(iconUrl)
+                .bannerUrl(bannerUrl)
+                .displayOrder(displayOrder)
+                .active(active)
+                .build();
         cat = serviceCategoryRepository.save(cat);
+
         recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "CREATE_CATEGORY", "ServiceCategory", cat.getId().toString(), cat.getName());
-        return ResponseEntity.ok(ApiResponse.success(cat, "Category created successfully"));
+                "CREATE_CATEGORY", "ServiceCategory", cat.getId().toString(), "Created category: " + cat.getName());
+
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", cat.getId().toString());
+        m.put("name", cat.getName());
+        m.put("slug", cat.getSlug());
+        m.put("iconUrl", cat.getIconUrl());
+        m.put("bannerUrl", cat.getBannerUrl());
+        m.put("imageUrl", cat.getImageUrl());
+        m.put("displayOrder", cat.getDisplayOrder());
+        m.put("active", cat.isActive());
+        m.put("isActive", cat.isActive());
+        return ResponseEntity.ok(ApiResponse.success(m, "Category created successfully"));
     }
 
     @PutMapping("/categories/{id}")
-    public ResponseEntity<ApiResponse<ServiceCategory>> updateCategory(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updateCategory(
             @PathVariable UUID id,
-            @RequestBody ServiceCategory updated,
+            @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal UserPrincipal principal) {
         ServiceCategory cat = serviceCategoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + id));
-        cat.setName(updated.getName());
-        cat.setIconUrl(updated.getIconUrl());
-        cat.setBannerUrl(updated.getBannerUrl());
-        cat.setActive(updated.isActive());
+
+        if (body.containsKey("name") && body.get("name") != null) {
+            cat.setName(((String) body.get("name")).trim());
+        }
+        if (body.containsKey("iconUrl") && body.get("iconUrl") != null) {
+            cat.setIconUrl((String) body.get("iconUrl"));
+        }
+        if (body.containsKey("bannerUrl") && body.get("bannerUrl") != null) {
+            cat.setBannerUrl((String) body.get("bannerUrl"));
+        }
+        if (body.containsKey("imageUrl") && body.get("imageUrl") != null) {
+            cat.setImageUrl((String) body.get("imageUrl"));
+        }
+        if (body.containsKey("displayOrder") && body.get("displayOrder") instanceof Number) {
+            cat.setDisplayOrder(((Number) body.get("displayOrder")).intValue());
+        }
+        if (body.containsKey("active")) {
+            cat.setActive(Boolean.TRUE.equals(body.get("active")));
+        } else if (body.containsKey("isActive")) {
+            cat.setActive(Boolean.TRUE.equals(body.get("isActive")));
+        }
         cat = serviceCategoryRepository.save(cat);
 
         recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "UPDATE_CATEGORY", "ServiceCategory", id.toString(), cat.getName());
-        return ResponseEntity.ok(ApiResponse.success(cat, "Category updated"));
+                "UPDATE_CATEGORY", "ServiceCategory", id.toString(), "Updated category: " + cat.getName());
+
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", cat.getId().toString());
+        m.put("name", cat.getName());
+        m.put("slug", cat.getSlug());
+        m.put("iconUrl", cat.getIconUrl());
+        m.put("bannerUrl", cat.getBannerUrl());
+        m.put("imageUrl", cat.getImageUrl());
+        m.put("displayOrder", cat.getDisplayOrder());
+        m.put("active", cat.isActive());
+        m.put("isActive", cat.isActive());
+        return ResponseEntity.ok(ApiResponse.success(m, "Category updated"));
     }
 
     @DeleteMapping("/categories/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteCategory(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        serviceCategoryRepository.deleteById(id);
+        ServiceCategory cat = serviceCategoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + id));
+        serviceCategoryRepository.delete(cat);
         recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "DELETE_CATEGORY", "ServiceCategory", id.toString(), "Deleted");
-        return ResponseEntity.ok(ApiResponse.success(null, "Category deleted"));
+                "DELETE_CATEGORY", "ServiceCategory", id.toString(), "Deleted category: " + cat.getName());
+        return ResponseEntity.ok(ApiResponse.success(null, "Category deleted successfully"));
     }
 
     @GetMapping("/services")
-    public ResponseEntity<ApiResponse<List<ServiceItem>>> getServices() {
-        return ResponseEntity.ok(ApiResponse.success(serviceItemRepository.findAll()));
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getServices() {
+        List<ServiceItem> items = serviceItemRepository.findAll();
+        List<Map<String, Object>> list = items.stream().map(s -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", s.getId().toString());
+            m.put("name", s.getName());
+            m.put("slug", s.getSlug());
+            m.put("price", s.getPrice());
+            m.put("bookingCharge", s.getBookingCharge());
+            m.put("advancePrepaymentPct", s.getAdvancePrepaymentPct());
+            m.put("technicianPayoutAmount", s.getTechnicianPayoutAmount());
+            m.put("durationMinutes", s.getDurationMinutes());
+            m.put("description", s.getDescription());
+            m.put("imageUrl", s.getImageUrl() != null ? s.getImageUrl() : "https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500");
+            m.put("warrantyText", s.getWarrantyText());
+            m.put("popular", s.isPopular());
+            m.put("isPopular", s.isPopular());
+            m.put("active", s.isActive());
+            m.put("isActive", s.isActive());
+            if (s.getCategory() != null) {
+                Map<String, Object> catMap = new HashMap<>();
+                catMap.put("id", s.getCategory().getId().toString());
+                catMap.put("name", s.getCategory().getName());
+                catMap.put("slug", s.getCategory().getSlug());
+                m.put("category", catMap);
+                m.put("categoryId", s.getCategory().getId().toString());
+                m.put("categoryName", s.getCategory().getName());
+            } else {
+                m.put("category", null);
+                m.put("categoryId", null);
+                m.put("categoryName", "General");
+            }
+            return m;
+        }).toList();
+        return ResponseEntity.ok(ApiResponse.success(list));
     }
 
     @PostMapping("/services")
-    public ResponseEntity<ApiResponse<ServiceItem>> createService(
-            @RequestBody ServiceItem item,
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createService(
+            @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal UserPrincipal principal) {
-        String baseSlug = (item.getSlug() != null && !item.getSlug().isBlank())
-                ? item.getSlug().toLowerCase().replaceAll("[^a-z0-9]+", "-")
-                : (item.getName() != null ? item.getName().toLowerCase().replaceAll("[^a-z0-9]+", "-") : "service");
+        String name = (String) body.get("name");
+        if (name == null || name.isBlank()) {
+            throw new BadRequestException("Service name is required");
+        }
+
+        UUID categoryId = null;
+        if (body.get("categoryId") != null && !((String) body.get("categoryId")).isBlank()) {
+            try {
+                categoryId = UUID.fromString((String) body.get("categoryId"));
+            } catch (Exception ignored) {}
+        }
+        if (categoryId == null && body.get("category") != null) {
+            String catParam = body.get("category").toString();
+            try {
+                categoryId = UUID.fromString(catParam);
+            } catch (Exception ignored) {
+                Optional<ServiceCategory> opt = serviceCategoryRepository.findAll().stream()
+                        .filter(c -> c.getName().equalsIgnoreCase(catParam)).findFirst();
+                if (opt.isPresent()) categoryId = opt.get().getId();
+            }
+        }
+        if (categoryId == null) {
+            List<ServiceCategory> allCats = serviceCategoryRepository.findAll();
+            if (!allCats.isEmpty()) {
+                categoryId = allCats.get(0).getId();
+            } else {
+                // Auto-create default category if none exists
+                ServiceCategory defaultCat = ServiceCategory.builder()
+                        .name("General Maintenance")
+                        .slug("general-maintenance")
+                        .iconUrl("https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500")
+                        .active(true)
+                        .build();
+                defaultCat = serviceCategoryRepository.save(defaultCat);
+                categoryId = defaultCat.getId();
+            }
+        }
+
+        ServiceCategory category = serviceCategoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+
+        BigDecimal price = body.get("price") != null ? new BigDecimal(body.get("price").toString()) : new BigDecimal("499.00");
+        BigDecimal bookingCharge = body.get("bookingCharge") != null ? new BigDecimal(body.get("bookingCharge").toString()) : new BigDecimal("49.00");
+        int duration = body.get("durationMinutes") instanceof Number ? ((Number) body.get("durationMinutes")).intValue() : 45;
+        String desc = (String) body.getOrDefault("description", "Professional doorstep repair and diagnostic service.");
+        String img = (String) body.getOrDefault("imageUrl", "https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500");
+        String warranty = (String) body.getOrDefault("warrantyText", "30-Day Service Warranty");
+        boolean active = Boolean.TRUE.equals(body.get("active")) || Boolean.TRUE.equals(body.get("isActive")) || !body.containsKey("active");
+        boolean popular = Boolean.TRUE.equals(body.get("popular")) || Boolean.TRUE.equals(body.get("isPopular"));
+
+        String baseSlug = name.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
         if (baseSlug.isBlank()) baseSlug = "service";
         String uniqueSlug = baseSlug;
         int counter = 1;
         while (serviceItemRepository.existsBySlug(uniqueSlug)) {
             uniqueSlug = baseSlug + "-" + (++counter);
         }
-        item.setSlug(uniqueSlug);
 
+        ServiceItem item = ServiceItem.builder()
+                .name(name.trim())
+                .slug(uniqueSlug)
+                .category(category)
+                .price(price)
+                .bookingCharge(bookingCharge)
+                .durationMinutes(duration)
+                .description(desc)
+                .imageUrl(img)
+                .warrantyText(warranty)
+                .popular(popular)
+                .active(active)
+                .build();
         item = serviceItemRepository.save(item);
+
         recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "CREATE_SERVICE", "ServiceItem", item.getId().toString(), item.getName());
-        return ResponseEntity.ok(ApiResponse.success(item, "Service item created"));
+                "CREATE_SERVICE", "ServiceItem", item.getId().toString(), "Created service: " + item.getName() + " in " + category.getName());
+
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", item.getId().toString());
+        m.put("name", item.getName());
+        m.put("slug", item.getSlug());
+        m.put("price", item.getPrice());
+        m.put("bookingCharge", item.getBookingCharge());
+        m.put("durationMinutes", item.getDurationMinutes());
+        m.put("description", item.getDescription());
+        m.put("imageUrl", item.getImageUrl());
+        m.put("warrantyText", item.getWarrantyText());
+        m.put("categoryId", category.getId().toString());
+        m.put("categoryName", category.getName());
+        m.put("active", item.isActive());
+        m.put("isActive", item.isActive());
+        return ResponseEntity.ok(ApiResponse.success(m, "Service item created successfully"));
     }
 
     @PutMapping("/services/{id}")
-    public ResponseEntity<ApiResponse<ServiceItem>> updateService(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updateService(
             @PathVariable UUID id,
-            @RequestBody ServiceItem updated,
+            @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal UserPrincipal principal) {
         ServiceItem item = serviceItemRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Service not found: " + id));
-        item.setName(updated.getName());
-        item.setPrice(updated.getPrice());
-        if (updated.getBookingCharge() != null) item.setBookingCharge(updated.getBookingCharge());
-        if (updated.getAdvancePrepaymentPct() > 0) item.setAdvancePrepaymentPct(updated.getAdvancePrepaymentPct());
-        if (updated.getTechnicianPayoutAmount() != null) item.setTechnicianPayoutAmount(updated.getTechnicianPayoutAmount());
-        item.setDescription(updated.getDescription());
-        item.setDurationMinutes(updated.getDurationMinutes());
-        item.setImageUrl(updated.getImageUrl());
-        item.setPopular(updated.isPopular());
-        item.setActive(updated.isActive());
+
+        if (body.containsKey("name") && body.get("name") != null) {
+            item.setName(((String) body.get("name")).trim());
+        }
+        if (body.containsKey("price") && body.get("price") != null) {
+            item.setPrice(new BigDecimal(body.get("price").toString()));
+        }
+        if (body.containsKey("bookingCharge") && body.get("bookingCharge") != null) {
+            item.setBookingCharge(new BigDecimal(body.get("bookingCharge").toString()));
+        }
+        if (body.containsKey("durationMinutes") && body.get("durationMinutes") != null) {
+            item.setDurationMinutes(Integer.parseInt(body.get("durationMinutes").toString()));
+        }
+        if (body.containsKey("description") && body.get("description") != null) {
+            item.setDescription((String) body.get("description"));
+        }
+        if (body.containsKey("imageUrl") && body.get("imageUrl") != null) {
+            item.setImageUrl((String) body.get("imageUrl"));
+        }
+        if (body.containsKey("warrantyText") && body.get("warrantyText") != null) {
+            item.setWarrantyText((String) body.get("warrantyText"));
+        }
+        if (body.containsKey("popular")) {
+            item.setPopular(Boolean.TRUE.equals(body.get("popular")));
+        } else if (body.containsKey("isPopular")) {
+            item.setPopular(Boolean.TRUE.equals(body.get("isPopular")));
+        }
+        if (body.containsKey("active")) {
+            item.setActive(Boolean.TRUE.equals(body.get("active")));
+        } else if (body.containsKey("isActive")) {
+            item.setActive(Boolean.TRUE.equals(body.get("isActive")));
+        }
+        if (body.containsKey("categoryId") && body.get("categoryId") != null) {
+            try {
+                UUID catId = UUID.fromString((String) body.get("categoryId"));
+                serviceCategoryRepository.findById(catId).ifPresent(item::setCategory);
+            } catch (Exception ignored) {}
+        }
+
         item = serviceItemRepository.save(item);
 
         recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "UPDATE_SERVICE", "ServiceItem", id.toString(), item.getName());
-        return ResponseEntity.ok(ApiResponse.success(item, "Service item updated"));
+                "UPDATE_SERVICE", "ServiceItem", id.toString(), "Updated service: " + item.getName());
+
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", item.getId().toString());
+        m.put("name", item.getName());
+        m.put("slug", item.getSlug());
+        m.put("price", item.getPrice());
+        m.put("bookingCharge", item.getBookingCharge());
+        m.put("durationMinutes", item.getDurationMinutes());
+        m.put("description", item.getDescription());
+        m.put("imageUrl", item.getImageUrl());
+        m.put("categoryId", item.getCategory() != null ? item.getCategory().getId().toString() : "");
+        m.put("categoryName", item.getCategory() != null ? item.getCategory().getName() : "");
+        m.put("active", item.isActive());
+        m.put("isActive", item.isActive());
+        return ResponseEntity.ok(ApiResponse.success(m, "Service item updated"));
     }
 
     @DeleteMapping("/services/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteService(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserPrincipal principal) {
-        serviceItemRepository.deleteById(id);
+        ServiceItem item = serviceItemRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Service not found: " + id));
+        serviceItemRepository.delete(item);
         recordAudit(principal != null ? principal.getId() : null, principal != null ? principal.getEmail() : "admin",
-                "DELETE_SERVICE", "ServiceItem", id.toString(), "Deleted");
+                "DELETE_SERVICE", "ServiceItem", id.toString(), "Deleted service: " + item.getName());
         return ResponseEntity.ok(ApiResponse.success(null, "Service item deleted"));
     }
 
@@ -1117,10 +1623,6 @@ public class AdminController {
     }
 
     // ─── DTO DEFINITIONS ──────────────────────────────────────────────────────
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class AdminStatsDto {
         private long customers;
         private long totalCustomers;
@@ -1141,20 +1643,135 @@ public class AdminController {
         private long pendingPayouts;
         private long pendingWithdrawals;
         private long pendingRefunds;
+
+        public AdminStatsDto() {}
+
+        public static Builder builder() { return new Builder(); }
+
+        public static class Builder {
+            private long customers;
+            private long totalCustomers;
+            private long activeCustomers;
+            private long technicians;
+            private long totalTechnicians;
+            private long verifiedTechnicians;
+            private long onlineTechnicians;
+            private long offlineTechnicians;
+            private long pendingKyc;
+            private long totalBookings;
+            private long activeBookings;
+            private long completedBookings;
+            private long cancelledBookings;
+            private long todayBookings;
+            private double todayRevenue;
+            private double totalRevenue;
+            private long pendingPayouts;
+            private long pendingWithdrawals;
+            private long pendingRefunds;
+
+            public Builder customers(long customers) { this.customers = customers; return this; }
+            public Builder totalCustomers(long totalCustomers) { this.totalCustomers = totalCustomers; return this; }
+            public Builder activeCustomers(long activeCustomers) { this.activeCustomers = activeCustomers; return this; }
+            public Builder technicians(long technicians) { this.technicians = technicians; return this; }
+            public Builder totalTechnicians(long totalTechnicians) { this.totalTechnicians = totalTechnicians; return this; }
+            public Builder verifiedTechnicians(long verifiedTechnicians) { this.verifiedTechnicians = verifiedTechnicians; return this; }
+            public Builder onlineTechnicians(long onlineTechnicians) { this.onlineTechnicians = onlineTechnicians; return this; }
+            public Builder offlineTechnicians(long offlineTechnicians) { this.offlineTechnicians = offlineTechnicians; return this; }
+            public Builder pendingKyc(long pendingKyc) { this.pendingKyc = pendingKyc; return this; }
+            public Builder totalBookings(long totalBookings) { this.totalBookings = totalBookings; return this; }
+            public Builder activeBookings(long activeBookings) { this.activeBookings = activeBookings; return this; }
+            public Builder completedBookings(long completedBookings) { this.completedBookings = completedBookings; return this; }
+            public Builder cancelledBookings(long cancelledBookings) { this.cancelledBookings = cancelledBookings; return this; }
+            public Builder todayBookings(long todayBookings) { this.todayBookings = todayBookings; return this; }
+            public Builder todayRevenue(double todayRevenue) { this.todayRevenue = todayRevenue; return this; }
+            public Builder totalRevenue(double totalRevenue) { this.totalRevenue = totalRevenue; return this; }
+            public Builder pendingPayouts(long pendingPayouts) { this.pendingPayouts = pendingPayouts; return this; }
+            public Builder pendingWithdrawals(long pendingWithdrawals) { this.pendingWithdrawals = pendingWithdrawals; return this; }
+            public Builder pendingRefunds(long pendingRefunds) { this.pendingRefunds = pendingRefunds; return this; }
+
+            public AdminStatsDto build() {
+                AdminStatsDto dto = new AdminStatsDto();
+                dto.customers = this.customers;
+                dto.totalCustomers = this.totalCustomers;
+                dto.activeCustomers = this.activeCustomers;
+                dto.technicians = this.technicians;
+                dto.totalTechnicians = this.totalTechnicians;
+                dto.verifiedTechnicians = this.verifiedTechnicians;
+                dto.onlineTechnicians = this.onlineTechnicians;
+                dto.offlineTechnicians = this.offlineTechnicians;
+                dto.pendingKyc = this.pendingKyc;
+                dto.totalBookings = this.totalBookings;
+                dto.activeBookings = this.activeBookings;
+                dto.completedBookings = this.completedBookings;
+                dto.cancelledBookings = this.cancelledBookings;
+                dto.todayBookings = this.todayBookings;
+                dto.todayRevenue = this.todayRevenue;
+                dto.totalRevenue = this.totalRevenue;
+                dto.pendingPayouts = this.pendingPayouts;
+                dto.pendingWithdrawals = this.pendingWithdrawals;
+                dto.pendingRefunds = this.pendingRefunds;
+                return dto;
+            }
+        }
+
+        public long getCustomers() { return customers; }
+        public void setCustomers(long customers) { this.customers = customers; }
+        public long getTotalCustomers() { return totalCustomers; }
+        public void setTotalCustomers(long totalCustomers) { this.totalCustomers = totalCustomers; }
+        public long getActiveCustomers() { return activeCustomers; }
+        public void setActiveCustomers(long activeCustomers) { this.activeCustomers = activeCustomers; }
+        public long getTechnicians() { return technicians; }
+        public void setTechnicians(long technicians) { this.technicians = technicians; }
+        public long getTotalTechnicians() { return totalTechnicians; }
+        public void setTotalTechnicians(long totalTechnicians) { this.totalTechnicians = totalTechnicians; }
+        public long getVerifiedTechnicians() { return verifiedTechnicians; }
+        public void setVerifiedTechnicians(long verifiedTechnicians) { this.verifiedTechnicians = verifiedTechnicians; }
+        public long getOnlineTechnicians() { return onlineTechnicians; }
+        public void setOnlineTechnicians(long onlineTechnicians) { this.onlineTechnicians = onlineTechnicians; }
+        public long getOfflineTechnicians() { return offlineTechnicians; }
+        public void setOfflineTechnicians(long offlineTechnicians) { this.offlineTechnicians = offlineTechnicians; }
+        public long getPendingKyc() { return pendingKyc; }
+        public void setPendingKyc(long pendingKyc) { this.pendingKyc = pendingKyc; }
+        public long getTotalBookings() { return totalBookings; }
+        public void setTotalBookings(long totalBookings) { this.totalBookings = totalBookings; }
+        public long getActiveBookings() { return activeBookings; }
+        public void setActiveBookings(long activeBookings) { this.activeBookings = activeBookings; }
+        public long getCompletedBookings() { return completedBookings; }
+        public void setCompletedBookings(long completedBookings) { this.completedBookings = completedBookings; }
+        public long getCancelledBookings() { return cancelledBookings; }
+        public void setCancelledBookings(long cancelledBookings) { this.cancelledBookings = cancelledBookings; }
+        public long getTodayBookings() { return todayBookings; }
+        public void setTodayBookings(long todayBookings) { this.todayBookings = todayBookings; }
+        public double getTodayRevenue() { return todayRevenue; }
+        public void setTodayRevenue(double todayRevenue) { this.todayRevenue = todayRevenue; }
+        public double getTotalRevenue() { return totalRevenue; }
+        public void setTotalRevenue(double totalRevenue) { this.totalRevenue = totalRevenue; }
+        public long getPendingPayouts() { return pendingPayouts; }
+        public void setPendingPayouts(long pendingPayouts) { this.pendingPayouts = pendingPayouts; }
+        public long getPendingWithdrawals() { return pendingWithdrawals; }
+        public void setPendingWithdrawals(long pendingWithdrawals) { this.pendingWithdrawals = pendingWithdrawals; }
+        public long getPendingRefunds() { return pendingRefunds; }
+        public void setPendingRefunds(long pendingRefunds) { this.pendingRefunds = pendingRefunds; }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class KycDecisionDto {
-        private String status; // VERIFIED, REJECTED
+        private String status;
         private String reason;
+
+        public KycDecisionDto() {}
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        public String getReason() { return reason; }
+        public void setReason(String reason) { this.reason = reason; }
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class RefundStatusUpdateDto {
-        private String status; // SETTLED, PROCESSING, FAILED
+        private String status;
+
+        public RefundStatusUpdateDto() {}
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
     }
 }

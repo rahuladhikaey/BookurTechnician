@@ -7,10 +7,6 @@ import com.bookurtechnician.dispatch.repository.BookingProposalRepository;
 import com.bookurtechnician.dispatch.service.DispatchService;
 import com.bookurtechnician.technician.entity.TechnicianProfile;
 import com.bookurtechnician.technician.repository.TechnicianProfileRepository;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,12 +17,19 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/dispatch")
-@RequiredArgsConstructor
 public class DispatchController {
 
     private final DispatchService dispatchService;
     private final BookingProposalRepository proposalRepository;
     private final TechnicianProfileRepository technicianProfileRepository;
+
+    public DispatchController(DispatchService dispatchService,
+                              BookingProposalRepository proposalRepository,
+                              TechnicianProfileRepository technicianProfileRepository) {
+        this.dispatchService = dispatchService;
+        this.proposalRepository = proposalRepository;
+        this.technicianProfileRepository = technicianProfileRepository;
+    }
 
     @GetMapping("/proposals/pending")
     @PreAuthorize("hasRole('TECHNICIAN')")
@@ -59,10 +62,13 @@ public class DispatchController {
         return ResponseEntity.ok(ApiResponse.success(null, "Proposal declined."));
     }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class ProposalRejectDto {
         private String reason;
+
+        public ProposalRejectDto() {}
+        public ProposalRejectDto(String reason) { this.reason = reason; }
+
+        public String getReason() { return reason; }
+        public void setReason(String reason) { this.reason = reason; }
     }
 }

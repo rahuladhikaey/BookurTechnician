@@ -3,15 +3,7 @@ package com.bookurtechnician.admin.dto;
 import com.bookurtechnician.auth.entity.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class AdminBootstrapDto {
 
     @NotBlank(message = "Developer Access Key 1 is required")
@@ -32,5 +24,22 @@ public class AdminBootstrapDto {
 
     private String fullName;
 
-    private Role role; // ADMIN, SUPER_ADMIN, or FINANCE_ADMIN (defaults to SUPER_ADMIN)
+    private Role role;
+
+    public AdminBootstrapDto() {}
+
+    public String getAccessKey1() { return accessKey1; }
+    public void setAccessKey1(String accessKey1) { this.accessKey1 = accessKey1; }
+    public String getAccessKey2() { return accessKey2; }
+    public void setAccessKey2(String accessKey2) { this.accessKey2 = accessKey2; }
+    public String getBootstrapPassword() { return bootstrapPassword; }
+    public void setBootstrapPassword(String bootstrapPassword) { this.bootstrapPassword = bootstrapPassword; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
 }

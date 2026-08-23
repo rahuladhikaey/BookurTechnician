@@ -3,7 +3,6 @@ package com.bookurtechnician.servicecatalog.controller;
 import com.bookurtechnician.common.response.ApiResponse;
 import com.bookurtechnician.servicecatalog.dto.CatalogDtos;
 import com.bookurtechnician.servicecatalog.service.CatalogService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,10 +11,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/catalog")
-@RequiredArgsConstructor
 public class CatalogController {
 
     private final CatalogService catalogService;
+
+    public CatalogController(CatalogService catalogService) {
+        this.catalogService = catalogService;
+    }
 
     @GetMapping("/hierarchy")
     public ResponseEntity<ApiResponse<List<CatalogDtos.CategoryHierarchyDto>>> getHierarchy() {

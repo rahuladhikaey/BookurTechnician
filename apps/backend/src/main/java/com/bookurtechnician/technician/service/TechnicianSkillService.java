@@ -9,8 +9,8 @@ import com.bookurtechnician.technician.entity.TechnicianProfile;
 import com.bookurtechnician.technician.entity.TechnicianSkill;
 import com.bookurtechnician.technician.repository.TechnicianProfileRepository;
 import com.bookurtechnician.technician.repository.TechnicianSkillRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,14 +24,24 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class TechnicianSkillService {
+
+    private static final Logger log = LoggerFactory.getLogger(TechnicianSkillService.class);
 
     private final TechnicianProfileRepository profileRepository;
     private final TechnicianSkillRepository technicianSkillRepository;
     private final ServiceSkillRepository serviceSkillRepository;
     private final ReviewRepository reviewRepository;
+
+    public TechnicianSkillService(TechnicianProfileRepository profileRepository,
+                                  TechnicianSkillRepository technicianSkillRepository,
+                                  ServiceSkillRepository serviceSkillRepository,
+                                  ReviewRepository reviewRepository) {
+        this.profileRepository = profileRepository;
+        this.technicianSkillRepository = technicianSkillRepository;
+        this.serviceSkillRepository = serviceSkillRepository;
+        this.reviewRepository = reviewRepository;
+    }
 
     @Transactional(readOnly = true)
     public TechnicianSkillDtos.TechnicianSkillProfileResponse getTechnicianSkillProfile(UUID userId) {
@@ -85,6 +95,7 @@ public class TechnicianSkillService {
             }
         }
 
+        log.info("Saved {} skills for technician {}", incomingSkills.size(), profile.getId());
         return buildProfileResponse(profile);
     }
 

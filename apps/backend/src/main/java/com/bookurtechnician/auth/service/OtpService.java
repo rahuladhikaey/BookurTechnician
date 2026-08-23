@@ -1,7 +1,5 @@
 package com.bookurtechnician.auth.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -10,13 +8,18 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class OtpService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OtpService.class);
 
     private final StringRedisTemplate redisTemplate;
     private final BrevoEmailService brevoEmailService;
     private final SecureRandom secureRandom = new SecureRandom();
+
+    public OtpService(StringRedisTemplate redisTemplate, BrevoEmailService brevoEmailService) {
+        this.redisTemplate = redisTemplate;
+        this.brevoEmailService = brevoEmailService;
+    }
 
     private static final Duration OTP_EXPIRY = Duration.ofMinutes(5);
     private static final Duration RESEND_COOLDOWN = Duration.ofSeconds(60);

@@ -18,8 +18,6 @@ import com.bookurtechnician.payment.repository.RefundRepository;
 import com.bookurtechnician.servicecatalog.entity.ServiceItem;
 import com.bookurtechnician.servicecatalog.repository.ServiceItemRepository;
 import com.bookurtechnician.wallet.service.WalletService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,9 +31,9 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class BookingService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BookingService.class);
 
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
@@ -48,6 +46,28 @@ public class BookingService {
     private final BrevoEmailService brevoEmailService;
     private final DispatchService dispatchService;
     private final SecureRandom secureRandom = new SecureRandom();
+
+    public BookingService(BookingRepository bookingRepository,
+                          UserRepository userRepository,
+                          CustomerAddressRepository addressRepository,
+                          ServiceItemRepository serviceItemRepository,
+                          WalletService walletService,
+                          PaymentRepository paymentRepository,
+                          RefundRepository refundRepository,
+                          SimpMessagingTemplate messagingTemplate,
+                          BrevoEmailService brevoEmailService,
+                          DispatchService dispatchService) {
+        this.bookingRepository = bookingRepository;
+        this.userRepository = userRepository;
+        this.addressRepository = addressRepository;
+        this.serviceItemRepository = serviceItemRepository;
+        this.walletService = walletService;
+        this.paymentRepository = paymentRepository;
+        this.refundRepository = refundRepository;
+        this.messagingTemplate = messagingTemplate;
+        this.brevoEmailService = brevoEmailService;
+        this.dispatchService = dispatchService;
+    }
 
     @Transactional
     public BookingDtos.BookingResponse createBooking(UUID customerId, BookingDtos.CreateBookingRequest req) {

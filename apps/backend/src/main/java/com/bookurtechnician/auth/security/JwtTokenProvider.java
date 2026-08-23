@@ -3,7 +3,6 @@ package com.bookurtechnician.auth.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -13,8 +12,9 @@ import java.util.Date;
 import java.util.UUID;
 
 @Component
-@Slf4j
 public class JwtTokenProvider {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JwtTokenProvider.class);
 
     private final SecretKey key;
     private final long jwtExpirationMs;

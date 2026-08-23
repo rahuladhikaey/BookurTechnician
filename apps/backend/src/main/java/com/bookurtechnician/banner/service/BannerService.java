@@ -8,8 +8,6 @@ import com.bookurtechnician.servicecatalog.entity.ServiceCategory;
 import com.bookurtechnician.servicecatalog.entity.ServiceItem;
 import com.bookurtechnician.servicecatalog.repository.ServiceCategoryRepository;
 import com.bookurtechnician.servicecatalog.repository.ServiceItemRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,13 +15,21 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class BannerService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BannerService.class);
 
     private final BannerRepository bannerRepository;
     private final ServiceCategoryRepository categoryRepository;
     private final ServiceItemRepository serviceItemRepository;
+
+    public BannerService(BannerRepository bannerRepository,
+                         ServiceCategoryRepository categoryRepository,
+                         ServiceItemRepository serviceItemRepository) {
+        this.bannerRepository = bannerRepository;
+        this.categoryRepository = categoryRepository;
+        this.serviceItemRepository = serviceItemRepository;
+    }
 
     public List<BannerDtos.BannerResponse> getActiveBannersByType(String bannerType) {
         return bannerRepository.findByBannerTypeAndActiveTrueOrderByDisplayOrderAsc(bannerType.toUpperCase()).stream()

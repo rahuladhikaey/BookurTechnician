@@ -1,0 +1,74 @@
+spring:
+  application:
+    name: bookurtechnician-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  datasource:
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      idle-timeout: 300000
+      max-lifetime: 600000
+      connection-timeout: 20000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 50
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 15MB
+
+server:
+  port: ${PORT:8080}
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# ─── BOOKURTECHNICIAN PRODUCTION INTEGRATIONS ────────────────────────────────
+app:
+  security:
+    jwt-secret: ${JWT_SECRET:d982146a817357f000000ffffff2146a817357f000000ffffff}
+    jwt-expiration-ms: 86400000 # 24 Hours
+    jwt-refresh-expiration-ms: 2592000000 # 30 Days
+    admin:
+      access-key-1: ${ADMIN_ACCESS_KEY_1:BT-ADMIN-KEY-PRIMARY-7788}
+      access-key-2: ${ADMIN_ACCESS_KEY_2:BT-ADMIN-KEY-SECONDARY-9900}
+      bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:BT-ADMIN-MASTER-SECURE-2026}
+  brevo:
+    api-key: ${BREVO_API_KEY:}
+    sender-email: ${BREVO_SENDER_EMAIL:noreply@asaliswad.com}
+    sender-name: "BookurTechnician"
+    otp-template-id: ${BREVO_OTP_TEMPLATE_ID:1}
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
+  razorpay:
+    key-id: ${RAZORPAY_KEY_ID:rzp_test_ShRpqbs6hVT6Ie}
+    key-secret: ${RAZORPAY_KEY_SECRET:5LUjZ94LMDnjwlLyB9cUU5cb}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:bt_rzp_webhook_secret_secure_2026}
+  firebase:
+    credentials-json-base64: ${FIREBASE_CREDENTIALS_JSON:}

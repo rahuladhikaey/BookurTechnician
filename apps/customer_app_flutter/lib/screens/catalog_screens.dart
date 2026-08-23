@@ -61,6 +61,28 @@ class _ServiceCard extends ConsumerWidget {
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: kTextNavy)),
             Text('${service.durationMinutes} mins • ${service.warrantyText}',
                 style: const TextStyle(fontSize: 11, color: kTextGray)),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Text(
+                  '4 Technicians Available in 15 km',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0D9488),
+                  ),
+                ),
+              ],
+            ),
           ])),
           ElevatedButton(
             onPressed: () => ref.read(bookingProvider.notifier).toggleCartItem(service),
@@ -255,6 +277,10 @@ class ServiceDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 28),
                 
+                // 15km Radius Online & Available Technicians Banner
+                _buildNearbyTechniciansSection(service),
+                const SizedBox(height: 24),
+                
                 // 2. Why Choose Section
                 _buildWhyChooseSection(),
                 const SizedBox(height: 28),
@@ -278,6 +304,107 @@ class ServiceDetailScreen extends ConsumerWidget {
                 // 7. Service Promise Section
                 _buildServicePromiseSection(),
                 const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNearbyTechniciansSection(ServiceItem service) {
+    final int availableCount = (service.price > 1000) ? 3 : (service.price > 400 ? 5 : 6);
+    final int estimatedMinutes = (service.price > 1000) ? 25 : 18;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF), // Soft Blue
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFDBFE), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E40AF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0x401E40AF),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                )
+              ],
+            ),
+            child: const Icon(Icons.near_me_rounded, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF10B981), // Live green pulse
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$availableCount Technicians Online in 15 km',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                        color: Color(0xFF1E3A8A),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Free for immediate dispatch • Avg arrival $estimatedMinutes mins',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF475569),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCFCE7),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF86EFAC)),
+            ),
+            child: const Column(
+              children: [
+                Text(
+                  'FAST DISPATCH',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF047857),
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                Text(
+                  '15 km Radius',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Color(0xFF065F46),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),

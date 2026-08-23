@@ -15,8 +15,6 @@ import com.bookurtechnician.technician.entity.TechnicianProfile;
 import com.bookurtechnician.technician.repository.TechnicianProfileRepository;
 import com.bookurtechnician.wallet.entity.TechnicianWallet;
 import com.bookurtechnician.wallet.repository.TechnicianWalletRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -30,9 +28,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class AuthService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
     private final CustomerProfileRepository customerProfileRepository;
@@ -42,6 +40,24 @@ public class AuthService {
     private final OtpService otpService;
     private final JwtTokenProvider jwtTokenProvider;
     private final StringRedisTemplate redisTemplate;
+
+    public AuthService(UserRepository userRepository,
+                       CustomerProfileRepository customerProfileRepository,
+                       TechnicianProfileRepository technicianProfileRepository,
+                       TechnicianWalletRepository technicianWalletRepository,
+                       AuditLogRepository auditLogRepository,
+                       OtpService otpService,
+                       JwtTokenProvider jwtTokenProvider,
+                       StringRedisTemplate redisTemplate) {
+        this.userRepository = userRepository;
+        this.customerProfileRepository = customerProfileRepository;
+        this.technicianProfileRepository = technicianProfileRepository;
+        this.technicianWalletRepository = technicianWalletRepository;
+        this.auditLogRepository = auditLogRepository;
+        this.otpService = otpService;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.redisTemplate = redisTemplate;
+    }
 
     @Value("${app.security.admin.access-key-1:BT-ADMIN-KEY-PRIMARY-7788}")
     private String adminAccessKey1;
@@ -171,10 +187,10 @@ public class AuthService {
                         TechnicianProfile newTechProfile = TechnicianProfile.builder()
                                 .user(techUser)
                                 .technicianCode(techCode)
-                                .kycStatus("VERIFIED")
+                                .kycStatus("PENDING")
                                 .rating(new BigDecimal("5.0"))
                                 .upiId("technician@upi")
-                                .upiVerified(true)
+                                .upiVerified(false)
                                 .build();
                         return technicianProfileRepository.save(newTechProfile);
                     });

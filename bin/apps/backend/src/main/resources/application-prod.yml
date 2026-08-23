@@ -1,0 +1,27 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 300000
+      max-lifetime: 600000
+      connection-timeout: 20000
+
+  data:
+    redis:
+      url: ${SPRING_DATA_REDIS_URL}
+      timeout: 5000ms
+
+logging:
+  level:
+    root: INFO
+    com.bookurtechnician: INFO
+    org.springframework.security: WARN

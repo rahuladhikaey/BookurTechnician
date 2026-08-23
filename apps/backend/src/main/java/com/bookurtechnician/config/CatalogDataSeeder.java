@@ -6,8 +6,8 @@ import com.bookurtechnician.servicecatalog.entity.ServiceSkill;
 import com.bookurtechnician.servicecatalog.repository.ServiceCategoryRepository;
 import com.bookurtechnician.servicecatalog.repository.ServiceItemRepository;
 import com.bookurtechnician.servicecatalog.repository.ServiceSkillRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,13 +18,21 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-@RequiredArgsConstructor
-@Slf4j
 public class CatalogDataSeeder implements CommandLineRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(CatalogDataSeeder.class);
 
     private final ServiceCategoryRepository categoryRepository;
     private final ServiceItemRepository serviceItemRepository;
     private final ServiceSkillRepository skillRepository;
+
+    public CatalogDataSeeder(ServiceCategoryRepository categoryRepository,
+                             ServiceItemRepository serviceItemRepository,
+                             ServiceSkillRepository skillRepository) {
+        this.categoryRepository = categoryRepository;
+        this.serviceItemRepository = serviceItemRepository;
+        this.skillRepository = skillRepository;
+    }
 
     @Override
     @Transactional

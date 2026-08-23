@@ -2,8 +2,6 @@ package com.bookurtechnician.auth.service;
 
 import com.bookurtechnician.config.BrevoConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -16,11 +14,15 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class BrevoEmailService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BrevoEmailService.class);
+
     private final BrevoConfig brevoConfig;
+
+    public BrevoEmailService(BrevoConfig brevoConfig) {
+        this.brevoConfig = brevoConfig;
+    }
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))

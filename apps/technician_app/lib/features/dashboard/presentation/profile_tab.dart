@@ -554,7 +554,46 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     const SizedBox(height: AppSpacing.m),
 
                     // ─── 4. Submitted KYC Document Status ───────────────────
-                    const Text('Submitted KYC Verification', style: AppTypography.titleMedium),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Submitted KYC Verification', style: AppTypography.titleMedium),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: ((_kycDocuments.any((d) => d.documentType.contains('AADHAAR')) &&
+                                     _kycDocuments.any((d) => d.documentType.contains('VOTER')) &&
+                                     (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType.contains('SELFIE'))))
+                                ? const Color(0xFFECFDF5)
+                                : const Color(0xFFFEF3C7)),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: ((_kycDocuments.any((d) => d.documentType.contains('AADHAAR')) &&
+                                       _kycDocuments.any((d) => d.documentType.contains('VOTER')) &&
+                                       (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType.contains('SELFIE'))))
+                                  ? const Color(0xFF86EFAC)
+                                  : const Color(0xFFFDE68A)),
+                            ),
+                          ),
+                          child: Text(
+                            ((_kycDocuments.any((d) => d.documentType.contains('AADHAAR')) &&
+                              _kycDocuments.any((d) => d.documentType.contains('VOTER')) &&
+                              (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType.contains('SELFIE'))))
+                                ? '100% Complete ✓'
+                                : 'Profile Incomplete'),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: ((_kycDocuments.any((d) => d.documentType.contains('AADHAAR')) &&
+                                       _kycDocuments.any((d) => d.documentType.contains('VOTER')) &&
+                                       (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType.contains('SELFIE'))))
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFFD97706)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: AppSpacing.s),
                     Card(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -563,20 +602,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                         child: Column(
                           children: [
                             _buildDocStatusRow(
-                              'Aadhaar / Government ID',
-                              _getSpecificDocStatus('AADHAAR', kycStatus),
-                              onTap: () => _promptUploadDoc('AADHAAR_FRONT', 'Aadhaar / Gov ID'),
-                            ),
-                            const Divider(),
-                            _buildDocStatusRow(
-                              'PAN Card Verification',
-                              _getSpecificDocStatus('PAN', kycStatus),
-                              onTap: () => _promptUploadDoc('PAN_CARD', 'PAN Card'),
-                            ),
-                            const Divider(),
-                            _buildDocStatusRow(
-                              'Selfie Photograph Verification',
-                              (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType == 'SELFIE')) ? 'APPROVED' : 'PENDING',
+                              '📸 Real Live Selfie Photograph',
+                              (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType == 'SELFIE' || d.documentType == 'LIVE_PIC')) ? 'APPROVED' : 'PENDING',
                               onTap: () async {
                                 final result = await Navigator.push<String>(
                                   context,
@@ -589,15 +616,21 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                             ),
                             const Divider(),
                             _buildDocStatusRow(
-                              'Bank / UPI Payout Account',
-                              _profileData?.isUpiVerified == true ? 'APPROVED' : (_profileData?.upiId.isNotEmpty == true ? 'PENDING' : 'NOT_CONFIGURED'),
-                              onTap: _openEditProfileDialog,
+                              '🪪 Aadhaar Card (Front/Back)',
+                              _getSpecificDocStatus('AADHAAR', kycStatus),
+                              onTap: () => _promptUploadDoc('AADHAAR', 'Aadhaar Card'),
                             ),
                             const Divider(),
                             _buildDocStatusRow(
-                              'Background Police Verification',
-                              _getSpecificDocStatus('POLICE', kycStatus),
-                              onTap: () => _promptUploadDoc('POLICE_VERIFICATION', 'Police Verification'),
+                              '🗳️ Voter Card ID Verification',
+                              _getSpecificDocStatus('VOTER', kycStatus),
+                              onTap: () => _promptUploadDoc('VOTER_CARD', 'Voter Card ID'),
+                            ),
+                            const Divider(),
+                            _buildDocStatusRow(
+                              '💳 Bank / UPI Payout Account',
+                              _profileData?.isUpiVerified == true ? 'APPROVED' : (_profileData?.upiId.isNotEmpty == true ? 'PENDING' : 'NOT_CONFIGURED'),
+                              onTap: _openEditProfileDialog,
                             ),
                           ],
                         ),
