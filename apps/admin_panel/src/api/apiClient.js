@@ -79,10 +79,22 @@ class ApiClient {
       try {
         response = await fetch(url, config);
       } catch (fetchErr) {
+        let fallbackUrl = null;
         if (url.includes('api.bookurtechnician.online')) {
-          const fallbackUrl = url.replace('https://api.bookurtechnician.online/api/v1', this.fallbackBaseUrl);
-          console.warn(`Primary API unreachable. Retrying with fallback: ${fallbackUrl}`);
-          response = await fetch(fallbackUrl, config);
+          fallbackUrl = url.replace('https://api.bookurtechnician.online/api/v1', this.fallbackBaseUrl);
+        } else if (url.startsWith('/api/v1')) {
+          fallbackUrl = `https://api.bookurtechnician.online${url}`;
+        }
+        
+        if (fallbackUrl) {
+          console.warn(`API unreachable. Retrying with custom domain fallback: ${fallbackUrl}`);
+          try {
+            response = await fetch(fallbackUrl, config);
+          } catch (secondErr) {
+            const renderFallbackUrl = url.replace(/^(https:\/\/api\.bookurtechnician\.online\/api\/v1|\/api\/v1)/, this.fallbackBaseUrl);
+            console.warn(`Retrying with render fallback: ${renderFallbackUrl}`);
+            response = await fetch(renderFallbackUrl, config);
+          }
         } else {
           throw fetchErr;
         }
