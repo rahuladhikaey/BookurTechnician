@@ -87,8 +87,8 @@ class ApiClient {
         }
       }
 
-      if (response.status === 401) {
-        console.warn('Unauthorized request to:', url);
+      if (response.status === 401 || response.status === 403) {
+        console.warn('Unauthorized or Forbidden request (HTTP ' + response.status + ') to:', url);
         if (this.onUnauthorizedCallback && !url.includes('/auth/verify-otp') && !url.includes('/auth/request-otp') && !url.includes('/auth/admin/direct-access')) {
           this.onUnauthorizedCallback();
         }

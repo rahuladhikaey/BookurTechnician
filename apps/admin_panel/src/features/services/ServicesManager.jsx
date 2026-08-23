@@ -271,7 +271,11 @@ export default function ServicesManager({ categories, setCategories, services, s
       alert(`✅ Category "${payload.name}" successfully saved in PostgreSQL!`);
     } catch (err) {
       console.error('Error saving category:', err);
-      alert('Failed to save category in database: ' + err.message);
+      if (err.message && (err.message.includes('403') || err.message.includes('Unauthorized') || err.message.includes('Forbidden'))) {
+        alert('⚠️ Admin Session Expired or Permission Required (HTTP 403).\n\nPlease click "Direct Access Key" or "Login" in the Admin Panel to re-authenticate with Admin Privileges.');
+      } else {
+        alert('Failed to save category in database: ' + err.message);
+      }
     }
   };
 
