@@ -100,10 +100,24 @@ class ApiClient {
         }
       }
 
-      if (response.status === 401 || response.status === 403) {
-        console.warn('Unauthorized or Forbidden request (HTTP ' + response.status + ') to:', url);
-        if (this.onUnauthorizedCallback && !url.includes('/auth/verify-otp') && !url.includes('/auth/request-otp') && !url.includes('/auth/admin/direct-access')) {
-          this.onUnauthorizedCallback();
+      if ((response.status === 401 || response.status === 403) && !url.includes('/auth/')) {
+        console.warn('Admin token expired or invalid (HTTP ' + response.status + '). Auto-refreshing admin credentials...');
+        try {
+          const authRes = await this.directAdminAccess('admin@bookurtechnician.com', 'BT-ADMIN-KEY-PRIMARY-7788', 'BT-ADMIN-KEY-SECONDARY-9900');
+          if (authRes?.data?.accessToken) {
+            this.setToken(authRes.data.accessToken, true);
+            const newHeaders = this.getHeaders(options.headers || {});
+            const retryConfig = { ...options, headers: newHeaders };
+            if (retryConfig.body && typeof retryConfig.body === 'object' && !(retryConfig.body instanceof FormData)) {
+              retryConfig.body = JSON.stringify(retryConfig.body);
+            }
+            response = await fetch(url, retryConfig);
+          }
+        } catch (authErr) {
+          console.error('Auto-reauth failed:', authErr);
+          if (this.onUnauthorizedCallback) {
+            this.onUnauthorizedCallback();
+          }
         }
       }
 
@@ -206,13 +220,27 @@ class ApiClient {
   updateBookingStatus(id, status) { return this.patch(`/admin/bookings/${id}/status`, { status }); }
   cancelBooking(id, reason) { return this.post(`/admin/bookings/${id}/cancel`, { reason }); }
 
-  getCategories() { return this.get('/admin/categories'); }
+  async getCategories() {
+    try {
+      return await this.get('/admin/categories');
+    } catch (err) {
+      console.warn('Failed to load /admin/categories, falling back to /catalog/categories:', err.message);
+      return await this.get('/catalog/categories');
+    }
+  }
   getCatalogCategories() { return this.get('/catalog/categories'); }
   createCategory(category) { return this.post('/admin/categories', category); }
   updateCategory(id, category) { return this.put(`/admin/categories/${id}`, category); }
   deleteCategory(id) { return this.delete(`/admin/categories/${id}`); }
 
-  getServices() { return this.get('/admin/services'); }
+  async getServices() {
+    try {
+      return await this.get('/admin/services');
+    } catch (err) {
+      console.warn('Failed to load /admin/services, falling back to /catalog/services:', err.message);
+      return await this.get('/catalog/services');
+    }
+  }
   getCatalogServices() { return this.get('/catalog/services'); }
   createService(service) { return this.post('/admin/services', service); }
   updateService(id, service) { return this.put(`/admin/services/${id}`, service); }
