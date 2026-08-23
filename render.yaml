@@ -1,5 +1,6 @@
 services:
-  # ─── 1. SPRING BOOT 3 API & WEBSOCKET CORE (api.bookurtechnician.online) ───
+  # ─── UNIFIED SPRING BOOT 3 + EMBEDDED REACT ADMIN PANEL ─────────────────────
+  # Handles both API (api.bookurtechnician.online) and Admin UI (admin.bookurtechnician.online)
   - type: web
     name: bookurtechnician-backend
     runtime: docker
@@ -11,6 +12,7 @@ services:
     healthCheckPath: /actuator/health
     domains:
       - api.bookurtechnician.online
+      - admin.bookurtechnician.online
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
@@ -40,20 +42,3 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
-
-  # ─── 2. REACT ADMIN PANEL (admin.bookurtechnician.online) ─────────────────
-  - type: static
-    name: bookurtechnician-admin
-    buildCommand: cd apps/admin_panel && npm install && npm run build
-    staticPublishPath: ./apps/admin_panel/dist
-    branch: main
-    autoDeploy: true
-    domains:
-      - admin.bookurtechnician.online
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://api.bookurtechnician.online/api/v1

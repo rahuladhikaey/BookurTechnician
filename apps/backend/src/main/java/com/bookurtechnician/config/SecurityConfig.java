@@ -33,6 +33,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // Public Endpoints
+                        .requestMatchers("/", "/admin", "/admin/**", "/assets/**", "/favicon.ico", "/*.html", "/*.js", "/*.css", "/*.png", "/*.svg", "/*.ico").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/banners/**").permitAll()
