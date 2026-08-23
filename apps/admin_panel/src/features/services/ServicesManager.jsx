@@ -557,16 +557,40 @@ export default function ServicesManager({ categories, setCategories, services, s
     }
   };
 
+  // Category Extraction Helpers
+  const getCategoryName = (item) => {
+    if (!item) return 'General';
+    if (typeof item === 'string') return item;
+    if (typeof item.category === 'string') return item.category;
+    if (item.category && typeof item.category === 'object' && item.category.name) return item.category.name;
+    if (item.categoryName) return item.categoryName;
+    return 'General';
+  };
+
+  const getCategoryId = (item) => {
+    if (!item) return '';
+    if (item.categoryId) return item.categoryId;
+    if (item.category && typeof item.category === 'object' && item.category.id) return item.category.id;
+    return '';
+  };
+
   // Filtered Services List
-  const filteredServices = services.filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCat = filterCategory === 'ALL' || s.category === filterCategory;
+  const filteredServices = (services || []).filter(s => {
+    const sCat = getCategoryName(s);
+    const sCatId = getCategoryId(s);
+    const matchesSearch = !searchQuery || 
+      (s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase())) || 
+      sCat.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCat = filterCategory === 'ALL' || sCat.toLowerCase() === filterCategory.toLowerCase() || sCatId === filterCategory;
     return matchesSearch && matchesCat;
   });
 
-  const filteredSkills = skillsList.filter(sk => {
-    const matchesSearch = !searchQuery || sk.name.toLowerCase().includes(searchQuery.toLowerCase()) || (sk.categoryName || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCat = filterCategory === 'ALL' || sk.categoryId === filterCategory || sk.categoryName === filterCategory;
+  const filteredSkills = (skillsList || []).filter(sk => {
+    const skCat = sk.categoryName || '';
+    const matchesSearch = !searchQuery || 
+      (sk.name && sk.name.toLowerCase().includes(searchQuery.toLowerCase())) || 
+      skCat.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCat = filterCategory === 'ALL' || sk.categoryId === filterCategory || skCat.toLowerCase() === filterCategory.toLowerCase();
     return matchesSearch && matchesCat;
   });
 
@@ -637,7 +661,7 @@ export default function ServicesManager({ categories, setCategories, services, s
                   </tr>
                 ) : (
                   categories.map(cat => {
-                    const count = services.filter(s => s.category === cat.name || s.categoryId === cat.id).length;
+                    const count = (services || []).filter(s => getCategoryName(s).toLowerCase() === cat.name.toLowerCase() || getCategoryId(s) === cat.id).length;
                     return (
                       <tr key={cat.id}>
                         <td>
@@ -737,7 +761,7 @@ export default function ServicesManager({ categories, setCategories, services, s
                       </div>
                     </td>
                     <td>
-                      <span className="badge badge-info">{srv.category}</span>
+                      <span className="badge badge-info">{getCategoryName(srv)}</span>
                     </td>
                     <td>
                       <strong style={{ color: 'var(--primary)' }}>₹{srv.price}</strong>
@@ -1690,7 +1714,7 @@ export default function ServicesManager({ categories, setCategories, services, s
                   >
                     <option value="">General Category Skill (All Services)</option>
                     {services.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.category})</option>
+                      <option key={s.id} value={s.id}>{s.name} ({getCategoryName(s)})</option>
                     ))}
                   </select>
                 </div>
@@ -1794,7 +1818,7 @@ export default function ServicesManager({ categories, setCategories, services, s
                           <div>
                             <strong style={{ color: 'var(--text-main)', fontSize: '13.5px' }}>{srv.name}</strong>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                              Category: {srv.category} • ₹{srv.price}
+                              Category: {getCategoryName(srv)} • ₹{srv.price}
                             </div>
                           </div>
                         </div>

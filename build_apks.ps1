@@ -117,11 +117,16 @@ if (Test-Path $CustomerAppDir) {
                 Copy-Item -Path $BuiltApk -Destination $TargetApk -Force
                 Write-Host "Successfully built and copied Customer App (Debug) to: $TargetApk" -ForegroundColor Green
             }
+            Write-Host "Building release APK..." -ForegroundColor Gray
+            flutter build apk --release
+
             $BuiltReleaseApk = "build\app\outputs\flutter-apk\app-release.apk"
             if (Test-Path $BuiltReleaseApk) {
                 $TargetReleaseApk = Join-Path $OutputDir "customer_app-release.apk"
                 Copy-Item -Path $BuiltReleaseApk -Destination $TargetReleaseApk -Force
-                Write-Host "Copied Customer App (Release) to: $TargetReleaseApk" -ForegroundColor Green
+                Write-Host "Successfully built and copied Customer App (Release) to: $TargetReleaseApk" -ForegroundColor Green
+            } else {
+                Write-Warning "Could not find built customer app release APK at $BuiltReleaseApk"
             }
         } else {
             Write-Warning "Flutter CLI not found. Skipping Customer App build."

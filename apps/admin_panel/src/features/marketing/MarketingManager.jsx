@@ -822,7 +822,7 @@ export default function MarketingManager({
                     >
                       <option value="">-- None / Static Display --</option>
                       {services.map(s => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.category})</option>
+                        <option key={s.id} value={s.id}>{s.name} ({typeof s.category === 'object' ? s.category?.name : (s.category || s.categoryName || 'General')})</option>
                       ))}
                     </select>
                   </div>
@@ -977,7 +977,7 @@ export default function MarketingManager({
                     >
                       <option value="">-- None / Custom Link --</option>
                       {services.map(s => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.category})</option>
+                        <option key={s.id} value={s.id}>{s.name} ({typeof s.category === 'object' ? s.category?.name : (s.category || s.categoryName || 'General')})</option>
                       ))}
                     </select>
                   </div>

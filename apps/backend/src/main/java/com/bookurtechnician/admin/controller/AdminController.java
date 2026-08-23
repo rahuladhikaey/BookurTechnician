@@ -1381,11 +1381,13 @@ public class AdminController {
                 catMap.put("id", s.getCategory().getId().toString());
                 catMap.put("name", s.getCategory().getName());
                 catMap.put("slug", s.getCategory().getSlug());
-                m.put("category", catMap);
+                m.put("category", s.getCategory().getName());
+                m.put("categoryObject", catMap);
                 m.put("categoryId", s.getCategory().getId().toString());
                 m.put("categoryName", s.getCategory().getName());
             } else {
-                m.put("category", null);
+                m.put("category", "General");
+                m.put("categoryObject", null);
                 m.put("categoryId", null);
                 m.put("categoryName", "General");
             }
@@ -1484,6 +1486,7 @@ public class AdminController {
         m.put("description", item.getDescription());
         m.put("imageUrl", item.getImageUrl());
         m.put("warrantyText", item.getWarrantyText());
+        m.put("category", category.getName());
         m.put("categoryId", category.getId().toString());
         m.put("categoryName", category.getName());
         m.put("active", item.isActive());
@@ -1551,6 +1554,7 @@ public class AdminController {
         m.put("durationMinutes", item.getDurationMinutes());
         m.put("description", item.getDescription());
         m.put("imageUrl", item.getImageUrl());
+        m.put("category", item.getCategory() != null ? item.getCategory().getName() : "General");
         m.put("categoryId", item.getCategory() != null ? item.getCategory().getId().toString() : "");
         m.put("categoryName", item.getCategory() != null ? item.getCategory().getName() : "");
         m.put("active", item.isActive());
