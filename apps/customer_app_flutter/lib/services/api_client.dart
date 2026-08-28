@@ -90,7 +90,11 @@ class ApiClient {
 
   static List<String> get _candidateBaseUrls => [
     AppConfig.apiBaseUrl,
+    AppConfig.renderApiBaseUrl,
     AppConfig.renderFallbackApiUrl,
+    AppConfig.prodApiBaseUrl,
+    AppConfig.localApiBaseUrl,
+    'http://localhost:4000/api/v1',
   ];
 
   static Future<http.Response> get(String endpoint) async {
