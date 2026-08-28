@@ -49,7 +49,14 @@ const getOverview = async (req, res) => {
     const services = getFlattenedServices();
     const categories = getAdminCategories();
     const liveStats = bookingsStore.getDashboardStats();
-    let activeTechnicians = 34;
+    let activeTechnicians = 0;
+
+    if (postgres.isPgHealthy()) {
+      try {
+        const techRes = await postgres.query(`SELECT count(*) FROM technician_profiles WHERE is_online = true OR kyc_status = 'VERIFIED';`);
+        activeTechnicians = parseInt(techRes.rows[0]?.count || 0, 10);
+      } catch (e) {}
+    }
 
     const data = {
       ...liveStats,
@@ -410,102 +417,121 @@ const getCustomers = async (req, res) => {
 // ─── TECHNICIANS MANAGEMENT & KYC ────────────────────────────────
 
 const getTechnicians = async (req, res) => {
-  const techniciansList = [
-    {
-      id: 'tech-001',
-      technicianId: 'tech-001',
-      fullName: 'Rahul Sharma',
-      name: 'Rahul Sharma',
-      phone: '+91 98765 43210',
-      category: 'Electrician & Electrical Services',
-      skills: ['Wiring', 'Switchboard Repair', 'Ceiling Fan Fix', 'MCB Installation'],
-      kycStatus: 'VERIFIED',
-      rating: 4.88,
-      totalJobsCompleted: 142,
-      isOnline: true,
-      experienceYears: 6,
-      walletBalance: 3450.0,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-      joinedAt: '2026-01-15',
-    },
-    {
-      id: 'tech-002',
-      technicianId: 'tech-002',
-      fullName: 'Amit Kumar',
-      name: 'Amit Kumar',
-      phone: '+91 91234 56780',
-      category: 'Plumbing & Pipe Fitting',
-      skills: ['Pipe Fitting', 'Tap Repair', 'Water Heater Leakage', 'Drain Unclogging'],
-      kycStatus: 'VERIFIED',
-      rating: 4.75,
-      totalJobsCompleted: 98,
-      isOnline: true,
-      experienceYears: 5,
-      walletBalance: 2100.0,
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-      joinedAt: '2026-02-10',
-    },
-    {
-      id: 'tech-003',
-      technicianId: 'tech-003',
-      fullName: 'Bikram Das',
-      name: 'Bikram Das',
-      phone: '+91 98301 22334',
-      category: 'AC Repair & HVAC Services',
-      skills: ['AC Deep Clean', 'Gas Refill', 'Compressor Check', 'PCB Repair'],
-      kycStatus: 'VERIFIED',
-      rating: 4.92,
-      totalJobsCompleted: 215,
-      isOnline: true,
-      experienceYears: 8,
-      walletBalance: 5600.0,
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
-      joinedAt: '2025-11-20',
-    },
-    {
-      id: 'tech-004',
-      technicianId: 'tech-004',
-      fullName: 'Sunil Mondal',
-      name: 'Sunil Mondal',
-      phone: '+91 97480 99887',
-      category: 'Appliance Repair (Fridge & Washing Machine)',
-      skills: ['Refrigerator Cooling Fix', 'Washing Machine Drum', 'Microwave Heating'],
-      kycStatus: 'VERIFIED',
-      rating: 4.80,
-      totalJobsCompleted: 110,
-      isOnline: true,
-      experienceYears: 4,
-      walletBalance: 1850.0,
-      avatar: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200',
-      joinedAt: '2026-03-01',
-    },
-  ];
-  return res.json({ success: true, data: techniciansList });
+  try {
+    let techniciansList = [];
+    if (postgres.isPgHealthy()) {
+      const dbRes = await postgres.query(`
+        SELECT 
+          tp.id,
+          tp.technician_id as "technicianId",
+          tp.full_name as "fullName",
+          tp.full_name as name,
+          tp.phone,
+          tp.category,
+          tp.skills,
+          tp.kyc_status as "kycStatus",
+          tp.rating,
+          tp.total_jobs_completed as "totalJobsCompleted",
+          tp.is_online as "isOnline",
+          tp.experience_years as "experienceYears",
+          tp.wallet_balance as "walletBalance",
+          u.profile_image_url as avatar,
+          tp.created_at as "joinedAt"
+        FROM technician_profiles tp
+        LEFT JOIN users u ON tp.technician_id = u.id
+        ORDER BY tp.created_at DESC;
+      `);
+      techniciansList = dbRes.rows;
+    }
+
+    // Fallback to MongoDB if PostgreSQL had zero
+    if (techniciansList.length === 0) {
+      try {
+        const mongoTechs = await MongoTechnicianProfile.find({});
+        if (mongoTechs && mongoTechs.length > 0) {
+          techniciansList = mongoTechs.map(t => ({
+            id: t.technicianId || t._id,
+            technicianId: t.technicianId,
+            fullName: t.fullName,
+            name: t.fullName,
+            phone: t.phone,
+            category: t.category,
+            skills: t.skills || [],
+            kycStatus: t.kycStatus || 'PENDING',
+            rating: t.rating || 5.0,
+            totalJobsCompleted: t.totalJobsCompleted || 0,
+            isOnline: t.isOnline || false,
+            experienceYears: t.experienceYears || 2,
+            walletBalance: t.walletBalance || 0,
+            avatar: t.avatar || '',
+            joinedAt: t.createdAt || new Date().toISOString(),
+          }));
+        }
+      } catch (mErr) {}
+    }
+
+    return res.json({ success: true, data: techniciansList, count: techniciansList.length });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 const updateTechnicianStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
+  try {
+    if (postgres.isPgHealthy()) {
+      await postgres.query(`
+        UPDATE technician_profiles
+        SET kyc_status = $1, updated_at = NOW()
+        WHERE technician_id = $2 OR id = $2;
+      `, [status, id]);
+    }
+  } catch (e) {}
   return res.json({ success: true, message: `Technician status updated to ${status}`, id, status });
 };
 
 const getPendingKycList = async (req, res) => {
-  const pending = [
-    {
-      technicianId: 'tech-002',
-      fullName: 'Amit Kumar',
-      phone: '+91 9123456780',
-      category: 'PLUMBER',
-      aadharNumber: 'XXXX-XXXX-4589',
-      kycStatus: 'PENDING',
-      createdAt: new Date(),
-    },
-  ];
-  return res.json({ success: true, count: pending.length, data: pending, pendingTechnicians: pending });
+  try {
+    let pending = [];
+    if (postgres.isPgHealthy()) {
+      const dbRes = await postgres.query(`
+        SELECT 
+          tp.technician_id as "technicianId",
+          tp.full_name as "fullName",
+          tp.phone,
+          tp.category,
+          tp.kyc_status as "kycStatus",
+          tp.created_at as "createdAt"
+        FROM technician_profiles tp
+        WHERE tp.kyc_status = 'PENDING'
+        ORDER BY tp.created_at DESC;
+      `);
+      pending = dbRes.rows;
+    }
+    return res.json({ success: true, count: pending.length, data: pending, pendingTechnicians: pending });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 const reviewKyc = async (req, res) => {
   const { technicianId, status, rejectionReason } = req.body;
+  try {
+    if (postgres.isPgHealthy()) {
+      await postgres.query(`
+        UPDATE technician_profiles
+        SET kyc_status = $1, updated_at = NOW()
+        WHERE technician_id = $2 OR id = $2;
+      `, [status, technicianId]);
+      
+      await postgres.query(`
+        UPDATE technician_kyc_documents
+        SET verification_status = $1, rejection_reason = $2
+        WHERE technician_id = $3;
+      `, [status === 'VERIFIED' ? 'APPROVED' : 'REJECTED', rejectionReason || null, technicianId]);
+    }
+  } catch (e) {}
   return res.json({ success: true, message: `Technician KYC marked as ${status}`, technicianId, status });
 };
 
