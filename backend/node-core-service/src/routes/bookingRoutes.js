@@ -6,6 +6,7 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 // Public or optional token routes
 router.post('/', bookingController.createBooking);
 router.get('/customer', bookingController.getCustomerBookings);
+router.get('/my-bookings', bookingController.getCustomerBookings);
 router.get('/technician', bookingController.getTechnicianBookings);
 router.get('/:id', bookingController.getBookingById);
 

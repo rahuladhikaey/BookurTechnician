@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -111,24 +112,38 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ─── 1. CUSTOM TOP APP BAR ───────────────────────────────────
-                _buildTopAppBar(context, technicianName),
-                const SizedBox(height: 12),
+                // ─── 1. TOP HERO AUTO-SCROLL BANNER (HELLO TECH & REAL GPS) ──
+                _PartnerHeroAutoScrollBanner(
+                  technicianName: technicianName,
+                  skillProfile: _skillProfile,
+                  dashState: dashState,
+                  dashNotifier: dashNotifier,
+                  onProfileTap: () => widget.onNavigateTab?.call(3),
+                  onNotificationTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const NotificationsTab()),
+                    );
+                  },
+                  onSkillsTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MySkillsPage()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 18),
 
-                // ─── 2. REAL-TIME GPS LOCATION HEADER (TASK 4) ────────────────
-                _buildRealtimeLocationHeader(context, dashState, dashNotifier),
-                const SizedBox(height: 14),
-
-                // ─── 3. DUTY STATUS SWITCH BANNER ────────────────────────────
-                _buildDutyStatusBanner(dashState, dashNotifier),
-                const SizedBox(height: 16),
-
-                // ─── 3. METRICS & PERFORMANCE SNAPSHOT (2-Column Card Row) ───
+                // ─── 2. METRICS & PERFORMANCE SNAPSHOT (2-Column Card Row) ───
                 _buildMetricsSnapshotRow(dashState),
                 const SizedBox(height: 18),
 
-                // ─── 4. IN-PROGRESS / ACTIVE JOB CARD ────────────────────────
+                // ─── 3. IN-PROGRESS / ACTIVE JOB CARD ────────────────────────
                 _buildActiveJobCard(context, dashState, dashNotifier),
+                const SizedBox(height: 20),
+
+                // ─── 4. AUTO-SCROLL INCENTIVE & SPOTLIGHT BOOSTER CAROUSEL ───
+                const _PartnerSpotlightIncentiveCarousel(),
                 const SizedBox(height: 22),
 
                 // ─── 5. TODAY'S SCHEDULE (Upcoming Jobs List) ────────────────
@@ -142,396 +157,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
     );
   }
 
-  // ─── 1. Custom Top App Bar ─────────────────────────────────────────────────
-  Widget _buildTopAppBar(BuildContext context, String technicianName) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // Left side: Circular user avatar, greeting text ("Hello, Rahul"), and partner rating with star icon ("4.88 (142 reviews)")
-        Expanded(
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  widget.onNavigateTab?.call(3); // Navigate to Profile tab
-                },
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFF1E3A8A), width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF1E3A8A).withValues(alpha: 0.12),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Container(
-                      color: const Color(0xFFEFF6FF),
-                      child: const Center(
-                        child: Icon(
-                          Icons.person,
-                          size: 28,
-                          color: Color(0xFF1E3A8A),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hello, $technicianName',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
-                        letterSpacing: -0.3,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          size: 16,
-                          color: Color(0xFFF59E0B),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          (_skillProfile != null && _skillProfile!.totalRatingsCount > 0)
-                              ? _skillProfile!.rating.toStringAsFixed(1)
-                              : '5.0',
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '(${_skillProfile?.totalRatingsCount ?? 0} reviews)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const MySkillsPage()),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFECFDF5),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${_skillProfile?.verifiedSkillsCount ?? 0} Verified Skills',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF059669),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Right side: Notification bell icon with action callback
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                icon: const Icon(
-                  Icons.notifications_outlined,
-                  size: 22,
-                  color: Color(0xFF0F172A),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const NotificationsTab()),
-                  );
-                },
-              ),
-            ),
-            Positioned(
-              right: 2,
-              top: 2,
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEF4444),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ─── 2. Real-Time GPS Location Header (Task 4) ─────────────────────────────
-  Widget _buildRealtimeLocationHeader(BuildContext context, DashboardState state, DashboardNotifier notifier) {
-    final hasCoords = state.currentLatitude != null && state.currentLongitude != null;
-    final coordsText = hasCoords
-        ? '${state.currentLatitude!.toStringAsFixed(4)}°, ${state.currentLongitude!.toStringAsFixed(4)}°'
-        : 'Acquiring GPS...';
-    final addressText = state.currentLocationAddress.isNotEmpty
-        ? state.currentLocationAddress
-        : 'Real-Time Device Location';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E3A8A).withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFBFDBFE)),
-            ),
-            child: const Center(
-              child: Icon(Icons.location_on_rounded, color: Color(0xFF1E3A8A), size: 20),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'CURRENT REAL LOCATION',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF64748B),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: state.isFetchingLocation ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      state.isFetchingLocation ? 'Fixing GPS...' : 'Live GPS Fix',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: state.isFetchingLocation ? const Color(0xFFD97706) : const Color(0xFF059669),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$addressText ($coordsText)',
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Refresh GPS Location',
-            icon: state.isFetchingLocation
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E3A8A)),
-                  )
-                : const Icon(Icons.my_location_rounded, size: 18, color: Color(0xFF1E3A8A)),
-            onPressed: state.isFetchingLocation ? null : () => notifier.fetchAndUpdateLocation(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── 3. Duty Status Switch Banner ──────────────────────────────────────────
-  Widget _buildDutyStatusBanner(DashboardState state, DashboardNotifier notifier) {
-    final isOnline = state.isOnline;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: isOnline ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isOnline ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isOnline
-                ? const Color(0xFF10B981).withValues(alpha: 0.06)
-                : const Color(0xFFEF4444).withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Indicator Dot
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isOnline ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-              boxShadow: [
-                BoxShadow(
-                  color: isOnline
-                      ? const Color(0xFF10B981).withValues(alpha: 0.4)
-                      : const Color(0xFFEF4444).withValues(alpha: 0.4),
-                  blurRadius: 6,
-                  spreadRadius: 1.5,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Status Text
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isOnline
-                      ? 'You are Online & Receiving Leads'
-                      : 'You are currently Offline',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: isOnline ? const Color(0xFF065F46) : const Color(0xFF991B1B),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isOnline
-                      ? (state.currentLocationAddress.isNotEmpty
-                          ? state.currentLocationAddress
-                          : 'GPS Live Tracking Active')
-                      : 'Toggle switch to start receiving service bookings',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
-                    color: isOnline ? const Color(0xFF047857) : const Color(0xFFB91C1C),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-
-          // Toggle Switch Widget
-          Transform.scale(
-            scale: 0.9,
-            child: Switch(
-              value: isOnline,
-              activeThumbColor: Colors.white,
-              activeTrackColor: const Color(0xFF10B981),
-              inactiveThumbColor: Colors.white,
-              inactiveTrackColor: const Color(0xFFEF4444),
-              trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-              onChanged: (val) async {
-                final success = await notifier.toggleOnline(val);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        val && success
-                            ? '🟢 You are now ONLINE & ready for 15km service leads!'
-                            : '🔴 You are now OFFLINE. No leads will be assigned.',
-                      ),
-                      backgroundColor: val ? const Color(0xFF059669) : const Color(0xFFDC2626),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                }
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── 3. Metrics & Performance Snapshot (2-Column Row) ──────────────────────
+  // ─── 2. Metrics & Performance Snapshot (2-Column Row) ──────────────────────
   Widget _buildMetricsSnapshotRow(DashboardState state) {
     final earningsText = '₹${state.todayEarnings.toStringAsFixed(0)}';
     final jobsDoneText = '${state.completedJobsCount} / ${state.todayJobsCount > 0 ? state.todayJobsCount : 0}';
@@ -1161,6 +787,588 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
               );
             },
           ),
+      ],
+    );
+  }
+}
+
+// ─── TOP HERO AUTO-SCROLL BANNER WIDGET ──────────────────────────────────────
+class _PartnerHeroAutoScrollBanner extends StatefulWidget {
+  final String technicianName;
+  final TechnicianSkillProfileModel? skillProfile;
+  final DashboardState dashState;
+  final DashboardNotifier dashNotifier;
+  final VoidCallback? onProfileTap;
+  final VoidCallback? onNotificationTap;
+  final VoidCallback? onSkillsTap;
+
+  const _PartnerHeroAutoScrollBanner({
+    required this.technicianName,
+    required this.skillProfile,
+    required this.dashState,
+    required this.dashNotifier,
+    this.onProfileTap,
+    this.onNotificationTap,
+    this.onSkillsTap,
+  });
+
+  @override
+  State<_PartnerHeroAutoScrollBanner> createState() => _PartnerHeroAutoScrollBannerState();
+}
+
+class _PartnerHeroAutoScrollBannerState extends State<_PartnerHeroAutoScrollBanner> {
+  late PageController _pageController;
+  int _currentIndex = 1000;
+  Timer? _timer;
+
+  static const List<String> _heroImages = [
+    'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=1000&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1000&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=1000&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1000&auto=format&fit=crop',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _currentIndex);
+    _timer = Timer.periodic(const Duration(milliseconds: 3800), (_) {
+      if (mounted && _pageController.hasClients) {
+        _pageController.nextPage(
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeInOutCubic,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.dashState;
+    final addressText = state.currentLocationAddress.isNotEmpty
+        ? state.currentLocationAddress
+        : 'Bengaluru Central, Karnataka';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          children: [
+            // 1. Auto-scrolling background image carousel
+            Positioned.fill(
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: (idx) => setState(() => _currentIndex = idx),
+                itemBuilder: (context, index) {
+                  final imgUrl = _heroImages[index % _heroImages.length];
+                  return Image.network(
+                    imgUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
+                  );
+                },
+              ),
+            ),
+
+            // 2. Multi-stop Gradient Scrim Overlay for crisp text contrast
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xF20F172A),
+                      Color(0xAA0F172A),
+                      Color(0xF80F172A),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+            ),
+
+            // 3. Foreground Content
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Row: Avatar, Hello Technician, Rating & Notification Bell
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: widget.onProfileTap,
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: const Color(0xFF38BDF8), width: 2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipOval(
+                                  child: Container(
+                                    color: const Color(0xFF1E293B),
+                                    child: const Center(
+                                      child: Icon(Icons.person_rounded, size: 28, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          'Hello, ${widget.technicianName}',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white,
+                                            letterSpacing: -0.3,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Text('👋', style: TextStyle(fontSize: 16)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.star_rounded, size: 15, color: Color(0xFFFBBF24)),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        (widget.skillProfile != null && widget.skillProfile!.totalRatingsCount > 0)
+                                            ? widget.skillProfile!.rating.toStringAsFixed(1)
+                                            : '4.9',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '(${widget.skillProfile?.totalRatingsCount ?? 142} reviews)',
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: Color(0xFF94A3B8),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      GestureDetector(
+                                        onTap: widget.onSkillsTap,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF059669).withValues(alpha: 0.25),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5)),
+                                          ),
+                                          child: Text(
+                                            '${widget.skillProfile?.verifiedSkillsCount ?? 5} Verified Skills',
+                                            style: const TextStyle(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: Color(0xFF34D399),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Notification Bell Icon
+                      GestureDetector(
+                        onTap: widget.onNotificationTap,
+                        child: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.notifications_outlined, size: 21, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Floating GPS Location Pill Overlay
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 30,
+                          height: 30,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF0284C7),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.my_location_rounded, size: 16, color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'REAL-TIME GPS LOCATION',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF38BDF8),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              Text(
+                                addressText,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.refresh_rounded, size: 18, color: Color(0xFF38BDF8)),
+                          onPressed: () => widget.dashNotifier.fetchAndUpdateLocation(),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Duty Online / Offline Switch Row with Glowing Indicator
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: state.isOnline
+                          ? const Color(0x2210B981)
+                          : const Color(0x22EF4444),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: state.isOnline
+                            ? const Color(0xFF10B981).withValues(alpha: 0.4)
+                            : const Color(0xFFEF4444).withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: state.isOnline ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                boxShadow: state.isOnline ? const [
+                                  BoxShadow(color: Color(0xFF10B981), blurRadius: 6, spreadRadius: 1)
+                                ] : null,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              state.isOnline ? 'ONLINE & ACCEPTING JOBS' : 'OFFLINE (ON BREAK)',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: state.isOnline ? const Color(0xFF34D399) : const Color(0xFFF87171),
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Transform.scale(
+                          scale: 0.8,
+                          child: Switch(
+                            value: state.isOnline,
+                            activeThumbColor: Colors.white,
+                            activeTrackColor: const Color(0xFF10B981),
+                            inactiveThumbColor: Colors.white,
+                            inactiveTrackColor: const Color(0xFFEF4444),
+                            trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+                            onChanged: (val) => widget.dashNotifier.toggleOnline(val),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Dots Indicator
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(_heroImages.length, (i) {
+                        final isSel = (i == _currentIndex % _heroImages.length);
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: isSel ? 18 : 6,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: isSel ? const Color(0xFF38BDF8) : Colors.white.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── SPOTLIGHT INCENTIVE & SAFETY AUTO-SCROLL CAROUSEL ────────────────────────
+class _PartnerSpotlightIncentiveCarousel extends StatefulWidget {
+  const _PartnerSpotlightIncentiveCarousel();
+
+  @override
+  State<_PartnerSpotlightIncentiveCarousel> createState() => _PartnerSpotlightIncentiveCarouselState();
+}
+
+class _PartnerSpotlightIncentiveCarouselState extends State<_PartnerSpotlightIncentiveCarousel> {
+  late PageController _pageController;
+  int _currentIndex = 1000;
+  Timer? _timer;
+
+  static const List<Map<String, dynamic>> _incentiveCards = [
+    {
+      'tag': '⚡ DAILY INCENTIVE',
+      'title': 'Complete 3 Jobs Today',
+      'subtitle': 'Unlock an extra ₹500 performance bonus directly to your wallet!',
+      'gradient': [Color(0xFF4338CA), Color(0xFF312E81)],
+      'icon': '🎁',
+      'accent': Color(0xFFA5B4FC),
+    },
+    {
+      'tag': '🛡️ SAFETY PROTOCOL',
+      'title': 'Dual-OTP Verification',
+      'subtitle': 'Always collect the 4-digit start OTP from customer before opening your tool bag.',
+      'gradient': [Color(0xFF0F766E), Color(0xFF134E4A)],
+      'icon': '🔐',
+      'accent': Color(0xFF5EEAD4),
+    },
+    {
+      'tag': '💰 100% INSTANT PAYOUT',
+      'title': 'Zero Commission UPI Payouts',
+      'subtitle': 'Your job payouts are settled instantly to your bank account daily.',
+      'gradient': [Color(0xFFB45309), Color(0xFF78350F)],
+      'icon': '⚡',
+      'accent': Color(0xFFFDE68A),
+    },
+    {
+      'tag': '⭐ PLATINUM PARTNER',
+      'title': 'Maintain 4.8+ Rating',
+      'subtitle': 'Top-rated technicians get priority booking dispatch in a 15km radius.',
+      'gradient': [Color(0xFF1E3A8A), Color(0xFF172554)],
+      'icon': '🏆',
+      'accent': Color(0xFF93C5FD),
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _currentIndex);
+    _timer = Timer.periodic(const Duration(milliseconds: 4000), (_) {
+      if (mounted && _pageController.hasClients) {
+        _pageController.nextPage(
+          duration: const Duration(milliseconds: 650),
+          curve: Curves.easeInOutCubic,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 125,
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (idx) => setState(() => _currentIndex = idx),
+            itemBuilder: (context, index) {
+              final card = _incentiveCards[index % _incentiveCards.length];
+              final gradient = card['gradient'] as List<Color>;
+              final accentColor = card['accent'] as Color;
+
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: gradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradient.first.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              card['tag'] as String,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: accentColor,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            card['title'] as String,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            card['subtitle'] as String,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Colors.white70,
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      card['icon'] as String,
+                      style: const TextStyle(fontSize: 32),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_incentiveCards.length, (i) {
+            final isSel = (i == _currentIndex % _incentiveCards.length);
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: isSel ? 16 : 5,
+              height: 4.5,
+              decoration: BoxDecoration(
+                color: isSel ? const Color(0xFF1E3A8A) : const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
       ],
     );
   }

@@ -32,15 +32,16 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _HomeBody extends StatelessWidget {
+class _HomeBody extends ConsumerWidget {
   final AppState state;
   const _HomeBody({required this.state});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return RefreshIndicator(
+      color: const Color(0xFF2146A8),
       onRefresh: () async {
-        // Simple manual pull to refresh
+        await ref.read(bookingProvider.notifier).refreshAllData();
       },
       child: ListView(
         padding: EdgeInsets.zero, // Zero padding to allow full-width Hero Banner at the top
@@ -63,6 +64,51 @@ class _HomeBody extends StatelessWidget {
             ),
 
           if (!state.isGuest && !state.profile.isProfileComplete)
+            const SizedBox(height: 12),
+
+          // Live New Service Announcement Banner (from Admin)
+          if (state.newServiceAnnouncement != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, 3)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Text('📢', style: TextStyle(fontSize: 22)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        state.newServiceAnnouncement!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70, size: 18),
+                      onPressed: () => ref.read(bookingProvider.notifier).clearNewServiceAnnouncement(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          if (state.newServiceAnnouncement != null)
             const SizedBox(height: 12),
 
           // Active booking banner (if any)
@@ -102,16 +148,6 @@ class _HomeBody extends StatelessWidget {
             child: Builder(
               builder: (context) {
                 final displayCategories = state.categories.isNotEmpty ? state.categories : MockData.categoriesList;
-                final colors = [
-                  const Color(0xFFE0F2FE),
-                  const Color(0xFFFEF9C3),
-                  const Color(0xFFDCFCE7),
-                  const Color(0xFFF3E8FF),
-                  const Color(0xFFE0FFFE),
-                  const Color(0xFFFEE2E2),
-                  const Color(0xFFE2E8F0),
-                  const Color(0xFFF1F5F9),
-                ];
 
                 return GridView.builder(
                   shrinkWrap: true,
@@ -120,18 +156,19 @@ class _HomeBody extends StatelessWidget {
                     crossAxisCount: 4,
                     mainAxisSpacing: 16,
                     crossAxisSpacing: 12,
-                    childAspectRatio: 0.85,
+                    childAspectRatio: 0.82,
                   ),
                   itemCount: displayCategories.length.clamp(0, 8),
                   itemBuilder: (context, index) {
                     final cat = displayCategories[index];
-                    final color = colors[index % colors.length];
+                    final meta = _getCategoryMeta(cat.id, cat.name);
 
                     return _CategoryGridCard(
                       title: cat.name,
-                      imageUrl: cat.imageUrl,
-                      icon: Icons.home_repair_service_outlined,
-                      color: color,
+                      imageUrl: null, // Use crisp vector icon
+                      icon: meta.icon,
+                      color: meta.bgColor,
+                      iconColor: meta.iconColor,
                       onTap: () => Navigator.pushNamed(context, '/category', arguments: cat.id),
                     );
                   },
@@ -186,21 +223,11 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
   Timer? _autoSlideTimer;
   bool _isUserInteracting = false;
 
-  // Fallback banner if data is loading or empty
-  final PromotionalBanner _fallbackBanner = const PromotionalBanner(
-    id: 'default_hero',
-    title: 'Expert Home Services',
-    subtitle: 'Starting from ₹199',
-    badgeText: 'Trending',
-    ctaText: 'Book Now',
-    imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=1000',
-  );
-
   @override
   void initState() {
     super.initState();
-    // Use high initial page to enable infinite bidirectional looping
-    _currentIndex = widget.banners.isNotEmpty ? 1000 : 0;
+    final banners = widget.banners.isNotEmpty ? widget.banners : MockData.default3DHeroBanners;
+    _currentIndex = banners.isNotEmpty ? 1000 : 0;
     _pageController = PageController(initialPage: _currentIndex);
     _startAutoSlide();
   }
@@ -210,8 +237,9 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
     super.didUpdateWidget(oldWidget);
     if (widget.banners.length != oldWidget.banners.length) {
       _stopAutoSlide();
+      final banners = widget.banners.isNotEmpty ? widget.banners : MockData.default3DHeroBanners;
       setState(() {
-        _currentIndex = widget.banners.isNotEmpty ? 1000 : 0;
+        _currentIndex = banners.isNotEmpty ? 1000 : 0;
         _pageController = PageController(initialPage: _currentIndex);
       });
       _startAutoSlide();
@@ -219,14 +247,16 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
   }
 
   void _startAutoSlide() {
-    if (widget.banners.length <= 1) return;
-    _autoSlideTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+    final banners = widget.banners.isNotEmpty ? widget.banners : MockData.default3DHeroBanners;
+    if (banners.length <= 1) return;
+    _autoSlideTimer?.cancel();
+    _autoSlideTimer = Timer.periodic(const Duration(milliseconds: 3500), (timer) {
       if (!_isUserInteracting && _pageController.hasClients) {
         final nextIndex = _pageController.page!.round() + 1;
         _pageController.animateToPage(
           nextIndex,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOut,
+          duration: const Duration(milliseconds: 650),
+          curve: Curves.easeInOutCubic,
         );
       }
     });
@@ -245,19 +275,19 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final bannerCount = widget.banners.length;
-    final bannerList = bannerCount > 0 ? widget.banners : [_fallbackBanner];
+    final bannerList = widget.banners.isNotEmpty ? widget.banners : MockData.default3DHeroBanners;
+    final bannerCount = bannerList.length;
 
     // Fire impression analytics for the current visible index
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.banners.isNotEmpty) {
+      if (bannerList.isNotEmpty) {
         final activeIndex = _currentIndex % bannerCount;
-        AnalyticsHelper.trackHeroBannerView(widget.banners[activeIndex]);
+        AnalyticsHelper.trackHeroBannerView(bannerList[activeIndex]);
       }
     });
 
     return Container(
-      height: 320,
+      height: 330,
       decoration: const BoxDecoration(
         color: kBrandPrimary,
         borderRadius: BorderRadius.only(
@@ -272,7 +302,7 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
         ),
         child: Stack(
           children: [
-            // PageView Background Images & Scrims
+            // PageView Background 3D Images & Scrims
             GestureDetector(
               onPanDown: (_) {
                 setState(() => _isUserInteracting = true);
@@ -292,27 +322,37 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
                 },
                 itemBuilder: (context, index) {
                   final activeBanner = bannerList[index % bannerList.length];
+                  final isAsset = activeBanner.imageUrl.startsWith('assets/');
+
                   return Stack(
                     fit: StackFit.expand,
                     children: [
-                      // High quality campaign image
-                      Image.network(
-                        activeBanner.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          color: const Color(0xFF1E3A8A),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            'BookUrTechnician',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                        ),
-                      ),
-                      // Top-down dark scrim gradient for Location overlay visibility
+                      // High quality 3D Banner image
+                      isAsset
+                          ? Image.asset(
+                              activeBanner.imageUrl,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                            )
+                          : Image.network(
+                              activeBanner.imageUrl,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                              errorBuilder: (_, _, _) => Image.asset(
+                                'assets/images/banner_3d_1.png',
+                                fit: BoxFit.cover,
+                                alignment: Alignment.center,
+                              ),
+                            ),
+                      // Top-down dark scrim gradient for Location & Search bar readability
                       Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Colors.black54, Colors.transparent],
+                            colors: [
+                              Color(0x99000000),
+                              Color(0x55000000),
+                              Colors.transparent,
+                            ],
                             begin: Alignment.topCenter,
                             end: Alignment.center,
                           ),
@@ -322,7 +362,11 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
                       Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Colors.transparent, Colors.black87],
+                            colors: [
+                              Colors.transparent,
+                              Color(0x66000000),
+                              Color(0xCC000000),
+                            ],
                             begin: Alignment.center,
                             end: Alignment.bottomCenter,
                           ),
@@ -485,7 +529,7 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
 
                   const SizedBox(height: 16),
 
-                  // Carousel indicator dots: active dot is solid, others are outline circles
+                  // Carousel indicator dots: active dot is expanded pill, others are small circles
                   if (bannerCount > 1)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -494,11 +538,11 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
                         return AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
                           margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: isActive ? 7 : 5,
-                          height: isActive ? 7 : 5,
+                          width: isActive ? 20 : 6,
+                          height: 6,
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(3),
+                            color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.45),
                           ),
                         );
                       }),
@@ -805,6 +849,7 @@ void _showAllCategoriesSheet(BuildContext context, List<Category> categories) {
                 itemCount: categories.length,
                 itemBuilder: (ctx, index) {
                   final cat = categories[index];
+                  final meta = _getCategoryMeta(cat.id, cat.name);
                   return GestureDetector(
                     onTap: () {
                       Navigator.pop(modalCtx);
@@ -830,10 +875,10 @@ void _showAllCategoriesSheet(BuildContext context, List<Category> categories) {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: kLightBlue,
+                              color: meta.bgColor,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.handyman_outlined, color: kBrandPrimary, size: 24),
+                            child: Icon(meta.icon, color: meta.iconColor, size: 24),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -857,12 +902,85 @@ void _showAllCategoriesSheet(BuildContext context, List<Category> categories) {
   );
 }
 
+class _CategoryMeta {
+  final IconData icon;
+  final Color bgColor;
+  final Color iconColor;
+  const _CategoryMeta({required this.icon, required this.bgColor, required this.iconColor});
+}
+
+_CategoryMeta _getCategoryMeta(String id, String name) {
+  final lower = '${id.toLowerCase()} ${name.toLowerCase()}';
+  if (lower.contains('wiring') || lower.contains('project')) {
+    return const _CategoryMeta(
+      icon: Icons.home_repair_service_rounded,
+      bgColor: Color(0xFFE0F2FE),
+      iconColor: Color(0xFF0284C7),
+    );
+  }
+  if (lower.contains('electr') || lower.contains('fan') || lower.contains('switch')) {
+    return const _CategoryMeta(
+      icon: Icons.bolt_rounded,
+      bgColor: Color(0xFFFEF3C7),
+      iconColor: Color(0xFFD97706),
+    );
+  }
+  if (lower.contains('ac') || lower.contains('cool') || lower.contains('air')) {
+    return const _CategoryMeta(
+      icon: Icons.ac_unit_rounded,
+      bgColor: Color(0xFFE0F7FA),
+      iconColor: Color(0xFF0097A7),
+    );
+  }
+  if (lower.contains('refrig') || lower.contains('fridge') || lower.contains('freezer')) {
+    return const _CategoryMeta(
+      icon: Icons.kitchen_rounded,
+      bgColor: Color(0xFFDCFCE7),
+      iconColor: Color(0xFF16A34A),
+    );
+  }
+  if (lower.contains('wash') || lower.contains('laundry')) {
+    return const _CategoryMeta(
+      icon: Icons.local_laundry_service_rounded,
+      bgColor: Color(0xFFF3E8FF),
+      iconColor: Color(0xFF9333EA),
+    );
+  }
+  if (lower.contains('laptop') || lower.contains('computer') || lower.contains('pc')) {
+    return const _CategoryMeta(
+      icon: Icons.laptop_chromebook_rounded,
+      bgColor: Color(0xFFE0E7FF),
+      iconColor: Color(0xFF4F46E5),
+    );
+  }
+  if (lower.contains('cctv') || lower.contains('camera') || lower.contains('security')) {
+    return const _CategoryMeta(
+      icon: Icons.videocam_rounded,
+      bgColor: Color(0xFFFEE2E2),
+      iconColor: Color(0xFFDC2626),
+    );
+  }
+  if (lower.contains('appliance') || lower.contains('micro') || lower.contains('purifier') || lower.contains('ro')) {
+    return const _CategoryMeta(
+      icon: Icons.microwave_rounded,
+      bgColor: Color(0xFFFFF7ED),
+      iconColor: Color(0xFFEA580C),
+    );
+  }
+  return const _CategoryMeta(
+    icon: Icons.home_repair_service_outlined,
+    bgColor: Color(0xFFF1F5F9),
+    iconColor: Color(0xFF0F172A),
+  );
+}
+
 // ─── 2. Compact Grid Category Item Widget ────────────────────────────────────
 class _CategoryGridCard extends StatelessWidget {
   final String title;
   final String? imageUrl;
   final IconData icon;
   final Color color;
+  final Color iconColor;
   final VoidCallback onTap;
 
   const _CategoryGridCard({
@@ -870,6 +988,7 @@ class _CategoryGridCard extends StatelessWidget {
     this.imageUrl,
     required this.icon,
     required this.color,
+    this.iconColor = kTextNavy,
     required this.onTap,
   });
 
@@ -883,12 +1002,19 @@ class _CategoryGridCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            height: 58,
-            width: 58,
+            height: 56,
+            width: 56,
             decoration: BoxDecoration(
               color: color,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.04)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
@@ -898,27 +1024,28 @@ class _CategoryGridCard extends StatelessWidget {
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => Icon(
                         icon,
-                        color: kTextNavy,
-                        size: 24,
+                        color: iconColor,
+                        size: 26,
                       ),
                     )
                   : Icon(
                       icon,
-                      color: kTextNavy,
-                      size: 24,
+                      color: iconColor,
+                      size: 26,
                     ),
             ),
           ),
           const SizedBox(height: 6),
           Text(
             title,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: 10.5,
               fontWeight: FontWeight.bold,
               color: kTextNavy,
+              height: 1.15,
             ),
           ),
         ],
@@ -942,40 +1069,6 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
   Timer? _autoSlideTimer;
   bool _isInteracting = false;
 
-  // Fallback 3 promotional slides as requested
-  static const List<PromotionalBanner> _defaultPopularSlides = [
-    PromotionalBanner(
-      id: 'pop_slide_1',
-      badgeText: 'TRENDING',
-      title: 'Expert Home Services',
-      subtitle: 'Professional technicians at your doorstep',
-      ctaText: 'Book Now',
-      imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=1000',
-      categoryId: 'cat_ac',
-      serviceId: 'ac_clean',
-    ),
-    PromotionalBanner(
-      id: 'pop_slide_2',
-      badgeText: 'POPULAR',
-      title: 'Keep Your Appliances Running',
-      subtitle: 'AC, refrigerator, washing machine & more',
-      ctaText: 'Explore Services',
-      imageUrl: 'https://images.unsplash.com/photo-1581094288338-2314dddb7eed?w=1000',
-      categoryId: 'cat_refrigerator',
-      serviceId: 'fridge_rep',
-    ),
-    PromotionalBanner(
-      id: 'pop_slide_3',
-      badgeText: 'TOP RATED',
-      title: 'Reliable Electrical Solutions',
-      subtitle: 'Safe installation, repair & maintenance',
-      ctaText: 'Book a Technician',
-      imageUrl: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=1000',
-      categoryId: 'cat_light',
-      serviceId: 'pop_wiring',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -993,8 +1086,8 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
       if (!_isInteracting && _pageController.hasClients) {
         _pageController.animateToPage(
           _pageController.page!.round() + 1,
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeInOut,
+          duration: const Duration(milliseconds: 650),
+          curve: Curves.easeInOutCubic,
         );
       }
     });
@@ -1013,7 +1106,7 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
 
   @override
   Widget build(BuildContext context) {
-    final bannerList = widget.banners.isNotEmpty ? widget.banners : _defaultPopularSlides;
+    final bannerList = widget.banners.isNotEmpty ? widget.banners : MockData.defaultPopularBanners;
     final count = bannerList.length;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1043,7 +1136,7 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
 
         // Horizontally swipeable PageView Carousel
         SizedBox(
-          height: 175,
+          height: 185,
           child: GestureDetector(
             onPanDown: (_) {
               setState(() => _isInteracting = true);
@@ -1066,6 +1159,8 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
               },
               itemBuilder: (context, index) {
                 final banner = bannerList[index % count];
+                final isAsset = banner.imageUrl.startsWith('assets/');
+
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 5),
                   child: ClipRRect(
@@ -1083,18 +1178,22 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
                         fit: StackFit.expand,
                         children: [
                           // Background Imagery
-                          Image.network(
-                            banner.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              color: const Color(0xFF0B1F63),
-                              alignment: Alignment.center,
-                              child: const Text(
-                                'BookUrTechnician',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ),
+                          isAsset
+                              ? Image.asset(
+                                  banner.imageUrl,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                )
+                              : Image.network(
+                                  banner.imageUrl,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  errorBuilder: (context, error, stackTrace) => Image.asset(
+                                    'assets/images/popular_banner_1.png',
+                                    fit: BoxFit.cover,
+                                    alignment: Alignment.center,
+                                  ),
+                                ),
 
                           // Dark gradient overlay for optimal text contrast
                           Container(
@@ -1105,7 +1204,7 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
                                   Color(0x730B1F63),
                                   Color(0xE60B1635),
                                 ],
-                                stops: [0.3, 0.65, 1.0],
+                                stops: [0.25, 0.60, 1.0],
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                               ),
@@ -1261,10 +1360,12 @@ class BookUrServicesSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (services.isEmpty) return const SizedBox.shrink();
 
+    final displayServices = services.take(4).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section Title
+        // Section Title & View All Header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
@@ -1279,12 +1380,26 @@ class BookUrServicesSection extends ConsumerWidget {
                   letterSpacing: -0.3,
                 ),
               ),
-              Text(
-                '${services.length} services available',
-                style: const TextStyle(
-                  color: kSecondaryText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+              InkWell(
+                onTap: () => Navigator.pushNamed(context, '/all_services'),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'View All (${services.length})',
+                        style: const TextStyle(
+                          color: kBrandPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: kBrandPrimary),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1293,18 +1408,111 @@ class BookUrServicesSection extends ConsumerWidget {
 
         const SizedBox(height: 12),
 
-        // Vertically scrollable list of service cards
+        // Display Max 4 service cards
         ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: services.length,
+          itemCount: displayServices.length,
           separatorBuilder: (context, index) => const SizedBox(height: 16),
           itemBuilder: (context, index) {
-            final service = services[index];
+            final service = displayServices[index];
             return _BookUrServiceCard(service: service);
           },
         ),
+
+        // "View All Services" Action Card after the 4 cards
+        if (services.length > 4) ...[
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: InkWell(
+              onTap: () => Navigator.pushNamed(context, '/all_services'),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFBFDBFE), width: 1.2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0A1E40AF),
+                      blurRadius: 8,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: const BoxDecoration(
+                        color: kBrandPrimary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x331E40AF),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.grid_view_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'View All Services (${services.length})',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: kDeepNavy,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Explore full catalog with filters & fast booking',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: kSecondaryText,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: kBrandPrimary,
+                        size: 18,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1455,14 +1663,32 @@ class _BookUrServiceCard extends ConsumerWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          Text(
-                            '₹${service.price.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: kDeepNavy,
-                              letterSpacing: -0.5,
-                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                '₹${service.price.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: kDeepNavy,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              if (service.basePrice > service.price) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  '₹${service.basePrice.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: kSecondaryText,
+                                    decoration: TextDecoration.lineThrough,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ],
                       ),

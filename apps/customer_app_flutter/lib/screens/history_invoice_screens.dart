@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../booking_provider.dart';
 import '../models.dart';
 import '../theme.dart';
+import 'booking_status_map_screen.dart';
 
 class BookingHistoryScreen extends ConsumerStatefulWidget {
   const BookingHistoryScreen({super.key});
@@ -31,23 +32,37 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(bookingProvider);
-    final allBookings = [
-      if (state.activeBooking != null) state.activeBooking!,
-      ...state.bookingHistory,
-    ];
+    final Set<String> seenIds = {};
+    final List<Booking> allBookings = [];
+
+    if (state.activeBooking != null) {
+      allBookings.add(state.activeBooking!);
+      seenIds.add(state.activeBooking!.id);
+    }
+    for (var b in state.bookingHistory) {
+      if (!seenIds.contains(b.id)) {
+        allBookings.add(b);
+        seenIds.add(b.id);
+      }
+    }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('My Bookings'),
+        title: const Text('My Bookings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded, color: kBrandPrimary),
             onPressed: _fetchHistory,
             tooltip: 'Refresh Bookings',
           ),
         ],
       ),
       body: RefreshIndicator(
+        color: kBrandPrimary,
         onRefresh: _fetchHistory,
         child: _isLoading && allBookings.isEmpty
             ? const Center(child: CircularProgressIndicator(color: kBrandPrimary))
@@ -59,33 +74,33 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.all(24),
                             decoration: BoxDecoration(
                               color: kBrandPrimary.withValues(alpha: 0.08),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.assignment_outlined, size: 54, color: kBrandPrimary),
+                            child: const Icon(Icons.assignment_outlined, size: 60, color: kBrandPrimary),
                           ),
                           const SizedBox(height: 20),
                           const Text(
                             'No Bookings Yet',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark),
+                            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: kTextDark),
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'You haven\'t booked any services yet. Explore expert technicians near you and book instantly!',
+                            'You haven\'t booked any services yet. Explore expert technicians near you and book instantly with guaranteed service warranty!',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 13, color: kTextGray, height: 1.4),
+                            style: TextStyle(fontSize: 13.5, color: kTextGray, height: 1.45),
                           ),
                           const SizedBox(height: 24),
                           ElevatedButton.icon(
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: () => Navigator.pushNamedAndRemoveUntil(context, '/home', (r) => false),
                             icon: const Icon(Icons.search_rounded, size: 18),
-                            label: const Text('EXPLORE SERVICES', style: TextStyle(fontWeight: FontWeight.bold)),
+                            label: const Text('EXPLORE SERVICES', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.3)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kBrandPrimary,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                           ),
@@ -94,7 +109,8 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                     itemCount: allBookings.length,
                     itemBuilder: (_, i) => _BookingCard(booking: allBookings[i]),
                   )),
@@ -111,42 +127,204 @@ class _BookingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusLabel = _statusLabel(booking.status);
     final statusColor = _statusColor(booking.status);
+    final isLive = booking.status != BookingStatus.completed && booking.status != BookingStatus.cancelled;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          if (booking.status != BookingStatus.completed && booking.status != BookingStatus.cancelled) {
-            Navigator.pushNamed(context, '/tracking', arguments: booking.id);
-          } else {
-            Navigator.pushNamed(context, '/invoice', arguments: booking.id);
-          }
-        },
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(booking.id, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-                child: Text(statusLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: statusColor)),
-              ),
-            ]),
-            const SizedBox(height: 8),
-            Text(booking.services.map((s) => s.name).join(', '),
-                style: const TextStyle(fontSize: 13, color: kTextGray)),
-            const SizedBox(height: 6),
-            Row(children: [
-              const Icon(Icons.calendar_today, size: 12, color: kTextGray),
-              const SizedBox(width: 4),
-              Text('${booking.date} • ${booking.timeSlot}', style: const TextStyle(fontSize: 12, color: kTextGray)),
-              const Spacer(),
-              Text('₹${booking.grandTotal.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: kBrandPrimary)),
-            ]),
-          ]),
+    final serviceTitle = booking.services.isNotEmpty 
+        ? booking.services.map((s) => s.name).join(', ') 
+        : 'Technician Service';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isLive ? kBrandPrimary.withValues(alpha: 0.3) : const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLive ? 0.05 : 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () {
+            if (isLive) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BookingStatusMapScreen(
+                    initialBookingData: {
+                      'id': booking.id,
+                      'bookingCode': booking.id,
+                      'serviceName': serviceTitle,
+                      'status': booking.status == BookingStatus.confirmed ? 'SEARCHING_TECHNICIAN' : 'IN_PROGRESS',
+                      'scheduledSlot': '${booking.date} • ${booking.timeSlot}',
+                      'startServiceOtp': booking.otpCode.isNotEmpty ? booking.otpCode : '1234',
+                      'fullAddress': booking.address,
+                      'grandTotal': booking.grandTotal,
+                    },
+                  ),
+                ),
+              );
+            } else {
+              Navigator.pushNamed(context, '/invoice', arguments: booking.id);
+            }
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header: ID and Status Pill
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: kBrandPrimary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.build_circle_outlined, size: 18, color: kBrandPrimary),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          booking.id,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF0F172A), fontFamily: 'monospace'),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Service Name
+                Text(
+                  serviceTitle,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                ),
+                const SizedBox(height: 8),
+
+                // Address (if available)
+                if (booking.address.isNotEmpty) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          booking.address,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                ],
+
+                // Date & Time + Price Row
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today_outlined, size: 13, color: Color(0xFF64748B)),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${booking.date} • ${booking.timeSlot}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '₹${booking.grandTotal.toStringAsFixed(2)}',
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: kBrandPrimary),
+                    ),
+                  ],
+                ),
+
+                const Divider(height: 22, color: Color(0xFFF1F5F9)),
+
+                // Action buttons / OTP footer
+                Row(
+                  children: [
+                    if (isLive && booking.otpCode.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.vpn_key_rounded, size: 13, color: Color(0xFFB45309)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Start OTP: ${booking.otpCode}',
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () {
+                        if (isLive) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BookingStatusMapScreen(
+                                initialBookingData: {
+                                  'id': booking.id,
+                                  'bookingCode': booking.id,
+                                  'serviceName': serviceTitle,
+                                  'status': booking.status == BookingStatus.confirmed ? 'SEARCHING_TECHNICIAN' : 'IN_PROGRESS',
+                                  'scheduledSlot': '${booking.date} • ${booking.timeSlot}',
+                                  'startServiceOtp': booking.otpCode.isNotEmpty ? booking.otpCode : '1234',
+                                  'fullAddress': booking.address,
+                                  'grandTotal': booking.grandTotal,
+                                },
+                              ),
+                            ),
+                          );
+                        } else {
+                          Navigator.pushNamed(context, '/invoice', arguments: booking.id);
+                        }
+                      },
+                      icon: Icon(isLive ? Icons.near_me_rounded : Icons.receipt_long_rounded, size: 14, color: kBrandPrimary),
+                      label: Text(
+                        isLive ? 'Track Live Status' : 'View Invoice',
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: kBrandPrimary),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -154,7 +332,7 @@ class _BookingCard extends StatelessWidget {
 
   String _statusLabel(BookingStatus s) {
     switch (s) {
-      case BookingStatus.confirmed: return 'Confirmed';
+      case BookingStatus.confirmed: return 'Searching Technician';
       case BookingStatus.techAssigned: return 'Tech Assigned';
       case BookingStatus.techAccepted: return 'Tech Accepted';
       case BookingStatus.techOnTheWay: return 'On the Way';
@@ -168,10 +346,11 @@ class _BookingCard extends StatelessWidget {
 
   Color _statusColor(BookingStatus s) {
     switch (s) {
-      case BookingStatus.completed: return kGreenSuccess;
-      case BookingStatus.cancelled: return kRedError;
+      case BookingStatus.completed: return const Color(0xFF16A34A);
+      case BookingStatus.cancelled: return const Color(0xFFDC2626);
       case BookingStatus.techOnTheWay:
-      case BookingStatus.techArrived: return kBrandSecondary;
+      case BookingStatus.techArrived:
+      case BookingStatus.serviceStarted: return const Color(0xFFD97706);
       default: return kBrandPrimary;
     }
   }

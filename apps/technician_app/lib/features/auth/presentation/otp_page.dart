@@ -8,7 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../dashboard/presentation/main_shell_page.dart';
 import '../../onboarding/data/skill_service.dart';
-import '../../onboarding/presentation/skill_selection_page.dart';
+import '../../onboarding/presentation/document_upload_onboarding_page.dart';
 import 'auth_provider.dart';
 import '../../../core/network/api_result.dart';
 
@@ -87,7 +87,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
       
       if (res is ApiSuccess<String>) {
         if (mounted) {
-          // Check if technician already has skills configured
+          // Check if existing technician already has skills and documents configured
           try {
             final skillService = SkillService();
             final profile = await skillService.fetchMySkillProfile();
@@ -103,11 +103,11 @@ class _OtpPageState extends ConsumerState<OtpPage> {
             }
           } catch (_) {}
 
-          // Route to "Select Your Skills" onboarding screen
+          // For new technician signup: Route to Document Upload Step (Max 10 MB)
           if (mounted) {
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (context) => const SkillSelectionPage(isOnboarding: true)),
+              MaterialPageRoute(builder: (context) => const DocumentUploadOnboardingPage()),
               (route) => false,
             );
           }

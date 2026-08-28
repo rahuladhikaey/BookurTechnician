@@ -96,7 +96,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (response.statusCode == 200) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Verification code sent to $email! Check inbox.'),
+              content: Text('Verification code sent to $email! Check your inbox.'),
               backgroundColor: const Color(0xFF059669),
             ),
           );
@@ -111,19 +111,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           );
         } else {
-          final decoded = jsonDecode(response.body);
-          final msg = decoded['message'] ?? 'Failed to send verification code.';
+          String msg = 'Failed to send verification code.';
+          bool isNotFound = false;
+          bool isAlreadyExists = false;
 
-          // If user already exists and attempted to register with same email
-          if (isRegister && (msg.toLowerCase().contains('already exists') || msg.toLowerCase().contains('log in'))) {
+          try {
+            final decoded = jsonDecode(response.body);
+            if (decoded['error'] != null) msg = decoded['error'].toString();
+            if (decoded['message'] != null) msg = decoded['message'].toString();
+            isNotFound = decoded['notFound'] == true || response.statusCode == 404 || msg.toLowerCase().contains('no account found');
+            isAlreadyExists = decoded['alreadyExists'] == true || response.statusCode == 409 || msg.toLowerCase().contains('already exists');
+          } catch (_) {}
+
+          // 1. If user tried to LOG IN, but account does NOT exist
+          if (!isRegister && isNotFound) {
             setState(() {
-              _selectedMode = 0; // Automatically switch to "Email Log In" tab
+              _selectedMode = 1; // Switch to Sign Up tab
               _emailCtrl.text = email;
             });
             _validateInputs();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('⚠️ $msg'),
+                backgroundColor: const Color(0xFFDC2626),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+            return;
+          }
+
+          // 2. If user tried to REGISTER, but account ALREADY exists
+          if (isRegister && isAlreadyExists) {
+            setState(() {
+              _selectedMode = 0; // Switch to Log In tab
+              _emailCtrl.text = email;
+            });
+            _validateInputs();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('ℹ️ $msg'),
                 backgroundColor: const Color(0xFFD97706),
                 duration: const Duration(seconds: 4),
               ),
@@ -132,17 +158,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           }
 
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(msg)),
-          );
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OtpScreen(
-                phoneNumber: isRegister ? phone : '',
-                emailAddress: email,
-                fullName: isRegister ? name : '',
-              ),
+            SnackBar(
+              content: Text(msg),
+              backgroundColor: const Color(0xFFDC2626),
             ),
           );
         }

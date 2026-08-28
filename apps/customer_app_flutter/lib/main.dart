@@ -19,6 +19,8 @@ import 'screens/profile_details_screen.dart';
 import 'screens/saved_addresses_screen.dart';
 import 'screens/booking_status_map_screen.dart';
 import 'screens/razorpay_payment_screen.dart';
+import 'screens/all_services_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: CustomerApp()));
@@ -54,6 +56,9 @@ class CustomerApp extends StatelessWidget {
             );
           case '/home':
             return MaterialPageRoute(builder: (_) => const _HomeWithRestoration());
+          case '/all_services':
+            final initialCat = settings.arguments as String?;
+            return MaterialPageRoute(builder: (_) => AllServicesScreen(initialCategoryId: initialCat));
           case '/category':
             final catId = settings.arguments as String? ?? '';
             return MaterialPageRoute(builder: (_) => CategoryServicesScreen(categoryId: catId));
@@ -96,6 +101,10 @@ class CustomerApp extends StatelessWidget {
             return MaterialPageRoute(builder: (_) => const SavedAddressesScreen());
           case '/notifications':
             return MaterialPageRoute(builder: (_) => const NotificationsScreen());
+          case '/settings':
+            return MaterialPageRoute(builder: (_) => const SettingsScreen());
+          case '/privacy_center':
+            return MaterialPageRoute(builder: (_) => const PrivacyCenterScreen());
           case '/support':
             return MaterialPageRoute(builder: (_) => const SupportScreen());
           case '/assistant':

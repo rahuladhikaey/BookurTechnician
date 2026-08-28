@@ -15,7 +15,6 @@ import PaymentsManager from './features/payments/PaymentsManager';
 import RefundsManager from './features/payments/RefundsManager';
 import CancellationsManager from './features/payments/CancellationsManager';
 import BannersManager from './features/content/BannersManager';
-import MarketingManager from './features/marketing/MarketingManager';
 import SupportManager from './features/support/SupportManager';
 import ReviewsManager from './features/support/ReviewsManager';
 import ReportsManager from './features/reports/ReportsManager';
@@ -26,7 +25,6 @@ import AdminLogin from './features/auth/AdminLogin';
 // Control Tower Feature Components
 import LiveBookingRadar from './features/dispatch_tower/LiveBookingRadar';
 import FinancialSettlementPortal from './features/payouts/FinancialSettlementPortal';
-import PartnerVerificationView from './features/kyc/PartnerVerificationView';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -177,11 +175,6 @@ export default function App() {
             <span>Wallet Settlements (UTR)</span>
           </div>
 
-          <div className={`nav-item ${activeTab === 'partner_kyc' ? 'active' : ''}`} onClick={() => selectView('partner_kyc')}>
-            <span className="nav-icon">🛡</span>
-            <span>Partner KYC & Safety</span>
-          </div>
-
           <div className="nav-group-label">Core Operations</div>
           
           <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => selectView('dashboard')}>
@@ -225,11 +218,6 @@ export default function App() {
             <span>Banners</span>
           </div>
 
-          <div className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => selectView('notifications')}>
-            <span className="nav-icon">🔔</span>
-            <span>Notifications</span>
-          </div>
-
           <div className="nav-group-label">Finance & Audit</div>
 
           <div className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => selectView('payments')}>
@@ -263,11 +251,6 @@ export default function App() {
           <div className={`nav-item ${activeTab === 'ai_assistant' ? 'active' : ''}`} onClick={() => selectView('ai_assistant')}>
             <span className="nav-icon">🤖</span>
             <span>AI Help Center CMS</span>
-          </div>
-
-          <div className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => selectView('settings')}>
-            <span className="nav-icon">⚙</span>
-            <span>Settings</span>
           </div>
 
           <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => selectView('audit_logs')}>
@@ -330,34 +313,6 @@ export default function App() {
               />
             </div>
 
-            {/* Notifications 🔔 */}
-            <div style={{ position: 'relative' }}>
-              <button className="header-notif-btn" onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}>
-                🔔
-                {bookings.filter(b => b.status === 'PENDING' || b.status === 'REQUESTED').length > 0 && (
-                  <span className="header-notif-badge">{bookings.filter(b => b.status === 'PENDING' || b.status === 'REQUESTED').length}</span>
-                )}
-              </button>
-
-              {notifDropdownOpen && (
-                <div className="notif-dropdown-menu">
-                  <div className="notif-header">System Notifications ({bookings.filter(b => b.status === 'PENDING' || b.status === 'REQUESTED').length})</div>
-                  {bookings.filter(b => b.status === 'PENDING' || b.status === 'REQUESTED').length === 0 ? (
-                    <div className="notif-item" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      <p>No pending booking alerts</p>
-                    </div>
-                  ) : (
-                    bookings.filter(b => b.status === 'PENDING' || b.status === 'REQUESTED').map(b => (
-                      <div key={b.id} className="notif-item unread">
-                        <strong>New Booking: {b.bookingCode || b.id}</strong>
-                        <p>{b.service?.name || b.service || 'Service'} • ₹{b.grandTotal || b.price || 0}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-
             {/* Admin Profile */}
             <div className="header-profile-box" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div className="profile-avatar">
@@ -400,10 +355,6 @@ export default function App() {
 
           {activeTab === 'settlements' && (
             <FinancialSettlementPortal />
-          )}
-
-          {activeTab === 'partner_kyc' && (
-            <PartnerVerificationView />
           )}
 
           {activeTab === 'dashboard' && (
@@ -495,15 +446,6 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'notifications' && (
-            <MarketingManager
-              coupons={[]}
-              setCoupons={() => {}}
-              auditLogAction={auditLogAction}
-              subTab="notifications"
-            />
-          )}
-
           {activeTab === 'reviews' && (
             <ReviewsManager
               auditLogAction={auditLogAction}
@@ -531,17 +473,6 @@ export default function App() {
           {activeTab === 'ai_assistant' && (
             <AiAssistantCms
               auditLogAction={auditLogAction}
-            />
-          )}
-
-          {activeTab === 'settings' && (
-            <SettingsManager
-              settings={settings}
-              setSettings={setSettings}
-              auditLogs={auditLogs}
-              auditLogAction={auditLogAction}
-              subTab={activeSubTab || 'settings'}
-              onResetDatabase={handleResetDatabase}
             />
           )}
 

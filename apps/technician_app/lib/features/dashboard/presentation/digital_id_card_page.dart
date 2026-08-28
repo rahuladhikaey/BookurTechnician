@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../auth/presentation/selfie_capture_page.dart';
 
 class DigitalIdCardPage extends StatefulWidget {
   final String technicianName;
   final String technicianCode;
   final String joinDate;
-  final String initialPhotoUrl;
   final List<String> skills;
   final String verificationStatus;
 
@@ -15,7 +13,6 @@ class DigitalIdCardPage extends StatefulWidget {
     this.technicianName = 'Technician',
     this.technicianCode = 'BT-TECH-PENDING',
     this.joinDate = '',
-    this.initialPhotoUrl = '',
     this.skills = const [],
     this.verificationStatus = 'PENDING',
   });
@@ -25,36 +22,12 @@ class DigitalIdCardPage extends StatefulWidget {
 }
 
 class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
-  late String _currentPhotoUrl;
   late String _verificationStatus;
 
   @override
   void initState() {
     super.initState();
-    _currentPhotoUrl = widget.initialPhotoUrl;
     _verificationStatus = widget.verificationStatus;
-  }
-
-  void _openSelfieUpdate() async {
-    final newUrl = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SelfieCapturePage(
-          currentPhotoUrl: _currentPhotoUrl,
-          onSelfieConfirmed: (url) {
-            setState(() {
-              _currentPhotoUrl = url;
-            });
-          },
-        ),
-      ),
-    );
-
-    if (newUrl != null && mounted) {
-      setState(() {
-        _currentPhotoUrl = newUrl;
-      });
-    }
   }
 
   void _showQrVerificationModal() {
@@ -293,32 +266,36 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                       padding: const EdgeInsets.all(22),
                       child: Column(
                         children: [
-                          // Prominent Selfie Photo Frame
+                          // Verified Technician Emblem Badge
                           Stack(
                             alignment: Alignment.bottomRight,
                             children: [
                               Container(
-                                width: 110,
-                                height: 110,
+                                width: 100,
+                                height: 100,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: const Color(0xFF17399A), width: 3.5),
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF0B1F63), Color(0xFF17399A)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  border: Border.all(color: const Color(0xFF38BDF8), width: 3),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF17399A).withValues(alpha: 0.15),
+                                      color: const Color(0xFF17399A).withValues(alpha: 0.25),
                                       blurRadius: 12,
                                       offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(55),
-                                  child: Image.network(
-                                    _currentPhotoUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (ctx, err, stack) => Container(
-                                      color: const Color(0xFFE2E8F0),
-                                      child: const Icon(Icons.person, size: 60, color: Color(0xFF94A3B8)),
+                                child: Center(
+                                  child: Text(
+                                    widget.technicianName.isNotEmpty ? widget.technicianName[0].toUpperCase() : 'T',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 42,
                                     ),
                                   ),
                                 ),
@@ -485,25 +462,6 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: _openSelfieUpdate,
-                  icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                  label: const Text(
-                    'UPDATE PROFILE SELFIE',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.4),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.black,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
               ),
               const SizedBox(height: 20),
             ],

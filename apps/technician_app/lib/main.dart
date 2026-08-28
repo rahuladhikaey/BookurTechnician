@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'app/app.dart';
 import 'core/services/location_tracking_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/socket_service.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -18,6 +19,10 @@ void main() async {
   } catch (e) {
     debugPrint('Firebase / Notification initialization warning: $e');
   }
+
+  // Initialize socket dispatch & ringing listener
+  TechnicianSocketService().setNavigatorKey(rootNavigatorKey);
+  TechnicianSocketService().connect(technicianId: 'tech-001', category: 'electrician');
 
   try {
     await LocationTrackingService().initializeService();

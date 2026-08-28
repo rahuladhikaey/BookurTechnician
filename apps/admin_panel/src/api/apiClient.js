@@ -219,6 +219,8 @@ class ApiClient {
   assignBooking(id, technicianId) { return this.post(`/admin/bookings/${id}/assign`, { technicianId }); }
   updateBookingStatus(id, status) { return this.patch(`/admin/bookings/${id}/status`, { status }); }
   cancelBooking(id, reason) { return this.post(`/admin/bookings/${id}/cancel`, { reason }); }
+  deleteBooking(id) { return this.delete(`/admin/bookings/${id}`); }
+  clearAllBookings() { return this.delete('/admin/bookings'); }
 
   async getCategories() {
     try {

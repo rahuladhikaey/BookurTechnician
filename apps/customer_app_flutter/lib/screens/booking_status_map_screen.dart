@@ -401,7 +401,50 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
+
+                  // Customer Delivery & Service Address Pill
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Icon(Icons.location_on_rounded, size: 16, color: Color(0xFFDC2626)),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'SERVICE LOCATION',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 0.4),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _booking['fullAddress']?.toString().isNotEmpty == true
+                                    ? _booking['fullAddress']
+                                    : (_booking['address']?.toString().isNotEmpty == true ? _booking['address'] : 'Current Customer Location'),
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w600),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
                   const Divider(color: Color(0xFFF1F5F9), height: 1),
                   const SizedBox(height: 14),
 

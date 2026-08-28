@@ -33,6 +33,17 @@ if (-not $env:JAVA_HOME) {
     }
 }
 
+# Auto-detect ANDROID_HOME
+if (-not $env:ANDROID_HOME) {
+    if (Test-Path "D:\Android\Sdk") {
+        $env:ANDROID_HOME = "D:\Android\Sdk"
+        Write-Host "Auto-detected ANDROID_HOME: $($env:ANDROID_HOME)" -ForegroundColor Green
+    } elseif (Test-Path "$env:LOCALAPPDATA\Android\Sdk") {
+        $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+        Write-Host "Auto-detected ANDROID_HOME: $($env:ANDROID_HOME)" -ForegroundColor Green
+    }
+}
+
 # Auto-detect Flutter
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
     $CommonFlutterPaths = @(

@@ -413,7 +413,7 @@ export default function PartnerVerificationView() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>🪪</span>
                         <div>
-                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Aadhaar / Government Photo ID</div>
+                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Aadhaar Card (Front/Back)</div>
                           <div style={{ fontSize: '11px', color: '#64748B' }}>Verified against UIDAI format</div>
                         </div>
                       </div>
@@ -432,10 +432,31 @@ export default function PartnerVerificationView() {
                       borderRadius: '6px'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>🏦</span>
+                        <span>🗳️</span>
                         <div>
-                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Bank Account & UPI Settlement Handle</div>
-                          <div style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{selectedPartner.upiId || 'partner@upi'}</div>
+                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Voter Card ID Verification</div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>Election Commission of India EPIC</div>
+                        </div>
+                      </div>
+                      <span className={`badge ${selectedPartner.kycStatus === 'VERIFIED' ? 'badge-completed' : 'badge-pending'}`}>
+                        {selectedPartner.kycStatus || 'PENDING'}
+                      </span>
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 14px',
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '6px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>📱</span>
+                        <div>
+                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>UPI Number / Payout Handle</div>
+                          <div style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{selectedPartner.upiId || '9876543210@upi'}</div>
                         </div>
                       </div>
                       <span className="badge badge-completed">✓ ACTIVE</span>

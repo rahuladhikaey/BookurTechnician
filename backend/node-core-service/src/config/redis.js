@@ -1,4 +1,4 @@
-const Redis = require('ioredis');
+ Redis = require('ioredis');
 
 let redisClient = null;
 let isRedisConnected = false;

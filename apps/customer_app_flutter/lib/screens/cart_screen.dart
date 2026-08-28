@@ -299,6 +299,118 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       return;
     }
 
+    _showPaymentSelectionSheet(state);
+  }
+
+  void _showPaymentSelectionSheet(AppState state) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (modalCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Select Payment Option', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: kPrimaryText)),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: kSecondaryText, size: 20),
+                    onPressed: () => Navigator.pop(modalCtx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Option 1: Pay Online (Instant & Secure)
+              InkWell(
+                onTap: () {
+                  Navigator.pop(modalCtx);
+                  _startRazorpayPayment(state);
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: kBrandPrimary),
+                    borderRadius: BorderRadius.circular(14),
+                    color: kLightBlue.withValues(alpha: 0.2),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.account_balance_wallet_outlined, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Pay Online (UPI / Card / NetBanking)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kPrimaryText)),
+                            SizedBox(height: 3),
+                            Text('Instant confirmation with 100% moneyback protection', style: TextStyle(fontSize: 11.5, color: kSecondaryText)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 14, color: kBrandPrimary),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Option 2: Pay After Service
+              InkWell(
+                onTap: () {
+                  Navigator.pop(modalCtx);
+                  _bookPayAfterService(state);
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: kBorderColor),
+                    borderRadius: BorderRadius.circular(14),
+                    color: Colors.white,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.handshake_outlined, color: Color(0xFF0F172A), size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Pay After Service (Cash / UPI on Visit)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kPrimaryText)),
+                            SizedBox(height: 3),
+                            Text('Pay directly to technician after job satisfaction', style: TextStyle(fontSize: 11.5, color: kSecondaryText)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios, size: 14, color: kSecondaryText),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _startRazorpayPayment(AppState state) async {
     _currentBookingCode = 'BT-${10000000 + Random().nextInt(90000000)}';
     _currentBookingId = 'bkg_${DateTime.now().millisecondsSinceEpoch}';
     _currentServiceName = state.cartItems.isNotEmpty ? state.cartItems.first.name : 'Service Booking';
@@ -398,22 +510,80 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     if (!mounted) return;
     setState(() => _isProcessingPayment = false);
 
-    // Confirm booking in local provider
+    // Confirm booking in local provider and save to DB
     final scheduleParts = (_currentSchedule ?? '').split('•');
     final date = scheduleParts.first.trim();
     final slot = scheduleParts.length > 1 ? scheduleParts[1].trim() : '3:00 PM – 4:00 PM';
-    ref.read(bookingProvider.notifier).confirmOrder(date, slot);
+    
+    final booked = await ref.read(bookingProvider.notifier).confirmOrder(
+      date,
+      slot,
+      paymentMethod: 'ONLINE_RAZORPAY',
+      customBookingCode: _currentBookingCode,
+      customBookingId: _currentBookingId,
+    );
 
-    final startOtp = (1000 + Random().nextInt(9000)).toString();
+    final startOtp = booked?.otpCode.isNotEmpty == true ? booked!.otpCode : (1000 + Random().nextInt(9000)).toString();
 
     // Navigate directly to BookingStatusMapScreen (Live Tracking & OTP Page)
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BookingStatusMapScreen(
+            initialBookingData: {
+              'id': booked?.id ?? _currentBookingId,
+              'bookingCode': booked?.id ?? _currentBookingCode,
+              'serviceName': _currentServiceName,
+              'status': 'SEARCHING_TECHNICIAN',
+              'scheduledSlot': '$_currentSchedule',
+              'startServiceOtp': startOtp,
+              'startOtpExpiresAt': DateTime.now().add(const Duration(hours: 3)).toIso8601String(),
+              'fullAddress': _currentAddress,
+              'grandTotal': _currentAmount,
+              'paymentId': paymentId,
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _bookPayAfterService(AppState state) async {
+    if (state.cartItems.isEmpty) return;
+    setState(() => _isProcessingPayment = true);
+
+    _currentBookingCode = 'BT-${10000000 + Random().nextInt(90000000)}';
+    _currentBookingId = 'bkg_${DateTime.now().millisecondsSinceEpoch}';
+    _currentServiceName = state.cartItems.isNotEmpty ? state.cartItems.first.name : 'Service Booking';
+    _currentAmount = state.grandTotal;
+    _currentSchedule = '${state.selectedScheduleDate} • ${state.selectedScheduleSlot}';
+    _currentAddress = state.selectedAddressTitle;
+
+    final scheduleParts = (_currentSchedule ?? '').split('•');
+    final date = scheduleParts.first.trim();
+    final slot = scheduleParts.length > 1 ? scheduleParts[1].trim() : '3:00 PM – 4:00 PM';
+
+    final booked = await ref.read(bookingProvider.notifier).confirmOrder(
+      date,
+      slot,
+      paymentMethod: 'CASH_ON_DELIVERY',
+      customBookingCode: _currentBookingCode,
+      customBookingId: _currentBookingId,
+    );
+
+    if (!mounted) return;
+    setState(() => _isProcessingPayment = false);
+
+    final startOtp = booked?.otpCode.isNotEmpty == true ? booked!.otpCode : (1000 + Random().nextInt(9000)).toString();
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => BookingStatusMapScreen(
           initialBookingData: {
-            'id': _currentBookingId,
-            'bookingCode': _currentBookingCode,
+            'id': booked?.id ?? _currentBookingId,
+            'bookingCode': booked?.id ?? _currentBookingCode,
             'serviceName': _currentServiceName,
             'status': 'SEARCHING_TECHNICIAN',
             'scheduledSlot': '$_currentSchedule',
@@ -421,7 +591,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             'startOtpExpiresAt': DateTime.now().add(const Duration(hours: 3)).toIso8601String(),
             'fullAddress': _currentAddress,
             'grandTotal': _currentAmount,
-            'paymentId': paymentId,
+            'paymentId': 'PAY_AFTER_SERVICE',
           },
         ),
       ),
@@ -602,22 +772,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         ],
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Service Image with curved border and fallback
           ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              service.imageUrl,
-              width: 58,
-              height: 58,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
-                width: 58,
-                height: 58,
-                color: kLightBlue,
-                child: const Icon(Icons.build, color: kBrandPrimary, size: 24),
-              ),
-            ),
+            borderRadius: BorderRadius.circular(12),
+            child: _buildServiceImage(service),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -626,34 +786,122 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               children: [
                 Text(
                   service.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kPrimaryText),
-                  maxLines: 1,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14.5,
+                    color: kPrimaryText,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Row(
                   children: [
-                    const Icon(Icons.timer_outlined, size: 13, color: kSecondaryText),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${service.durationMinutes} mins',
-                      style: const TextStyle(fontSize: 12, color: kSecondaryText),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.timer_outlined, size: 12, color: kSecondaryText),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${service.durationMinutes} mins',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kSecondaryText),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.verified_user_outlined, size: 11, color: Color(0xFF16A34A)),
+                          const SizedBox(width: 3),
+                          Text(
+                            service.warrantyText.isNotEmpty ? service.warrantyText : '30-Day Warranty',
+                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '₹${service.price.toStringAsFixed(0)}',
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: kBrandPrimary),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '₹${service.price.toStringAsFixed(0)}',
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: kBrandPrimary),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '₹${(service.price * 1.25).toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: kSecondaryText,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, color: kSecondaryText, size: 20),
+            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 22),
+            tooltip: 'Remove',
             onPressed: () => ref.read(bookingProvider.notifier).removeFromCart(service.id),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildServiceImage(ServiceItem service) {
+    final url = service.imageUrl.trim();
+    if (url.startsWith('assets/')) {
+      return Image.asset(
+        url,
+        width: 72,
+        height: 72,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildServicePlaceholder(service.name),
+      );
+    } else if (url.isNotEmpty) {
+      return Image.network(
+        url,
+        width: 72,
+        height: 72,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildServicePlaceholder(service.name),
+      );
+    }
+    return _buildServicePlaceholder(service.name);
+  }
+
+  Widget _buildServicePlaceholder(String name) {
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Center(
+        child: Icon(Icons.handyman_rounded, color: kBrandPrimary, size: 28),
       ),
     );
   }

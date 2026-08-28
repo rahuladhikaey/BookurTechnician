@@ -264,13 +264,6 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Profile Photo', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Upload a profile picture for technician recognition', style: TextStyle(fontSize: 11.5, color: kSecondaryText)),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                  onTap: () => Navigator.pushNamed(context, '/profile_details'),
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
                   title: const Text('Date of Birth & Anniversary', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                   subtitle: const Text('Receive special discounts on your birthday & anniversary', style: TextStyle(fontSize: 11.5, color: kSecondaryText)),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 14),

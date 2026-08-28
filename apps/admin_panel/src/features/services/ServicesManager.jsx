@@ -297,16 +297,26 @@ export default function ServicesManager({ categories, setCategories, services, s
   const openServiceModal = (srv = null) => {
     if (srv) {
       setEditingService(srv.id);
+      const activePrice = srv.price || srv.basePrice || 499;
+      const regularPrice = srv.basePrice || srv.originalPrice || activePrice;
+      const offerPrice = srv.offerPrice !== undefined ? srv.offerPrice : activePrice;
+
       setServiceForm({
         name: srv.name,
         imageUrl: srv.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
-        category: srv.category?.name || srv.category || categories[0]?.name || '',
-        categoryId: srv.category?.id || categories[0]?.id,
+        category: srv.categoryName || srv.category?.name || srv.category || categories[0]?.name || '',
+        categoryId: srv.categoryId || srv.category?.id || categories[0]?.id,
         description: srv.description || '',
-        price: srv.price,
-        originalPrice: srv.originalPrice || Math.round(srv.price * 1.3),
+        price: activePrice,
+        basePrice: regularPrice,
+        originalPrice: regularPrice,
+        offerPrice: offerPrice,
+        bookingCharge: srv.bookingCharge || (activePrice >= 1000 ? 99 : 49),
+        advancePrepaymentPct: srv.advancePrepaymentPct || 30,
+        technicianPayoutAmount: srv.technicianPayoutAmount || Math.round(activePrice * 0.8),
         durationMinutes: srv.durationMinutes || 45,
-        isActive: srv.isActive !== false,
+        warrantyText: srv.warrantyText || '30 Days Warranty',
+        isActive: srv.active !== false && srv.isActive !== false,
         rating: srv.rating || 4.8,
         inclusions: Array.isArray(srv.inclusions) ? srv.inclusions.join('\n') : (srv.inclusions || ''),
         exclusions: Array.isArray(srv.exclusions) ? srv.exclusions.join('\n') : (srv.exclusions || '')
@@ -316,16 +326,22 @@ export default function ServicesManager({ categories, setCategories, services, s
       setServiceForm({
         name: '',
         imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
-        category: categories[0]?.name || 'AC Service',
-        categoryId: categories[0]?.id,
+        category: categories[0]?.name || 'Electrical Services',
+        categoryId: categories[0]?.id || 'cat_electrical',
         description: '',
-        price: 499,
-        originalPrice: 699,
+        price: 199,
+        basePrice: 249,
+        originalPrice: 249,
+        offerPrice: 199,
+        bookingCharge: 49,
+        advancePrepaymentPct: 30,
+        technicianPayoutAmount: 159,
         durationMinutes: 45,
+        warrantyText: '30 Days Warranty',
         isActive: true,
         rating: 4.8,
-        inclusions: 'Professional tool verification\nPost-job cleanliness\nStandard 30-day warranty',
-        exclusions: 'Heavy structural repairs\nExternal replacement parts (billed extra)'
+        inclusions: 'Professional verified technician\nPost-job cleanliness\nStandard 30-day warranty',
+        exclusions: 'Heavy external replacement parts (billed separately)'
       });
     }
     setShowServiceModal(true);
@@ -339,15 +355,25 @@ export default function ServicesManager({ categories, setCategories, services, s
       return;
     }
 
+    const regularP = Number(serviceForm.basePrice || serviceForm.originalPrice || serviceForm.price) || 199;
+    const offerP = serviceForm.offerPrice !== '' && serviceForm.offerPrice !== null ? Number(serviceForm.offerPrice) : regularP;
+    const finalSellingPrice = (offerP > 0 && offerP < regularP) ? offerP : (Number(serviceForm.price) || regularP);
+
     const payload = {
       name: serviceForm.name.trim(),
       imageUrl: serviceForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
       categoryId: selectedCategory.id,
       category: selectedCategory.name,
+      categoryName: selectedCategory.name,
       description: serviceForm.description || '',
-      price: Number(serviceForm.price) || 499,
+      price: finalSellingPrice,
+      basePrice: regularP,
+      offerPrice: offerP,
+      bookingCharge: Number(serviceForm.bookingCharge) || 49,
+      advancePrepaymentPct: Number(serviceForm.advancePrepaymentPct) || 30,
+      technicianPayoutAmount: Number(serviceForm.technicianPayoutAmount) || Math.round(finalSellingPrice * 0.8),
       durationMinutes: Number(serviceForm.durationMinutes) || 45,
-      warrantyText: serviceForm.warrantyText || '30-Day Service Warranty',
+      warrantyText: serviceForm.warrantyText || '30 Days Warranty',
       active: serviceForm.isActive !== false,
       popular: false
     };
@@ -355,27 +381,23 @@ export default function ServicesManager({ categories, setCategories, services, s
     try {
       if (editingService) {
         const res = await api.updateService(editingService, payload);
-        const saved = res?.data;
-        if (saved) {
-          setServices(prev => prev.map(s => s.id === editingService ? saved : s));
-        }
-        auditLogAction?.('Services', `Updated service "${payload.name}"`);
+        const saved = res?.data || payload;
+        setServices(prev => prev.map(s => s.id === editingService ? { ...s, ...saved } : s));
+        auditLogAction?.('Services', `Updated service "${payload.name}" (#${editingService})`);
       } else {
         const res = await api.createService(payload);
-        const saved = res?.data;
-        if (saved) {
-          setServices(prev => [...prev, saved]);
-        }
+        const saved = res?.data || payload;
+        setServices(prev => [...prev, saved]);
         auditLogAction?.('Services', `Added new service "${payload.name}"`);
       }
       if (onReload) {
         await onReload();
       }
       setShowServiceModal(false);
-      alert(`✅ Service "${payload.name}" successfully saved in PostgreSQL!`);
+      alert(`✅ Service "${payload.name}" successfully saved!`);
     } catch (err) {
       console.error('Error saving service:', err);
-      alert('Failed to save service in database: ' + (err.message || 'Request failed'));
+      alert('Failed to save service: ' + (err.message || 'Request failed'));
     }
   };
 
@@ -1480,33 +1502,82 @@ export default function ServicesManager({ categories, setCategories, services, s
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Selling Price (₹)</label>
+                    <label className="form-label">Regular Price / MRP (₹)</label>
                     <input
                       type="number"
                       required
                       className="form-control"
-                      value={serviceForm.price}
-                      onChange={e => setServiceForm({ ...serviceForm, price: e.target.value })}
+                      value={serviceForm.basePrice || serviceForm.originalPrice || serviceForm.price}
+                      onChange={e => setServiceForm({ ...serviceForm, basePrice: e.target.value, originalPrice: e.target.value })}
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Original Price (₹)</label>
+                    <label className="form-label">Offer / Discounted Price (₹)</label>
                     <input
                       type="number"
                       className="form-control"
-                      value={serviceForm.originalPrice}
-                      onChange={e => setServiceForm({ ...serviceForm, originalPrice: e.target.value })}
+                      value={serviceForm.offerPrice}
+                      onChange={e => setServiceForm({ ...serviceForm, offerPrice: e.target.value })}
+                      placeholder="e.g. 149"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Booking Fee (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      className="form-control"
+                      value={serviceForm.bookingCharge}
+                      onChange={e => setServiceForm({ ...serviceForm, bookingCharge: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Online Advance %</label>
+                    <input
+                      type="number"
+                      required
+                      min="10"
+                      max="100"
+                      className="form-control"
+                      value={serviceForm.advancePrepaymentPct}
+                      onChange={e => setServiceForm({ ...serviceForm, advancePrepaymentPct: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Partner Base Payout (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      className="form-control"
+                      value={serviceForm.technicianPayoutAmount}
+                      onChange={e => setServiceForm({ ...serviceForm, technicianPayoutAmount: e.target.value })}
                     />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Duration (Mins)</label>
                     <input
                       type="number"
+                      required
                       className="form-control"
                       value={serviceForm.durationMinutes}
                       onChange={e => setServiceForm({ ...serviceForm, durationMinutes: e.target.value })}
                     />
                   </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Warranty Details</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="e.g. 30 Days Warranty, 90 Days Warranty"
+                    value={serviceForm.warrantyText}
+                    onChange={e => setServiceForm({ ...serviceForm, warrantyText: e.target.value })}
+                  />
                 </div>
 
                 <div className="form-group">

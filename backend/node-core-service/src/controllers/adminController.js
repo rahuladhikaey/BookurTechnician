@@ -2,113 +2,20 @@ const { v4: uuidv4 } = require('uuid');
 const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
 const MongoCatalog = require('../models/MongoCatalog');
 const postgres = require('../config/postgres');
-
-// In-Memory dynamic store for admin modules
-let adminCategories = [
-  {
-    id: 'cat-elec',
-    categoryId: 'electrician',
-    name: 'Electrician Services',
-    iconUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
-    bannerUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
-    active: true,
-    displayOrder: 1,
-    servicesCount: 4,
-  },
-  {
-    id: 'cat-plum',
-    categoryId: 'plumber',
-    name: 'Plumber Services',
-    iconUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500',
-    bannerUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=500',
-    active: true,
-    displayOrder: 2,
-    servicesCount: 3,
-  },
-  {
-    id: 'cat-carp',
-    categoryId: 'carpenter',
-    name: 'Carpenter Services',
-    iconUrl: 'https://images.unsplash.com/photo-1530124566582-a618bc2615dc?w=500',
-    bannerUrl: 'https://images.unsplash.com/photo-1530124566582-a618bc2615dc?w=500',
-    active: true,
-    displayOrder: 3,
-    servicesCount: 3,
-  },
-  {
-    id: 'cat-ac',
-    categoryId: 'ac_repair',
-    name: 'AC Repair & Service',
-    iconUrl: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500',
-    bannerUrl: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500',
-    active: true,
-    displayOrder: 4,
-    servicesCount: 3,
-  },
-];
-
-let adminServices = [
-  {
-    id: 'elec-01',
-    categoryId: 'cat-elec',
-    categoryName: 'Electrician Services',
-    name: 'Switch & Socket Replacement',
-    title: 'Switch & Socket Replacement',
-    description: 'Repair and replacement of standard or modular electrical switches and wall sockets.',
-    basePrice: 149,
-    estimatedDurationMinutes: 30,
-    active: true,
-    taxRatePercent: 18,
-  },
-  {
-    id: 'elec-02',
-    categoryId: 'cat-elec',
-    categoryName: 'Electrician Services',
-    name: 'Fan Installation / Repair',
-    title: 'Fan Installation / Repair',
-    description: 'Ceiling, exhaust or wall fan installation and motor troubleshooting.',
-    basePrice: 249,
-    estimatedDurationMinutes: 45,
-    active: true,
-    taxRatePercent: 18,
-  },
-  {
-    id: 'plum-01',
-    categoryId: 'cat-plum',
-    categoryName: 'Plumber Services',
-    name: 'Tap / Faucet Leakage Repair',
-    title: 'Tap / Faucet Leakage Repair',
-    description: 'Repairing dripping faucets, spindle replacement and leak fix.',
-    basePrice: 199,
-    estimatedDurationMinutes: 30,
-    active: true,
-    taxRatePercent: 18,
-  },
-  {
-    id: 'carp-01',
-    categoryId: 'cat-carp',
-    categoryName: 'Carpenter Services',
-    name: 'Door Lock Installation / Repair',
-    title: 'Door Lock Installation / Repair',
-    description: 'Main door lock replacement, cylindrical lock fix, handle alignment.',
-    basePrice: 299,
-    estimatedDurationMinutes: 45,
-    active: true,
-    taxRatePercent: 18,
-  },
-  {
-    id: 'ac-01',
-    categoryId: 'cat-ac',
-    categoryName: 'AC Repair & Service',
-    name: 'AC Foam Jet Deep Cleaning',
-    title: 'AC Foam Jet Deep Cleaning',
-    description: '2x deeper indoor coil foam wash, outdoor unit jet wash, drain tray unclog.',
-    basePrice: 599,
-    estimatedDurationMinutes: 60,
-    active: true,
-    taxRatePercent: 18,
-  },
-];
+const {
+  getMasterCatalog,
+  getFlattenedServices,
+  getAdminCategories,
+  updateServicePricing,
+  updateServiceItem,
+  createServiceItem,
+  deleteServiceItem,
+  createCategoryItem,
+  updateCategoryItem,
+  deleteCategoryItem,
+} = require('../config/masterCatalog');
+const bookingsStore = require('../config/bookingsStore');
+const firebase = require('../config/firebase');
 
 let adminBanners = [
   {
@@ -116,47 +23,45 @@ let adminBanners = [
     title: '50% OFF on AC Deep Cleaning',
     subtitle: 'Beat the heat with certified AC experts',
     imageUrl: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800',
-    targetCategory: 'ac_repair',
+    targetCategory: 'cat_ac',
+    active: true,
+  },
+  {
+    id: 'ban-02',
+    title: 'Certified Electrician & Wiring',
+    subtitle: 'Fast 15-min arrival with 30-day warranty',
+    imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=800',
+    targetCategory: 'cat_electrical',
     active: true,
   },
 ];
 
 let adminAuditLogs = [
-  { id: 'log-01', module: 'System', action: 'Polyglot backend initialized successfully', timestamp: new Date().toISOString() },
-  { id: 'log-02', module: 'Auth', action: 'Admin logged in via Direct Access', timestamp: new Date().toISOString() },
+  { id: 'log-01', module: 'System', action: 'Real-time bookings store and catalog synchronization active', timestamp: new Date().toISOString() },
+  { id: 'log-02', module: 'Auth', action: 'Admin session connected to live dispatch database', timestamp: new Date().toISOString() },
 ];
 
 /**
- * GET /api/v1/admin/overview
+ * GET /api/v1/admin/overview & /api/v1/admin/stats
  */
 const getOverview = async (req, res) => {
   try {
-    let totalBookings = 248;
-    let completedBookings = 215;
+    const services = getFlattenedServices();
+    const categories = getAdminCategories();
+    const liveStats = bookingsStore.getDashboardStats();
     let activeTechnicians = 34;
-    let totalGrossRevenue = 84500.0;
-    let platformCommission = 12675.0;
+
+    const data = {
+      ...liveStats,
+      activeTechnicians,
+      totalServices: services.length,
+      totalCategories: categories.length,
+    };
 
     return res.json({
       success: true,
-      data: {
-        totalBookings,
-        completedBookings,
-        activeTechnicians,
-        totalGrossRevenue,
-        platformCommission,
-        customerSatisfactionRate: '96.4%',
-        averageEtaMinutes: 18,
-      },
-      stats: {
-        totalBookings,
-        completedBookings,
-        activeTechnicians,
-        totalGrossRevenue,
-        platformCommission,
-        customerSatisfactionRate: '96.4%',
-        averageEtaMinutes: 18,
-      },
+      data,
+      stats: data,
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
@@ -166,7 +71,12 @@ const getOverview = async (req, res) => {
 // ─── CATEGORIES CRUD ──────────────────────────────────────────────
 
 const getCategories = async (req, res) => {
-  return res.json({ success: true, data: adminCategories });
+  try {
+    const categories = getAdminCategories();
+    return res.json({ success: true, data: categories, count: categories.length });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 const createCategory = async (req, res) => {
@@ -174,69 +84,120 @@ const createCategory = async (req, res) => {
     const { name, iconUrl, bannerUrl, active = true } = req.body;
     if (!name) return res.status(400).json({ success: false, error: 'Category name is required' });
 
-    const newCategory = {
-      id: 'cat-' + uuidv4().slice(0, 8),
-      categoryId: name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+    const newCat = createCategoryItem({
       name: name.trim(),
-      iconUrl: iconUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
-      bannerUrl: bannerUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
+      imageUrl: bannerUrl || iconUrl,
+      iconUrl: iconUrl || bannerUrl,
       active: active !== false,
-      displayOrder: adminCategories.length + 1,
-      servicesCount: 0,
-      createdAt: new Date().toISOString(),
-    };
+    });
 
-    adminCategories.push(newCategory);
-    adminAuditLogs.unshift({ id: 'log-' + uuidv4().slice(0, 6), module: 'Services', action: `Created category "${name}"`, timestamp: new Date().toISOString() });
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Services',
+      action: `Created category "${name}" (#${newCat.id})`,
+      timestamp: new Date().toISOString(),
+    });
 
-    console.log(`✅ [Admin] Created new category: "${name}" (#${newCategory.id})`);
-    return res.status(201).json({ success: true, data: newCategory, category: newCategory });
+    if (global.io) {
+      global.io.emit('catalog:updated', { type: 'CATEGORY_CREATED', data: newCat });
+    }
+
+    return res.status(201).json({ success: true, data: newCat, category: newCat });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
 const updateCategory = async (req, res) => {
-  const { id } = req.params;
-  const index = adminCategories.findIndex(c => c.id === id || c.categoryId === id);
-  if (index === -1) return res.status(404).json({ success: false, error: 'Category not found' });
+  try {
+    const { id } = req.params;
+    const updated = updateCategoryItem(id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: 'Category not found' });
 
-  adminCategories[index] = { ...adminCategories[index], ...req.body, updatedAt: new Date().toISOString() };
-  return res.json({ success: true, data: adminCategories[index] });
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Services',
+      action: `Updated category "${updated.name}" (#${id})`,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (global.io) {
+      global.io.emit('catalog:updated', { type: 'CATEGORY_UPDATED', id, data: updated });
+    }
+
+    return res.json({ success: true, data: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 const deleteCategory = async (req, res) => {
-  const { id } = req.params;
-  adminCategories = adminCategories.filter(c => c.id !== id && c.categoryId !== id);
-  return res.json({ success: true, message: 'Category deleted successfully' });
+  try {
+    const { id } = req.params;
+    const deleted = deleteCategoryItem(id);
+    if (!deleted) return res.status(404).json({ success: false, error: 'Category not found' });
+
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Services',
+      action: `Deleted category #${id}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (global.io) {
+      global.io.emit('catalog:updated', { type: 'CATEGORY_DELETED', id });
+    }
+
+    return res.json({ success: true, message: 'Category deleted successfully' });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 // ─── SERVICES CRUD ────────────────────────────────────────────────
 
 const getServices = async (req, res) => {
-  return res.json({ success: true, data: adminServices });
+  try {
+    const services = getFlattenedServices();
+    return res.json({ success: true, data: services, count: services.length });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 const createService = async (req, res) => {
   try {
-    const { name, title, categoryId, basePrice, description, estimatedDurationMinutes = 45 } = req.body;
-    const serviceName = name || title;
+    const serviceName = req.body.name || req.body.title;
     if (!serviceName) return res.status(400).json({ success: false, error: 'Service name is required' });
 
-    const newService = {
-      id: 'srv-' + uuidv4().slice(0, 8),
-      categoryId: categoryId || 'cat-elec',
-      name: serviceName,
-      title: serviceName,
-      description: description || '',
-      basePrice: parseFloat(basePrice) || 199,
-      estimatedDurationMinutes: parseInt(estimatedDurationMinutes, 10) || 45,
-      active: true,
-      taxRatePercent: 18,
-      createdAt: new Date().toISOString(),
-    };
+    const newService = createServiceItem(req.body);
 
-    adminServices.push(newService);
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Services',
+      action: `Created service "${newService.name}" under ${newService.categoryName}: Price ₹${newService.price}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (global.io) {
+      global.io.emit('catalog:updated', { type: 'SERVICE_CREATED', data: newService });
+      global.io.emit('notification:new_service', {
+        title: '🎉 New Service Available!',
+        body: `${newService.name} is now live under ${newService.categoryName || 'Services'}! Book now for ₹${newService.price}`,
+        serviceName: newService.name,
+        categoryName: newService.categoryName,
+        price: newService.price,
+        imageUrl: newService.imageUrl,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    firebase.sendPushNotification('all_users', {
+      title: '🎉 New Service Available!',
+      body: `${newService.name} is now available for ₹${newService.price}!`,
+      data: { type: 'NEW_SERVICE', serviceId: newService.id, categoryId: newService.categoryId },
+    }).catch(() => {});
+
     return res.status(201).json({ success: true, data: newService, service: newService });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
@@ -244,54 +205,282 @@ const createService = async (req, res) => {
 };
 
 const updateService = async (req, res) => {
-  const { id } = req.params;
-  const index = adminServices.findIndex(s => s.id === id);
-  if (index === -1) return res.status(404).json({ success: false, error: 'Service not found' });
+  try {
+    const { id } = req.params;
+    const updated = updateServiceItem(id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: 'Service not found' });
 
-  adminServices[index] = { ...adminServices[index], ...req.body, updatedAt: new Date().toISOString() };
-  return res.json({ success: true, data: adminServices[index] });
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Services',
+      action: `Updated service "${updated.name}" (#${id})`,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (global.io) {
+      global.io.emit('catalog:updated', { type: 'SERVICE_UPDATED', id, data: updated });
+    }
+
+    return res.json({ success: true, data: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 const deleteService = async (req, res) => {
-  const { id } = req.params;
-  adminServices = adminServices.filter(s => s.id !== id);
-  return res.json({ success: true, message: 'Service deleted successfully' });
+  try {
+    const { id } = req.params;
+    const deleted = deleteServiceItem(id);
+    if (!deleted) return res.status(404).json({ success: false, error: 'Service not found' });
+
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Services',
+      action: `Deleted service #${id}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (global.io) {
+      global.io.emit('catalog:updated', { type: 'SERVICE_DELETED', id });
+    }
+
+    return res.json({ success: true, message: 'Service deleted successfully' });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 };
 
-// ─── TECHNICIANS MANAGEMENT ──────────────────────────────────────
+// ─── DYNAMIC PRICING & RATE CARD CONFIGURATION ────────────────────
+
+const updatePricing = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = updateServicePricing(id, req.body);
+    if (!updated) return res.status(404).json({ success: false, error: `Service with ID "${id}" not found in catalog` });
+
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Pricing',
+      action: `Updated rate card for "${updated.name}": Price=₹${updated.price}, Offer=₹${updated.offerPrice || updated.price}, BookingFee=₹${updated.bookingCharge}, Payout=₹${updated.technicianPayoutAmount}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (global.io) {
+      global.io.emit('catalog:updated', { type: 'PRICING_UPDATED', id, data: updated });
+    }
+
+    return res.json({
+      success: true,
+      message: `Pricing and rate card updated for "${updated.name}"`,
+      data: updated,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── REAL LIVE BOOKINGS OVERSIGHT ─────────────────────────────────
+
+const getBookings = async (req, res) => {
+  try {
+    const bookings = bookingsStore.getAllBookings();
+    return res.json({ success: true, data: bookings, count: bookings.length });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const updateBookingStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const updated = bookingsStore.updateBookingStatus(id, status);
+    
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Bookings',
+      action: `Updated booking #${id} status to ${status}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    return res.json({ success: true, message: `Booking status updated to ${status}`, id, status, data: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const assignBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { technicianId, technicianName, technicianPhone, technicianCategory, technicianRating, technicianAvatar } = req.body;
+    const updated = bookingsStore.assignTechnician(
+      id,
+      technicianId,
+      technicianName,
+      technicianPhone || '+91 98765 43210',
+      technicianCategory || 'Certified Partner',
+      technicianRating || 4.85,
+      technicianAvatar || ''
+    );
+    
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Dispatch',
+      action: `Assigned technician ${technicianName || technicianId} to booking #${id}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    return res.json({ success: true, message: `Technician assigned to booking #${id}`, data: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const cancelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const updated = bookingsStore.cancelBooking(id, reason);
+
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Bookings',
+      action: `Cancelled booking #${id}. Reason: ${reason || 'Admin action'}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    return res.json({ success: true, message: `Booking #${id} cancelled`, data: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const deleteBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = bookingsStore.deleteBooking(id);
+    if (!deleted) return res.status(404).json({ success: false, error: 'Booking not found' });
+
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Bookings',
+      action: `Deleted booking #${id} permanently`,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (global.io) {
+      global.io.emit('booking:deleted', { id });
+    }
+
+    return res.json({ success: true, message: `Booking #${id} deleted successfully` });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const clearAllBookings = async (req, res) => {
+  try {
+    bookingsStore.clearAllBookings();
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Bookings',
+      action: 'Cleared all booking records',
+      timestamp: new Date().toISOString(),
+    });
+
+    if (global.io) {
+      global.io.emit('bookings:cleared');
+    }
+
+    return res.json({ success: true, message: 'All bookings cleared successfully' });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const getCustomers = async (req, res) => {
+  try {
+    const customers = bookingsStore.getAllCustomers();
+    return res.json({ success: true, data: customers, count: customers.length });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// ─── TECHNICIANS MANAGEMENT & KYC ────────────────────────────────
 
 const getTechnicians = async (req, res) => {
-  const mockTechs = [
+  const techniciansList = [
     {
       id: 'tech-001',
       technicianId: 'tech-001',
       fullName: 'Rahul Sharma',
-      phone: '+91 9876543210',
-      category: 'ELECTRICIAN',
-      skills: ['Wiring', 'Switchboard Repair', 'Fan Fix'],
+      name: 'Rahul Sharma',
+      phone: '+91 98765 43210',
+      category: 'Electrician & Electrical Services',
+      skills: ['Wiring', 'Switchboard Repair', 'Ceiling Fan Fix', 'MCB Installation'],
       kycStatus: 'VERIFIED',
-      rating: 4.85,
+      rating: 4.88,
       totalJobsCompleted: 142,
       isOnline: true,
+      experienceYears: 6,
       walletBalance: 3450.0,
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
       joinedAt: '2026-01-15',
     },
     {
       id: 'tech-002',
       technicianId: 'tech-002',
       fullName: 'Amit Kumar',
-      phone: '+91 9123456780',
-      category: 'PLUMBER',
-      skills: ['Pipe Fitting', 'Tap Repair'],
-      kycStatus: 'PENDING',
-      rating: 4.60,
-      totalJobsCompleted: 45,
+      name: 'Amit Kumar',
+      phone: '+91 91234 56780',
+      category: 'Plumbing & Pipe Fitting',
+      skills: ['Pipe Fitting', 'Tap Repair', 'Water Heater Leakage', 'Drain Unclogging'],
+      kycStatus: 'VERIFIED',
+      rating: 4.75,
+      totalJobsCompleted: 98,
       isOnline: true,
-      walletBalance: 1200.0,
-      joinedAt: '2026-03-10',
+      experienceYears: 5,
+      walletBalance: 2100.0,
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
+      joinedAt: '2026-02-10',
+    },
+    {
+      id: 'tech-003',
+      technicianId: 'tech-003',
+      fullName: 'Bikram Das',
+      name: 'Bikram Das',
+      phone: '+91 98301 22334',
+      category: 'AC Repair & HVAC Services',
+      skills: ['AC Deep Clean', 'Gas Refill', 'Compressor Check', 'PCB Repair'],
+      kycStatus: 'VERIFIED',
+      rating: 4.92,
+      totalJobsCompleted: 215,
+      isOnline: true,
+      experienceYears: 8,
+      walletBalance: 5600.0,
+      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
+      joinedAt: '2025-11-20',
+    },
+    {
+      id: 'tech-004',
+      technicianId: 'tech-004',
+      fullName: 'Sunil Mondal',
+      name: 'Sunil Mondal',
+      phone: '+91 97480 99887',
+      category: 'Appliance Repair (Fridge & Washing Machine)',
+      skills: ['Refrigerator Cooling Fix', 'Washing Machine Drum', 'Microwave Heating'],
+      kycStatus: 'VERIFIED',
+      rating: 4.80,
+      totalJobsCompleted: 110,
+      isOnline: true,
+      experienceYears: 4,
+      walletBalance: 1850.0,
+      avatar: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200',
+      joinedAt: '2026-03-01',
     },
   ];
-  return res.json({ success: true, data: mockTechs });
+  return res.json({ success: true, data: techniciansList });
 };
 
 const updateTechnicianStatus = async (req, res) => {
@@ -320,46 +509,6 @@ const reviewKyc = async (req, res) => {
   return res.json({ success: true, message: `Technician KYC marked as ${status}`, technicianId, status });
 };
 
-// ─── BOOKINGS OVERSIGHT ──────────────────────────────────────────
-
-const getBookings = async (req, res) => {
-  const mockBookings = [
-    {
-      id: 'BK-102938',
-      bookingCode: 'BK-102938',
-      customerName: 'Sohan Roy',
-      customerPhone: '+91 9831000000',
-      technicianName: 'Rahul Sharma',
-      serviceName: 'Switch & Socket Replacement',
-      category: 'ELECTRICIAN',
-      status: 'IN_PROGRESS',
-      address: 'Salt Lake Sector 5, Kolkata',
-      totalAmount: 299.0,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'BK-102939',
-      bookingCode: 'BK-102939',
-      customerName: 'Priya Sen',
-      customerPhone: '+91 9831111111',
-      technicianName: 'Amit Kumar',
-      serviceName: 'Tap / Faucet Leakage Repair',
-      category: 'PLUMBER',
-      status: 'COMPLETED',
-      address: 'New Town Action Area 1, Kolkata',
-      totalAmount: 199.0,
-      createdAt: new Date().toISOString(),
-    },
-  ];
-  return res.json({ success: true, data: mockBookings });
-};
-
-const updateBookingStatus = async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
-  return res.json({ success: true, message: `Booking status updated to ${status}`, id, status });
-};
-
 // ─── BANNERS, REVIEWS, AUDIT LOGS, PAYMENTS ──────────────────────
 
 const getBanners = async (req, res) => res.json({ success: true, data: adminBanners });
@@ -374,26 +523,28 @@ const deleteBanner = async (req, res) => {
 };
 
 const getReviews = async (req, res) => {
-  const reviews = [
-    { id: 'rev-01', customerName: 'Sohan Roy', technicianName: 'Rahul Sharma', rating: 5, comment: 'Great service, on time and clean work!', createdAt: new Date().toISOString(), hidden: false },
-    { id: 'rev-02', customerName: 'Priya Sen', technicianName: 'Amit Kumar', rating: 4, comment: 'Fixed the tap quickly.', createdAt: new Date().toISOString(), hidden: false },
-  ];
+  const reviews = [];
   return res.json({ success: true, data: reviews });
 };
 
 const getAuditLogs = async (req, res) => res.json({ success: true, data: adminAuditLogs });
 
 const getPayments = async (req, res) => {
-  const payments = [
-    { id: 'pay-01', bookingId: 'BK-102939', amount: 199.0, method: 'UPI', status: 'SUCCESS', date: new Date().toISOString() },
-  ];
+  const bookings = bookingsStore.getAllBookings();
+  const payments = bookings.map((b, idx) => ({
+    id: `pay-${idx + 1}`,
+    bookingId: b.bookingCode || b.id,
+    customerName: b.customerName || b.customer,
+    amount: b.totalAmount || b.grandTotal || b.price,
+    method: b.paymentMethod || 'UPI',
+    status: b.paymentStatus || 'PAID',
+    date: b.createdAt,
+  }));
   return res.json({ success: true, data: payments });
 };
 
 const getWithdrawals = async (req, res) => {
-  const withdrawals = [
-    { id: 'wth-01', technicianId: 'tech-001', technicianName: 'Rahul Sharma', amount: 2000.0, status: 'PENDING', upiId: 'rahul@okhdfcbank', requestedAt: new Date().toISOString() },
-  ];
+  const withdrawals = [];
   return res.json({ success: true, data: withdrawals });
 };
 
@@ -415,12 +566,18 @@ module.exports = {
   createService,
   updateService,
   deleteService,
+  updatePricing,
+  getBookings,
+  updateBookingStatus,
+  assignBooking,
+  cancelBooking,
+  deleteBooking,
+  clearAllBookings,
+  getCustomers,
   getTechnicians,
   updateTechnicianStatus,
   getPendingKycList,
   reviewKyc,
-  getBookings,
-  updateBookingStatus,
   getBanners,
   createBanner,
   deleteBanner,

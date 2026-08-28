@@ -220,10 +220,13 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
     setState(() => _isProcessing = false);
 
     if (verified) {
-      // Complete the booking in local state
+      // Complete the booking in local state and persist to database
       ref.read(bookingProvider.notifier).confirmOrder(
         widget.schedule.split('•').first.trim(),
         widget.schedule.split('•').length > 1 ? widget.schedule.split('•')[1].trim() : '3:00 PM – 4:00 PM',
+        paymentMethod: 'ONLINE_RAZORPAY',
+        customBookingCode: widget.bookingCode,
+        customBookingId: widget.bookingId,
       );
 
       _showSuccessDialog(paymentId);

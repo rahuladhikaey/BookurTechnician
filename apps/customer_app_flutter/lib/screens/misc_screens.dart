@@ -3,11 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme.dart';
 import '../booking_provider.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _whatsAppEnabled = true;
+  bool _pushNotificationsEnabled = true;
+  bool _emailEnabled = true;
+  bool _smsEnabled = true;
+  bool _voiceCallsEnabled = true;
+
+  @override
+  Widget build(BuildContext context) {
     final appState = ref.watch(bookingProvider);
     final isGuest = appState.isGuest;
 
@@ -101,6 +112,198 @@ class ProfileScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+
+            // ─── NAV TILES ───
+            _ProfileTile(Icons.settings_outlined, 'Settings & Notifications', () => Navigator.pushNamed(context, '/settings')),
+            _ProfileTile(Icons.help_outline, 'Help & Support', () => Navigator.pushNamed(context, '/support')),
+
+            const SizedBox(height: 24),
+
+            // ─── NOTIFICATIONS & REMINDERS (AS IN SCREENSHOT) ───
+            const Text(
+              'Notifications & reminders',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Push Notifications Alert Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF9C3).withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFEF08A)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Push Notifications',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Notifications are currently off. You can enable them from settings.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF334155),
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: () => Navigator.pushNamed(context, '/settings'),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: const Color(0xFF0F172A),
+                      side: const BorderSide(color: Color(0xFF0F172A), width: 1.2),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      minimumSize: const Size(120, 36),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text(
+                      'Go to Settings',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            _buildNotificationSwitchRow(
+              icon: Icons.chat_bubble_outline_rounded,
+              title: 'WhatsApp',
+              value: _whatsAppEnabled,
+              onChanged: (val) => setState(() => _whatsAppEnabled = val),
+            ),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+            _buildNotificationSwitchRow(
+              icon: Icons.notifications_none_rounded,
+              title: 'Push Notifications',
+              value: _pushNotificationsEnabled,
+              onChanged: (val) => setState(() => _pushNotificationsEnabled = val),
+            ),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+            _buildNotificationSwitchRow(
+              icon: Icons.mail_outline_rounded,
+              title: 'Email',
+              value: _emailEnabled,
+              onChanged: (val) => setState(() => _emailEnabled = val),
+            ),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+            _buildNotificationSwitchRow(
+              icon: Icons.sms_outlined,
+              title: 'SMS',
+              value: _smsEnabled,
+              onChanged: (val) => setState(() => _smsEnabled = val),
+            ),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+            _buildNotificationSwitchRow(
+              icon: Icons.phone_outlined,
+              title: 'Voice calls',
+              value: _voiceCallsEnabled,
+              onChanged: (val) => setState(() => _voiceCallsEnabled = val),
+            ),
+            const SizedBox(height: 14),
+
+            // Order Related Messages Info Box
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Order related messages',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Order related messages can\'t be turned off as they are important for service experience',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // ─── PRIVACY & DATA ───
+            const Text(
+              'Privacy & data',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Download data',
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Your account data archive request has been initiated.'),
+                    backgroundColor: Color(0xFF15803D),
+                  ),
+                );
+              },
+            ),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Delete account',
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
+              onTap: () => Navigator.pushNamed(context, '/privacy_center'),
+            ),
+
             const SizedBox(height: 24),
 
             const Text('Legal & Support', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: kSecondaryText)),
@@ -110,6 +313,7 @@ class ProfileScreen extends ConsumerWidget {
             _ProfileTile(Icons.description_outlined, 'Terms of Service', () => Navigator.pushNamed(context, '/terms')),
             _ProfileTile(Icons.assignment_return_outlined, 'Cancellation & Refund Policy', () => Navigator.pushNamed(context, '/legal', arguments: 2)),
             _ProfileTile(Icons.verified_outlined, '30-Day Guarantee & Warranties', () => Navigator.pushNamed(context, '/legal', arguments: 3)),
+            const SizedBox(height: 32),
           ],
         ),
       );
@@ -142,13 +346,10 @@ class ProfileScreen extends ConsumerWidget {
                 CircleAvatar(
                   radius: 32,
                   backgroundColor: kBrandPrimary,
-                  backgroundImage: profile.profilePhotoUrl != null ? NetworkImage(profile.profilePhotoUrl!) : null,
-                  child: profile.profilePhotoUrl == null
-                      ? Text(
-                          profile.fullName.isNotEmpty ? profile.fullName[0].toUpperCase() : 'U',
-                          style: const TextStyle(fontSize: 26, color: Colors.white, fontWeight: FontWeight.bold),
-                        )
-                      : null,
+                  child: Text(
+                    profile.fullName.isNotEmpty ? profile.fullName[0].toUpperCase() : 'U',
+                    style: const TextStyle(fontSize: 26, color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -280,13 +481,204 @@ class ProfileScreen extends ConsumerWidget {
           _ProfileTile(Icons.person_outline, 'Profile Details', () => Navigator.pushNamed(context, '/profile_details')),
           _ProfileTile(Icons.location_on_outlined, 'My Addresses (${profile.addresses.length})', () => Navigator.pushNamed(context, '/saved_addresses')),
           _ProfileTile(Icons.history, 'My Bookings', () => Navigator.pushNamed(context, '/history')),
-          _ProfileTile(Icons.notifications_outlined, 'Notifications', () => Navigator.pushNamed(context, '/notifications')),
+          _ProfileTile(Icons.settings_outlined, 'Settings & Notifications', () => Navigator.pushNamed(context, '/settings')),
           _ProfileTile(Icons.help_outline, 'Help & Support', () => Navigator.pushNamed(context, '/support')),
+
+          const SizedBox(height: 24),
+
+          // ─── NOTIFICATIONS & REMINDERS (AS IN SCREENSHOT) ───
+          const Text(
+            'Notifications & reminders',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Push Notifications Alert Card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF9C3).withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFEF08A)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Push Notifications',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Notifications are currently off. You can enable them from settings.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF334155),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/settings'),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: const Color(0xFF0F172A),
+                    side: const BorderSide(color: Color(0xFF0F172A), width: 1.2),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    minimumSize: const Size(120, 36),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text(
+                    'Go to Settings',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Notification Channel Toggle Items
+          _buildNotificationSwitchRow(
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'WhatsApp',
+            value: _whatsAppEnabled,
+            onChanged: (val) => setState(() => _whatsAppEnabled = val),
+          ),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+          _buildNotificationSwitchRow(
+            icon: Icons.notifications_none_rounded,
+            title: 'Push Notifications',
+            value: _pushNotificationsEnabled,
+            onChanged: (val) => setState(() => _pushNotificationsEnabled = val),
+          ),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+          _buildNotificationSwitchRow(
+            icon: Icons.mail_outline_rounded,
+            title: 'Email',
+            value: _emailEnabled,
+            onChanged: (val) => setState(() => _emailEnabled = val),
+          ),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+          _buildNotificationSwitchRow(
+            icon: Icons.sms_outlined,
+            title: 'SMS',
+            value: _smsEnabled,
+            onChanged: (val) => setState(() => _smsEnabled = val),
+          ),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+          _buildNotificationSwitchRow(
+            icon: Icons.phone_outlined,
+            title: 'Voice calls',
+            value: _voiceCallsEnabled,
+            onChanged: (val) => setState(() => _voiceCallsEnabled = val),
+          ),
+          const SizedBox(height: 14),
+
+          // Order Related Messages Info Box
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Order related messages',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Order related messages can\'t be turned off as they are important for service experience',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // ─── PRIVACY & DATA (AS IN SCREENSHOT) ───
+          const Text(
+            'Privacy & data',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Download data',
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF64748B)),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Personal data archive export request received. A download link will be emailed to you.'),
+                  backgroundColor: Color(0xFF0F172A),
+                ),
+              );
+            },
+          ),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'Delete account',
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF64748B)),
+            onTap: () => Navigator.pushNamed(context, '/privacy_center'),
+          ),
+
+          const SizedBox(height: 20),
+
+          // ─── POLICIES & SIGN OUT ───
           _ProfileTile(Icons.privacy_tip_outlined, 'Privacy Policy', () => Navigator.pushNamed(context, '/privacy')),
           _ProfileTile(Icons.description_outlined, 'Terms of Service', () => Navigator.pushNamed(context, '/terms')),
           _ProfileTile(Icons.assignment_return_outlined, 'Cancellation & Refund Policy', () => Navigator.pushNamed(context, '/legal', arguments: 2)),
           _ProfileTile(Icons.verified_outlined, '30-Day Guarantee & Warranties', () => Navigator.pushNamed(context, '/legal', arguments: 3)),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: kRedError,
@@ -300,6 +692,42 @@ class ProfileScreen extends ConsumerWidget {
               }
             },
             child: const Text('Sign Out'),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationSwitchRow({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: const Color(0xFF334155)),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+          ),
+          Switch.adaptive(
+            value: value,
+            activeThumbColor: Colors.white,
+            activeTrackColor: const Color(0xFF15803D),
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: const Color(0xFFCBD5E1),
+            onChanged: onChanged,
           ),
         ],
       ),

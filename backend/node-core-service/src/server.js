@@ -4,6 +4,9 @@ const express = require('express');
 const cors = require('cors');
 const { Server } = require('socket.io');
 
+const fs = require('fs');
+const path = require('path');
+
 // Database & Integrations
 const { connectMongo, isMongoHealthy } = require('./config/mongo');
 const { initPostgres, isPgHealthy } = require('./config/postgres');
@@ -35,6 +38,16 @@ app.set('io', io);
 
 app.use(cors());
 app.use(express.json());
+
+// Serve Static Admin Web Panel if built
+const adminDistPath = path.join(__dirname, '../../../apps/admin_panel/dist');
+if (fs.existsSync(adminDistPath)) {
+  app.use('/admin', express.static(adminDistPath));
+  app.get(['/admin', '/admin/*'], (req, res) => {
+    res.sendFile(path.join(adminDistPath, 'index.html'));
+  });
+  console.log(`💻 [Admin UI] Serving production dashboard at /admin`);
+}
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);

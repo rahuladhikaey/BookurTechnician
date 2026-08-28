@@ -6,6 +6,7 @@ const firebase = require('../config/firebase');
 const googleMaps = require('../config/googleMaps');
 const kafka = require('../config/kafka');
 const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
+const bookingsStore = require('../config/bookingsStore');
 
 // Microservice URLs
 const PYTHON_AI_URL = process.env.PYTHON_AI_SERVICE_URL || 'http://localhost:8000';
@@ -28,6 +29,8 @@ const generateServiceOtp = () => {
 const createBooking = async (req, res) => {
   try {
     const customerId = req.user?.id || req.body.customerId || 'cust-' + uuidv4().slice(0, 8);
+    const customerName = req.body.customerName || req.body.customer || req.user?.name || req.body.name || 'Valued Customer';
+    const customerPhone = req.body.customerPhone || req.body.phone || req.user?.phone || '+91 9876543210';
     const {
       serviceId = 'serv-01',
       serviceName = 'Electrician Repair',
@@ -35,17 +38,31 @@ const createBooking = async (req, res) => {
       latitude = 12.9716,
       longitude = 77.5946,
       address = 'Bangalore Central, Karnataka',
+      fullAddress,
       basePrice = 299,
+      totalAmount,
+      grandTotal,
+      visitFee = 49,
+      gstTax = 0,
+      scheduleDate,
+      scheduleSlot,
       scheduledTime,
+      paymentMethod = 'ONLINE',
+      paymentStatus = 'PAID',
+      services,
     } = req.body;
 
-    const bookingId = uuidv4();
-    const bookingCode = `BK-${Math.floor(100000 + Math.random() * 900000)}`;
-    const startOtp = generateServiceOtp();
+    const finalAddress = fullAddress || address;
+    const finalAmount = parseFloat(grandTotal || totalAmount || basePrice || 299);
+    const finalBasePrice = parseFloat(basePrice || (finalAmount - parseFloat(visitFee || 0)));
+
+    const bookingId = req.body.id || req.body.bookingId || uuidv4();
+    const bookingCode = req.body.bookingCode || `BK-${Math.floor(100000 + Math.random() * 900000)}`;
+    const startOtp = req.body.otpCode || generateServiceOtp();
     const endOtp = generateServiceOtp();
 
     // 1. Redis Geospatial Query (15km radius)
-    const categoryKey = `tech_geo:${category.toLowerCase()}`;
+    const categoryKey = `tech_geo:${(category || 'electrician').toLowerCase()}`;
     const nearbyTechnicians = await redis.geoRadius(categoryKey, longitude, latitude, 15);
 
     console.log(`📍 [Geo Search] Found ${nearbyTechnicians.length} active ${category} technicians within 15km`);
@@ -83,22 +100,52 @@ const createBooking = async (req, res) => {
       id: bookingId,
       bookingCode,
       customerId,
+      customerName,
+      customer: customerName,
+      customerPhone,
+      phone: customerPhone,
       technicianId: null,
+      technicianName: 'Assigning Expert...',
+      technician: 'Assigning Expert...',
+      technicianPhone: '',
       serviceId,
       serviceName,
+      service: serviceName,
       category,
-      status: 'SEARCHING',
-      address,
-      latitude: parseFloat(latitude),
-      longitude: parseFloat(longitude),
-      totalAmount: parseFloat(basePrice),
+      status: 'CONFIRMED',
+      address: finalAddress,
+      fullAddress: finalAddress,
+      latitude: parseFloat(latitude) || 12.9716,
+      longitude: parseFloat(longitude) || 77.5946,
+      price: finalBasePrice,
+      basePrice: finalBasePrice,
+      baseCost: finalBasePrice,
+      bookingCharge: parseFloat(visitFee) || 49,
+      visitFee: parseFloat(visitFee) || 49,
+      gstTax: parseFloat(gstTax) || (finalBasePrice * 0.18),
+      grandTotal: finalAmount,
+      totalAmount: finalAmount,
+      paymentMethod,
+      paymentStatus,
       startOtp,
+      startServiceOtp: startOtp,
       endOtp,
+      scheduleDate: scheduleDate || (scheduledTime ? new Date(scheduledTime).toISOString().split('T')[0] : 'Tomorrow'),
+      scheduleSlot: scheduleSlot || '3:00 PM – 4:00 PM',
       scheduledTime: scheduledTime ? new Date(scheduledTime) : new Date(),
+      services: Array.isArray(services) && services.length > 0 ? services : [{
+        id: serviceId,
+        name: serviceName,
+        price: finalBasePrice,
+      }],
       createdAt: new Date(),
       updatedAt: new Date(),
       matchedTechnicians: rankedTechnicians,
     };
+
+    // Save to centralized bookingsStore & Memory
+    bookingsStore.addBooking(bookingRecord);
+    memoryBookings.set(bookingId, bookingRecord);
 
     // Save to PostgreSQL
     try {
@@ -112,20 +159,19 @@ const createBooking = async (req, res) => {
           serviceId,
           serviceName,
           category,
-          'SEARCHING',
-          address,
-          latitude,
-          longitude,
-          basePrice,
+          'CONFIRMED',
+          finalAddress,
+          bookingRecord.latitude,
+          bookingRecord.longitude,
+          finalAmount,
           startOtp,
           endOtp,
           bookingRecord.scheduledTime,
         ]
       );
     } catch (e) {
-      memoryBookings.set(bookingId, bookingRecord);
+      // Postgres error fallback
     }
-    memoryBookings.set(bookingId, bookingRecord);
 
     // 3. Publish Event via Kafka / Event Bus
     await kafka.publishEvent('booking.created', {
@@ -135,27 +181,60 @@ const createBooking = async (req, res) => {
       customerId,
       latitude,
       longitude,
-      totalAmount: basePrice,
+      totalAmount: finalAmount,
     });
 
     // 4. Push FCM Notification to Candidate Technicians
     for (const tech of rankedTechnicians.slice(0, 3)) {
       await firebase.sendPushNotification(`tech_fcm_${tech.technicianId}`, {
         title: `🚨 New ${serviceName} Job Nearby!`,
-        body: `₹${basePrice} · ${address} (${tech.distanceKm} km away)`,
-        data: { bookingId, bookingCode, category, amount: basePrice },
+        body: `₹${finalAmount} · ${finalAddress} (${tech.distanceKm} km away)`,
+        data: { bookingId, bookingCode, category, amount: finalAmount },
       });
     }
 
-    // 5. Emit real-time Socket.io dispatch
+    // 5. Emit real-time Socket.io dispatch with audible ringing payload
     if (global.io) {
+      const dispatchRingingPayload = {
+        proposalId: `prop-${bookingId.slice(0, 8)}`,
+        bookingId: bookingRecord.id,
+        bookingCode: bookingRecord.bookingCode,
+        serviceType: bookingRecord.serviceName,
+        serviceName: bookingRecord.serviceName,
+        category: bookingRecord.category,
+        customerName: bookingRecord.customerName,
+        customerPhone: bookingRecord.customerPhone,
+        customerAddress: bookingRecord.address,
+        address: bookingRecord.address,
+        latitude: bookingRecord.latitude,
+        longitude: bookingRecord.longitude,
+        distanceKm: '1.8',
+        payout: (finalAmount * 0.80).toFixed(0),
+        totalAmount: finalAmount,
+        timeoutSeconds: 45,
+        startOtp: bookingRecord.startOtp,
+        scheduledTime: bookingRecord.scheduledTime,
+        playRingtone: true,
+        vibrate: true,
+      };
+
       global.io.emit('booking:broadcast', bookingRecord);
-      global.io.to(`category_${category.toLowerCase()}`).emit('booking:new_available', bookingRecord);
+      global.io.emit('booking:dispatch_ringing', dispatchRingingPayload);
+      global.io.to(`category_${(category || 'electrician').toLowerCase()}`).emit('booking:dispatch_ringing', dispatchRingingPayload);
+      global.io.to(`category_${(category || 'electrician').toLowerCase()}`).emit('booking:new_available', bookingRecord);
+
+      for (const tech of rankedTechnicians.slice(0, 5)) {
+        global.io.to(`tech_${tech.technicianId}`).emit('booking:dispatch_ringing', {
+          ...dispatchRingingPayload,
+          distanceKm: String(tech.distanceKm || '2.0'),
+        });
+      }
     }
 
     return res.status(201).json({
       success: true,
       message: 'Booking created and dispatched successfully',
+      data: bookingRecord,
       booking: bookingRecord,
       startOtp, // Returned to customer
     });
@@ -409,26 +488,148 @@ const verifyEndOtp = async (req, res) => {
  */
 const getBookingById = async (req, res) => {
   const bookingId = req.params.id;
-  const booking = memoryBookings.get(bookingId);
-  if (booking) return res.json({ success: true, booking });
+  let booking = memoryBookings.get(bookingId);
+  if (!booking) {
+    for (const b of memoryBookings.values()) {
+      if (b.bookingCode === bookingId) {
+        booking = b;
+        break;
+      }
+    }
+  }
+
+  if (booking) {
+    return res.json({ success: true, data: booking, booking });
+  }
 
   try {
-    const pgRes = await postgres.query('SELECT * FROM bookings WHERE id = $1', [bookingId]);
-    if (pgRes.rows.length > 0) return res.json({ success: true, booking: pgRes.rows[0] });
+    const pgRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
+    if (pgRes.rows.length > 0) {
+      const row = pgRes.rows[0];
+      const mapped = {
+        id: row.id,
+        bookingCode: row.booking_code,
+        customerId: row.customer_id,
+        technicianId: row.technician_id,
+        technicianName: 'Certified Technician',
+        technicianPhone: '',
+        serviceId: row.service_id,
+        serviceName: row.service_name,
+        category: row.category,
+        status: row.status,
+        address: row.address,
+        fullAddress: row.address,
+        latitude: parseFloat(row.latitude) || 12.9716,
+        longitude: parseFloat(row.longitude) || 77.5946,
+        totalAmount: parseFloat(row.total_amount) || 0.0,
+        grandTotal: parseFloat(row.total_amount) || 0.0,
+        baseCost: parseFloat(row.total_amount) || 0.0,
+        basePrice: parseFloat(row.total_amount) || 0.0,
+        visitFee: 49.0,
+        gstTax: (parseFloat(row.total_amount) || 0.0) * 0.18,
+        startOtp: row.start_otp,
+        startServiceOtp: row.start_otp,
+        endOtp: row.end_otp,
+        scheduledTime: row.scheduled_time,
+        scheduleDate: row.scheduled_time ? new Date(row.scheduled_time).toISOString().split('T')[0] : 'Today',
+        scheduleSlot: '3:00 PM – 4:00 PM',
+        services: [{
+          id: row.service_id,
+          name: row.service_name,
+          price: parseFloat(row.total_amount) || 0.0,
+        }],
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+      return res.json({ success: true, data: mapped, booking: mapped });
+    }
   } catch (e) {}
 
   return res.status(404).json({ success: false, error: 'Booking not found' });
 };
 
 /**
- * GET /api/v1/bookings/customer
+ * GET /api/v1/bookings/customer & GET /api/v1/bookings/my-bookings
  */
 const getCustomerBookings = async (req, res) => {
-  const customerId = req.user?.id || req.query.customerId;
-  const list = Array.from(memoryBookings.values()).filter(
-    b => !customerId || b.customerId === customerId
-  );
-  return res.json({ success: true, count: list.length, bookings: list });
+  try {
+    const customerId = req.user?.id || req.query.customerId || req.headers['x-user-id'];
+    let dbBookings = [];
+
+    try {
+      const pgRes = customerId
+        ? await postgres.query('SELECT * FROM bookings WHERE customer_id = $1 ORDER BY created_at DESC', [customerId])
+        : await postgres.query('SELECT * FROM bookings ORDER BY created_at DESC LIMIT 50');
+
+      if (pgRes.rows && pgRes.rows.length > 0) {
+        dbBookings = pgRes.rows.map(row => ({
+          id: row.id,
+          bookingCode: row.booking_code,
+          customerId: row.customer_id,
+          technicianId: row.technician_id,
+          technicianName: row.technician_id ? 'Assigned Technician' : 'Assigning Expert...',
+          technicianPhone: '',
+          serviceId: row.service_id,
+          serviceName: row.service_name,
+          category: row.category,
+          status: row.status,
+          address: row.address,
+          fullAddress: row.address,
+          latitude: parseFloat(row.latitude) || 12.9716,
+          longitude: parseFloat(row.longitude) || 77.5946,
+          totalAmount: parseFloat(row.total_amount) || 0.0,
+          grandTotal: parseFloat(row.total_amount) || 0.0,
+          baseCost: parseFloat(row.total_amount) || 0.0,
+          basePrice: parseFloat(row.total_amount) || 0.0,
+          visitFee: 49.0,
+          gstTax: (parseFloat(row.total_amount) || 0.0) * 0.18,
+          startOtp: row.start_otp,
+          startServiceOtp: row.start_otp,
+          endOtp: row.end_otp,
+          scheduledTime: row.scheduled_time,
+          scheduleDate: row.scheduled_time ? new Date(row.scheduled_time).toISOString().split('T')[0] : 'Today',
+          scheduleSlot: '3:00 PM – 4:00 PM',
+          services: [{
+            id: row.service_id,
+            name: row.service_name,
+            price: parseFloat(row.total_amount) || 0.0,
+          }],
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        }));
+      }
+    } catch (e) {
+      // Postgres error fallback
+    }
+
+    const memList = Array.from(memoryBookings.values()).filter(
+      b => !customerId || b.customerId === customerId
+    );
+    const storeList = bookingsStore.getAllBookings().filter(
+      b => !customerId || b.customerId === customerId
+    );
+
+    // Merge and deduplicate by ID and bookingCode
+    const bookingMap = new Map();
+    dbBookings.forEach(b => bookingMap.set(b.id || b.bookingCode, b));
+    memList.forEach(b => bookingMap.set(b.id || b.bookingCode, b));
+    storeList.forEach(b => bookingMap.set(b.id || b.bookingCode, b));
+
+    const combinedList = Array.from(bookingMap.values()).sort((a, b) => {
+      const tA = new Date(a.createdAt || 0).getTime();
+      const tB = new Date(b.createdAt || 0).getTime();
+      return tB - tA;
+    });
+
+    return res.json({
+      success: true,
+      count: combinedList.length,
+      data: combinedList,
+      bookings: combinedList,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
 };
 
 /**
@@ -437,9 +638,9 @@ const getCustomerBookings = async (req, res) => {
 const getTechnicianBookings = async (req, res) => {
   const technicianId = req.user?.id || req.query.technicianId;
   const list = Array.from(memoryBookings.values()).filter(
-    b => !technicianId || b.technicianId === technicianId || b.status === 'SEARCHING'
+    b => !technicianId || b.technicianId === technicianId || b.status === 'SEARCHING' || b.status === 'PENDING'
   );
-  return res.json({ success: true, count: list.length, bookings: list });
+  return res.json({ success: true, count: list.length, data: list, bookings: list });
 };
 
 module.exports = {

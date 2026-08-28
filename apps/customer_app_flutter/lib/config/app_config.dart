@@ -1,9 +1,14 @@
 class AppConfig {
-  // Live Production Backend Endpoints (Deployed on Render)
-  static const String apiBaseUrl = 'https://api.bookurtechnician.online/api/v1';
+  // Live Production & Local Dev Backend Endpoints
+  static const String localApiBaseUrl = 'http://10.0.2.2:4000/api/v1';
+  static const String prodApiBaseUrl = 'https://api.bookurtechnician.online/api/v1';
+  static const String apiBaseUrl = 'http://localhost:4000/api/v1';
   static const String renderFallbackApiUrl = 'https://bookurtechnician-backend.onrender.com/api/v1';
-  static const String socketUrl = 'https://api.bookurtechnician.online';
-  static const String wsEndpoint = 'https://api.bookurtechnician.online/ws';
+  
+  static const String localSocketUrl = 'http://10.0.2.2:4000';
+  static const String socketUrl = 'http://localhost:4000';
+  static const String prodSocketUrl = 'https://api.bookurtechnician.online';
+  static const String wsEndpoint = 'http://localhost:4000/ws';
 
   // Request timeout (optimized for Render free tier cold-start spin-up)
   static const Duration requestTimeout = Duration(seconds: 45);

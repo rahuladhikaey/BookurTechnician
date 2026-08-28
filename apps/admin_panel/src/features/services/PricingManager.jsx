@@ -1,3 +1,6 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import api from '../../api/apiClient';
+
 export default function PricingManager({ auditLogAction }) {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9,10 +12,14 @@ export default function PricingManager({ auditLogAction }) {
   const [editingService, setEditingService] = useState(null);
   const [editForm, setEditForm] = useState({
     price: 499,
+    basePrice: 599,
+    offerPrice: 499,
     bookingCharge: 49,
     advancePrepaymentPct: 30,
     technicianPayoutAmount: 380,
-    durationMinutes: 45
+    durationMinutes: 45,
+    warrantyText: '30 Days Warranty',
+    active: true,
   });
 
   // Simulator Selected Service
@@ -35,7 +42,7 @@ export default function PricingManager({ auditLogAction }) {
         setSimServiceId(list[0].id);
       }
     } catch (err) {
-      console.error('Failed to load pricing from PostgreSQL database:', err);
+      console.error('Failed to load pricing data:', err);
       setServices([]);
     } finally {
       setLoading(false);
@@ -48,12 +55,20 @@ export default function PricingManager({ auditLogAction }) {
 
   const openEditPricingModal = (srv) => {
     setEditingService(srv);
+    const activePrice = srv.price || srv.basePrice || 499;
+    const regularPrice = srv.basePrice || srv.price || 499;
+    const offer = srv.offerPrice !== undefined ? srv.offerPrice : activePrice;
+
     setEditForm({
-      price: srv.price || 499,
+      price: activePrice,
+      basePrice: regularPrice,
+      offerPrice: offer,
       bookingCharge: srv.bookingCharge || 49,
       advancePrepaymentPct: srv.advancePrepaymentPct || 30,
-      technicianPayoutAmount: srv.technicianPayoutAmount || Math.round((srv.price || 499) * 0.8),
-      durationMinutes: srv.durationMinutes || 45
+      technicianPayoutAmount: srv.technicianPayoutAmount || Math.round(activePrice * 0.8),
+      durationMinutes: srv.durationMinutes || 45,
+      warrantyText: srv.warrantyText || '30 Days Warranty',
+      active: srv.active !== false,
     });
   };
 
@@ -61,42 +76,55 @@ export default function PricingManager({ auditLogAction }) {
     e.preventDefault();
     if (!editingService) return;
 
+    const baseP = Number(editForm.basePrice) || Number(editForm.price) || 0;
+    const offerP = editForm.offerPrice !== '' && editForm.offerPrice !== null ? Number(editForm.offerPrice) : baseP;
+    const finalSellingPrice = (offerP > 0 && offerP < baseP) ? offerP : (Number(editForm.price) || baseP);
+
     const updated = {
       ...editingService,
-      price: Number(editForm.price),
+      price: finalSellingPrice,
+      basePrice: baseP,
+      offerPrice: offerP,
       bookingCharge: Number(editForm.bookingCharge),
       advancePrepaymentPct: Number(editForm.advancePrepaymentPct),
       technicianPayoutAmount: Number(editForm.technicianPayoutAmount),
-      durationMinutes: Number(editForm.durationMinutes)
+      durationMinutes: Number(editForm.durationMinutes),
+      warrantyText: editForm.warrantyText,
+      active: editForm.active,
     };
 
     try {
       await api.updatePricing(editingService.id, {
         price: updated.price,
+        basePrice: updated.basePrice,
+        offerPrice: updated.offerPrice,
         bookingCharge: updated.bookingCharge,
         advancePrepaymentPct: updated.advancePrepaymentPct,
         technicianPayoutAmount: updated.technicianPayoutAmount,
-        durationMinutes: updated.durationMinutes
+        durationMinutes: updated.durationMinutes,
+        warrantyText: updated.warrantyText,
+        active: updated.active,
       });
+
       const newList = services.map(s => s.id === editingService.id ? updated : s);
       setServices(newList);
-      auditLogAction?.('Pricing', `Updated dynamic rate card for "${editingService.name}": Base=₹${updated.price}, BookingFee=₹${updated.bookingCharge}, Payout=₹${updated.technicianPayoutAmount}`);
+      auditLogAction?.('Pricing', `Updated rate card for "${editingService.name}": Selling=₹${updated.price}, Regular=₹${updated.basePrice}, Offer=₹${updated.offerPrice}, BookingFee=₹${updated.bookingCharge}, Payout=₹${updated.technicianPayoutAmount}`);
       showToast(`✓ Pricing updated for "${editingService.name}"`);
       setEditingService(null);
     } catch (err) {
       console.error('API update pricing error:', err);
-      alert('Failed to update pricing in database: ' + err.message);
+      alert('Failed to update pricing: ' + err.message);
     }
   };
 
   // Filtered Services
-  const categories = ['ALL', ...new Set(services.map(s => s.category?.name || s.category || 'General'))];
+  const categories = ['ALL', ...new Set(services.map(s => s.categoryName || s.category?.name || s.category || 'General'))];
   const filteredServices = services.filter(s => {
-    const catName = s.category?.name || s.category || 'General';
+    const catName = s.categoryName || s.category?.name || s.category || 'General';
     const matchesCat = filterCategory === 'ALL' || catName === filterCategory;
     const q = searchQuery.toLowerCase().trim();
     if (!q) return matchesCat;
-    return matchesCat && (s.name.toLowerCase().includes(q) || catName.toLowerCase().includes(q));
+    return matchesCat && (s.name.toLowerCase().includes(q) || catName.toLowerCase().includes(q) || (s.subcategoryName && s.subcategoryName.toLowerCase().includes(q)));
   });
 
   // Simulator Math
@@ -153,10 +181,10 @@ export default function PricingManager({ auditLogAction }) {
           </div>
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
-              Dynamic Service Rate Cards & Booking Fee Configuration
+              Dynamic Service Rate Cards & Pricing Management ({services.length} Services)
             </h2>
             <p style={{ fontSize: '12.5px', color: '#64748B', margin: '2px 0 0' }}>
-              Set customized base prices, distinct booking charges (e.g. ₹99 for Installation vs ₹49 for Washing), advance prepayment rules, and technician payouts
+              Set customized selling rates, regular MRP, special offer prices, booking fees (₹49 / ₹99), advance % rules, and partner earnings.
             </p>
           </div>
         </div>
@@ -188,7 +216,7 @@ export default function PricingManager({ auditLogAction }) {
             >
               {services.map(s => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.category?.name || s.category || 'General'}) — Base ₹{s.price} | Fee ₹{s.bookingCharge || 49}
+                  {s.name} ({s.categoryName || s.category?.name || 'General'}) — Selling ₹{s.price} {s.offerPrice && s.offerPrice < s.basePrice ? `(Offer ₹${s.offerPrice})` : ''} | Fee ₹{s.bookingCharge || 49}
                 </option>
               ))}
             </select>
@@ -196,7 +224,7 @@ export default function PricingManager({ auditLogAction }) {
 
           <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#64748B' }}>Base Service Cost:</span>
+              <span style={{ color: '#64748B' }}>Base / Selling Cost:</span>
               <strong style={{ color: '#0F172A', fontFamily: 'monospace' }}>₹{simBase.toFixed(2)}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -217,19 +245,19 @@ export default function PricingManager({ auditLogAction }) {
         {/* Prepayment & Technician Payout Split Card */}
         <div className="panel" style={{ margin: 0, padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A' }}>
-            💳 Razorpay Prepayment & Technician Settlement Split
+            💳 Online Prepayment & Technician Settlement Split
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '6px', padding: '10px' }}>
               <div style={{ fontSize: '11px', fontWeight: '800', color: '#1E40AF', textTransform: 'uppercase' }}>
-                Online Prepayment (30%)
+                Online Prepayment ({activeSim?.advancePrepaymentPct || 30}%)
               </div>
               <div style={{ fontSize: '18px', fontWeight: '900', color: '#1E40AF', fontFamily: 'monospace', marginTop: '2px' }}>
                 ₹{simAdvancePrepayment.toFixed(2)}
               </div>
               <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '2px' }}>
-                Booking Fee + 30% Service
+                Booking Fee + {activeSim?.advancePrepaymentPct || 30}% Service
               </div>
             </div>
 
@@ -259,7 +287,7 @@ export default function PricingManager({ auditLogAction }) {
           <input
             type="text"
             className="form-control"
-            placeholder="Search service title, category..."
+            placeholder="Search service title, category, subcategory..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             style={{ paddingLeft: '32px', fontSize: '12.5px' }}
@@ -299,36 +327,58 @@ export default function PricingManager({ auditLogAction }) {
             <thead>
               <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                 <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Service Name</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Category</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Base Price (₹)</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Category / Subcategory</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Regular MRP (₹)</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Offer Price (₹)</th>
                 <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Booking Fee (₹)</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Online Advance (30%)</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Advance Pay (30%)</th>
                 <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Partner Payout (₹)</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Duration</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Warranty</th>
                 <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredServices.map(srv => {
-                const base = Number(srv.price) || 0;
+                const base = Number(srv.basePrice || srv.price) || 0;
+                const activePrice = Number(srv.price) || base;
+                const offer = srv.offerPrice !== undefined ? Number(srv.offerPrice) : activePrice;
+                const hasDiscount = offer > 0 && offer < base;
+                const discountPct = hasDiscount ? Math.round(((base - offer) / base) * 100) : 0;
                 const fee = Number(srv.bookingCharge) || 49;
-                const advance = fee + (base * 0.30);
-                const payout = Number(srv.technicianPayoutAmount) || Math.round(base * 0.8);
-                const catName = srv.category?.name || srv.category || 'General';
+                const advance = fee + (activePrice * (Number(srv.advancePrepaymentPct || 30) / 100));
+                const payout = Number(srv.technicianPayoutAmount) || Math.round(activePrice * 0.8);
+                const catName = srv.categoryName || srv.category?.name || srv.category || 'General';
+                const subName = srv.subcategoryName || srv.subcategory?.name || '';
 
                 return (
                   <tr key={srv.id} style={{ borderBottom: '1px solid #E2E8F0' }}>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: '800', color: '#0F172A', fontSize: '13px' }}>{srv.name}</div>
-                      <div style={{ fontSize: '11px', color: '#64748B', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontWeight: '800', color: '#0F172A', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{srv.name}</span>
+                        {!srv.active && <span className="badge badge-error" style={{ fontSize: '9.5px' }}>Disabled</span>}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748B', maxWidth: '280px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {srv.description || 'Verified on-demand doorstep service.'}
                       </div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span className="badge badge-info" style={{ fontWeight: '700' }}>{catName}</span>
+                      {subName && (
+                        <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '3px' }}>
+                          ↳ {subName}
+                        </div>
+                      )}
                     </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13.5px', color: '#0F172A' }}>
+                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13px', color: hasDiscount ? '#94A3B8' : '#0F172A', textDecoration: hasDiscount ? 'line-through' : 'none' }}>
                       ₹{base}
+                    </td>
+                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '900', fontSize: '13.5px', color: '#16A34A' }}>
+                      ₹{offer || activePrice}
+                      {hasDiscount && (
+                        <span style={{ marginLeft: '6px', fontSize: '10px', backgroundColor: '#DCFCE7', color: '#15803D', padding: '2px 5px', borderRadius: '4px', fontWeight: '800' }}>
+                          {discountPct}% OFF
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13.5px', color: '#D97706' }}>
                       ₹{fee}
@@ -339,8 +389,8 @@ export default function PricingManager({ auditLogAction }) {
                     <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13.5px', color: '#15803D' }}>
                       ₹{payout}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#64748B' }}>
-                      ⏱️ {srv.durationMinutes || 45} mins
+                    <td style={{ padding: '12px 16px', fontSize: '11.5px', color: '#64748B' }}>
+                      🛡️ {srv.warrantyText || '30 Days'}
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                       <button
@@ -357,8 +407,8 @@ export default function PricingManager({ auditLogAction }) {
 
               {filteredServices.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ padding: '32px', textAlign: 'center', color: '#94A3B8' }}>
-                    No services found matching search or category.
+                  <td colSpan={9} style={{ padding: '32px', textAlign: 'center', color: '#94A3B8' }}>
+                    {loading ? 'Loading live service rates...' : 'No services found matching search or category.'}
                   </td>
                 </tr>
               )}
@@ -370,10 +420,10 @@ export default function PricingManager({ auditLogAction }) {
       {/* ─── 5. EDIT SERVICE PRICING MODAL ─── */}
       {editingService && (
         <div className="modal-overlay">
-          <div className="modal-dialog" style={{ maxWidth: '540px' }}>
+          <div className="modal-dialog" style={{ maxWidth: '580px' }}>
             <div className="modal-header">
               <div className="modal-title">
-                Configure Pricing & Booking Fee for "{editingService.name}"
+                Configure Pricing & Rates for "{editingService.name}"
               </div>
               <button className="modal-close-btn" onClick={() => setEditingService(null)}>
                 ✕
@@ -382,25 +432,47 @@ export default function PricingManager({ auditLogAction }) {
 
             <form onSubmit={handleSaveServicePricing}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ backgroundColor: '#F8FAFC', padding: '10px 14px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '12px' }}>
-                  <strong>Category:</strong> {editingService.category?.name || editingService.category || 'General'}
+                <div style={{ backgroundColor: '#F8FAFC', padding: '10px 14px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                  <div>
+                    <strong>Category:</strong> {editingService.categoryName || editingService.category?.name || 'General'}
+                    {editingService.subcategoryName && ` • ${editingService.subcategoryName}`}
+                  </div>
+                  <div>
+                    <strong>Service ID:</strong> <code>{editingService.id}</code>
+                  </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Base Service Price (₹)</label>
+                    <label className="form-label">Regular Price / MRP (₹)</label>
                     <input
                       type="number"
                       className="form-control"
-                      value={editForm.price}
-                      onChange={e => setEditForm({ ...editForm, price: e.target.value })}
+                      value={editForm.basePrice}
+                      onChange={e => setEditForm({ ...editForm, basePrice: e.target.value })}
                       min="0"
-                      step="10"
+                      step="1"
                       required
                     />
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>e.g. ₹1499 for Install, ₹499 for Wash</span>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>Original price displayed to customer</span>
                   </div>
 
+                  <div className="form-group">
+                    <label className="form-label">Offer / Discount Price (₹)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={editForm.offerPrice}
+                      onChange={e => setEditForm({ ...editForm, offerPrice: e.target.value })}
+                      min="0"
+                      step="1"
+                      placeholder="Same as regular if no discount"
+                    />
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>Discounted selling price (shows discount badge)</span>
+                  </div>
+                </div>
+
+                <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Booking / Convenience Fee (₹)</label>
                     <input
@@ -409,14 +481,12 @@ export default function PricingManager({ auditLogAction }) {
                       value={editForm.bookingCharge}
                       onChange={e => setEditForm({ ...editForm, bookingCharge: e.target.value })}
                       min="0"
-                      step="5"
+                      step="1"
                       required
                     />
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>e.g. ₹99 for Install, ₹49 for Wash</span>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>e.g. ₹49 for Repair, ₹99 for Installation</span>
                   </div>
-                </div>
 
-                <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Online Advance Prepayment %</label>
                     <input
@@ -429,9 +499,11 @@ export default function PricingManager({ auditLogAction }) {
                       step="5"
                       required
                     />
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>Default 30% via Razorpay</span>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>e.g. 30% collected upfront</span>
                   </div>
+                </div>
 
+                <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">Partner Base Payout (₹)</label>
                     <input
@@ -440,32 +512,59 @@ export default function PricingManager({ auditLogAction }) {
                       value={editForm.technicianPayoutAmount}
                       onChange={e => setEditForm({ ...editForm, technicianPayoutAmount: e.target.value })}
                       min="0"
-                      step="10"
+                      step="1"
                       required
                     />
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>Direct earnings credited to technician</span>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>Direct net earnings to technician wallet</span>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Estimated Duration (Mins)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={editForm.durationMinutes}
+                      onChange={e => setEditForm({ ...editForm, durationMinutes: e.target.value })}
+                      min="5"
+                      step="5"
+                      required
+                    />
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>e.g. 30 mins, 45 mins, 60 mins</span>
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Estimated Service Duration (Minutes)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={editForm.durationMinutes}
-                    onChange={e => setEditForm({ ...editForm, durationMinutes: e.target.value })}
-                    min="15"
-                    step="5"
-                    required
-                  />
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Warranty Text</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={editForm.warrantyText}
+                      onChange={e => setEditForm({ ...editForm, warrantyText: e.target.value })}
+                      placeholder="e.g. 30 Days Warranty, 90 Days Warranty"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <label className="form-label">Service Status</label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '6px' }}>
+                      <input
+                        type="checkbox"
+                        checked={editForm.active}
+                        onChange={e => setEditForm({ ...editForm, active: e.target.checked })}
+                      />
+                      <span style={{ fontSize: '13px', fontWeight: '700' }}>Active in Customer App</span>
+                    </label>
+                  </div>
                 </div>
 
-                {/* Real-time Calculation Summary preview inside modal */}
-                <div style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', padding: '10px 14px', borderRadius: '6px', fontSize: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Customer Prepayment via Razorpay:</span>
-                  <strong style={{ color: '#1E40AF', fontFamily: 'monospace' }}>
-                    ₹{(Number(editForm.bookingCharge) + (Number(editForm.price) * (Number(editForm.advancePrepaymentPct) / 100))).toFixed(2)}
-                  </strong>
+                {/* Calculation Preview */}
+                <div style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '6px', padding: '10px 14px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ fontWeight: '800', color: '#1E40AF' }}>Live Summary Preview:</div>
+                  <div>• Selling Price: <strong>₹{editForm.offerPrice || editForm.basePrice || editForm.price}</strong> {Number(editForm.offerPrice) < Number(editForm.basePrice) ? `(${Math.round(((Number(editForm.basePrice) - Number(editForm.offerPrice)) / Number(editForm.basePrice)) * 100)}% Discount)` : '(No Discount)'}</div>
+                  <div>• Customer Advance: <strong>₹{(Number(editForm.bookingCharge) + ((Number(editForm.offerPrice) || Number(editForm.basePrice) || Number(editForm.price)) * (Number(editForm.advancePrepaymentPct) / 100))).toFixed(0)}</strong></div>
+                  <div>• Partner Payout: <strong>₹{editForm.technicianPayoutAmount}</strong></div>
                 </div>
               </div>
 
@@ -474,13 +573,14 @@ export default function PricingManager({ auditLogAction }) {
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  ✓ Save Service Rates
+                  Save & Apply Real Rates
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 }

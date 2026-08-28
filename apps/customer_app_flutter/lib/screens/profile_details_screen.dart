@@ -18,7 +18,6 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
   DateTime? _selectedDob;
   DateTime? _selectedAnniversary;
   String? _selectedGender;
-  String? _profilePhoto;
 
   @override
   void initState() {
@@ -30,7 +29,6 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
     _selectedDob = profile.dateOfBirth;
     _selectedAnniversary = profile.anniversary;
     _selectedGender = profile.gender;
-    _profilePhoto = profile.profilePhotoUrl;
   }
 
   @override
@@ -122,48 +120,6 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
     );
   }
 
-  void _showPhotoOptions() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined, color: kBrandPrimary),
-              title: const Text('Take Photo'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => _profilePhoto = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500');
-                ref.read(bookingProvider.notifier).updateProfileDetails(profilePhotoUrl: _profilePhoto);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: kBrandPrimary),
-              title: const Text('Choose from Gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => _profilePhoto = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500');
-                ref.read(bookingProvider.notifier).updateProfileDetails(profilePhotoUrl: _profilePhoto);
-              },
-            ),
-            if (_profilePhoto != null)
-              ListTile(
-                leading: const Icon(Icons.delete_outline, color: kRedError),
-                title: const Text('Remove Photo', style: TextStyle(color: kRedError)),
-                onTap: () {
-                  Navigator.pop(context);
-                  setState(() => _profilePhoto = null);
-                  ref.read(bookingProvider.notifier).updateProfileDetails(clearPhoto: true);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _saveProfile() {
     final name = _nameCtrl.text.trim();
     if (name.length < 2 || RegExp(r'^[0-9]+$').hasMatch(name)) {
@@ -179,7 +135,6 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
       isEmailVerified: true,
       phone: _phoneCtrl.text.trim(),
       isPhoneVerified: true,
-      profilePhotoUrl: _profilePhoto,
       dateOfBirth: _selectedDob,
       anniversary: _selectedAnniversary,
       gender: _selectedGender,
@@ -216,48 +171,19 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ─── PROFILE PHOTO ───
+              // ─── USER AVATAR BADGE ───
               Center(
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 46,
-                      backgroundColor: kBrandPrimary,
-                      backgroundImage: _profilePhoto != null ? NetworkImage(_profilePhoto!) : null,
-                      child: _profilePhoto == null
-                          ? Text(
-                              _nameCtrl.text.isNotEmpty ? _nameCtrl.text[0].toUpperCase() : 'U',
-                              style: const TextStyle(fontSize: 34, color: Colors.white, fontWeight: FontWeight.bold),
-                            )
-                          : null,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: InkWell(
-                        onTap: _showPhotoOptions,
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: kBrandPrimary,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
-                        ),
-                      ),
-                    ),
-                  ],
+                child: CircleAvatar(
+                  radius: 38,
+                  backgroundColor: kBrandPrimary,
+                  child: Text(
+                    _nameCtrl.text.isNotEmpty ? _nameCtrl.text[0].toUpperCase() : 'U',
+                    style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              const Center(
-                child: Text('Profile Photo (Optional)', style: TextStyle(fontSize: 12, color: kSecondaryText)),
-              ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
               // ─── FULL NAME ───
               const Text('Full Name *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),

@@ -63,11 +63,21 @@ export default function TechnicianIdCardManager({ technicians, setTechnicians, a
                   className={`tech-select-card ${isSelected ? 'active' : ''}`}
                   onClick={() => setSelectedTech(t)}
                 >
-                  <img
-                    src={t.photo || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=100'}
-                    alt={t.name}
-                    className="tech-thumb"
-                  />
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    backgroundColor: '#1E3A8A',
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '800',
+                    fontSize: '14px',
+                    flexShrink: 0
+                  }}>
+                    {(t.name || 'T')[0].toUpperCase()}
+                  </div>
                   <div className="tech-info">
                     <strong>{t.name}</strong>
                     <div style={{ fontSize: '11px', color: '#17399A', fontFamily: 'monospace' }}>
@@ -100,11 +110,22 @@ export default function TechnicianIdCardManager({ technicians, setTechnicians, a
               {/* Card Body */}
               <div className="id-card-body">
                 <div className="avatar-frame-wrap">
-                  <img
-                    src={selectedTech.photo || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=400'}
-                    alt={selectedTech.name}
-                    className="id-avatar-img"
-                  />
+                  <div style={{
+                    width: '84px',
+                    height: '84px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #0B1F63 0%, #17399A 100%)',
+                    border: '3px solid #38BDF8',
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '900',
+                    fontSize: '32px',
+                    boxShadow: '0 4px 12px rgba(23,57,154,0.25)'
+                  }}>
+                    {(selectedTech.name || 'T')[0].toUpperCase()}
+                  </div>
                   {selectedTech.status === 'Approved' && (
                     <div className="verified-check-bubble">✓</div>
                   )}

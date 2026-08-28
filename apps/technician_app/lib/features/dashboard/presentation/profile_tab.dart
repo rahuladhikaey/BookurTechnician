@@ -2,16 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../auth/presentation/login_page.dart';
-import '../../auth/presentation/selfie_capture_page.dart';
 import '../../onboarding/data/skill_service.dart';
 import '../../onboarding/domain/skill_models.dart';
 import '../data/technician_profile_service.dart';
-import 'digital_id_card_page.dart';
 import 'my_skills_page.dart';
 import 'partner_legal_page.dart';
 
@@ -31,21 +27,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   TechnicianSkillProfileModel? _skillProfile;
   List<KycDocumentItem> _kycDocuments = [];
 
-  // Incident Form States
-  String _incidentCategory = 'Customer Dispute';
-  final _incidentDescController = TextEditingController();
-  bool _isSubmittingIncident = false;
-
   @override
   void initState() {
     super.initState();
     _loadLiveProfile();
-  }
-
-  @override
-  void dispose() {
-    _incidentDescController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadLiveProfile() async {
@@ -97,9 +82,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             TextField(
               controller: upiController,
               decoration: const InputDecoration(
-                labelText: 'UPI Payout ID (VPA)',
-                hintText: 'e.g. mobile@upi or name@okaxis',
-                prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                labelText: 'UPI Number / ID (VPA)',
+                prefixIcon: Icon(Icons.payment),
+                hintText: 'e.g. 9876543210@upi',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -144,31 +129,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
-  void _submitIncidentReport() async {
-    final desc = _incidentDescController.text.trim();
-    if (desc.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please describe the incident first.'), backgroundColor: SemanticColors.error),
-      );
-      return;
-    }
 
-    setState(() => _isSubmittingIncident = true);
-    final incidentId = await _profileService.reportIncident(_incidentCategory, desc);
-    setState(() => _isSubmittingIncident = false);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Incident report submitted to Safety Cell! ID: ${incidentId ?? "INC-8392"}'),
-          backgroundColor: SemanticColors.success,
-        ),
-      );
-      setState(() {
-        _incidentDescController.clear();
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -186,11 +147,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     final totalRatings = _profileData?.totalRatingsCount ?? (_skillProfile?.totalRatingsCount ?? 0);
     final jobsCompleted = _profileData?.totalJobsCompleted ?? (_skillProfile?.totalJobsCompleted ?? 0);
     final kycStatus = _profileData?.kycStatus ?? 'VERIFIED';
-    final profilePhoto = _profileData?.profileImageUrl ?? '';
+    final isApproved = kycStatus.toUpperCase() == 'VERIFIED' || kycStatus.toUpperCase() == 'APPROVED';
 
     final skillsList = _skillProfile != null && _skillProfile!.skills.isNotEmpty
         ? _skillProfile!.skills.map((s) => s.skillName).toList()
         : <String>['Electrical & Home', 'Appliance Repair'];
+
+    final hasAadhaar = _kycDocuments.any((d) => d.documentType.toUpperCase().contains('AADHAAR')) || isApproved;
+    final hasVoter = _kycDocuments.any((d) => d.documentType.toUpperCase().contains('VOTER')) || isApproved;
+    final hasUpi = (_profileData?.upiId.isNotEmpty == true) || (_profileData?.isUpiVerified == true);
+    final isKycFullyComplete = hasAadhaar && hasVoter && hasUpi;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -224,491 +190,488 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(AppSpacing.m),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ─── 1. Prominent My Technician ID Digital Badge ────────
-                    InkWell(
-                      onTap: () async {
-                        final updatedPhoto = await Navigator.push<String>(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => DigitalIdCardPage(
-                              technicianName: technicianName,
-                              technicianCode: technicianCode,
-                              initialPhotoUrl: profilePhoto,
-                              skills: skillsList,
-                              verificationStatus: kycStatus,
-                            ),
+                    // ═════════════════════════════════════════════════════════
+                    // 1. FULL DIGITAL ID CARD (SHOWN FIRST)
+                    // ═════════════════════════════════════════════════════════
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0B1F63).withValues(alpha: 0.12),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
                           ),
-                        );
-                        if (updatedPhoto != null && mounted) {
-                          await _profileService.updateProfile(profileImageUrl: updatedPhoto);
-                          _loadLiveProfile();
-                        }
-                      },
-                      borderRadius: AppRadius.medium,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF0B1F63), Color(0xFF17399A)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: AppRadius.medium,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF17399A).withValues(alpha: 0.25),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
+                        ],
+                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          // Card Top Header Gradient Bar
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF0B1F63), Color(0xFF17399A)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                              child: const Icon(Icons.badge_outlined, color: Colors.white, size: 28),
                             ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Text(
-                                        'My Technician ID',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 16,
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.asset(
+                                        'assets/images/app_logo.png',
+                                        width: 22,
+                                        height: 22,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (ctx, err, stack) => const Icon(Icons.handyman_rounded, color: Colors.white, size: 18),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'BookurTechnician',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -0.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'TECHNICIAN MEMBER',
+                                    style: TextStyle(
+                                      color: Color(0xFF93C5FD),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Card Main Body
+                          Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              children: [
+                                // Verified Technician Emblem Badge
+                                Stack(
+                                  alignment: Alignment.bottomRight,
+                                  children: [
+                                    Container(
+                                      width: 90,
+                                      height: 90,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: const LinearGradient(
+                                          colors: [Color(0xFF0B1F63), Color(0xFF17399A)],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                        border: Border.all(color: const Color(0xFF38BDF8), width: 3),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFF17399A).withValues(alpha: 0.25),
+                                            blurRadius: 12,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          technicianName.isNotEmpty ? technicianName[0].toUpperCase() : 'T',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 38,
+                                          ),
                                         ),
                                       ),
-                                      const SizedBox(width: 6),
+                                    ),
+                                    if (isApproved)
+                                      Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF16A34A),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.check, color: Colors.white, size: 14),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Technician Name & Edit Action
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      technicianName,
+                                      style: const TextStyle(
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF0B1635),
+                                        letterSpacing: -0.3,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 16, color: AppColors.primary),
+                                      padding: const EdgeInsets.only(left: 6),
+                                      constraints: const BoxConstraints(),
+                                      onPressed: _openEditProfileDialog,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'Certified Field Technician',
+                                  style: TextStyle(fontSize: 12.5, color: Color(0xFF667085), fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(height: 14),
+
+                                // Information Box
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      _buildInfoRow('Technician ID', technicianCode, isHighlight: true),
+                                      const Divider(height: 14, color: Color(0xFFE2E8F0)),
+                                      _buildInfoRow('Performance', '★ ${rating.toStringAsFixed(1)} ($totalRatings Reviews • $jobsCompleted Jobs)'),
+                                      if (_profileData?.phone.isNotEmpty == true) ...[
+                                        const Divider(height: 14, color: Color(0xFFE2E8F0)),
+                                        _buildInfoRow('Contact', _profileData!.phone),
+                                      ],
+                                      const Divider(height: 14, color: Color(0xFFE2E8F0)),
+                                      _buildInfoRow('Service Skills', skillsList.join(' • ')),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+
+                                // Verification Status Banner
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: isApproved ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: isApproved ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
                                       Icon(
-                                        kycStatus == 'VERIFIED' || kycStatus == 'APPROVED'
-                                            ? Icons.verified
-                                            : Icons.pending_actions,
-                                        color: kycStatus == 'VERIFIED' || kycStatus == 'APPROVED'
-                                            ? const Color(0xFF86EFAC)
-                                            : const Color(0xFFFDE047),
+                                        isApproved ? Icons.verified_user : Icons.hourglass_top,
                                         size: 16,
+                                        color: isApproved ? const Color(0xFF166534) : const Color(0xFF92400E),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        isApproved ? '✓ VERIFIED TECHNICIAN' : 'VERIFICATION PENDING',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.4,
+                                          color: isApproved ? const Color(0xFF166534) : const Color(0xFF92400E),
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 2),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Active Full-Width Share ID Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final shareText = 
+                              '🛠️ BookUrTechnician Certified Field Partner\n'
+                              '👤 Name: $technicianName\n'
+                              '🆔 Partner ID: $technicianCode\n'
+                              '⭐ Rating: ${rating.toStringAsFixed(1)} ★ ($jobsCompleted Jobs Completed)\n'
+                              '🔧 Verified Skills: ${skillsList.join(', ')}\n'
+                              '🔒 Status: Verified Field Specialist\n'
+                              '🌐 Verification Link: https://bookurtechnician.com/verify-tech?id=$technicianCode';
+
+                          // Show active share sheet / confirmation
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFF17399A),
+                              duration: const Duration(seconds: 4),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.check_circle, color: Colors.white, size: 16),
+                                      SizedBox(width: 8),
+                                      Text('Partner ID Verification Link Ready!', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
                                   Text(
-                                    '$technicianCode • ${kycStatus == 'VERIFIED' || kycStatus == 'APPROVED' ? 'Verified Digital Badge' : 'KYC $kycStatus'}',
-                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                    'ID: $technicianCode ($technicianName)\nLink: https://bookurtechnician.com/verify-tech?id=$technicianCode',
+                                    style: const TextStyle(fontSize: 11, color: Colors.white70),
                                   ),
                                 ],
                               ),
                             ),
-                            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-                          ],
+                          );
+                        },
+                        icon: const Icon(Icons.share_rounded, size: 18),
+                        label: const Text('SHARE DIGITAL ID CARD', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF17399A),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
                         ),
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.m),
 
-                    // ─── 2. Profile Card Info with Real Metrics ──────────────
-                    Card(
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.m),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Stack(
-                                  alignment: Alignment.bottomRight,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 36,
-                                      backgroundImage: profilePhoto.isNotEmpty
-                                          ? NetworkImage(profilePhoto)
-                                          : null,
-                                      backgroundColor: AppColors.border,
-                                      child: profilePhoto.isEmpty
-                                          ? const Icon(Icons.person, size: 36, color: AppColors.textSecondary)
-                                          : null,
-                                    ),
-                                    InkWell(
-                                      onTap: () async {
-                                        final newUrl = await Navigator.push<String>(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => SelfieCapturePage(
-                                              currentPhotoUrl: profilePhoto,
-                                              onSelfieConfirmed: (url) async {
-                                                await _profileService.updateProfile(profileImageUrl: url);
-                                                _loadLiveProfile();
-                                              },
-                                            ),
-                                          ),
-                                        );
-                                        if (newUrl != null && mounted) {
-                                          await _profileService.updateProfile(profileImageUrl: newUrl);
-                                          _loadLiveProfile();
-                                        }
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(5),
-                                        decoration: const BoxDecoration(
-                                          color: AppColors.primary,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: AppSpacing.m),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              technicianName,
-                                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.edit, size: 18, color: AppColors.primary),
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(),
-                                            onPressed: _openEditProfileDialog,
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'ID: $technicianCode',
-                                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.star, color: SemanticColors.warning, size: 16),
-                                          const SizedBox(width: 2),
-                                          Text(
-                                            rating.toStringAsFixed(1),
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.textPrimary),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            '($totalRatings Ratings • $jobsCompleted Jobs)',
-                                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                                          ),
-                                        ],
-                                      ),
-                                      if (_profileData?.phone.isNotEmpty == true || _profileData?.email.isNotEmpty == true) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _profileData?.phone.isNotEmpty == true
-                                              ? _profileData!.phone
-                                              : _profileData!.email,
-                                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.m),
+                    const SizedBox(height: 24),
 
-                    // ─── 3. Skills & Verification Card (Live Connected) ──────
-                    InkWell(
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const MySkillsPage()),
-                        );
-                        _loadLiveProfile();
-                      },
-                      borderRadius: AppRadius.medium,
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: AppRadius.medium,
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFEFF6FF),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(Icons.handyman_rounded, color: Color(0xFF1E3A8A), size: 20),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'My Skills & Services (${skillsList.length})',
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w800,
-                                            color: Color(0xFF0F172A),
-                                          ),
-                                        ),
-                                        const Text(
-                                          'Manage categories & verification status',
-                                          style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF94A3B8)),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: skillsList.take(5).map((skill) => Chip(
-                                label: Text(skill, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                backgroundColor: const Color(0xFFF1F5F9),
-                                padding: EdgeInsets.zero,
-                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              )).toList(),
-                            ),
-                            const SizedBox(height: 10),
-                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFECFDF5),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.check_circle, size: 12, color: Color(0xFF059669)),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Auto-Matching Enabled',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF059669),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Spacer(),
-                                const Text(
-                                  'Manage Skills >',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF1E3A8A),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.m),
-
-                    // ─── 4. Submitted KYC Document Status ───────────────────
+                    // ═════════════════════════════════════════════════════════
+                    // 2. REGISTERED SKILLS & SERVICES (SHOWN SECOND)
+                    // ═════════════════════════════════════════════════════════
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Submitted KYC Verification', style: AppTypography.titleMedium),
+                        Row(
+                          children: [
+                            const Text(
+                              'Registered Skills',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${skillsList.length} Active',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        TextButton.icon(
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const MySkillsPage()),
+                            );
+                            _loadLiveProfile();
+                          },
+                          icon: const Icon(Icons.tune, size: 14, color: AppColors.primary),
+                          label: const Text('Manage Skills', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                          style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: skillsList.map((skill) => Chip(
+                              label: Text(skill, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
+                              backgroundColor: const Color(0xFFF1F5F9),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            )).toList(),
+                          ),
+                          const SizedBox(height: 12),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          const SizedBox(height: 10),
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.verified_outlined, size: 15, color: Color(0xFF16A34A)),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Skills Verified & Active for Booking Dispatch',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF16A34A)),
+                                  ),
+                                ],
+                              ),
+                              Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF94A3B8)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // ═════════════════════════════════════════════════════════
+                    // 3. UPLOADED DOCUMENTS & KYC (SHOWN THIRD)
+                    // ═════════════════════════════════════════════════════════
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Uploaded Documents (KYC)',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: ((_kycDocuments.any((d) => d.documentType.contains('AADHAAR')) &&
-                                     _kycDocuments.any((d) => d.documentType.contains('VOTER')) &&
-                                     (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType.contains('SELFIE'))))
-                                ? const Color(0xFFECFDF5)
-                                : const Color(0xFFFEF3C7)),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: ((_kycDocuments.any((d) => d.documentType.contains('AADHAAR')) &&
-                                       _kycDocuments.any((d) => d.documentType.contains('VOTER')) &&
-                                       (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType.contains('SELFIE'))))
-                                  ? const Color(0xFF86EFAC)
-                                  : const Color(0xFFFDE68A)),
-                            ),
+                            color: isKycFullyComplete ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            ((_kycDocuments.any((d) => d.documentType.contains('AADHAAR')) &&
-                              _kycDocuments.any((d) => d.documentType.contains('VOTER')) &&
-                              (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType.contains('SELFIE'))))
-                                ? '100% Complete ✓'
-                                : 'Profile Incomplete'),
+                            isKycFullyComplete ? '100% Complete ✓' : 'KYC Pending',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
-                              color: ((_kycDocuments.any((d) => d.documentType.contains('AADHAAR')) &&
-                                       _kycDocuments.any((d) => d.documentType.contains('VOTER')) &&
-                                       (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType.contains('SELFIE'))))
-                                  ? const Color(0xFF059669)
-                                  : const Color(0xFFD97706)),
+                              color: isKycFullyComplete ? const Color(0xFF15803D) : const Color(0xFFB45309),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.s),
-                    Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.m),
-                        child: Column(
-                          children: [
-                            _buildDocStatusRow(
-                              '📸 Real Live Selfie Photograph',
-                              (profilePhoto.isNotEmpty || _kycDocuments.any((d) => d.documentType == 'SELFIE' || d.documentType == 'LIVE_PIC')) ? 'APPROVED' : 'PENDING',
-                              onTap: () async {
-                                final result = await Navigator.push<String>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => SelfieCapturePage(currentPhotoUrl: profilePhoto),
-                                  ),
-                                );
-                                if (result != null) _loadLiveProfile();
-                              },
-                            ),
-                            const Divider(),
-                            _buildDocStatusRow(
-                              '🪪 Aadhaar Card (Front/Back)',
-                              _getSpecificDocStatus('AADHAAR', kycStatus),
-                              onTap: () => _promptUploadDoc('AADHAAR', 'Aadhaar Card'),
-                            ),
-                            const Divider(),
-                            _buildDocStatusRow(
-                              '🗳️ Voter Card ID Verification',
-                              _getSpecificDocStatus('VOTER', kycStatus),
-                              onTap: () => _promptUploadDoc('VOTER_CARD', 'Voter Card ID'),
-                            ),
-                            const Divider(),
-                            _buildDocStatusRow(
-                              '💳 Bank / UPI Payout Account',
-                              _profileData?.isUpiVerified == true ? 'APPROVED' : (_profileData?.upiId.isNotEmpty == true ? 'PENDING' : 'NOT_CONFIGURED'),
-                              onTap: _openEditProfileDialog,
-                            ),
-                          ],
-                        ),
+                    const SizedBox(height: 8),
+
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        children: [
+                          _buildDocStatusRow(
+                            '🪪 Aadhaar Card (Front/Back)',
+                            _getSpecificDocStatus('AADHAAR', kycStatus),
+                            onTap: () => _promptUploadDoc('AADHAAR', 'Aadhaar Card'),
+                          ),
+                          const Divider(height: 16, color: Color(0xFFF1F5F9)),
+                          _buildDocStatusRow(
+                            '🗳️ Voter Card ID Verification',
+                            _getSpecificDocStatus('VOTER', kycStatus),
+                            onTap: () => _promptUploadDoc('VOTER_CARD', 'Voter Card ID'),
+                          ),
+                          const Divider(height: 16, color: Color(0xFFF1F5F9)),
+                          _buildDocStatusRow(
+                            '📱 UPI Number / ID Verification',
+                            _profileData?.isUpiVerified == true
+                                ? 'APPROVED'
+                                : (_profileData?.upiId.isNotEmpty == true ? 'PENDING' : 'NOT_CONFIGURED'),
+                            onTap: _openEditProfileDialog,
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.m),
 
-                    // ─── 5. Emergency Incident Reporting ─────────────────────
-                    const Text('Emergency Safety & Incident reporting', style: AppTypography.titleMedium),
-                    const SizedBox(height: AppSpacing.s),
-                    Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.m),
-                        child: Column(
-                          children: [
-                            DropdownButtonFormField<String>(
-                              initialValue: _incidentCategory,
-                              decoration: const InputDecoration(labelText: 'Incident Category', border: OutlineInputBorder()),
-                              items: ['Customer Dispute', 'Unsafe Environment', 'Accident/Injury', 'Payment Issue'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                              onChanged: (val) {
-                                if (val != null) setState(() => _incidentCategory = val);
-                              },
-                            ),
-                            const SizedBox(height: AppSpacing.s),
-                            TextField(
-                              controller: _incidentDescController,
-                              maxLines: 2,
-                              decoration: const InputDecoration(
-                                labelText: 'Describe the issue or hazard',
-                                hintText: 'Include billing amount or location details if relevant...',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.m),
-                            ElevatedButton.icon(
-                              onPressed: _isSubmittingIncident ? null : _submitIncidentReport,
-                              icon: _isSubmittingIncident
-                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                  : const Icon(Icons.warning_amber, size: 16),
-                              label: Text(_isSubmittingIncident ? 'Submitting...' : 'Report Incident to Safety Cell'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: SemanticColors.error,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size(double.infinity, 44),
-                                shape: const RoundedRectangleBorder(borderRadius: AppRadius.small),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    const SizedBox(height: 24),
+
+                    // ═════════════════════════════════════════════════════════
+                    // 4. OTHERS (MANUALS, POLICIES & ACCOUNT)
+                    // ═════════════════════════════════════════════════════════
+                    const Text(
+                      'Training & Guidelines',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                     ),
-                    const SizedBox(height: AppSpacing.m),
+                    const SizedBox(height: 8),
 
-                    // ─── 6. Training & Learning Manuals ─────────────────────
-                    const Text('Training manuals & Safety Guidelines', style: AppTypography.titleMedium),
-                    const SizedBox(height: AppSpacing.s),
-                    Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
                       child: ListView(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
                           _buildManualTile('⚡ High Voltage Safety Procedures', 'Standard safety precautions for electrical technicians.'),
-                          const Divider(height: 1),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
                           _buildManualTile('🛠️ Jet-Pump AC Washing techniques', 'Professional guidelines for deep split AC filter wash.'),
-                          const Divider(height: 1),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
                           _buildManualTile('🛡️ PPE Kits and Dress codes guidelines', 'Hygiene standards and masks compliance checklist.')
                         ],
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.m),
 
-                    // ─── 7. Legal, Terms & Privacy Policy ────────────────────
-                    const Text('Legal, Policies & Compliance', style: AppTypography.titleMedium),
-                    const SizedBox(height: AppSpacing.s),
-                    Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    const SizedBox(height: 20),
+
+                    const Text(
+                      'Legal, Policies & Compliance',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                    ),
+                    const SizedBox(height: 8),
+
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
                       child: ListView(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
@@ -723,7 +686,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                               MaterialPageRoute(builder: (_) => const PartnerLegalPage(initialTabIndex: 0)),
                             ),
                           ),
-                          const Divider(height: 1),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
                           ListTile(
                             leading: const Icon(Icons.security_outlined, color: AppColors.primary),
                             title: const Text('Safety Code & Protocols', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -734,7 +697,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                               MaterialPageRoute(builder: (_) => const PartnerLegalPage(initialTabIndex: 1)),
                             ),
                           ),
-                          const Divider(height: 1),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
                           ListTile(
                             leading: const Icon(Icons.privacy_tip_outlined, color: AppColors.primary),
                             title: const Text('Partner Privacy Policy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -748,13 +711,73 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.l),
+
+                    const SizedBox(height: 24),
+
+                    // Sign Out Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: SemanticColors.error,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                        onPressed: () async {
+                          await ref.read(authProvider.notifier).logout();
+                          if (context.mounted) {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (context) => const LoginPage()),
+                              (route) => false,
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.logout, size: 18),
+                        label: const Text('LOG OUT ACCOUNT', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
       ),
     );
   }
+
+  Widget _buildInfoRow(String label, String value, {bool isHighlight = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 95,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
+              color: isHighlight ? const Color(0xFF17399A) : const Color(0xFF0B1635),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+
 
   String _getSpecificDocStatus(String docTypeKey, String defaultKyc) {
     final doc = _kycDocuments.where((d) => d.documentType.toUpperCase().contains(docTypeKey.toUpperCase())).firstOrNull;

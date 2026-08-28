@@ -1,35 +1,191 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../booking_provider.dart';
 import '../models.dart';
 import '../theme.dart';
+import 'booking_status_map_screen.dart';
 
-class CategoryServicesScreen extends ConsumerWidget {
+class CategoryServicesScreen extends ConsumerStatefulWidget {
   final String categoryId;
   const CategoryServicesScreen({super.key, required this.categoryId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CategoryServicesScreen> createState() => _CategoryServicesScreenState();
+}
+
+class _CategoryServicesScreenState extends ConsumerState<CategoryServicesScreen> {
+  String _selectedSubcategoryId = 'ALL';
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(bookingProvider);
-    final category = state.categories.firstWhere((c) => c.id == categoryId,
-        orElse: () => const Category(id: '', name: '', subcategories: []));
+    final categoryList = state.categories.isNotEmpty ? state.categories : MockData.categoriesList;
+    final category = categoryList.firstWhere(
+      (c) => c.id == widget.categoryId,
+      orElse: () => MockData.categoriesList.firstWhere(
+        (c) => c.id == widget.categoryId,
+        orElse: () => categoryList.isNotEmpty
+            ? categoryList.first
+            : const Category(id: '', name: 'Services', subcategories: []),
+      ),
+    );
+
+    final allSubcategories = category.subcategories;
+    final filteredSubcategories = _selectedSubcategoryId == 'ALL'
+        ? allSubcategories
+        : allSubcategories.where((s) => s.id == _selectedSubcategoryId).toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text(category.name)),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: category.subcategories.length,
-        itemBuilder: (_, i) {
-          final sub = category.subcategories[i];
-          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(sub.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: kTextNavy)),
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        title: Text(
+          category.name,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: kTextNavy),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        foregroundColor: kTextNavy,
+      ),
+      bottomNavigationBar: state.cartItems.isNotEmpty
+          ? SafeArea(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${state.cartItems.length} item${state.cartItems.length > 1 ? 's' : ''} added',
+                            style: const TextStyle(fontSize: 12, color: kSecondaryText, fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            '₹${state.cartItems.fold<double>(0, (sum, i) => sum + i.price).toStringAsFixed(0)}',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextNavy),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pushNamed(context, '/cart'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kBrandPrimary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      child: const Row(
+                        children: [
+                          Text('View Cart', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          SizedBox(width: 6),
+                          Icon(Icons.arrow_forward, size: 16),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
+      body: Column(
+        children: [
+          // Subcategory Filter Chips
+          if (allSubcategories.length > 1)
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    ChoiceChip(
+                      label: const Text('All Services'),
+                      selected: _selectedSubcategoryId == 'ALL',
+                      selectedColor: kBrandPrimary,
+                      labelStyle: TextStyle(
+                        color: _selectedSubcategoryId == 'ALL' ? Colors.white : kPrimaryText,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12.5,
+                      ),
+                      onSelected: (_) => setState(() => _selectedSubcategoryId = 'ALL'),
+                    ),
+                    const SizedBox(width: 8),
+                    ...allSubcategories.map((sub) {
+                      final isSel = _selectedSubcategoryId == sub.id;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(sub.name),
+                          selected: isSel,
+                          selectedColor: kBrandPrimary,
+                          labelStyle: TextStyle(
+                            color: isSel ? Colors.white : kPrimaryText,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                          ),
+                          onSelected: (_) => setState(() => _selectedSubcategoryId = sub.id),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
             ),
-            ...sub.services.map((service) => _ServiceCard(service: service)),
-          ]);
-        },
+
+          // Subcategories and Services List
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: filteredSubcategories.length,
+              itemBuilder: (_, i) {
+                final sub = filteredSubcategories[i];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: kBrandPrimary,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            sub.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: kTextNavy),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${sub.services.length} options',
+                            style: const TextStyle(fontSize: 11.5, color: kSecondaryText),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ...sub.services.map((service) => _ServiceCard(service: service)),
+                    const SizedBox(height: 12),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -839,7 +995,7 @@ class ServiceDetailScreen extends ConsumerWidget {
     bool inCart,
   ) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: const BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -868,7 +1024,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                       color: kTextNavy,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Row(
                     children: [
                       Text(
@@ -880,10 +1036,10 @@ class ServiceDetailScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Book a Technician',
-                        style: TextStyle(
-                          fontSize: 10,
+                      Text(
+                        '${service.durationMinutes} mins',
+                        style: const TextStyle(
+                          fontSize: 11,
                           color: kTextGray,
                           fontWeight: FontWeight.w600,
                         ),
@@ -893,36 +1049,498 @@ class ServiceDetailScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 16),
-            SizedBox(
-              height: 48,
-              width: 130,
-              child: ElevatedButton(
-                onPressed: () {
-                  ref.read(bookingProvider.notifier).toggleCartItem(service);
-                  if (!inCart) Navigator.pushNamed(context, '/cart');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: inCart ? const Color(0xFFEF4444) : kBlack,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            const SizedBox(width: 12),
+
+            // 1. Add to Cart Toggle
+            OutlinedButton(
+              onPressed: () {
+                ref.read(bookingProvider.notifier).toggleCartItem(service);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    duration: const Duration(seconds: 2),
+                    backgroundColor: inCart ? const Color(0xFF334155) : const Color(0xFF16A34A),
+                    content: Text(
+                      inCart ? 'Removed from cart' : 'Added to cart! Tap Cart to view.',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    action: !inCart
+                        ? SnackBarAction(
+                            label: 'VIEW CART',
+                            textColor: Colors.amberAccent,
+                            onPressed: () => Navigator.pushNamed(context, '/cart'),
+                          )
+                        : null,
                   ),
-                  elevation: 0,
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: inCart ? const Color(0xFFEF4444) : kBrandPrimary, width: 1.5),
+                foregroundColor: inCart ? const Color(0xFFEF4444) : kBrandPrimary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+              child: Icon(
+                inCart ? Icons.shopping_cart : Icons.add_shopping_cart_rounded,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // 2. Direct Book Now Button (Skips Cart -> Direct Location & Payment Sheet)
+            ElevatedButton(
+              onPressed: () => _showDirectBookingModal(context, ref, service),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kBlack,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  inCart ? 'Remove' : 'Book Now',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                elevation: 0,
+              ),
+              child: const Row(
+                children: [
+                  Text(
+                    'Book Now',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
+                  SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
+                ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showDirectBookingModal(BuildContext context, WidgetRef ref, ServiceItem service) {
+    String selectedDate = 'Today';
+    String selectedSlot = '3:00 PM – 4:00 PM';
+    bool isProcessing = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final appState = ref.watch(bookingProvider);
+            final liveAddress = appState.address.isNotEmpty && appState.address != 'Fetching live address...'
+                ? appState.address
+                : (appState.profile.primaryAddress?.formattedAddress ?? appState.selectedAddressTitle);
+
+            final basePrice = service.price;
+            final gstTax = basePrice * 0.18;
+            final grandTotal = basePrice + gstTax;
+
+            return Container(
+              height: MediaQuery.of(ctx).size.height * 0.82,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  // Modal Drag Handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                  ),
+
+                  // Modal Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Direct Service Booking',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextNavy),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: kTextGray),
+                          onPressed: () => Navigator.pop(modalCtx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.all(20),
+                      children: [
+                        // 1. Service Summary Card
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: service.imageUrl.startsWith('assets/')
+                                    ? Image.asset(
+                                        service.imageUrl,
+                                        width: 65,
+                                        height: 65,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) => Container(
+                                          width: 65,
+                                          height: 65,
+                                          color: const Color(0xFFEFF6FF),
+                                          child: const Icon(Icons.handyman_rounded, color: kBrandPrimary),
+                                        ),
+                                      )
+                                    : Image.network(
+                                        service.imageUrl,
+                                        width: 65,
+                                        height: 65,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) => Container(
+                                          width: 65,
+                                          height: 65,
+                                          color: const Color(0xFFEFF6FF),
+                                          child: const Icon(Icons.handyman_rounded, color: kBrandPrimary),
+                                        ),
+                                      ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      service.name,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: kTextNavy),
+                                      maxLines: 2,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${service.durationMinutes} mins • ${service.warrantyText}',
+                                      style: const TextStyle(fontSize: 11.5, color: kTextGray),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '₹${service.price.toStringAsFixed(0)}',
+                                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: kBrandPrimary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // 2. Current Live Location & Address Card
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on_rounded, color: Color(0xFF0284C7), size: 18),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'Service Location',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextNavy),
+                                  ),
+                                  const Spacer(),
+                                  TextButton(
+                                    onPressed: () {
+                                      ref.read(bookingProvider.notifier).autoAcquireGpsLocation();
+                                    },
+                                    child: const Text('Refresh GPS', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                appState.selectedAddressTitle,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: kTextNavy),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                liveAddress,
+                                style: const TextStyle(fontSize: 12, color: kTextGray, height: 1.3),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // 3. Service Schedule Selection
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Select Date & Time Slot',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextNavy),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: ['Today', 'Tomorrow'].map((d) {
+                                  final isSel = selectedDate == d;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ChoiceChip(
+                                      label: Text(d),
+                                      selected: isSel,
+                                      selectedColor: kBrandPrimary,
+                                      labelStyle: TextStyle(
+                                        color: isSel ? Colors.white : kPrimaryText,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                      onSelected: (_) => setModalState(() => selectedDate = d),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  '10:00 AM – 11:00 AM',
+                                  '1:00 PM – 2:00 PM',
+                                  '3:00 PM – 4:00 PM',
+                                  '5:00 PM – 6:00 PM',
+                                ].map((slot) {
+                                  final isSel = selectedSlot == slot;
+                                  return ChoiceChip(
+                                    label: Text(slot),
+                                    selected: isSel,
+                                    selectedColor: const Color(0xFF0F172A),
+                                    labelStyle: TextStyle(
+                                      color: isSel ? Colors.white : kPrimaryText,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    onSelected: (_) => setModalState(() => selectedSlot = slot),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // 4. Price Breakdown
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Payment Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextNavy)),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Service Charge', style: TextStyle(fontSize: 12.5, color: kTextGray)),
+                                  Text('₹${basePrice.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: kTextNavy)),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              const Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Visiting & Inspection Fee', style: TextStyle(fontSize: 12.5, color: kTextGray)),
+                                  Text('FREE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF16A34A))),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('GST (18%)', style: TextStyle(fontSize: 12.5, color: kTextGray)),
+                                  Text('₹${gstTax.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: kTextNavy)),
+                                ],
+                              ),
+                              const Divider(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: kTextNavy)),
+                                  Text('₹${grandTotal.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: kBrandPrimary)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 5. Direct Payment Action Buttons
+                        const Text(
+                          'Choose Payment Method:',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextNavy),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Pay Online (Razorpay / UPI / Card)
+                        ElevatedButton(
+                          onPressed: isProcessing
+                              ? null
+                              : () async {
+                                  setModalState(() => isProcessing = true);
+                                  final code = 'BT-${10000000 + Random().nextInt(90000000)}';
+                                  final bkgId = 'bkg_${DateTime.now().millisecondsSinceEpoch}';
+
+                                  final booked = await ref.read(bookingProvider.notifier).confirmDirectServiceBooking(
+                                        service: service,
+                                        date: selectedDate,
+                                        slot: selectedSlot,
+                                        paymentMethod: 'ONLINE_RAZORPAY',
+                                        customBookingCode: code,
+                                        customBookingId: bkgId,
+                                      );
+
+                                  if (!ctx.mounted) return;
+                                  Navigator.pop(modalCtx); // Close sheet
+
+                                  final startOtp = booked?.otpCode.isNotEmpty == true ? booked!.otpCode : (1000 + Random().nextInt(9000)).toString();
+
+                                  // Direct Dispatch to Live Tracking Page
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => BookingStatusMapScreen(
+                                        initialBookingData: {
+                                          'id': booked?.id ?? bkgId,
+                                          'bookingCode': booked?.id ?? code,
+                                          'serviceName': service.name,
+                                          'status': 'SEARCHING_TECHNICIAN',
+                                          'scheduledSlot': '$selectedDate • $selectedSlot',
+                                          'startServiceOtp': startOtp,
+                                          'startOtpExpiresAt': DateTime.now().add(const Duration(hours: 3)).toIso8601String(),
+                                          'fullAddress': liveAddress,
+                                          'grandTotal': grandTotal,
+                                          'paymentId': 'RZP_ONLINE_DIRECT',
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0284C7),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.payment_rounded, size: 18, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text('Pay Online (Razorpay / UPI / Card)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Pay After Service (Cash on Delivery / UPI upon completion)
+                        OutlinedButton(
+                          onPressed: isProcessing
+                              ? null
+                              : () async {
+                                  setModalState(() => isProcessing = true);
+                                  final code = 'BT-${10000000 + Random().nextInt(90000000)}';
+                                  final bkgId = 'bkg_${DateTime.now().millisecondsSinceEpoch}';
+
+                                  final booked = await ref.read(bookingProvider.notifier).confirmDirectServiceBooking(
+                                        service: service,
+                                        date: selectedDate,
+                                        slot: selectedSlot,
+                                        paymentMethod: 'CASH_ON_DELIVERY',
+                                        customBookingCode: code,
+                                        customBookingId: bkgId,
+                                      );
+
+                                  if (!ctx.mounted) return;
+                                  Navigator.pop(modalCtx); // Close sheet
+
+                                  final startOtp = booked?.otpCode.isNotEmpty == true ? booked!.otpCode : (1000 + Random().nextInt(9000)).toString();
+
+                                  // Direct Dispatch to Live Tracking Page
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => BookingStatusMapScreen(
+                                        initialBookingData: {
+                                          'id': booked?.id ?? bkgId,
+                                          'bookingCode': booked?.id ?? code,
+                                          'serviceName': service.name,
+                                          'status': 'SEARCHING_TECHNICIAN',
+                                          'scheduledSlot': '$selectedDate • $selectedSlot',
+                                          'startServiceOtp': startOtp,
+                                          'startOtpExpiresAt': DateTime.now().add(const Duration(hours: 3)).toIso8601String(),
+                                          'fullAddress': liveAddress,
+                                          'grandTotal': grandTotal,
+                                          'paymentId': 'PAY_AFTER_SERVICE',
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF0F172A), width: 1.5),
+                            foregroundColor: const Color(0xFF0F172A),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.handshake_outlined, size: 18),
+                              SizedBox(width: 8),
+                              Text('Pay After Service (Cash / UPI)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

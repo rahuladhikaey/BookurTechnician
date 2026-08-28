@@ -34,8 +34,7 @@ export default function TechniciansManager({
     experience: '3 years',
     upiId: 'technician@upi',
     aadhaarNumber: '',
-    voterCardNumber: '',
-    photo: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=400'
+    voterCardNumber: ''
   });
 
   const fetchTechs = async () => {
@@ -463,11 +462,20 @@ export default function TechniciansManager({
                       <td style={{ padding: '14px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{ position: 'relative' }}>
-                            <img
-                              src={t.photo || "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=150&q=80"}
-                              alt={t.name}
-                              style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-color)' }}
-                            />
+                            <div style={{
+                              width: '44px',
+                              height: '44px',
+                              borderRadius: '50%',
+                              backgroundColor: '#1E3A8A',
+                              color: '#FFFFFF',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: '800',
+                              fontSize: '16px'
+                            }}>
+                              {((t.name || t.fullName || 'T')[0]).toUpperCase()}
+                            </div>
                             <span style={{
                               position: 'absolute',
                               bottom: '0',
@@ -679,11 +687,20 @@ export default function TechniciansManager({
           <div className="modal-dialog" style={{ maxWidth: '820px', width: '92vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <img
-                  src={selectedTech.photo || "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=150&q=80"}
-                  alt=""
-                  style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-color)' }}
-                />
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  backgroundColor: '#1E3A8A',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: '800',
+                  fontSize: '18px'
+                }}>
+                  {((selectedTech.name || selectedTech.fullName || 'T')[0]).toUpperCase()}
+                </div>
                 <div>
                   <h3 className="modal-title" style={{ margin: 0, fontSize: '18px', fontWeight: '800' }}>
                     {selectedTech.name || selectedTech.fullName}
