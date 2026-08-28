@@ -40,13 +40,21 @@ app.use(cors());
 app.use(express.json());
 
 // Serve Static Admin Web Panel if built
-const adminDistPath = path.join(__dirname, '../../../apps/admin_panel/dist');
-if (fs.existsSync(adminDistPath)) {
-  app.use('/admin', express.static(adminDistPath));
-  app.get(['/admin', '/admin/*'], (req, res) => {
-    res.sendFile(path.join(adminDistPath, 'index.html'));
+const potentialPaths = [
+  path.join(__dirname, '../../../apps/admin_panel/dist'),
+  path.join(__dirname, '../../apps/admin_panel/dist'),
+  path.join(__dirname, '../admin_dist'),
+  path.join(__dirname, './public/admin'),
+];
+const resolvedAdminPath = potentialPaths.find(p => fs.existsSync(p));
+
+if (resolvedAdminPath) {
+  app.use('/admin', express.static(resolvedAdminPath));
+  app.use(express.static(resolvedAdminPath));
+  app.get(['/admin', '/admin/*', '/'], (req, res) => {
+    res.sendFile(path.join(resolvedAdminPath, 'index.html'));
   });
-  console.log(`💻 [Admin UI] Serving production dashboard at /admin`);
+  console.log(`💻 [Admin UI] Serving production dashboard from ${resolvedAdminPath}`);
 }
 
 // API Routes
