@@ -121,12 +121,7 @@ const getSkills = async (req, res) => {
       profile = await MongoTechnicianProfile.findOne({ technicianId });
     } catch (e) {}
 
-    let rawSkills = profile?.skills || inMemorySkills.get(technicianId) || [
-      'Wiring',
-      'Switchboard Repair',
-      'Fan Installation',
-      'MCB Tripping',
-    ];
+    let rawSkills = profile?.skills || inMemorySkills.get(technicianId) || [];
 
     const formattedSkills = rawSkills.map((s, idx) => {
       const skillId = typeof s === 'string' ? s : (s.skillId || `sk_${idx}`);
@@ -305,24 +300,7 @@ const updateProfile = async (req, res) => {
  */
 const getDocuments = async (req, res) => {
   const technicianId = req.user?.id || 'tech-001';
-  const docs = inMemoryDocs.get(technicianId) || [
-    {
-      id: 'doc_1',
-      documentType: 'AADHAAR',
-      fileUrl: 'https://bookurtechnician.com/docs/aadhaar.jpg',
-      maskedNumber: 'XXXX-XXXX-9012',
-      verificationStatus: 'APPROVED',
-      uploadedAt: new Date().toISOString(),
-    },
-    {
-      id: 'doc_2',
-      documentType: 'VOTER_CARD',
-      fileUrl: 'https://bookurtechnician.com/docs/voter.jpg',
-      maskedNumber: 'WBDXXXX67',
-      verificationStatus: 'APPROVED',
-      uploadedAt: new Date().toISOString(),
-    },
-  ];
+  const docs = inMemoryDocs.get(technicianId) || [];
   return res.json({ success: true, data: docs });
 };
 
