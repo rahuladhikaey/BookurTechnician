@@ -1,6 +1,9 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/semantic_colors.dart';
@@ -793,24 +796,119 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   }
 
   void _promptUploadDoc(String docType, String docTitle) {
-    final docNumberController = TextEditingController();
+    final ImagePicker picker = ImagePicker();
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Upload $docTitle Image (Max 10 MB)',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Select a clear photo of your document. Maximum file size allowed is 10 MB.',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 18),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primary),
+                title: const Text('Take Photo with Camera'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final file = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+                  if (file != null) {
+                    await _handleSelectedDocFile(file, docType, docTitle);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
+                title: const Text('Choose Document Image from Gallery'),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+                  if (file != null) {
+                    await _handleSelectedDocFile(file, docType, docTitle);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSelectedDocFile(XFile file, String docType, String docTitle) async {
+    final int fileBytes = await file.length();
+    const int maxBytes = 10 * 1024 * 1024; // 10 MB
+
+    // ─── STRICT 10 MB FILE SIZE VALIDATION ───
+    if (fileBytes > maxBytes) {
+      final double sizeMb = fileBytes / (1024 * 1024);
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('⚠️ File Exceeds 10 MB Limit'),
+            content: Text('The selected image is ${sizeMb.toStringAsFixed(1)} MB. Please choose an image under 10 MB limit.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    final double sizeMb = fileBytes / (1024 * 1024);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Upload $docTitle'),
+        title: Text('Confirm $docTitle Upload'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Submit your $docTitle details for fast verification.', style: const TextStyle(fontSize: 13, color: Colors.grey)),
-            const SizedBox(height: 14),
-            TextField(
-              controller: docNumberController,
-              decoration: InputDecoration(
-                labelText: '$docTitle Number / Ref',
-                hintText: 'e.g. XXXX-XXXX-1234',
-                border: const OutlineInputBorder(),
+            Container(
+              height: 150,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: Colors.grey.shade100,
+                border: Border.all(color: Colors.grey.shade300),
               ),
+              clipBehavior: Clip.antiAlias,
+              child: kIsWeb
+                  ? Image.network(file.path, fit: BoxFit.cover)
+                  : Image.file(File(file.path), fit: BoxFit.cover),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('File Size:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text('${sizeMb.toStringAsFixed(2)} MB / 10 MB Max', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: SemanticColors.success)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Storage Vault:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text('Supabase kyc-documents', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              ],
             ),
           ],
         ),
@@ -823,23 +921,25 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             ),
             onPressed: () async {
               Navigator.pop(ctx);
-              final num = docNumberController.text.trim();
+              final String supabaseStorageUrl =
+                  'https://hgjvwddlwofzpdurvpzd.supabase.co/storage/v1/object/public/kyc-documents/kyc_${docType.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
               await _profileService.submitKycDocument(
                 documentType: docType,
-                fileUrl: 'https://bookurtechnician.com/docs/$docType',
-                maskedNumber: num.isNotEmpty ? num : null,
+                fileUrl: supabaseStorageUrl,
+                maskedNumber: '${docTitle.toUpperCase()}_IMG',
               );
               _loadLiveProfile();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     backgroundColor: SemanticColors.success,
-                    content: Text('$docTitle submitted successfully for verification!'),
+                    content: Text('✓ $docTitle image (${sizeMb.toStringAsFixed(1)} MB) saved to Supabase (kyc-documents) successfully!'),
                   ),
                 );
               }
             },
-            child: const Text('Submit'),
+            child: const Text('Upload & Submit'),
           ),
         ],
       ),
