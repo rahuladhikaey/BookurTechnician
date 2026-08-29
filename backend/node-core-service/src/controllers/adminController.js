@@ -551,6 +551,17 @@ const getTechnicians = async (req, res) => {
         const latitude = coordinates[1] !== undefined ? coordinates[1] : undefined;
         const longitude = coordinates[0] !== undefined ? coordinates[0] : undefined;
 
+        const docs = t.documents || [];
+        const rawKyc = (t.kycStatus || existing.kycStatus || 'PENDING').toUpperCase();
+        const isVer = rawKyc === 'VERIFIED' || rawKyc === 'APPROVED';
+
+        const hasAadhaar = isVer || docs.some(d => (d.documentType || '').toUpperCase().includes('AADHAAR')) || Boolean(t.aadhaarUrl || t.aadhaarNumber);
+        const hasVoterCard = isVer || docs.some(d => (d.documentType || '').toUpperCase().includes('VOTER')) || Boolean(t.voterCardUrl || t.voterCardNumber);
+        const hasLivePic = isVer || docs.some(d => (d.documentType || '').toUpperCase().includes('SELFIE') || (d.documentType || '').toUpperCase().includes('LIVE') || (d.documentType || '').toUpperCase().includes('PHOTO')) || Boolean(t.livePicUrl || t.avatar || t.photo);
+
+        const profileCompletion = isVer ? 100 : ((hasAadhaar ? 25 : 0) + (hasVoterCard ? 25 : 0) + (hasLivePic ? 25 : 0) + 25);
+        const isProfileComplete = isVer || profileCompletion === 100;
+
         techMap.set(id, {
           id,
           technicianId: id,
@@ -560,8 +571,13 @@ const getTechnicians = async (req, res) => {
           email: t.email || existing.email || '',
           category: t.category || existing.category || 'Electrician',
           skills: t.skills && t.skills.length > 0 ? t.skills : (existing.skills || []),
-          kycStatus: t.kycStatus || existing.kycStatus || 'PENDING',
-          kycDocuments: t.documents || [],
+          kycStatus: isVer ? 'VERIFIED' : rawKyc,
+          kycDocuments: docs,
+          hasAadhaar,
+          hasVoterCard,
+          hasLivePic,
+          isProfileComplete,
+          profileCompletion,
           rating: t.rating || existing.rating || 5.0,
           totalJobsCompleted: t.totalJobsCompleted || existing.totalJobsCompleted || 0,
           isOnline: t.isOnline !== undefined ? Boolean(t.isOnline) : (existing.isOnline !== undefined ? existing.isOnline : false),
@@ -575,7 +591,24 @@ const getTechnicians = async (req, res) => {
       }
     } catch (mErr) {}
 
-    const techniciansList = Array.from(techMap.values()).sort((a, b) => {
+    const techniciansList = Array.from(techMap.values()).map(t => {
+      const isVer = (t.kycStatus || 'PENDING').toUpperCase() === 'VERIFIED' || (t.kycStatus || 'PENDING').toUpperCase() === 'APPROVED';
+      const hasAadhaar = t.hasAadhaar !== undefined ? t.hasAadhaar : isVer;
+      const hasVoterCard = t.hasVoterCard !== undefined ? t.hasVoterCard : isVer;
+      const hasLivePic = t.hasLivePic !== undefined ? t.hasLivePic : isVer;
+      const profileCompletion = isVer ? 100 : (t.profileCompletion || 100);
+      const isProfileComplete = isVer || profileCompletion === 100;
+
+      return {
+        ...t,
+        hasAadhaar,
+        hasVoterCard,
+        hasLivePic,
+        profileCompletion,
+        isProfileComplete,
+        kycStatus: isVer ? 'VERIFIED' : t.kycStatus,
+      };
+    }).sort((a, b) => {
       // Online technicians first, then newest
       if (a.isOnline !== b.isOnline) return b.isOnline ? 1 : -1;
       return new Date(b.joinedAt || 0) - new Date(a.joinedAt || 0);
