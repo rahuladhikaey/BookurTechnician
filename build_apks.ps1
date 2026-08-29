@@ -51,22 +51,16 @@ if (-not $env:ANDROID_HOME) {
 # Auto-detect Flutter
 $CommonFlutterPaths = @(
     "D:\Users\RAHUL\flutter\bin",
-    "D:\flutter\bin",
     "C:\Users\RAHUL\flutter\bin",
     "C:\flutter\bin",
-    "C:\src\flutter\bin"
+    "D:\flutter\bin"
 )
 foreach ($Path in $CommonFlutterPaths) {
-    try {
-        if (Test-Path (Join-Path $Path "flutter.bat") -ErrorAction SilentlyContinue) {
-            $SdkRoot = Split-Path $Path -Parent
-            if (Test-Path (Join-Path $SdkRoot "packages\flutter_tools") -ErrorAction SilentlyContinue) {
-                $env:Path = "$Path;$env:Path"
-                Write-Host "Found valid Flutter SDK at $Path. Added to session PATH." -ForegroundColor Green
-                break
-            }
-        }
-    } catch {}
+    if (Test-Path (Join-Path $Path "flutter.bat")) {
+        $env:Path = "$Path;$env:Path"
+        Write-Host "Found valid Flutter SDK at $Path. Added to session PATH." -ForegroundColor Green
+        break
+    }
 }
 
 
