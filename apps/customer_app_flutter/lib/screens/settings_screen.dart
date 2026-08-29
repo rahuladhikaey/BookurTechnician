@@ -198,28 +198,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text(
-              'Download data',
-              style: TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF64748B)),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Personal data export archive initiated. You will receive an email link within 24 hours.'),
-                  backgroundColor: Color(0xFF0F172A),
-                ),
-              );
-            },
-          ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
               'Delete account',
               style: TextStyle(
                 fontSize: 14.5,
