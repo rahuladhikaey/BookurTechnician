@@ -228,6 +228,13 @@ function clearAllBookings() {
 }
 
 /**
+ * Get all registered customers
+ */
+function getAllCustomers() {
+  return Array.from(LIVE_CUSTOMERS.values());
+}
+
+/**
  * Register or update a customer directly (e.g. upon signup)
  */
 function registerCustomer(data) {
