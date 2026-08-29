@@ -1,18 +1,20 @@
 class AppConfig {
   // Live Production & Local Dev Backend Endpoints
+  static const String prodApiBaseUrl = 'https://api.bookurtechnician.online/api/v1';
+  static const String renderFallbackApiUrl = 'https://bookurtechnician-backend.onrender.com/api/v1';
+  static const String renderApiBaseUrl = 'https://bookurtechnician.onrender.com/api/v1';
   static const String localWifiApiBaseUrl = 'http://192.168.1.3:4000/api/v1';
   static const String localApiBaseUrl = 'http://10.0.2.2:4000/api/v1';
-  static const String prodApiBaseUrl = 'https://api.bookurtechnician.online/api/v1';
-  static const String renderApiBaseUrl = 'https://bookurtechnician.onrender.com/api/v1';
-  static const String renderFallbackApiUrl = 'https://bookurtechnician-backend.onrender.com/api/v1';
-  static const String apiBaseUrl = 'http://192.168.1.3:4000/api/v1';
   
-  static const String localSocketUrl = 'http://192.168.1.3:4000';
-  static const String socketUrl = 'http://192.168.1.3:4000';
+  // Primary Live Production Backend Gateway
+  static const String apiBaseUrl = 'https://api.bookurtechnician.online/api/v1';
+  
+  static const String socketUrl = 'https://api.bookurtechnician.online';
   static const String prodSocketUrl = 'https://api.bookurtechnician.online';
-  static const String wsEndpoint = 'http://192.168.1.3:4000/ws';
+  static const String localSocketUrl = 'http://192.168.1.3:4000';
+  static const String wsEndpoint = 'https://api.bookurtechnician.online/ws';
 
   // Request timeout (optimized for quick failover across candidates)
-  static const Duration requestTimeout = Duration(seconds: 5);
+  static const Duration requestTimeout = Duration(seconds: 8);
 }
 

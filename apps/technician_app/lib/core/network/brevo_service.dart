@@ -2,10 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 class BrevoService {
-  static const String apiKey = String.fromEnvironment(
-    'BREVO_API_KEY',
-    defaultValue: '',
-  );
+  static const String apiKey = String.fromEnvironment('BREVO_API_KEY');
   static const String senderEmail = 'noreply@asaliswad.com';
 
   static Future<bool> sendOtpEmail({

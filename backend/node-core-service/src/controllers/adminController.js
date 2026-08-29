@@ -407,8 +407,66 @@ const clearAllBookings = async (req, res) => {
 
 const getCustomers = async (req, res) => {
   try {
-    const customers = bookingsStore.getAllCustomers();
-    return res.json({ success: true, data: customers, count: customers.length });
+    const customerMap = new Map();
+
+    // 1. Fetch from PostgreSQL users table (all registered customer accounts)
+    if (postgres.isPgHealthy()) {
+      try {
+        const dbRes = await postgres.query(`
+          SELECT 
+            u.id,
+            u.full_name as name,
+            u.full_name as "fullName",
+            u.phone,
+            u.email,
+            u.created_at as "createdAt",
+            u.updated_at as "updatedAt"
+          FROM users u
+          WHERE u.role = 'CUSTOMER' OR u.role IS NULL
+          ORDER BY u.created_at DESC;
+        `);
+
+        for (const row of dbRes.rows) {
+          customerMap.set(row.id, {
+            id: row.id,
+            customerId: row.id,
+            name: row.name || 'Customer',
+            fullName: row.name || 'Customer',
+            phone: row.phone || '',
+            email: row.email || '',
+            address: '',
+            totalBookings: 0,
+            totalSpent: 0,
+            status: 'ACTIVE',
+            createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : new Date().toISOString(),
+            updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : new Date().toISOString(),
+          });
+        }
+      } catch (pgErr) {
+        console.warn('[Admin] PG customers query fallback:', pgErr.message);
+      }
+    }
+
+    // 2. Merge with live bookings store customers (with booking history and spend)
+    const storeCustomers = bookingsStore.getAllCustomers();
+    for (const sc of storeCustomers) {
+      const existing = customerMap.get(sc.id) || customerMap.get(sc.customerId) || {};
+      customerMap.set(sc.id || sc.customerId, {
+        ...existing,
+        ...sc,
+        totalBookings: Math.max(existing.totalBookings || 0, sc.totalBookings || 0),
+        totalSpent: Math.max(existing.totalSpent || 0, sc.totalSpent || 0),
+      });
+    }
+
+    const customersList = Array.from(customerMap.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    return res.json({
+      success: true,
+      data: customersList,
+      customers: customersList,
+      count: customersList.length,
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -418,59 +476,114 @@ const getCustomers = async (req, res) => {
 
 const getTechnicians = async (req, res) => {
   try {
-    let techniciansList = [];
+    const techMap = new Map();
+
+    // 1. Fetch from PostgreSQL
     if (postgres.isPgHealthy()) {
-      const dbRes = await postgres.query(`
-        SELECT 
-          tp.id,
-          tp.technician_id as "technicianId",
-          tp.full_name as "fullName",
-          tp.full_name as name,
-          tp.phone,
-          tp.category,
-          tp.skills,
-          tp.kyc_status as "kycStatus",
-          tp.rating,
-          tp.total_jobs_completed as "totalJobsCompleted",
-          tp.is_online as "isOnline",
-          tp.experience_years as "experienceYears",
-          tp.wallet_balance as "walletBalance",
-          u.profile_image_url as avatar,
-          tp.created_at as "joinedAt"
-        FROM technician_profiles tp
-        LEFT JOIN users u ON tp.technician_id = u.id
-        ORDER BY tp.created_at DESC;
-      `);
-      techniciansList = dbRes.rows;
-    }
-
-    // Fallback to MongoDB if PostgreSQL had zero
-    if (techniciansList.length === 0) {
       try {
-        const mongoTechs = await MongoTechnicianProfile.find({});
-        if (mongoTechs && mongoTechs.length > 0) {
-          techniciansList = mongoTechs.map(t => ({
-            id: t.technicianId || t._id,
-            technicianId: t.technicianId,
-            fullName: t.fullName,
-            name: t.fullName,
-            phone: t.phone,
-            category: t.category,
-            skills: t.skills || [],
-            kycStatus: t.kycStatus || 'PENDING',
-            rating: t.rating || 5.0,
-            totalJobsCompleted: t.totalJobsCompleted || 0,
-            isOnline: t.isOnline || false,
-            experienceYears: t.experienceYears || 2,
-            walletBalance: t.walletBalance || 0,
-            avatar: t.avatar || '',
-            joinedAt: t.createdAt || new Date().toISOString(),
-          }));
+        const dbRes = await postgres.query(`
+          SELECT 
+            tp.id,
+            tp.technician_id as "technicianId",
+            tp.full_name as "fullName",
+            tp.full_name as name,
+            tp.phone,
+            tp.category,
+            tp.skills,
+            tp.kyc_status as "kycStatus",
+            tp.rating,
+            tp.total_jobs_completed as "totalJobsCompleted",
+            tp.is_online as "isOnline",
+            tp.experience_years as "experienceYears",
+            tp.wallet_balance as "walletBalance",
+            u.email,
+            u.profile_image_url as avatar,
+            tp.created_at as "joinedAt"
+          FROM technician_profiles tp
+          LEFT JOIN users u ON tp.technician_id = u.id
+          ORDER BY tp.created_at DESC;
+        `);
+        for (const row of dbRes.rows) {
+          const id = row.technicianId || row.id;
+          techMap.set(id, {
+            id,
+            technicianId: id,
+            fullName: row.fullName || 'Technician',
+            name: row.name || 'Technician',
+            phone: row.phone || '',
+            email: row.email || '',
+            category: row.category || 'Electrician',
+            skills: Array.isArray(row.skills) ? row.skills : [],
+            kycStatus: row.kycStatus || 'PENDING',
+            rating: parseFloat(row.rating || 5.0),
+            totalJobsCompleted: parseInt(row.totalJobsCompleted || 0, 10),
+            isOnline: Boolean(row.isOnline),
+            experienceYears: parseInt(row.experienceYears || 2, 10),
+            walletBalance: parseFloat(row.walletBalance || 0),
+            avatar: row.avatar || '',
+            joinedAt: row.joinedAt ? new Date(row.joinedAt).toISOString() : new Date().toISOString(),
+          });
         }
-      } catch (mErr) {}
+      } catch (e) {}
     }
 
-    return res.json({ success: true, data: techniciansList, count: techniciansList.length });
+    // 2. Fetch & merge from MongoDB (captures real-time GPS coordinates, isOnline, KYC documents)
+    try {
+      const mongoTechs = await MongoTechnicianProfile.find({});
+      for (const t of mongoTechs) {
+        const id = t.technicianId || t._id.toString();
+        const existing = techMap.get(id) || {};
+        
+        const coordinates = t.currentLocation?.coordinates || [];
+        const latitude = coordinates[1] !== undefined ? coordinates[1] : undefined;
+        const longitude = coordinates[0] !== undefined ? coordinates[0] : undefined;
+
+        techMap.set(id, {
+          id,
+          technicianId: id,
+          fullName: t.fullName || existing.fullName || 'Technician',
+          name: t.fullName || existing.name || 'Technician',
+          phone: t.phone || existing.phone || '',
+          email: t.email || existing.email || '',
+          category: t.category || existing.category || 'Electrician',
+          skills: t.skills && t.skills.length > 0 ? t.skills : (existing.skills || []),
+          kycStatus: t.kycStatus || existing.kycStatus || 'PENDING',
+          kycDocuments: t.documents || [],
+          rating: t.rating || existing.rating || 5.0,
+          totalJobsCompleted: t.totalJobsCompleted || existing.totalJobsCompleted || 0,
+          isOnline: t.isOnline !== undefined ? Boolean(t.isOnline) : (existing.isOnline !== undefined ? existing.isOnline : false),
+          experienceYears: t.experienceYears || existing.experienceYears || 2,
+          walletBalance: t.walletBalance || existing.walletBalance || 0,
+          latitude,
+          longitude,
+          avatar: t.avatar || existing.avatar || '',
+          joinedAt: t.createdAt ? new Date(t.createdAt).toISOString() : (existing.joinedAt || new Date().toISOString()),
+        });
+      }
+    } catch (mErr) {}
+
+    const techniciansList = Array.from(techMap.values()).sort((a, b) => {
+      // Online technicians first, then newest
+      if (a.isOnline !== b.isOnline) return b.isOnline ? 1 : -1;
+      return new Date(b.joinedAt || 0) - new Date(a.joinedAt || 0);
+    });
+
+    const onlineCount = techniciansList.filter(t => t.isOnline).length;
+    const offlineCount = techniciansList.length - onlineCount;
+    const pendingKycCount = techniciansList.filter(t => t.kycStatus === 'PENDING').length;
+
+    return res.json({
+      success: true,
+      data: techniciansList,
+      technicians: techniciansList,
+      count: techniciansList.length,
+      stats: {
+        total: techniciansList.length,
+        online: onlineCount,
+        offline: offlineCount,
+        pendingKyc: pendingKycCount,
+      },
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }

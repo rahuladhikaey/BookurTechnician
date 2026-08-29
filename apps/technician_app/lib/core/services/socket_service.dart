@@ -150,6 +150,26 @@ class TechnicianSocketService {
     }
   }
 
+  /// Emits real-time live GPS updates over websocket for instantaneous customer tracking
+  void emitLocationUpdate({
+    required double latitude,
+    required double longitude,
+    double? speed,
+    double? heading,
+    String? category,
+  }) {
+    if (_socket != null && _socket!.connected) {
+      _socket!.emit('technician:location:update', {
+        'latitude': latitude,
+        'longitude': longitude,
+        'speed': speed,
+        'heading': heading,
+        'category': category ?? 'electrician',
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+    }
+  }
+
   /// Disconnect socket
   void disconnect() {
     AudioAlertService().stopAlert();

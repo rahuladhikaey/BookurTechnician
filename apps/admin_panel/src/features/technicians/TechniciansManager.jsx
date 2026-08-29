@@ -54,6 +54,8 @@ export default function TechniciansManager({
 
   useEffect(() => {
     fetchTechs();
+    const interval = setInterval(fetchTechs, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // ─── OPEN PROFILE & DETAILS ───

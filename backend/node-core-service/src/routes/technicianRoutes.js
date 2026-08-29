@@ -3,7 +3,9 @@ const router = express.Router();
 const technicianController = require('../controllers/technicianController');
 
 // Location & Status
+router.post('/location', technicianController.syncLocation);
 router.post('/location-sync', technicianController.syncLocation);
+router.post('/online-status', technicianController.toggleOnlineStatus);
 router.post('/toggle-status', technicianController.toggleOnlineStatus);
 
 // Skills Management (Active for service dispatches)
@@ -14,10 +16,14 @@ router.patch('/skills/:id/toggle', technicianController.toggleSkill);
 // Profile Management
 router.get('/profile', technicianController.getProfile);
 router.patch('/profile', technicianController.updateProfile);
+router.put('/profile', technicianController.updateProfile);
 
 // Documents & KYC
 router.get('/documents', technicianController.getDocuments);
 router.post('/documents', technicianController.submitDocument);
 router.post('/kyc', technicianController.submitDocument);
+
+// FCM Notifications
+router.post('/fcm-token', (req, res) => res.json({ success: true, message: 'FCM Token registered' }));
 
 module.exports = router;

@@ -33,19 +33,24 @@ const resolveSkillMeta = (skillId) => {
 };
 
 /**
- * POST /api/v1/technicians/location-sync
+ * POST /api/v1/technicians/location-sync & POST /api/v1/technician/location
  */
 const syncLocation = async (req, res) => {
   try {
     const technicianId = req.user?.id || req.body.technicianId || 'tech-001';
-    const { category = 'ELECTRICIAN', longitude, latitude } = req.body;
+    const { category = 'ELECTRICIAN', longitude, latitude, lat, lng, speed = 0, heading = 0 } = req.body;
 
-    if (!technicianId || longitude === undefined || latitude === undefined) {
-      return res.status(400).json({ success: false, error: 'Missing technicianId, longitude or latitude' });
+    const finalLat = latitude !== undefined ? parseFloat(latitude) : (lat !== undefined ? parseFloat(lat) : null);
+    const finalLng = longitude !== undefined ? parseFloat(longitude) : (lng !== undefined ? parseFloat(lng) : null);
+
+    if (finalLat === null || finalLng === null || isNaN(finalLat) || isNaN(finalLng)) {
+      return res.status(400).json({ success: false, error: 'Missing or invalid latitude or longitude' });
     }
 
     const geoKey = `tech_geo:${category.toLowerCase()}`;
-    await redis.geoAdd(geoKey, parseFloat(longitude), parseFloat(latitude), technicianId);
+    try {
+      await redis.geoAdd(geoKey, finalLng, finalLat, technicianId);
+    } catch (_) {}
 
     try {
       await MongoTechnicianProfile.updateOne(
@@ -54,20 +59,31 @@ const syncLocation = async (req, res) => {
           $set: {
             currentLocation: {
               type: 'Point',
-              coordinates: [parseFloat(longitude), parseFloat(latitude)],
+              coordinates: [finalLng, finalLat],
             },
             isOnline: true,
             updatedAt: new Date(),
           },
-        }
+        },
+        { upsert: true }
       );
     } catch (e) {}
 
     if (global.io) {
       global.io.emit(`tech:location:${technicianId}`, {
         technicianId,
-        longitude: parseFloat(longitude),
-        latitude: parseFloat(latitude),
+        longitude: finalLng,
+        latitude: finalLat,
+        speed: parseFloat(speed) || 0,
+        heading: parseFloat(heading) || 0,
+        timestamp: Date.now(),
+      });
+      global.io.emit('technician:location:broadcast', {
+        technicianId,
+        longitude: finalLng,
+        latitude: finalLat,
+        speed: parseFloat(speed) || 0,
+        heading: parseFloat(heading) || 0,
         timestamp: Date.now(),
       });
     }
@@ -76,7 +92,7 @@ const syncLocation = async (req, res) => {
       success: true,
       message: 'Location synced successfully to Redis 15km index',
       technicianId,
-      coordinates: [parseFloat(longitude), parseFloat(latitude)],
+      coordinates: [finalLng, finalLat],
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });

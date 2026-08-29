@@ -424,6 +424,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       height: 48,
                       child: ElevatedButton.icon(
                         onPressed: () async {
+                          final messenger = ScaffoldMessenger.of(context);
                           final shareText = 
                               '🛠️ BookUrTechnician Certified Field Partner\n'
                               '👤 Name: $technicianName\n'
@@ -437,32 +438,31 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                           await Clipboard.setData(ClipboardData(text: shareText));
 
                           // Show active share sheet / confirmation
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: const Color(0xFF17399A),
-                                duration: const Duration(seconds: 4),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Row(
-                                      children: [
-                                        Icon(Icons.check_circle, color: Colors.white, size: 16),
-                                        SizedBox(width: 8),
-                                        Text('Partner ID Verification Link Copied!', style: TextStyle(fontWeight: FontWeight.bold)),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'ID: $technicianCode ($technicianName)\nLink: https://bookurtechnician.com/verify-tech?id=$technicianCode',
-                                      style: const TextStyle(fontSize: 11, color: Colors.white70),
-                                    ),
-                                  ],
-                                ),
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFF17399A),
+                              duration: const Duration(seconds: 4),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.check_circle, color: Colors.white, size: 16),
+                                      SizedBox(width: 8),
+                                      Text('Partner ID Verification Link Copied!', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'ID: $technicianCode ($technicianName)\nLink: https://bookurtechnician.com/verify-tech?id=$technicianCode',
+                                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                                  ),
+                                ],
                               ),
-                            );
-                          }
+                            ),
+                          );
                         },
                         icon: const Icon(Icons.share_rounded, size: 18),
                         label: const Text('SHARE DIGITAL ID CARD', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5)),

@@ -4,6 +4,7 @@ const redis = require('../config/redis');
 const postgres = require('../config/postgres');
 const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
 const { sendOtpEmail } = require('../services/brevoService');
+const bookingsStore = require('../config/bookingsStore');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_bookurtechnician_2026_secure';
 const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET || 'super_refresh_jwt_key_bookurtechnician_2026';
@@ -141,7 +142,32 @@ const verifyOtp = async (req, res) => {
       );
     }
 
-    // If Technician, ensure profile in MongoDB
+    // Customer Live Registry
+    if (userRole === 'CUSTOMER') {
+      try {
+        bookingsStore.registerCustomer({
+          id: userId,
+          customerId: userId,
+          fullName: userName,
+          name: userName,
+          phone: phone || identifier,
+          email: email || identifier,
+        });
+
+        if (global.io) {
+          global.io.emit('admin:customer_registered', {
+            id: userId,
+            name: userName,
+            fullName: userName,
+            phone: phone || identifier,
+            email: email || identifier,
+            joinedAt: new Date().toISOString(),
+          });
+        }
+      } catch (_) {}
+    }
+
+    // If Technician, ensure profile in MongoDB & notify admin
     if (userRole === 'TECHNICIAN') {
       try {
         await MongoTechnicianProfile.findOneAndUpdate(
@@ -150,10 +176,24 @@ const verifyOtp = async (req, res) => {
             technicianId: userId,
             fullName: userName,
             phone: phone || identifier,
+            email: email || identifier,
+            isOnline: true,
             fcmToken: fcmToken || null,
           },
           { upsert: true, new: true }
         );
+
+        if (global.io) {
+          global.io.emit('admin:technician_registered', {
+            id: userId,
+            technicianId: userId,
+            fullName: userName,
+            phone: phone || identifier,
+            email: email || identifier,
+            isOnline: true,
+            joinedAt: new Date().toISOString(),
+          });
+        }
       } catch (err) {
         // Mongo offline fallback
       }

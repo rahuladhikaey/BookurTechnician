@@ -61,6 +61,7 @@ if (resolvedAdminPath) {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/bookings', bookingRoutes);
 app.use('/api/v1/technicians', technicianRoutes);
+app.use('/api/v1/technician', technicianRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/catalog', catalogRoutes);
 app.use('/api/v1/ai', aiRoutes);
@@ -70,6 +71,8 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/catalog', catalogRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/technicians', technicianRoutes);
+app.use('/api/technician', technicianRoutes);
 
 // Comprehensive Health Check
 app.get('/health', (req, res) => {
@@ -104,20 +107,37 @@ io.on('connection', (socket) => {
   });
 
   // Technician live GPS sync stream
-  socket.on('technician:location_sync', async ({ technicianId, category, longitude, latitude }) => {
-    if (technicianId && category && longitude !== undefined && latitude !== undefined) {
+  const handleLocationStream = async ({ technicianId, category = 'electrician', longitude, latitude, speed, heading }) => {
+    if (longitude !== undefined && latitude !== undefined) {
+      const techId = technicianId || socket.handshake?.auth?.technicianId || 'tech-001';
       const geoKey = `tech_geo:${category.toLowerCase()}`;
-      await geoAdd(geoKey, parseFloat(longitude), parseFloat(latitude), technicianId);
+      try {
+        await geoAdd(geoKey, parseFloat(longitude), parseFloat(latitude), techId);
+      } catch (_) {}
 
       // Broadcast location to customers tracking this technician
-      io.emit(`tech:location:${technicianId}`, {
-        technicianId,
+      io.emit(`tech:location:${techId}`, {
+        technicianId: techId,
         longitude: parseFloat(longitude),
         latitude: parseFloat(latitude),
+        speed: speed || 0,
+        heading: heading || 0,
+        timestamp: Date.now(),
+      });
+      io.emit('technician:location:broadcast', {
+        technicianId: techId,
+        longitude: parseFloat(longitude),
+        latitude: parseFloat(latitude),
+        speed: speed || 0,
+        heading: heading || 0,
         timestamp: Date.now(),
       });
     }
-  });
+  };
+
+  socket.on('technician:location_sync', handleLocationStream);
+  socket.on('technician:location:update', handleLocationStream);
+  socket.on('technician:location', handleLocationStream);
 
   socket.on('disconnect', () => {
     console.log(`🔌 [Socket.io] Client disconnected: ${socket.id}`);

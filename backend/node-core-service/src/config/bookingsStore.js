@@ -228,10 +228,30 @@ function clearAllBookings() {
 }
 
 /**
- * Get all registered customers
+ * Register or update a customer directly (e.g. upon signup)
  */
-function getAllCustomers() {
-  return Array.from(LIVE_CUSTOMERS.values());
+function registerCustomer(data) {
+  const custId = data.id || data.customerId || (data.phone ? `cust-${data.phone.replace(/\D/g, '')}` : `cust-${Date.now().toString(36)}`);
+  const existing = LIVE_CUSTOMERS.get(custId) || {};
+  
+  const updated = {
+    id: custId,
+    customerId: custId,
+    fullName: data.fullName || data.name || existing.fullName || 'Customer',
+    name: data.fullName || data.name || existing.name || 'Customer',
+    phone: data.phone || data.phoneNumber || existing.phone || '',
+    phoneNumber: data.phone || data.phoneNumber || existing.phoneNumber || '',
+    email: data.email || existing.email || '',
+    address: data.address || existing.address || '',
+    totalBookings: existing.totalBookings || 0,
+    totalSpent: existing.totalSpent || 0,
+    status: data.status || existing.status || 'ACTIVE',
+    createdAt: existing.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  LIVE_CUSTOMERS.set(custId, updated);
+  return updated;
 }
 
 module.exports = {
@@ -245,4 +265,5 @@ module.exports = {
   clearAllBookings,
   getDashboardStats,
   getAllCustomers,
+  registerCustomer,
 };

@@ -118,45 +118,24 @@ class LocationTrackingService {
       service.stopSelf();
     });
 
-    // ─── PERIODIC 30-SECOND LOCATION SYNC TIMER ───
-    Timer.periodic(const Duration(seconds: 30), (timer) async {
-      try {
-        final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 10),
-        );
+    // ─── 1. REAL-TIME HARDWARE GPS POSITION STREAM (5m filter) ───
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 5,
+    );
 
+    Future<void> syncPosition(Position position) async {
+      try {
         final prefs = await SharedPreferences.getInstance();
         final token = prefs.getString('auth_token');
-
-        if (token != null && token.isNotEmpty) {
-          final uri = Uri.parse('${AppConfig.apiBaseUrl}/technician/location');
-          final payload = jsonEncode({
-            'latitude': position.latitude,
-            'longitude': position.longitude,
-            'speed': position.speed,
-            'heading': position.heading,
-            'timestamp': DateTime.now().toIso8601String(),
-          });
-
-          await http.post(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: payload,
-          ).timeout(const Duration(seconds: 8));
-        }
-
-        // Format live timestamp
         final timeStr = DateFormat('hh:mm:ss a').format(DateTime.now());
 
         if (service is AndroidServiceInstance) {
           if (await service.isForegroundService()) {
+            final speedKmh = (position.speed * 3.6).clamp(0, 150).toStringAsFixed(1);
             service.setForegroundNotificationInfo(
-              title: 'Partner Duty Active',
-              content: 'Live GPS: ${position.latitude.toStringAsFixed(4)}°, ${position.longitude.toStringAsFixed(4)}° • $timeStr',
+              title: 'Partner Duty Active • Live GPS',
+              content: '${position.latitude.toStringAsFixed(4)}°, ${position.longitude.toStringAsFixed(4)}° • $speedKmh km/h • $timeStr',
             );
           }
         }
@@ -169,9 +148,51 @@ class LocationTrackingService {
           'heading': position.heading,
           'timestamp': DateTime.now().toIso8601String(),
         });
+
+        // Sync to backend candidates
+        final payload = jsonEncode({
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'speed': position.speed,
+          'heading': position.heading,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+
+        for (final base in AppConfig.candidateBaseUrls) {
+          try {
+            final uri = Uri.parse('$base/technician/location');
+            final headers = <String, String>{
+              'Content-Type': 'application/json',
+            };
+            if (token != null && token.isNotEmpty) {
+              headers['Authorization'] = 'Bearer $token';
+            }
+
+            final res = await http.post(uri, headers: headers, body: payload).timeout(const Duration(seconds: 4));
+            if (res.statusCode < 400) {
+              break;
+            }
+          } catch (_) {}
+        }
       } catch (e) {
-        debugPrint('Background location sync error: $e');
+        debugPrint('Location sync error: $e');
       }
+    }
+
+    // Stream listener
+    Geolocator.getPositionStream(locationSettings: locationSettings).listen((pos) {
+      syncPosition(pos);
+    });
+
+    // Periodic 15-second heartbeat timer
+    Timer.periodic(const Duration(seconds: 15), (timer) async {
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 8),
+        );
+        await syncPosition(position);
+      } catch (_) {}
     });
   }
 }
