@@ -16,16 +16,38 @@ class SkillCategoryModel {
   });
 
   factory SkillCategoryModel.fromJson(Map<String, dynamic> json) {
-    var rawSkills = json['skills'] as List? ?? [];
-    List<SkillItemModel> parsedSkills = rawSkills
-        .map((s) => SkillItemModel.fromJson(s as Map<String, dynamic>))
-        .toList();
+    final catId = json['id']?.toString() ?? json['categoryId']?.toString() ?? '';
+    final catName = json['name']?.toString() ?? 'Service Category';
+    final catSlug = json['slug']?.toString() ?? catName.toLowerCase().replaceAll(' ', '-');
+    final catIcon = json['iconUrl']?.toString() ?? json['imageUrl']?.toString() ?? '';
+
+    List<SkillItemModel> parsedSkills = [];
+
+    if (json['skills'] is List && (json['skills'] as List).isNotEmpty) {
+      parsedSkills = (json['skills'] as List)
+          .map((s) => SkillItemModel.fromJson(s as Map<String, dynamic>, defaultCatId: catId, defaultCatName: catName))
+          .toList();
+    } else if (json['subcategories'] is List && (json['subcategories'] as List).isNotEmpty) {
+      for (final sub in json['subcategories']) {
+        if (sub is Map<String, dynamic> && sub['services'] is List) {
+          for (final s in sub['services']) {
+            if (s is Map<String, dynamic>) {
+              parsedSkills.add(SkillItemModel.fromJson(s, defaultCatId: catId, defaultCatName: catName));
+            }
+          }
+        }
+      }
+    } else if (json['services'] is List && (json['services'] as List).isNotEmpty) {
+      parsedSkills = (json['services'] as List)
+          .map((s) => SkillItemModel.fromJson(s as Map<String, dynamic>, defaultCatId: catId, defaultCatName: catName))
+          .toList();
+    }
 
     return SkillCategoryModel(
-      id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      slug: json['slug']?.toString() ?? '',
-      iconUrl: json['iconUrl']?.toString() ?? '',
+      id: catId,
+      name: catName,
+      slug: catSlug,
+      iconUrl: catIcon,
       displayOrder: json['displayOrder'] is int ? json['displayOrder'] : 0,
       skills: parsedSkills,
     );
@@ -51,13 +73,18 @@ class SkillItemModel {
     this.displayOrder = 0,
   });
 
-  factory SkillItemModel.fromJson(Map<String, dynamic> json) {
+  factory SkillItemModel.fromJson(Map<String, dynamic> json, {String defaultCatId = '', String defaultCatName = ''}) {
+    final skillId = json['id']?.toString() ?? json['serviceId']?.toString() ?? json['skillId']?.toString() ?? '';
+    final skillName = json['name']?.toString() ?? json['title']?.toString() ?? 'Service';
+    final resolvedCatId = json['categoryId']?.toString() ?? defaultCatId;
+    final resolvedCatName = json['categoryName']?.toString() ?? defaultCatName;
+
     return SkillItemModel(
-      id: json['id']?.toString() ?? '',
-      categoryId: json['categoryId']?.toString() ?? '',
-      categoryName: json['categoryName']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      slug: json['slug']?.toString() ?? '',
+      id: skillId,
+      categoryId: resolvedCatId,
+      categoryName: resolvedCatName,
+      name: skillName,
+      slug: json['slug']?.toString() ?? skillName.toLowerCase().replaceAll(' ', '-'),
       description: json['description']?.toString() ?? '',
       displayOrder: json['displayOrder'] is int ? json['displayOrder'] : 0,
     );

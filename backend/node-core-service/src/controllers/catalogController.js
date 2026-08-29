@@ -1,4 +1,4 @@
-const { getMasterCatalog, getFlattenedServices } = require('../config/masterCatalog');
+const { getMasterCatalog, getCatalogHierarchy, getFlattenedServices } = require('../config/masterCatalog');
 
 /**
  * GET /api/v1/catalog/categories
@@ -6,12 +6,30 @@ const { getMasterCatalog, getFlattenedServices } = require('../config/masterCata
  */
 const getCatalog = async (req, res) => {
   try {
-    const categories = getMasterCatalog();
+    const categories = getCatalogHierarchy();
     return res.json({
       success: true,
       data: categories,
       categories: categories,
       count: categories.length,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * GET /api/v1/catalog/hierarchy
+ * Returns categorized skills hierarchy for Technician Partner Skill Selection
+ */
+const getHierarchy = async (req, res) => {
+  try {
+    const hierarchy = getCatalogHierarchy();
+    return res.json({
+      success: true,
+      data: hierarchy,
+      categories: hierarchy,
+      count: hierarchy.length,
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
@@ -38,6 +56,7 @@ const getServices = async (req, res) => {
 
 module.exports = {
   getCatalog,
+  getHierarchy,
   getServices,
   DEFAULT_CATALOG: getMasterCatalog(),
 };

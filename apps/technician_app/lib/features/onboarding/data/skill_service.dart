@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
 import '../domain/skill_models.dart';
@@ -11,15 +13,45 @@ class SkillService {
 
   /// Fetch full dynamic hierarchy: Category -> Services -> Skills
   Future<List<SkillCategoryModel>> fetchCatalogHierarchy() async {
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 4),
+      receiveTimeout: const Duration(seconds: 4),
+    ));
+
+    for (final baseUrl in AppConfig.candidateBaseUrls) {
+      try {
+        final res = await dio.get('$baseUrl/catalog/hierarchy');
+        final rawList = (res.statusCode == 200) ? (res.data?['data'] ?? res.data?['categories'] ?? res.data) : null;
+        if (rawList is List && rawList.isNotEmpty) {
+          final parsed = rawList
+              .map((c) => SkillCategoryModel.fromJson(c as Map<String, dynamic>))
+              .where((c) => c.skills.isNotEmpty)
+              .toList();
+          if (parsed.isNotEmpty) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        debugPrint('Candidate hierarchy warning ($baseUrl): $e');
+      }
+    }
+
     try {
-      final res = await _dioClient.dio.get('/catalog/hierarchy');
-      if (res.statusCode == 200 && res.data?['data'] is List) {
-        final list = res.data['data'] as List;
-        return list.map((c) => SkillCategoryModel.fromJson(c as Map<String, dynamic>)).toList();
+      final res = await _dioClient.dio.get('/catalog/categories');
+      final rawList = res.data?['data'] ?? res.data?['categories'] ?? res.data;
+      if (rawList is List && rawList.isNotEmpty) {
+        final parsed = rawList
+            .map((c) => SkillCategoryModel.fromJson(c as Map<String, dynamic>))
+            .where((c) => c.skills.isNotEmpty)
+            .toList();
+        if (parsed.isNotEmpty) {
+          return parsed;
+        }
       }
     } catch (e) {
-      debugPrint('Error fetching catalog hierarchy: $e');
+      debugPrint('Direct categories warning: $e');
     }
+
     return _getFallbackCategories();
   }
 

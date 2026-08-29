@@ -584,12 +584,46 @@ function deleteCategoryItem(catId) {
   return MASTER_CATALOG.length < initialLen;
 }
 
+function getCatalogHierarchy() {
+  return MASTER_CATALOG.map(cat => {
+    const allSkills = [];
+    if (Array.isArray(cat.subcategories)) {
+      for (const sub of cat.subcategories) {
+        if (Array.isArray(sub.services)) {
+          for (const s of sub.services) {
+            allSkills.push({
+              id: s.id,
+              categoryId: cat.id || cat.categoryId,
+              categoryName: cat.name,
+              name: s.name,
+              slug: (s.slug || s.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+              description: s.description || '',
+              price: s.price || s.offerPrice || 149,
+              displayOrder: s.displayOrder || 0,
+            });
+          }
+        }
+      }
+    }
+    return {
+      id: cat.id || cat.categoryId,
+      name: cat.name,
+      slug: (cat.slug || cat.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      iconUrl: cat.imageUrl || cat.icon || '',
+      displayOrder: cat.displayOrder || 0,
+      skills: allSkills,
+      subcategories: cat.subcategories || [],
+    };
+  });
+}
+
 function getMasterCatalog() {
   return MASTER_CATALOG;
 }
 
 module.exports = {
   getMasterCatalog,
+  getCatalogHierarchy,
   getFlattenedServices,
   getAdminCategories,
   updateServicePricing,
