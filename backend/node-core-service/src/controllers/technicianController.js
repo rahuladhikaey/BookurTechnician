@@ -321,33 +321,188 @@ const updateProfile = async (req, res) => {
 /**
  * GET /api/v1/technicians/documents
  */
+/**
+ * GET /api/v1/technicians/documents
+ */
 const getDocuments = async (req, res) => {
-  const technicianId = req.user?.id || 'tech-001';
-  const docs = inMemoryDocs.get(technicianId) || [];
-  return res.json({ success: true, data: docs });
+  const technicianId = req.user?.id || req.query.technicianId || req.params.id || 'tech-001';
+  const docMap = new Map();
+
+  // 1. From in-memory cache
+  const memDocs = inMemoryDocs.get(technicianId) || [];
+  for (const d of memDocs) {
+    const typeKey = d.documentType || 'DOCUMENT';
+    docMap.set(typeKey, d);
+  }
+
+  // 2. From MongoDB
+  try {
+    const profile = await MongoTechnicianProfile.findOne({
+      $or: [{ technicianId }, { _id: technicianId }]
+    }).lean();
+
+    if (profile) {
+      if (Array.isArray(profile.documents)) {
+        for (const d of profile.documents) {
+          const typeKey = d.documentType || 'DOCUMENT';
+          if (!docMap.has(typeKey)) {
+            docMap.set(typeKey, {
+              id: d.id || `doc_${Date.now()}`,
+              documentType: d.documentType,
+              fileUrl: d.fileUrl || d.secureCloudinaryUrl || '',
+              secureCloudinaryUrl: d.secureCloudinaryUrl || d.fileUrl || '',
+              maskedNumber: d.maskedNumber || 'UPLOADED',
+              verificationStatus: d.verificationStatus || profile.kycStatus || 'PENDING',
+              uploadedAt: d.uploadedAt || profile.updatedAt || new Date().toISOString(),
+            });
+          }
+        }
+      }
+
+      // Add fallback document entries if direct image URLs are set on MongoDB profile
+      if (profile.aadharCardImageUrl && !docMap.has('AADHAAR')) {
+        docMap.set('AADHAAR', {
+          id: `doc_aadhaar_${technicianId}`,
+          documentType: 'AADHAAR',
+          fileUrl: profile.aadharCardImageUrl,
+          secureCloudinaryUrl: profile.aadharCardImageUrl,
+          maskedNumber: profile.aadharNumber || 'VERIFIED',
+          verificationStatus: profile.kycStatus || 'PENDING',
+          uploadedAt: profile.updatedAt || new Date().toISOString(),
+        });
+      }
+      if (profile.voterCardImageUrl && !docMap.has('VOTER_CARD')) {
+        docMap.set('VOTER_CARD', {
+          id: `doc_voter_${technicianId}`,
+          documentType: 'VOTER_CARD',
+          fileUrl: profile.voterCardImageUrl,
+          secureCloudinaryUrl: profile.voterCardImageUrl,
+          maskedNumber: profile.voterIdNumber || 'VERIFIED',
+          verificationStatus: profile.kycStatus || 'PENDING',
+          uploadedAt: profile.updatedAt || new Date().toISOString(),
+        });
+      }
+      if (profile.selfieImageUrl && !docMap.has('SELFIE')) {
+        docMap.set('SELFIE', {
+          id: `doc_selfie_${technicianId}`,
+          documentType: 'SELFIE',
+          fileUrl: profile.selfieImageUrl,
+          secureCloudinaryUrl: profile.selfieImageUrl,
+          maskedNumber: 'LIVE_PHOTO',
+          verificationStatus: profile.kycStatus || 'PENDING',
+          uploadedAt: profile.updatedAt || new Date().toISOString(),
+        });
+      }
+    }
+  } catch (e) {}
+
+  // 3. From PostgreSQL
+  if (postgres.isPgHealthy()) {
+    try {
+      const dbRes = await postgres.query(`
+        SELECT id, document_type, document_number, front_image_url, verification_status, created_at
+        FROM technician_kyc_documents
+        WHERE technician_id = $1;
+      `, [technicianId]);
+
+      for (const row of dbRes.rows) {
+        const typeKey = row.document_type || 'DOCUMENT';
+        if (!docMap.has(typeKey)) {
+          docMap.set(typeKey, {
+            id: row.id,
+            documentType: row.document_type,
+            fileUrl: row.front_image_url || '',
+            secureCloudinaryUrl: row.front_image_url || '',
+            maskedNumber: row.document_number || 'UPLOADED',
+            verificationStatus: row.verification_status || 'PENDING',
+            uploadedAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  const result = Array.from(docMap.values());
+  return res.json({ success: true, data: result, count: result.length });
 };
 
 /**
  * POST /api/v1/technicians/documents
  */
 const submitDocument = async (req, res) => {
-  const technicianId = req.user?.id || 'tech-001';
-  const { documentType, fileUrl, maskedNumber } = req.body;
+  const technicianId = req.user?.id || req.body.technicianId || 'tech-001';
+  const { documentType = 'AADHAAR', fileUrl = '', maskedNumber } = req.body;
+
+  const docTypeUpper = String(documentType).toUpperCase();
 
   const newDoc = {
     id: `doc_${Date.now()}`,
-    documentType: documentType || 'AADHAAR',
+    documentType: docTypeUpper,
     fileUrl: fileUrl || '',
-    maskedNumber: maskedNumber || 'XXXX-XXXX-1234',
-    verificationStatus: 'APPROVED',
+    secureCloudinaryUrl: fileUrl || '',
+    maskedNumber: maskedNumber || `${docTypeUpper}_IMAGE`,
+    verificationStatus: 'PENDING',
     uploadedAt: new Date().toISOString(),
   };
 
+  // 1. In-memory update
   const existing = inMemoryDocs.get(technicianId) || [];
-  existing.push(newDoc);
-  inMemoryDocs.set(technicianId, existing);
+  const filtered = existing.filter(d => (d.documentType || '').toUpperCase() !== docTypeUpper);
+  filtered.push(newDoc);
+  inMemoryDocs.set(technicianId, filtered);
 
-  return res.json({ success: true, data: newDoc });
+  // 2. MongoDB update
+  try {
+    const mongoUpdate = {
+      $pull: { documents: { documentType: docTypeUpper } }
+    };
+    await MongoTechnicianProfile.updateOne(
+      { $or: [{ technicianId }, { _id: technicianId }] },
+      mongoUpdate
+    );
+
+    const mongoPush = {
+      $push: { documents: newDoc },
+      $set: { updatedAt: new Date() }
+    };
+
+    if (docTypeUpper.includes('AADHAAR')) {
+      mongoPush.$set.aadharCardImageUrl = fileUrl;
+      if (maskedNumber) mongoPush.$set.aadharNumber = maskedNumber;
+    } else if (docTypeUpper.includes('VOTER')) {
+      mongoPush.$set.voterCardImageUrl = fileUrl;
+      if (maskedNumber) mongoPush.$set.voterIdNumber = maskedNumber;
+    } else if (docTypeUpper.includes('SELFIE') || docTypeUpper.includes('LIVE') || docTypeUpper.includes('PHOTO')) {
+      mongoPush.$set.selfieImageUrl = fileUrl;
+    } else if (docTypeUpper.includes('UPI')) {
+      if (maskedNumber) mongoPush.$set.upiId = maskedNumber;
+    }
+
+    await MongoTechnicianProfile.updateOne(
+      { $or: [{ technicianId }, { _id: technicianId }] },
+      mongoPush,
+      { upsert: true }
+    );
+  } catch (e) {
+    console.error('Error persisting document to MongoDB:', e.message);
+  }
+
+  // 3. PostgreSQL update
+  if (postgres.isPgHealthy()) {
+    try {
+      await postgres.query(`
+        INSERT INTO technician_kyc_documents (id, technician_id, document_type, document_number, front_image_url, verification_status)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (id) DO UPDATE 
+        SET front_image_url = $5, verification_status = $6, updated_at = NOW();
+      `, [newDoc.id, technicianId, docTypeUpper, newDoc.maskedNumber, fileUrl, 'PENDING']);
+    } catch (e) {
+      console.error('Error persisting document to Postgres:', e.message);
+    }
+  }
+
+  console.log(`📄 [KYC Upload] Saved document '${docTypeUpper}' for technician ${technicianId} across Mongo & Postgres.`);
+  return res.json({ success: true, message: `Document ${docTypeUpper} submitted successfully`, data: newDoc });
 };
 
 /**

@@ -674,44 +674,165 @@ const getPendingKycList = async (req, res) => {
   }
 };
 
+const getTechnicianDocuments = async (req, res) => {
+  const technicianId = req.params.id || req.query.technicianId || 'tech-001';
+  const docMap = new Map();
+
+  // 1. From MongoDB
+  try {
+    const profile = await MongoTechnicianProfile.findOne({
+      $or: [{ technicianId }, { _id: technicianId }]
+    }).lean();
+
+    if (profile) {
+      if (Array.isArray(profile.documents)) {
+        for (const d of profile.documents) {
+          const typeKey = d.documentType || 'DOCUMENT';
+          docMap.set(typeKey, {
+            id: d.id || `doc_${Date.now()}`,
+            documentType: d.documentType,
+            secureCloudinaryUrl: d.fileUrl || d.secureCloudinaryUrl || '',
+            fileUrl: d.fileUrl || d.secureCloudinaryUrl || '',
+            maskedNumber: d.maskedNumber || 'UPLOADED',
+            verificationStatus: (profile.kycStatus === 'VERIFIED' || profile.kycStatus === 'APPROVED') ? 'APPROVED' : (d.verificationStatus || 'PENDING'),
+            uploadedAt: d.uploadedAt || profile.updatedAt || new Date().toISOString(),
+          });
+        }
+      }
+
+      if (profile.aadharCardImageUrl && !docMap.has('AADHAAR')) {
+        docMap.set('AADHAAR', {
+          id: `doc_aadhaar_${technicianId}`,
+          documentType: 'AADHAAR',
+          secureCloudinaryUrl: profile.aadharCardImageUrl,
+          fileUrl: profile.aadharCardImageUrl,
+          maskedNumber: profile.aadharNumber || 'VERIFIED',
+          verificationStatus: (profile.kycStatus === 'VERIFIED' || profile.kycStatus === 'APPROVED') ? 'APPROVED' : 'PENDING',
+          uploadedAt: profile.updatedAt || new Date().toISOString(),
+        });
+      }
+
+      if (profile.voterCardImageUrl && !docMap.has('VOTER_CARD')) {
+        docMap.set('VOTER_CARD', {
+          id: `doc_voter_${technicianId}`,
+          documentType: 'VOTER_CARD',
+          secureCloudinaryUrl: profile.voterCardImageUrl,
+          fileUrl: profile.voterCardImageUrl,
+          maskedNumber: profile.voterIdNumber || 'VERIFIED',
+          verificationStatus: (profile.kycStatus === 'VERIFIED' || profile.kycStatus === 'APPROVED') ? 'APPROVED' : 'PENDING',
+          uploadedAt: profile.updatedAt || new Date().toISOString(),
+        });
+      }
+
+      if (profile.selfieImageUrl && !docMap.has('SELFIE')) {
+        docMap.set('SELFIE', {
+          id: `doc_selfie_${technicianId}`,
+          documentType: 'SELFIE',
+          secureCloudinaryUrl: profile.selfieImageUrl,
+          fileUrl: profile.selfieImageUrl,
+          maskedNumber: 'LIVE_PHOTO',
+          verificationStatus: (profile.kycStatus === 'VERIFIED' || profile.kycStatus === 'APPROVED') ? 'APPROVED' : 'PENDING',
+          uploadedAt: profile.updatedAt || new Date().toISOString(),
+        });
+      }
+    }
+  } catch (e) {}
+
+  // 2. From PostgreSQL
+  if (postgres.isPgHealthy()) {
+    try {
+      const dbRes = await postgres.query(`
+        SELECT id, document_type, document_number, front_image_url, verification_status, created_at
+        FROM technician_kyc_documents
+        WHERE technician_id = $1;
+      `, [technicianId]);
+
+      for (const row of dbRes.rows) {
+        const typeKey = row.document_type || 'DOCUMENT';
+        if (!docMap.has(typeKey)) {
+          docMap.set(typeKey, {
+            id: row.id,
+            documentType: row.document_type,
+            secureCloudinaryUrl: row.front_image_url || '',
+            fileUrl: row.front_image_url || '',
+            maskedNumber: row.document_number || 'UPLOADED',
+            verificationStatus: row.verification_status || 'PENDING',
+            uploadedAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  const result = Array.from(docMap.values());
+  return res.json({ success: true, data: result, count: result.length });
+};
+
 const updateTechnicianKyc = async (req, res) => {
   const technicianId = req.params.id || req.body.technicianId;
-  const status = req.body.status || 'VERIFIED';
+  const status = String(req.body.status || 'VERIFIED').toUpperCase();
   const reason = req.body.reason || req.body.rejectionReason || null;
 
+  const isApproved = status === 'VERIFIED' || status === 'APPROVED';
+  const targetKycStatus = isApproved ? 'VERIFIED' : 'REJECTED';
+  const docStatus = isApproved ? 'APPROVED' : 'REJECTED';
+
   try {
-    // 1. Update MongoTechnicianProfile if available
+    // 1. Update MongoTechnicianProfile
     try {
-      await MongoTechnicianProfile.updateOne(
-        { $or: [{ technicianId }, { _id: technicianId }] },
-        { $set: { kycStatus: status, rejectionReason: reason, isProfileComplete: status === 'VERIFIED', updatedAt: new Date() } }
-      );
-    } catch (_) {}
+      const mongoProfile = await MongoTechnicianProfile.findOne({
+        $or: [{ technicianId }, { _id: technicianId }]
+      });
 
-    // 2. Update Postgres if available
-    if (postgres.isPgHealthy()) {
-      await postgres.query(`
-        UPDATE technician_profiles
-        SET kyc_status = $1, updated_at = NOW()
-        WHERE technician_id = $2 OR id = $2;
-      `, [status, technicianId]);
+      if (mongoProfile) {
+        mongoProfile.kycStatus = targetKycStatus;
+        mongoProfile.isProfileComplete = isApproved;
+        mongoProfile.rejectionReason = reason;
+        mongoProfile.updatedAt = new Date();
 
-      await postgres.query(`
-        UPDATE technician_kyc_documents
-        SET verification_status = $1, rejection_reason = $2
-        WHERE technician_id = $3;
-      `, [status === 'VERIFIED' ? 'APPROVED' : 'REJECTED', reason, technicianId]);
+        if (Array.isArray(mongoProfile.documents)) {
+          mongoProfile.documents = mongoProfile.documents.map(d => ({
+            ...d,
+            verificationStatus: docStatus,
+          }));
+        }
+        await mongoProfile.save();
+      }
+    } catch (mErr) {
+      console.error('Mongo KYC update error:', mErr.message);
     }
+
+    // 2. Update Postgres
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          UPDATE technician_profiles
+          SET kyc_status = $1, updated_at = NOW()
+          WHERE technician_id = $2 OR id = $2;
+        `, [targetKycStatus, technicianId]);
+
+        await postgres.query(`
+          UPDATE technician_kyc_documents
+          SET verification_status = $1, rejection_reason = $2
+          WHERE technician_id = $3;
+        `, [docStatus, reason, technicianId]);
+      } catch (pErr) {
+        console.error('Postgres KYC update error:', pErr.message);
+      }
+    }
+
+    console.log(`✅ [KYC Admin Verify] Marked technician ${technicianId} KYC as ${targetKycStatus}.`);
   } catch (e) {
     console.error('Error updating technician KYC:', e);
   }
 
   return res.json({
     success: true,
-    message: `Technician ${technicianId} KYC status updated to ${status}`,
+    message: `Technician ${technicianId} KYC status updated to ${targetKycStatus}`,
     id: technicianId,
-    status,
-    kycStatus: status
+    status: targetKycStatus,
+    kycStatus: targetKycStatus,
+    isProfileComplete: isApproved
   });
 };
 
@@ -802,6 +923,7 @@ module.exports = {
   clearAllBookings,
   getCustomers,
   getTechnicians,
+  getTechnicianDocuments,
   updateTechnicianStatus,
   updateTechnicianKyc,
   getPendingKycList,

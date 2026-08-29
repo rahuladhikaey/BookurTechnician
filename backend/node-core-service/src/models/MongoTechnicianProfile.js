@@ -20,6 +20,9 @@ const MongoTechnicianProfileSchema = new mongoose.Schema(
     upiId: { type: String },
     upiNumber: { type: String },
     selfieImageUrl: { type: String },
+    documents: [mongoose.Schema.Types.Mixed],
+    isProfileComplete: { type: Boolean, default: false },
+    rejectionReason: { type: String },
     rating: { type: Number, default: 4.8 },
     totalJobsCompleted: { type: Number, default: 0 },
     acceptanceRate: { type: Number, default: 95.0 },
@@ -31,7 +34,7 @@ const MongoTechnicianProfileSchema = new mongoose.Schema(
     walletBalance: { type: Number, default: 0 },
     fcmToken: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 MongoTechnicianProfileSchema.index({ currentLocation: '2dsphere' });
