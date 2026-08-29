@@ -641,6 +641,47 @@ const getPendingKycList = async (req, res) => {
   }
 };
 
+const updateTechnicianKyc = async (req, res) => {
+  const technicianId = req.params.id || req.body.technicianId;
+  const status = req.body.status || 'VERIFIED';
+  const reason = req.body.reason || req.body.rejectionReason || null;
+
+  try {
+    // 1. Update MongoTechnicianProfile if available
+    try {
+      await MongoTechnicianProfile.updateOne(
+        { $or: [{ technicianId }, { _id: technicianId }] },
+        { $set: { kycStatus: status, rejectionReason: reason, isProfileComplete: status === 'VERIFIED', updatedAt: new Date() } }
+      );
+    } catch (_) {}
+
+    // 2. Update Postgres if available
+    if (postgres.isPgHealthy()) {
+      await postgres.query(`
+        UPDATE technician_profiles
+        SET kyc_status = $1, updated_at = NOW()
+        WHERE technician_id = $2 OR id = $2;
+      `, [status, technicianId]);
+
+      await postgres.query(`
+        UPDATE technician_kyc_documents
+        SET verification_status = $1, rejection_reason = $2
+        WHERE technician_id = $3;
+      `, [status === 'VERIFIED' ? 'APPROVED' : 'REJECTED', reason, technicianId]);
+    }
+  } catch (e) {
+    console.error('Error updating technician KYC:', e);
+  }
+
+  return res.json({
+    success: true,
+    message: `Technician ${technicianId} KYC status updated to ${status}`,
+    id: technicianId,
+    status,
+    kycStatus: status
+  });
+};
+
 const reviewKyc = async (req, res) => {
   const { technicianId, status, rejectionReason } = req.body;
   try {
@@ -729,6 +770,7 @@ module.exports = {
   getCustomers,
   getTechnicians,
   updateTechnicianStatus,
+  updateTechnicianKyc,
   getPendingKycList,
   reviewKyc,
   getBanners,

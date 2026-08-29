@@ -35,6 +35,8 @@ router.get('/customers', adminController.getCustomers);
 // Technicians Management & KYC
 router.get('/technicians', adminController.getTechnicians);
 router.patch('/technicians/:id/status', adminController.updateTechnicianStatus);
+router.patch('/technicians/:id/kyc', adminController.updateTechnicianKyc);
+router.put('/technicians/:id/kyc', adminController.updateTechnicianKyc);
 router.get('/kyc-pending', adminController.getPendingKycList);
 router.post('/kyc-review', adminController.reviewKyc);
 
