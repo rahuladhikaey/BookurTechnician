@@ -11,7 +11,12 @@ const getInitialBaseUrl = () => {
     return import.meta.env.VITE_API_BASE_URL;
   }
   if (typeof window !== 'undefined') {
-    // When served by Spring Boot on the same origin (local or prod), relative path /api/v1 works seamlessly
+    const host = window.location.hostname;
+    // When running locally on Vite dev server (localhost / 127.0.0.1 / 192.168.x.x), point directly to cloud backend
+    if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.')) {
+      return PRIMARY_API_BASE_URL;
+    }
+    // When served statically by backend on custom domain or Render
     return '/api/v1';
   }
   return PRIMARY_API_BASE_URL;
@@ -78,23 +83,25 @@ class ApiClient {
       let response;
       try {
         response = await fetch(url, config);
+        // If local proxy returned 500/502/503/404 on Vite localhost, fallback to cloud
+        if (response.status >= 500 || (response.status === 404 && url.startsWith('/api/v1'))) {
+          const fallbackUrl = url.replace(/^(https:\/\/api\.bookurtechnician\.online\/api\/v1|\/api\/v1|http:\/\/localhost:\d+\/api\/v1)/, this.fallbackBaseUrl);
+          if (fallbackUrl !== url) {
+            console.warn(`Initial request failed with status ${response.status}. Retrying with render cloud fallback: ${fallbackUrl}`);
+            response = await fetch(fallbackUrl, config);
+          }
+        }
       } catch (fetchErr) {
         let fallbackUrl = null;
         if (url.includes('api.bookurtechnician.online')) {
           fallbackUrl = url.replace('https://api.bookurtechnician.online/api/v1', this.fallbackBaseUrl);
-        } else if (url.startsWith('/api/v1')) {
-          fallbackUrl = `https://api.bookurtechnician.online${url}`;
+        } else if (url.startsWith('/api/v1') || url.includes('localhost')) {
+          fallbackUrl = `${this.fallbackBaseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
         }
         
         if (fallbackUrl) {
-          console.warn(`API unreachable. Retrying with custom domain fallback: ${fallbackUrl}`);
-          try {
-            response = await fetch(fallbackUrl, config);
-          } catch (secondErr) {
-            const renderFallbackUrl = url.replace(/^(https:\/\/api\.bookurtechnician\.online\/api\/v1|\/api\/v1)/, this.fallbackBaseUrl);
-            console.warn(`Retrying with render fallback: ${renderFallbackUrl}`);
-            response = await fetch(renderFallbackUrl, config);
-          }
+          console.warn(`API unreachable. Retrying with render fallback: ${fallbackUrl}`);
+          response = await fetch(fallbackUrl, config);
         } else {
           throw fetchErr;
         }

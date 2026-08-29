@@ -28,13 +28,19 @@ export default function AdminLogin({ onLoginSuccess }) {
     try {
       // Direct Security Verification with Backend using master keys
       const response = await api.directAdminAccess(trimmedEmail, DEFAULT_KEY_1, DEFAULT_KEY_2);
-      if (!response?.data?.accessToken) {
-        throw new Error(response?.message || 'Authentication failed. Please check backend connection.');
+      const accessToken = response?.accessToken || response?.token || response?.data?.accessToken || response?.data?.token;
+
+      if (!accessToken) {
+        throw new Error(response?.message || response?.error || 'Authentication failed. Please check backend connection.');
       }
 
-      const authUser = response.data.user;
-      const accessToken = response.data.accessToken;
-      const refreshToken = response.data.refreshToken;
+      const authUser = response?.user || response?.data?.user || {
+        id: 'admin-root-001',
+        email: trimmedEmail,
+        fullName: 'System Administrator',
+        role: 'SUPER_ADMIN'
+      };
+      const refreshToken = response?.refreshToken || response?.data?.refreshToken;
 
       api.setToken(accessToken, true);
       if (refreshToken) {
