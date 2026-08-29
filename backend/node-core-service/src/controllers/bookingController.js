@@ -23,6 +23,113 @@ const generateServiceOtp = () => {
 };
 
 /**
+ * Calculate Haversine distance in kilometers between two GPS coordinates
+ */
+const calculateHaversineDistanceKm = (lat1, lon1, lat2, lon2) => {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 2.0;
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return parseFloat((R * c).toFixed(2));
+};
+
+/**
+ * Standardize category keys across app formats
+ */
+const normalizeCategoryKey = (cat) => {
+  if (!cat) return 'electrician';
+  const c = String(cat).toLowerCase().trim();
+  if (c.includes('ac') || c.includes('cooling') || c.includes('air')) return 'ac';
+  if (c.includes('electr') || c.includes('wire') || c.includes('light') || c.includes('fan') || c.includes('mcb')) return 'electrician';
+  if (c.includes('plumb') || c.includes('pipe') || c.includes('leak') || c.includes('drain') || c.includes('tap')) return 'plumbing';
+  if (c.includes('appliance') || c.includes('wash') || c.includes('fridge') || c.includes('refrig') || c.includes('ro_')) return 'appliance';
+  if (c.includes('clean') || c.includes('house') || c.includes('sofa')) return 'cleaning';
+  if (c.includes('carpent') || c.includes('wood') || c.includes('door') || c.includes('furniture')) return 'carpenter';
+  if (c.includes('paint') || c.includes('wall')) return 'painter';
+  return c.replace(/^cat_/, '');
+};
+
+/**
+ * Multi-source 15 km Radius Geospatial Technician Scanner
+ */
+const scanTechniciansWithin15Km = async (customerLat, customerLng, category) => {
+  const normCat = normalizeCategoryKey(category);
+  const matchedMap = new Map(); // technicianId -> object
+
+  // 1. Query Redis Geo for specific category key (15km radius)
+  try {
+    const redisCatTechs = await redis.geoRadius(`tech_geo:${normCat}`, customerLng, customerLat, 15);
+    for (const t of redisCatTechs) {
+      matchedMap.set(t.member, {
+        technicianId: t.member,
+        distanceKm: t.distanceKm,
+        latitude: t.latitude,
+        longitude: t.longitude,
+        category: normCat,
+      });
+    }
+  } catch (e) {
+    console.error('Redis geoRadius category search error:', e.message);
+  }
+
+  // 2. Query Redis Geo for global tech_geo:all (15km radius)
+  try {
+    const redisAllTechs = await redis.geoRadius('tech_geo:all', customerLng, customerLat, 15);
+    for (const t of redisAllTechs) {
+      if (!matchedMap.has(t.member)) {
+        matchedMap.set(t.member, {
+          technicianId: t.member,
+          distanceKm: t.distanceKm,
+          latitude: t.latitude,
+          longitude: t.longitude,
+          category: normCat,
+        });
+      }
+    }
+  } catch (e) {
+    console.error('Redis geoRadius tech_geo:all error:', e.message);
+  }
+
+  // 3. Query MongoDB for active online technicians within 15 km
+  try {
+    const mongoTechs = await MongoTechnicianProfile.find({ isOnline: true }).lean();
+    for (const t of mongoTechs) {
+      const techId = t.technicianId || (t._id ? t._id.toString() : 'tech-001');
+      if (t.currentLocation?.coordinates && Array.isArray(t.currentLocation.coordinates) && t.currentLocation.coordinates.length === 2) {
+        const [tLng, tLat] = t.currentLocation.coordinates;
+        const dist = calculateHaversineDistanceKm(customerLat, customerLng, tLat, tLng);
+        if (dist <= 15.0) {
+          if (!matchedMap.has(techId)) {
+            matchedMap.set(techId, {
+              technicianId: techId,
+              distanceKm: dist,
+              latitude: tLat,
+              longitude: tLng,
+              category: normalizeCategoryKey(t.category || normCat),
+              name: t.fullName,
+              phone: t.phone,
+            });
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('MongoDB technician query fallback error:', e.message);
+  }
+
+  const result = Array.from(matchedMap.values());
+  result.sort((a, b) => a.distanceKm - b.distanceKm);
+
+  console.log(`🔍 [Strict Real 15km Scan] Found ${result.length} real active technicians within 15km for category '${normCat}'`);
+  return result;
+};
+
+/**
  * POST /api/v1/bookings
  * Create new service booking with Redis 15km matching & Python AI ranking
  */
@@ -61,11 +168,13 @@ const createBooking = async (req, res) => {
     const startOtp = req.body.otpCode || generateServiceOtp();
     const endOtp = generateServiceOtp();
 
-    // 1. Redis Geospatial Query (15km radius)
-    const categoryKey = `tech_geo:${(category || 'electrician').toLowerCase()}`;
-    const nearbyTechnicians = await redis.geoRadius(categoryKey, longitude, latitude, 15);
+    const custLat = parseFloat(latitude) || 12.9716;
+    const custLng = parseFloat(longitude) || 77.5946;
 
-    console.log(`📍 [Geo Search] Found ${nearbyTechnicians.length} active ${category} technicians within 15km`);
+    // 1. Scan for candidate technicians within 15 km radius
+    const nearbyTechnicians = await scanTechniciansWithin15Km(custLat, custLng, category);
+
+    console.log(`📍 [15km Geo Scan] Found ${nearbyTechnicians.length} active technicians within 15km for ${category}`);
 
     // 2. Call Python AI Matchmaker service to rank best technicians
     let rankedTechnicians = [];
@@ -73,10 +182,10 @@ const createBooking = async (req, res) => {
       const aiResponse = await axios.post(`${PYTHON_AI_URL}/api/v1/ai/match`, {
         bookingId,
         category,
-        customerLatitude: latitude,
-        customerLongitude: longitude,
+        customerLatitude: custLat,
+        customerLongitude: custLng,
         candidateTechnicians: nearbyTechnicians.map(t => ({
-          technicianId: t.member,
+          technicianId: t.technicianId,
           distanceKm: t.distanceKm,
           latitude: t.latitude,
           longitude: t.longitude,
@@ -90,7 +199,7 @@ const createBooking = async (req, res) => {
     } catch (e) {
       console.log('ℹ️ [Python AI] Standalone mode: Using direct distance-based ranking fallback');
       rankedTechnicians = nearbyTechnicians.map(t => ({
-        technicianId: t.member,
+        technicianId: t.technicianId,
         matchScore: parseFloat((100 - t.distanceKm * 2).toFixed(1)),
         distanceKm: t.distanceKm,
       }));
@@ -115,8 +224,8 @@ const createBooking = async (req, res) => {
       status: 'CONFIRMED',
       address: finalAddress,
       fullAddress: finalAddress,
-      latitude: parseFloat(latitude) || 12.9716,
-      longitude: parseFloat(longitude) || 77.5946,
+      latitude: custLat,
+      longitude: custLng,
       price: finalBasePrice,
       basePrice: finalBasePrice,
       baseCost: finalBasePrice,
@@ -179,22 +288,38 @@ const createBooking = async (req, res) => {
       bookingCode,
       category,
       customerId,
-      latitude,
-      longitude,
+      latitude: custLat,
+      longitude: custLng,
       totalAmount: finalAmount,
     });
 
-    // 4. Push FCM Notification to Candidate Technicians
-    for (const tech of rankedTechnicians.slice(0, 3)) {
-      await firebase.sendPushNotification(`tech_fcm_${tech.technicianId}`, {
-        title: `🚨 New ${serviceName} Job Nearby!`,
-        body: `₹${finalAmount} · ${finalAddress} (${tech.distanceKm} km away)`,
-        data: { bookingId, bookingCode, category, amount: finalAmount },
-      });
+    // 4. Push FCM High-Priority Notification to Candidate Technicians within 15km
+    for (const tech of nearbyTechnicians.slice(0, 5)) {
+      try {
+        await firebase.sendPushNotification(`tech_fcm_${tech.technicianId}`, {
+          title: `🚨 New ${serviceName} Job Nearby!`,
+          body: `₹${finalAmount} · ${finalAddress} (${tech.distanceKm} km away)`,
+          data: {
+            type: 'NEW_JOB_ALERT',
+            bookingId,
+            bookingCode,
+            category,
+            amount: finalAmount,
+            distanceKm: String(tech.distanceKm),
+            serviceType: serviceName,
+            customerAddress: finalAddress,
+          },
+        });
+      } catch (e) {
+        // FCM fallback
+      }
     }
 
-    // 5. Emit real-time Socket.io dispatch with audible ringing payload
+    // 5. Emit real-time Socket.io dispatch with loud audible ringing payload
     if (global.io) {
+      const normCatKey = normalizeCategoryKey(category);
+      const firstTechDist = nearbyTechnicians[0]?.distanceKm || 1.8;
+
       const dispatchRingingPayload = {
         proposalId: `prop-${bookingId.slice(0, 8)}`,
         bookingId: bookingRecord.id,
@@ -208,7 +333,7 @@ const createBooking = async (req, res) => {
         address: bookingRecord.address,
         latitude: bookingRecord.latitude,
         longitude: bookingRecord.longitude,
-        distanceKm: '1.8',
+        distanceKm: String(firstTechDist),
         payout: (finalAmount * 0.80).toFixed(0),
         totalAmount: finalAmount,
         timeoutSeconds: 45,
@@ -218,17 +343,23 @@ const createBooking = async (req, res) => {
         vibrate: true,
       };
 
+      // Broadcast to general rooms & category rooms
       global.io.emit('booking:broadcast', bookingRecord);
       global.io.emit('booking:dispatch_ringing', dispatchRingingPayload);
-      global.io.to(`category_${(category || 'electrician').toLowerCase()}`).emit('booking:dispatch_ringing', dispatchRingingPayload);
-      global.io.to(`category_${(category || 'electrician').toLowerCase()}`).emit('booking:new_available', bookingRecord);
+      global.io.emit('booking:new_available', bookingRecord);
+      global.io.to(`category_${normCatKey}`).emit('booking:dispatch_ringing', dispatchRingingPayload);
+      global.io.to(`category_${(category || '').toLowerCase()}`).emit('booking:dispatch_ringing', dispatchRingingPayload);
 
-      for (const tech of rankedTechnicians.slice(0, 5)) {
-        global.io.to(`tech_${tech.technicianId}`).emit('booking:dispatch_ringing', {
+      // Emit directly to every 15km candidate technician's socket room
+      for (const tech of nearbyTechnicians) {
+        const techPayload = {
           ...dispatchRingingPayload,
-          distanceKm: String(tech.distanceKm || '2.0'),
-        });
+          distanceKm: String(tech.distanceKm || '1.8'),
+        };
+        global.io.to(`tech_${tech.technicianId}`).emit('booking:dispatch_ringing', techPayload);
+        global.io.to(`tech_${tech.technicianId}`).emit('booking:new_available', bookingRecord);
       }
+      console.log(`🚨 [Socket Dispatch] Emitted ringing alert to ${nearbyTechnicians.length} technicians within 15km.`);
     }
 
     return res.status(201).json({

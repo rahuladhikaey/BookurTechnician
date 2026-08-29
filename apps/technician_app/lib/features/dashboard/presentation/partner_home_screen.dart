@@ -31,7 +31,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
     super.initState();
     _fetchSkillProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(dashboardProvider.notifier).fetchAndUpdateLocation();
+      ref.read(dashboardProvider.notifier).fetchAndUpdateLocation(context: context, showPromptDialogs: false);
       ref.read(jobStateProvider.notifier).fetchAssignedJobs();
     });
   }
@@ -1096,7 +1096,7 @@ class _PartnerHeroAutoScrollBannerState extends State<_PartnerHeroAutoScrollBann
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           icon: const Icon(Icons.refresh_rounded, size: 18, color: Color(0xFF38BDF8)),
-                          onPressed: () => widget.dashNotifier.fetchAndUpdateLocation(),
+                          onPressed: () => widget.dashNotifier.fetchAndUpdateLocation(context: context, showPromptDialogs: true),
                         ),
                       ],
                     ),
@@ -1155,7 +1155,7 @@ class _PartnerHeroAutoScrollBannerState extends State<_PartnerHeroAutoScrollBann
                             inactiveThumbColor: Colors.white,
                             inactiveTrackColor: const Color(0xFFEF4444),
                             trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-                            onChanged: (val) => widget.dashNotifier.toggleOnline(val),
+                            onChanged: (val) => widget.dashNotifier.toggleOnline(val, context: context),
                           ),
                         ),
                       ],

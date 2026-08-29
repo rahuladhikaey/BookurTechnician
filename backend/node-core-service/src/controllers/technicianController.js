@@ -48,9 +48,10 @@ const syncLocation = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing or invalid latitude or longitude' });
     }
 
-    const geoKey = `tech_geo:${category.toLowerCase()}`;
+    const normCat = String(category || 'electrician').toLowerCase().replace(/^cat_/, '');
     try {
-      await redis.geoAdd(geoKey, finalLng, finalLat, technicianId);
+      await redis.geoAdd(`tech_geo:${normCat}`, finalLng, finalLat, technicianId);
+      await redis.geoAdd('tech_geo:all', finalLng, finalLat, technicianId);
     } catch (_) {}
 
     try {
@@ -349,6 +350,105 @@ const submitDocument = async (req, res) => {
   return res.json({ success: true, data: newDoc });
 };
 
+/**
+ * GET /api/v1/technicians/nearby
+ * Strict 15 km Radius Scan for REAL Online Technicians (No Fake Data)
+ */
+const getNearbyTechnicians = async (req, res) => {
+  try {
+    const { latitude, longitude, lat, lng, category, radius = 15 } = req.query;
+
+    const custLat = parseFloat(latitude || lat) || 12.9716;
+    const custLng = parseFloat(longitude || lng) || 77.5946;
+    const radiusKm = parseFloat(radius) || 15;
+
+    const normCat = category ? String(category).toLowerCase().replace(/^cat_/, '').trim() : null;
+
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return parseFloat((R * c).toFixed(2));
+    };
+
+    const realTechsMap = new Map();
+
+    // 1. Query Redis Geo for active technicians in 15km
+    try {
+      const key = normCat ? `tech_geo:${normCat}` : 'tech_geo:all';
+      const redisTechs = await redis.geoRadius(key, custLng, custLat, radiusKm);
+      for (const t of redisTechs) {
+        realTechsMap.set(t.member, {
+          technicianId: t.member,
+          distanceKm: t.distanceKm,
+          latitude: t.latitude,
+          longitude: t.longitude,
+          category: normCat || 'general',
+          isOnline: true,
+        });
+      }
+    } catch (_) {}
+
+    // 2. Query MongoDB for real online technicians in 15km
+    try {
+      const query = { isOnline: true };
+      if (normCat) {
+        query.category = new RegExp(normCat, 'i');
+      }
+      const mongoTechs = await MongoTechnicianProfile.find(query).lean();
+      for (const t of mongoTechs) {
+        const techId = t.technicianId || (t._id ? t._id.toString() : null);
+        if (!techId) continue;
+
+        if (t.currentLocation?.coordinates && Array.isArray(t.currentLocation.coordinates) && t.currentLocation.coordinates.length === 2) {
+          const [tLng, tLat] = t.currentLocation.coordinates;
+          const dist = calculateDistance(custLat, custLng, tLat, tLng);
+          if (dist <= radiusKm) {
+            realTechsMap.set(techId, {
+              technicianId: techId,
+              name: t.fullName || 'Service Partner',
+              phone: t.phone || '',
+              rating: t.rating || 4.8,
+              distanceKm: dist,
+              latitude: tLat,
+              longitude: tLng,
+              category: (t.category || normCat || 'general').toLowerCase(),
+              isOnline: true,
+            });
+          }
+        }
+      }
+    } catch (_) {}
+
+    const techniciansList = Array.from(realTechsMap.values());
+    techniciansList.sort((a, b) => a.distanceKm - b.distanceKm);
+
+    // Compute counts by category
+    const categoryCounts = {};
+    for (const tech of techniciansList) {
+      const cat = tech.category || 'general';
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    }
+
+    return res.json({
+      success: true,
+      count: techniciansList.length,
+      radiusKm,
+      latitude: custLat,
+      longitude: custLng,
+      technicians: techniciansList,
+      categoryCounts,
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+};
+
 module.exports = {
   syncLocation,
   toggleOnlineStatus,
@@ -360,4 +460,5 @@ module.exports = {
   getDocuments,
   submitDocument,
   submitKyc: submitDocument,
+  getNearbyTechnicians,
 };

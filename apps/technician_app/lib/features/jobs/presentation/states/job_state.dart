@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/security/secure_storage.dart';
+import '../../../../core/services/gps_permission_helper.dart';
 import '../../domain/job.dart';
 
 class JobState {
@@ -218,40 +219,26 @@ class JobStateNotifier extends StateNotifier<JobState> {
   }
 
   // Toggle Shift online/offline
-  Future<void> toggleShift(bool online) async {
+  Future<void> toggleShift(bool online, {dynamic context}) async {
     state = state.copyWith(isLoading: true);
 
     try {
       if (online) {
-        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-        if (!serviceEnabled) {
-          state = state.copyWith(
-            isLoading: false,
-            isGpsGranted: false,
-            errorMessage: 'GPS is disabled. Please turn on device location to go ONLINE.',
-          );
-          return;
-        }
-
-        LocationPermission permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
-        }
-
-        if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
-          state = state.copyWith(
-            isLoading: false,
-            isGpsGranted: false,
-            errorMessage: 'Location permission required to go ONLINE.',
-          );
-          return;
-        }
-
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 12),
+        final fixResult = await GpsPermissionHelper.ensureLocationPermissionAndGps(
+          context: context,
+          showPromptDialogs: true,
         );
 
+        if (!fixResult.isSuccess || fixResult.position == null) {
+          state = state.copyWith(
+            isLoading: false,
+            isGpsGranted: false,
+            errorMessage: fixResult.message,
+          );
+          return;
+        }
+
+        final position = fixResult.position!;
         state = state.copyWith(isGpsGranted: true);
 
         // Notify backend of online status + real GPS fix

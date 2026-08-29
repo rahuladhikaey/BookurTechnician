@@ -110,9 +110,10 @@ io.on('connection', (socket) => {
   const handleLocationStream = async ({ technicianId, category = 'electrician', longitude, latitude, speed, heading }) => {
     if (longitude !== undefined && latitude !== undefined) {
       const techId = technicianId || socket.handshake?.auth?.technicianId || 'tech-001';
-      const geoKey = `tech_geo:${category.toLowerCase()}`;
+      const normCat = String(category || 'electrician').toLowerCase().replace(/^cat_/, '');
       try {
-        await geoAdd(geoKey, parseFloat(longitude), parseFloat(latitude), techId);
+        await geoAdd(`tech_geo:${normCat}`, parseFloat(longitude), parseFloat(latitude), techId);
+        await geoAdd('tech_geo:all', parseFloat(longitude), parseFloat(latitude), techId);
       } catch (_) {}
 
       // Broadcast location to customers tracking this technician

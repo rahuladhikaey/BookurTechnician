@@ -1,15 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import '../data/technician_banner_service.dart';
 import '../domain/technician_banner.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
 import '../../../core/services/location_tracking_service.dart';
+import '../../../core/services/gps_permission_helper.dart';
 
 enum ActiveJobStep {
   accepted,
@@ -284,12 +282,12 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
   }
 
   /// ─── AUTOMATIC REAL GPS LOCATION ACCESS ON ONLINE TOGGLE ───────────────────────
-  Future<bool> toggleOnline(bool val) async {
+  Future<bool> toggleOnline(bool val, {BuildContext? context}) async {
     HapticFeedback.mediumImpact();
 
     if (val) {
-      // Automatically fetch current device GPS location upon going online
-      final success = await fetchAndUpdateLocation();
+      // Automatically fetch current device GPS location upon going online (with prompt dialogs if needed)
+      final success = await fetchAndUpdateLocation(context: context, showPromptDialogs: true);
       if (!success) {
         state = state.copyWith(isOnline: false);
         await LocationTrackingService().stopTracking();
@@ -326,61 +324,22 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
     }
   }
 
-  Future<bool> fetchAndUpdateLocation() async {
+  Future<bool> fetchAndUpdateLocation({
+    BuildContext? context,
+    bool showPromptDialogs = false,
+  }) async {
     state = state.copyWith(isFetchingLocation: true);
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      LocationPermission permission = await Geolocator.checkPermission();
+      final fixResult = await GpsPermissionHelper.ensureLocationPermissionAndGps(
+        context: context,
+        showPromptDialogs: showPromptDialogs,
+      );
 
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      Position? position;
-      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-        if (serviceEnabled) {
-          try {
-            position = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high,
-              timeLimit: const Duration(seconds: 8),
-            );
-          } catch (_) {
-            position = await Geolocator.getLastKnownPosition();
-          }
-        } else {
-          position = await Geolocator.getLastKnownPosition();
-        }
-      }
-
-      if (position != null) {
-        final lat = position.latitude;
-        final lng = position.longitude;
-        String address = 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}';
-
-        // Reverse geocoding via OpenStreetMap Nominatim
-        try {
-          final url = Uri.parse(
-            'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1',
-          );
-          final response = await http.get(url, headers: {
-            'User-Agent': 'BookUrTechnicianPartner/1.0 (partner@bookurtechnician.com)',
-          }).timeout(const Duration(seconds: 4));
-
-          if (response.statusCode == 200) {
-            final data = json.decode(response.body);
-            final addressObj = data['address'] as Map<String, dynamic>?;
-            final suburb = addressObj?['suburb'] ?? addressObj?['neighbourhood'] ?? addressObj?['residential'] ?? '';
-            final city = addressObj?['city'] ?? addressObj?['town'] ?? addressObj?['county'] ?? '';
-            if (suburb.isNotEmpty && city.isNotEmpty) {
-              address = '$suburb, $city';
-            } else if (data['display_name'] != null) {
-              final parts = (data['display_name'] as String).split(',');
-              address = parts.take(2).join(',').trim();
-            }
-          }
-        } catch (e) {
-          debugPrint('Reverse geocode error: $e');
-        }
+      if (fixResult.isSuccess && fixResult.position != null) {
+        final pos = fixResult.position!;
+        final lat = pos.latitude;
+        final lng = pos.longitude;
+        final address = fixResult.address ?? 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}';
 
         state = state.copyWith(
           currentLatitude: lat,
@@ -400,9 +359,17 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
 
         return true;
       } else {
+        String displayMsg = 'Tap to acquire live GPS';
+        if (fixResult.status == GpsFixStatus.gpsDisabled) {
+          displayMsg = 'GPS Disabled. Tap to enable.';
+        } else if (fixResult.status == GpsFixStatus.permissionDenied ||
+            fixResult.status == GpsFixStatus.permissionDeniedForever) {
+          displayMsg = 'Location Permission Needed. Tap to allow.';
+        }
+
         state = state.copyWith(
           isFetchingLocation: false,
-          currentLocationAddress: !serviceEnabled ? 'GPS Disabled. Tap to enable.' : 'Tap to acquire live GPS',
+          currentLocationAddress: displayMsg,
         );
         return false;
       }

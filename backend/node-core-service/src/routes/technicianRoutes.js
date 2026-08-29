@@ -3,6 +3,8 @@ const router = express.Router();
 const technicianController = require('../controllers/technicianController');
 
 // Location & Status
+router.get('/nearby', technicianController.getNearbyTechnicians);
+router.get('/count', technicianController.getNearbyTechnicians);
 router.post('/location', technicianController.syncLocation);
 router.post('/location-sync', technicianController.syncLocation);
 router.post('/online-status', technicianController.toggleOnlineStatus);

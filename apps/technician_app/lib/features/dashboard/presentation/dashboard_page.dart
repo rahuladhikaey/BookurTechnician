@@ -352,7 +352,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     )
                   else
                     InkWell(
-                      onTap: () => notifier.fetchAndUpdateLocation(),
+                      onTap: () => notifier.fetchAndUpdateLocation(context: context, showPromptDialogs: true),
                       child: const Padding(
                         padding: EdgeInsets.all(2),
                         child: Icon(Icons.refresh, size: 15, color: Color(0xFF2146A8)),
@@ -367,7 +367,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
-              onPressed: () => notifier.toggleOnline(!isOnline),
+              onPressed: () => notifier.toggleOnline(!isOnline, context: context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isOnline ? const Color(0xFFDC2626) : AppColors.black,
                 foregroundColor: Colors.white,

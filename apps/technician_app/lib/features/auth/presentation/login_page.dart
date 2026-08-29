@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/gps_permission_helper.dart';
 import '../../../shared/widgets/primary_button.dart';
 import 'auth_provider.dart';
 import 'otp_page.dart';
@@ -39,25 +39,15 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
 
   Future<void> _requestInitialLocation() async {
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-        final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.medium,
-          timeLimit: const Duration(seconds: 5),
-        );
-        if (mounted) {
-          setState(() {
-            _latitude = position.latitude;
-            _longitude = position.longitude;
-          });
-        }
+      final fixResult = await GpsPermissionHelper.ensureLocationPermissionAndGps(
+        context: context,
+        showPromptDialogs: false,
+      );
+      if (fixResult.isSuccess && fixResult.position != null && mounted) {
+        setState(() {
+          _latitude = fixResult.position!.latitude;
+          _longitude = fixResult.position!.longitude;
+        });
       }
     } catch (_) {}
   }
