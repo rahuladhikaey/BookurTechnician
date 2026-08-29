@@ -125,21 +125,32 @@ const verifyOtp = async (req, res) => {
     // Fetch or create user in PostgreSQL
     let userId = uuidv4();
     let userName = fullName || cachedData?.name;
+    const finalPhone = phone ? phone.trim() : (identifier && !identifier.includes('@') ? identifier : null);
+    const finalEmail = email ? email.trim().toLowerCase() : (identifier && identifier.includes('@') ? identifier : null);
 
-    const existingUserRes = await postgres.query(
-      'SELECT id, phone, email, full_name, role FROM users WHERE (phone = $1 AND $1 IS NOT NULL) OR (LOWER(email) = $2 AND $2 IS NOT NULL)',
-      [phone ? phone.trim() : null, email ? email.trim().toLowerCase() : null]
-    );
+    try {
+      if (postgres.isPgHealthy()) {
+        const existingUserRes = await postgres.query(
+          'SELECT id, phone, email, full_name, role FROM users WHERE (phone = $1 AND $1 IS NOT NULL) OR (LOWER(email) = $2 AND $2 IS NOT NULL)',
+          [finalPhone, finalEmail]
+        );
 
-    if (existingUserRes.rows.length > 0) {
-      userId = existingUserRes.rows[0].id;
-      userName = existingUserRes.rows[0].full_name || userName || (phone ? `User-${phone.slice(-4)}` : 'Customer');
-    } else {
-      userName = userName || (phone ? `User-${phone.slice(-4)}` : 'Customer');
-      await postgres.query(
-        'INSERT INTO users (id, phone, email, full_name, role, fcm_token) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING',
-        [userId, phone ? phone.trim() : null, email ? email.trim().toLowerCase() : null, userName, userRole, fcmToken || null]
-      );
+        if (existingUserRes.rows && existingUserRes.rows.length > 0) {
+          userId = existingUserRes.rows[0].id;
+          userName = existingUserRes.rows[0].full_name || userName || (finalPhone ? `User-${finalPhone.slice(-4)}` : (finalEmail ? finalEmail.split('@')[0] : 'Customer'));
+        } else {
+          userName = userName || (finalPhone ? `User-${finalPhone.slice(-4)}` : (finalEmail ? finalEmail.split('@')[0] : 'Customer'));
+          await postgres.query(
+            'INSERT INTO users (id, phone, email, full_name, role, fcm_token) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING',
+            [userId, finalPhone, finalEmail, userName, userRole, fcmToken || null]
+          );
+        }
+      } else {
+        userName = userName || (finalPhone ? `User-${finalPhone.slice(-4)}` : (finalEmail ? finalEmail.split('@')[0] : 'Customer'));
+      }
+    } catch (pgErr) {
+      console.warn('⚠️ User lookup in PG warning:', pgErr.message);
+      userName = userName || (finalPhone ? `User-${finalPhone.slice(-4)}` : (finalEmail ? finalEmail.split('@')[0] : 'Customer'));
     }
 
     // Customer Live Registry
@@ -150,8 +161,9 @@ const verifyOtp = async (req, res) => {
           customerId: userId,
           fullName: userName,
           name: userName,
-          phone: phone || identifier,
-          email: email || identifier,
+          phone: finalPhone || '',
+          phoneNumber: finalPhone || '',
+          email: finalEmail || '',
         });
 
         if (global.io) {
@@ -159,8 +171,8 @@ const verifyOtp = async (req, res) => {
             id: userId,
             name: userName,
             fullName: userName,
-            phone: phone || identifier,
-            email: email || identifier,
+            phone: finalPhone || '',
+            email: finalEmail || '',
             joinedAt: new Date().toISOString(),
           });
         }

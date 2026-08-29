@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/apiClient';
 
 export default function CustomersManager({ customers = [], setCustomers, auditLogAction }) {
+  const [localCustomers, setLocalCustomers] = useState(customers || []);
   const [searchTerm, setSearchTerm] = useState('');
   const [completionFilter, setCompletionFilter] = useState('ALL');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -12,8 +13,12 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
     try {
       setIsRefreshing(true);
       const res = await api.getCustomers();
-      if (res?.data && Array.isArray(res.data) && setCustomers) {
-        setCustomers(res.data);
+      const list = res?.data || res?.customers || (Array.isArray(res) ? res : []);
+      if (Array.isArray(list)) {
+        setLocalCustomers(list);
+        if (setCustomers) {
+          setCustomers(list);
+        }
       }
     } catch (err) {
       console.warn('Auto-fetch customers warning:', err);
@@ -24,9 +29,11 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
 
   useEffect(() => {
     fetchLatestCustomers();
-    const interval = setInterval(fetchLatestCustomers, 8000);
+    const interval = setInterval(fetchLatestCustomers, 4000);
     return () => clearInterval(interval);
   }, [fetchLatestCustomers]);
+
+  const activeCustomerList = (customers && customers.length > 0) ? customers : localCustomers;
 
   // Helper to dynamically calculate profile completion if not explicitly provided
   const getCustomerProfileData = (c) => {
@@ -71,11 +78,11 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
     };
   };
 
-  const filteredCustomers = (customers || []).filter(c => {
-    const nameStr = (c.name || '').toLowerCase();
+  const filteredCustomers = (activeCustomerList || []).filter(c => {
+    const nameStr = (c.fullName || c.name || '').toLowerCase();
     const emailStr = (c.email || '').toLowerCase();
-    const phoneStr = c.phone || '';
-    const idStr = (c.id || '').toLowerCase();
+    const phoneStr = c.phone || c.phoneNumber || '';
+    const idStr = (c.id || c.customerId || '').toLowerCase();
     const q = searchTerm.toLowerCase();
 
     const matchesSearch = nameStr.includes(q) || emailStr.includes(q) || phoneStr.includes(q) || idStr.includes(q);
@@ -93,7 +100,7 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
   });
 
   const handleStatusChange = async (custId, nextStatus) => {
-    const oldCust = (customers || []).find(c => c.id === custId);
+    const oldCust = (activeCustomerList || []).find(c => c.id === custId || c.customerId === custId);
     try {
       await api.updateCustomerStatus(custId, nextStatus);
       if (setCustomers) {
