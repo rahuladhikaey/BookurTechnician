@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const redis = require('../config/redis');
 const postgres = require('../config/postgres');
 const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
+const { sendOtpEmail } = require('../services/brevoService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_bookurtechnician_2026_secure';
 const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET || 'super_refresh_jwt_key_bookurtechnician_2026';
@@ -72,6 +73,14 @@ const requestOtp = async (req, res) => {
     await redis.setWithExpiry(otpKey, { otp, role, name: resolvedName, purpose, requestedAt: Date.now() }, 300);
 
     console.log(`🔑 [OTP Dispatch] For ${identifier} (${role}, Purpose: ${purpose || 'AUTH'}): ${otp} [Valid 5 mins]`);
+
+    // If identifier is an email address, send transactional email via Brevo
+    const isEmail = email || identifier.includes('@');
+    if (isEmail) {
+      sendOtpEmail(email || identifier, otp, role, resolvedName).catch((emailErr) => {
+        console.warn('⚠️ [Brevo OTP Email Dispatch Warning]:', emailErr.message);
+      });
+    }
 
     return res.json({
       success: true,

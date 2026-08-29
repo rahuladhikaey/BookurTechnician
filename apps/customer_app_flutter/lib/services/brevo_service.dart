@@ -6,7 +6,7 @@ class BrevoService {
     'BREVO_API_KEY',
     defaultValue: '',
   );
-  static const String senderEmail = 'admin@bookurtechnician.online';
+  static const String senderEmail = 'noreply@asaliswad.com';
 
   static Future<bool> sendOtpEmail({
     required String email,

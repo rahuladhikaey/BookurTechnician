@@ -9,6 +9,10 @@ $OutputDir = Join-Path $PSScriptRoot "build_outputs"
 if (-not (Test-Path $OutputDir)) {
     New-Item -ItemType Directory -Path $OutputDir | Out-Null
 }
+$ReleaseOutputDir = Join-Path $PSScriptRoot "release_apks"
+if (-not (Test-Path $ReleaseOutputDir)) {
+    New-Item -ItemType Directory -Path $ReleaseOutputDir | Out-Null
+}
 
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "      BookUrTechnician APK Build Script           " -ForegroundColor Cyan
@@ -45,24 +49,26 @@ if (-not $env:ANDROID_HOME) {
 }
 
 # Auto-detect Flutter
-if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
-    $CommonFlutterPaths = @(
-        "D:\Users\RAHUL\flutter\bin",
-        "C:\Users\RAHUL\flutter\bin",
-        "D:\flutter\bin",
-        "C:\flutter\bin",
-        "C:\src\flutter\bin"
-    )
-    foreach ($Path in $CommonFlutterPaths) {
-        try {
-            if (Test-Path (Join-Path $Path "flutter.bat") -ErrorAction SilentlyContinue) {
+$CommonFlutterPaths = @(
+    "D:\Users\RAHUL\flutter\bin",
+    "D:\flutter\bin",
+    "C:\Users\RAHUL\flutter\bin",
+    "C:\flutter\bin",
+    "C:\src\flutter\bin"
+)
+foreach ($Path in $CommonFlutterPaths) {
+    try {
+        if (Test-Path (Join-Path $Path "flutter.bat") -ErrorAction SilentlyContinue) {
+            $SdkRoot = Split-Path $Path -Parent
+            if (Test-Path (Join-Path $SdkRoot "packages\flutter_tools") -ErrorAction SilentlyContinue) {
                 $env:Path = "$Path;$env:Path"
-                Write-Host "Found Flutter SDK at $Path. Added to session PATH." -ForegroundColor Gray
+                Write-Host "Found valid Flutter SDK at $Path. Added to session PATH." -ForegroundColor Green
                 break
             }
-        } catch {}
-    }
+        }
+    } catch {}
 }
+
 
 # ----------------- Build Technician App (Flutter) -----------------
 Write-Host "`n[1/2] Building Technician App (Flutter)..." -ForegroundColor Yellow
@@ -87,13 +93,15 @@ if (Test-Path $TechAppDir) {
             }
 
             Write-Host "Building release APK..." -ForegroundColor Gray
-            flutter build apk --release
+            flutter build apk --release --no-tree-shake-icons
 
             $BuiltTechReleaseApk = "build\app\outputs\flutter-apk\app-release.apk"
             if (Test-Path $BuiltTechReleaseApk) {
                 $TargetReleaseApk = Join-Path $OutputDir "technician_app-release.apk"
                 Copy-Item -Path $BuiltTechReleaseApk -Destination $TargetReleaseApk -Force
-                Write-Host "Successfully built and copied Technician App (Release) to: $TargetReleaseApk" -ForegroundColor Green
+                $TargetNamedApk = Join-Path $ReleaseOutputDir "BookurTechnician_Technician_App.apk"
+                Copy-Item -Path $BuiltTechReleaseApk -Destination $TargetNamedApk -Force
+                Write-Host "Successfully built and copied Technician App (Release) to: $TargetReleaseApk & $TargetNamedApk" -ForegroundColor Green
             } else {
                 Write-Warning "Could not find built technician app release APK at $BuiltTechReleaseApk"
             }
@@ -129,13 +137,15 @@ if (Test-Path $CustomerAppDir) {
                 Write-Host "Successfully built and copied Customer App (Debug) to: $TargetApk" -ForegroundColor Green
             }
             Write-Host "Building release APK..." -ForegroundColor Gray
-            flutter build apk --release
+            flutter build apk --release --no-tree-shake-icons
 
             $BuiltReleaseApk = "build\app\outputs\flutter-apk\app-release.apk"
             if (Test-Path $BuiltReleaseApk) {
                 $TargetReleaseApk = Join-Path $OutputDir "customer_app-release.apk"
                 Copy-Item -Path $BuiltReleaseApk -Destination $TargetReleaseApk -Force
-                Write-Host "Successfully built and copied Customer App (Release) to: $TargetReleaseApk" -ForegroundColor Green
+                $TargetNamedApk = Join-Path $ReleaseOutputDir "BookurTechnician_Customer_App.apk"
+                Copy-Item -Path $BuiltReleaseApk -Destination $TargetNamedApk -Force
+                Write-Host "Successfully built and copied Customer App (Release) to: $TargetReleaseApk & $TargetNamedApk" -ForegroundColor Green
             } else {
                 Write-Warning "Could not find built customer app release APK at $BuiltReleaseApk"
             }
