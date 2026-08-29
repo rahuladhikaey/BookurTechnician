@@ -562,6 +562,29 @@ const getTechnicians = async (req, res) => {
         const profileCompletion = isVer ? 100 : ((hasAadhaar ? 25 : 0) + (hasVoterCard ? 25 : 0) + (hasLivePic ? 25 : 0) + 25);
         const isProfileComplete = isVer || profileCompletion === 100;
 
+        const rawSkillsArr = t.skills && t.skills.length > 0 ? t.skills : (existing.skills && existing.skills.length > 0 ? existing.skills : ['Wiring', 'Switchboard Repair']);
+        const formattedSkillsList = rawSkillsArr.map((s, idx) => {
+          if (typeof s === 'object' && s !== null) {
+            return {
+              id: s.id || `ts_${idx + 1}`,
+              skillId: s.skillId || `sk_${idx}`,
+              skillName: s.skillName || s.skillId || 'General Repair',
+              categoryName: s.categoryName || 'Home Services',
+              verificationStatus: 'VERIFIED',
+            };
+          }
+          const clean = String(s || '').replace(/^sk_/, '').replace(/^cat_/, '');
+          const words = clean.split(/[_-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1));
+          const name = words.join(' ') || 'General Repair';
+          return {
+            id: `ts_${idx + 1}`,
+            skillId: String(s),
+            skillName: name,
+            categoryName: 'Home Services',
+            verificationStatus: 'VERIFIED',
+          };
+        });
+
         techMap.set(id, {
           id,
           technicianId: id,
@@ -570,7 +593,7 @@ const getTechnicians = async (req, res) => {
           phone: t.phone || existing.phone || '',
           email: t.email || existing.email || '',
           category: t.category || existing.category || 'Electrician',
-          skills: t.skills && t.skills.length > 0 ? t.skills : (existing.skills || []),
+          skills: formattedSkillsList,
           kycStatus: isVer ? 'VERIFIED' : rawKyc,
           kycDocuments: docs,
           hasAadhaar,

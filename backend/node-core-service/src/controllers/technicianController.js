@@ -137,17 +137,30 @@ const toggleOnlineStatus = async (req, res) => {
  */
 const getSkills = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.query.technicianId || 'tech-001';
+    const technicianId = req.params.id || req.params.techId || req.query.technicianId || req.user?.id || 'tech-001';
     let profile = null;
 
     try {
-      profile = await MongoTechnicianProfile.findOne({ technicianId });
+      profile = await MongoTechnicianProfile.findOne({
+        $or: [{ technicianId }, { _id: technicianId }]
+      });
     } catch (e) {}
 
     let rawSkills = profile?.skills || inMemorySkills.get(technicianId) || [];
 
+    if ((!rawSkills || rawSkills.length === 0) && postgres.isPgHealthy()) {
+      try {
+        const dbRes = await postgres.query(`
+          SELECT skills FROM technician_profiles WHERE technician_id = $1 OR id = $1;
+        `, [technicianId]);
+        if (dbRes.rows.length > 0 && dbRes.rows[0].skills) {
+          rawSkills = Array.isArray(dbRes.rows[0].skills) ? dbRes.rows[0].skills : [];
+        }
+      } catch (e) {}
+    }
+
     const formattedSkills = rawSkills.map((s, idx) => {
-      const skillId = typeof s === 'string' ? s : (s.skillId || `sk_${idx}`);
+      const skillId = typeof s === 'string' ? s : (s.skillId || s.id || `sk_${idx}`);
       const exp = typeof s === 'object' ? (s.experienceYears || 2) : 2;
       const meta = resolveSkillMeta(skillId);
       return {
@@ -175,7 +188,7 @@ const getSkills = async (req, res) => {
       pendingSkillsCount: 0,
     };
 
-    return res.json({ success: true, data: responseData });
+    return res.json({ success: true, data: formattedSkills, skills: formattedSkills, profile: responseData });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -186,15 +199,17 @@ const getSkills = async (req, res) => {
  */
 const saveSkillsBulk = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.body.technicianId || 'tech-001';
+    const technicianId = req.user?.id || req.body.technicianId || req.query.technicianId || 'tech-001';
     const { skills = [] } = req.body;
 
     inMemorySkills.set(technicianId, skills);
 
+    const stringSkills = skills.map(s => (typeof s === 'string' ? s : (s.skillId || s.skillName)));
+
+    // 1. Update MongoDB
     try {
-      const stringSkills = skills.map(s => (typeof s === 'string' ? s : s.skillId));
       await MongoTechnicianProfile.findOneAndUpdate(
-        { technicianId },
+        { $or: [{ technicianId }, { _id: technicianId }] },
         {
           $set: {
             skills: stringSkills,
@@ -203,19 +218,32 @@ const saveSkillsBulk = async (req, res) => {
         },
         { upsert: true, new: true }
       );
-    } catch (e) {}
+    } catch (e) {
+      console.error('Error saving skills to MongoDB:', e.message);
+    }
 
-    const formattedSkills = skills.map((s, idx) => {
-      const skillId = typeof s === 'string' ? s : s.skillId;
-      const exp = typeof s === 'object' ? (s.experienceYears || 2) : 2;
-      const meta = resolveSkillMeta(skillId);
+    // 2. Update PostgreSQL
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          UPDATE technician_profiles
+          SET skills = $1, updated_at = NOW()
+          WHERE technician_id = $2 OR id = $2;
+        `, [JSON.stringify(stringSkills), technicianId]);
+      } catch (e) {
+        console.error('Error saving skills to Postgres:', e.message);
+      }
+    }
+
+    const formattedSkills = stringSkills.map((s, idx) => {
+      const meta = resolveSkillMeta(s);
       return {
         id: `ts_${idx + 1}`,
-        skillId,
+        skillId: s,
         skillName: meta.skillName,
         categoryId: meta.categoryId,
         categoryName: meta.categoryName,
-        experienceYears: exp,
+        experienceYears: 2,
         verificationStatus: 'VERIFIED',
         enabled: true,
       };
@@ -234,7 +262,8 @@ const saveSkillsBulk = async (req, res) => {
       pendingSkillsCount: 0,
     };
 
-    return res.json({ success: true, data: responseData });
+    console.log(`🎯 [Skills Saved] Saved ${stringSkills.length} skills for technician ${technicianId}.`);
+    return res.json({ success: true, data: formattedSkills, skills: formattedSkills, profile: responseData });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -252,11 +281,13 @@ const toggleSkill = async (req, res) => {
  */
 const getProfile = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.query.technicianId || 'tech-001';
+    const technicianId = req.params.id || req.query.technicianId || req.user?.id || 'tech-001';
     let profile = null;
 
     try {
-      profile = await MongoTechnicianProfile.findOne({ technicianId });
+      profile = await MongoTechnicianProfile.findOne({
+        $or: [{ technicianId }, { _id: technicianId }]
+      });
     } catch (e) {}
 
     const currentSkills = profile?.skills || inMemorySkills.get(technicianId) || [
@@ -306,7 +337,7 @@ const updateProfile = async (req, res) => {
 
     try {
       await MongoTechnicianProfile.findOneAndUpdate(
-        { technicianId },
+        { $or: [{ technicianId }, { _id: technicianId }] },
         { $set: updates },
         { upsert: true, new: true }
       );
