@@ -68,12 +68,30 @@ const requestOtp = async (req, res) => {
       ? '123456' 
       : generateOtp();
 
-    // Cache in Redis for 5 minutes (300 seconds)
     const resolvedName = name || existingUser?.full_name;
-    const otpKey = `otp:${identifier}`;
-    await redis.setWithExpiry(otpKey, { otp, role, name: resolvedName, purpose, requestedAt: Date.now() }, 300);
+    const otpPayload = { 
+      otp, 
+      role, 
+      name: resolvedName, 
+      purpose, 
+      phone: phone ? phone.trim() : null, 
+      email: email ? email.trim().toLowerCase() : null, 
+      requestedAt: Date.now() 
+    };
 
-    console.log(`🔑 [OTP Dispatch] For ${identifier} (${role}, Purpose: ${purpose || 'AUTH'}): ${otp} [Valid 5 mins]`);
+    // Cache in Redis under all possible identifier aliases for 10 minutes (600s)
+    const rawEmail = (email || (identifier.includes('@') ? identifier : '')).trim().toLowerCase();
+    const rawPhone = (phone || (!identifier.includes('@') ? identifier : '')).trim();
+    const strippedPhone = rawPhone.replace(/\D/g, '');
+    const local10DigitPhone = strippedPhone.length >= 10 ? strippedPhone.slice(-10) : strippedPhone;
+
+    if (rawEmail) await redis.setWithExpiry(`otp:${rawEmail}`, otpPayload, 600);
+    if (rawPhone) await redis.setWithExpiry(`otp:${rawPhone.toLowerCase()}`, otpPayload, 600);
+    if (strippedPhone && strippedPhone !== rawPhone) await redis.setWithExpiry(`otp:${strippedPhone}`, otpPayload, 600);
+    if (local10DigitPhone && local10DigitPhone !== strippedPhone) await redis.setWithExpiry(`otp:${local10DigitPhone}`, otpPayload, 600);
+    await redis.setWithExpiry(`otp:${identifier}`, otpPayload, 600);
+
+    console.log(`🔑 [OTP Dispatch] For ${identifier} (${role}, Purpose: ${purpose || 'AUTH'}): ${otp} [Valid 10 mins]`);
 
     // If identifier is an email address, send transactional email via Brevo
     const isEmail = email || identifier.includes('@');
@@ -107,26 +125,46 @@ const verifyOtp = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Identifier and OTP are required' });
     }
 
-    const otpKey = `otp:${identifier}`;
-    const cachedData = await redis.get(otpKey);
+    const inputOtp = otp.toString().trim();
+    const rawEmail = (email || (identifier.includes('@') ? identifier : '')).trim().toLowerCase();
+    const rawPhone = (phone || (!identifier.includes('@') ? identifier : '')).trim();
+    const strippedPhone = rawPhone.replace(/\D/g, '');
+    const local10DigitPhone = strippedPhone.length >= 10 ? strippedPhone.slice(-10) : strippedPhone;
 
-    // Allow master test OTP '123456' in development/demo mode
-    const isValid = (cachedData && cachedData.otp === otp.trim()) || otp.trim() === '123456';
+    // Search for OTP across all possible cached keys
+    const searchKeys = [
+      rawEmail ? `otp:${rawEmail}` : null,
+      rawPhone ? `otp:${rawPhone.toLowerCase()}` : null,
+      strippedPhone ? `otp:${strippedPhone}` : null,
+      local10DigitPhone ? `otp:${local10DigitPhone}` : null,
+      `otp:${identifier}`,
+    ].filter(Boolean);
+
+    let cachedData = null;
+    for (const key of searchKeys) {
+      cachedData = await redis.get(key);
+      if (cachedData) break;
+    }
+
+    // Allow valid OTP or master test OTP '123456'
+    const isValid = (cachedData && cachedData.otp.toString().trim() === inputOtp) || inputOtp === '123456';
 
     if (!isValid) {
       return res.status(400).json({ success: false, error: 'Invalid or expired OTP' });
     }
 
-    // Delete OTP once verified
-    await redis.del(otpKey);
+    // Delete OTP from all cached keys once verified
+    for (const key of searchKeys) {
+      await redis.del(key);
+    }
 
     const userRole = cachedData?.role || requestRole || 'CUSTOMER';
 
     // Fetch or create user in PostgreSQL
     let userId = uuidv4();
     let userName = fullName || cachedData?.name;
-    const finalPhone = phone ? phone.trim() : (identifier && !identifier.includes('@') ? identifier : null);
-    const finalEmail = email ? email.trim().toLowerCase() : (identifier && identifier.includes('@') ? identifier : null);
+    const finalPhone = rawPhone || cachedData?.phone || null;
+    const finalEmail = rawEmail || cachedData?.email || null;
 
     try {
       if (postgres.isPgHealthy()) {
@@ -212,9 +250,18 @@ const verifyOtp = async (req, res) => {
     }
 
     // Sign JWT Tokens
-    const tokenPayload = { id: userId, phone, email, role: userRole, name: userName };
+    const tokenPayload = { id: userId, phone: finalPhone || phone, email: finalEmail || email, role: userRole, name: userName };
     const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '7d' });
     const refreshToken = jwt.sign(tokenPayload, REFRESH_SECRET, { expiresIn: '30d' });
+
+    const userObj = {
+      id: userId,
+      phone: finalPhone || phone,
+      email: finalEmail || email,
+      name: userName,
+      fullName: userName,
+      role: userRole,
+    };
 
     return res.json({
       success: true,
@@ -222,13 +269,12 @@ const verifyOtp = async (req, res) => {
       token: accessToken,
       accessToken,
       refreshToken,
-      user: {
-        id: userId,
-        phone,
-        email,
-        name: userName,
-        fullName: userName,
-        role: userRole,
+      user: userObj,
+      data: {
+        token: accessToken,
+        accessToken,
+        refreshToken,
+        user: userObj,
       },
     });
   } catch (error) {
