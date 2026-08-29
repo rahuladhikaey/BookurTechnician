@@ -21,6 +21,7 @@ router.put('/pricing/:id', adminController.updatePricing);
 
 // Real-time Bookings & Dispatch
 router.get('/bookings', adminController.getBookings);
+router.get('/bookings/:id/live-tracking', adminController.getBookingLiveTracking);
 router.patch('/bookings/:id/status', adminController.updateBookingStatus);
 router.put('/bookings/:id/status', adminController.updateBookingStatus);
 router.post('/bookings/:id/assign', adminController.assignBooking);

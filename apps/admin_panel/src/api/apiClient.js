@@ -216,6 +216,7 @@ class ApiClient {
   updateTechnicianStatus(id, status) { return this.patch(`/admin/technicians/${id}/status`, { status }); }
 
   getBookings(params) { return this.get('/admin/bookings', params); }
+  getBookingLiveTracking(id) { return this.get(`/admin/bookings/${id}/live-tracking`); }
   assignBooking(id, technicianId) { return this.post(`/admin/bookings/${id}/assign`, { technicianId }); }
   updateBookingStatus(id, status) { return this.patch(`/admin/bookings/${id}/status`, { status }); }
   cancelBooking(id, reason) { return this.post(`/admin/bookings/${id}/cancel`, { reason }); }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import api from '../../api/apiClient';
+import LiveTransitRadarModal from '../dispatch_tower/LiveTransitRadarModal';
 
 const STATUS_LIFECYCLE = [
   'PENDING',
@@ -14,6 +15,7 @@ const STATUS_LIFECYCLE = [
 
 export default function BookingsManager({ bookings = [], setBookings, technicians = [], auditLogAction, subTab = 'all', onReload }) {
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [liveTransitBooking, setLiveTransitBooking] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [paymentFilter, setPaymentFilter] = useState('ALL');
@@ -345,6 +347,14 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                       </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <button
+                            className="btn btn-sm"
+                            style={{ background: '#2563EB', color: '#FFFFFF', fontWeight: '700', fontSize: '11.5px', padding: '4px 8px' }}
+                            title="Open Real-time GPS Radar (Zomato/Blinkit Mode)"
+                            onClick={() => setLiveTransitBooking(b)}
+                          >
+                            🛰️ Live GPS Map
+                          </button>
                           <button className="btn btn-primary btn-sm" onClick={() => setSelectedBooking(b)}>
                             Manage Details →
                           </button>
@@ -493,13 +503,22 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                         </span>
                       </div>
 
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        style={{ width: '100%', marginTop: '12px', fontSize: '11.5px', padding: '6px' }}
-                        onClick={() => setReassignTechModal(true)}
-                      >
-                        🔄 Reassign Another Technician
-                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
+                        <button
+                          className="btn btn-sm"
+                          style={{ width: '100%', background: '#2563EB', color: '#FFFFFF', fontWeight: '700', fontSize: '11.5px', padding: '7px' }}
+                          onClick={() => setLiveTransitBooking(selectedBooking)}
+                        >
+                          🛰️ Track Live GPS Transit (Zomato Map)
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ width: '100%', fontSize: '11.5px', padding: '6px' }}
+                          onClick={() => setReassignTechModal(true)}
+                        >
+                          🔄 Reassign Another Technician
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div style={{ padding: '12px 0', textAlign: 'center' }}>
@@ -670,6 +689,18 @@ export default function BookingsManager({ bookings = [], setBookings, technician
             </div>
           </div>
         </div>
+      )}
+
+      {/* Real-time Live Transit GPS Radar (Zomato / Blinkit Map) */}
+      {liveTransitBooking && (
+        <LiveTransitRadarModal
+          booking={liveTransitBooking}
+          onClose={() => setLiveTransitBooking(null)}
+          onReassign={(b) => {
+            setSelectedBooking(b);
+            setReassignTechModal(true);
+          }}
+        />
       )}
     </div>
   );

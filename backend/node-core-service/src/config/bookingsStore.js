@@ -156,6 +156,101 @@ function assignTechnician(idOrCode, techId, techName, techPhone = '', techCatego
 }
 
 /**
+ * Update technician live GPS location across all active assigned bookings
+ */
+function updateTechnicianLocation(techId, lat, lng, speed = 0, heading = 0) {
+  if (!techId || !lat || !lng) return [];
+  const updatedBookings = [];
+  const parsedLat = parseFloat(lat);
+  const parsedLng = parseFloat(lng);
+  const parsedSpeed = parseFloat(speed) || 0;
+  const parsedHeading = parseFloat(heading) || 0;
+
+  LIVE_BOOKINGS.forEach((b, idx) => {
+    if (b.technicianId === techId && ['CONFIRMED', 'ASSIGNED', 'TECHNICIAN_ASSIGNED', 'TECHNICIAN_ON_THE_WAY', 'TECHNICIAN_ARRIVED', 'SERVICE_STARTED', 'IN_PROGRESS'].includes(b.status)) {
+      LIVE_BOOKINGS[idx] = {
+        ...LIVE_BOOKINGS[idx],
+        technicianLatitude: parsedLat,
+        technicianLongitude: parsedLng,
+        technicianSpeed: parsedSpeed,
+        technicianHeading: parsedHeading,
+        lastLocationUpdate: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      updatedBookings.push(LIVE_BOOKINGS[idx]);
+    }
+  });
+
+  return updatedBookings;
+}
+
+/**
+ * Get Real-time live tracking snapshot for a specific booking
+ */
+function getBookingLiveTracking(idOrCode) {
+  const booking = LIVE_BOOKINGS.find(b => b.id === idOrCode || b.bookingCode === idOrCode);
+  if (!booking) return null;
+
+  const custLat = parseFloat(booking.latitude) || 12.9716;
+  const custLng = parseFloat(booking.longitude) || 77.5946;
+  const techLat = parseFloat(booking.technicianLatitude) || (custLat + 0.015);
+  const techLng = parseFloat(booking.technicianLongitude) || (custLng - 0.012);
+
+  // Haversine Distance in Kilometers
+  const R = 6371;
+  const dLat = (custLat - techLat) * (Math.PI / 180);
+  const dLon = (custLng - techLng) * (Math.PI / 180);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(techLat * (Math.PI / 180)) * Math.cos(custLat * (Math.PI / 180)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distanceKm = Math.round(R * c * 10) / 10;
+
+  // Estimated travel time in minutes (25 km/h average speed in city)
+  const etaMinutes = Math.max(1, Math.round((distanceKm / 25) * 60));
+
+  return {
+    bookingId: booking.id,
+    bookingCode: booking.bookingCode,
+    status: booking.status,
+    customer: {
+      id: booking.customerId,
+      name: booking.customerName || booking.customer || 'Customer',
+      phone: booking.customerPhone || booking.phone || '',
+      address: booking.fullAddress || booking.address || 'Service Location',
+      latitude: custLat,
+      longitude: custLng,
+    },
+    technician: {
+      id: booking.technicianId,
+      name: booking.technicianName || booking.technician || 'Assigned Technician',
+      phone: booking.technicianPhone || '',
+      category: booking.technicianCategory || booking.category || 'Expert Technician',
+      rating: booking.technicianRating || 4.9,
+      avatar: booking.technicianAvatar || '',
+      latitude: techLat,
+      longitude: techLng,
+      speed: booking.technicianSpeed || 0,
+      heading: booking.technicianHeading || 0,
+      lastUpdate: booking.lastLocationUpdate || new Date().toISOString(),
+    },
+    service: {
+      name: booking.serviceName || booking.service || 'Service Request',
+      category: booking.category || 'General',
+      amount: booking.totalAmount || booking.grandTotal || booking.price || 199,
+      startOtp: booking.startOtp,
+      endOtp: booking.endOtp,
+    },
+    telemetry: {
+      distanceKm,
+      etaMinutes,
+      isMoving: (booking.technicianSpeed || 0) > 2,
+      lastPing: booking.lastLocationUpdate || new Date().toISOString(),
+    }
+  };
+}
+
+/**
  * Cancel booking
  */
 function cancelBooking(idOrCode, reason = 'Cancelled by Customer/Admin') {
@@ -273,4 +368,6 @@ module.exports = {
   getDashboardStats,
   getAllCustomers,
   registerCustomer,
+  updateTechnicianLocation,
+  getBookingLiveTracking,
 };

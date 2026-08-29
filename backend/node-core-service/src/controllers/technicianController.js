@@ -1,5 +1,6 @@
 const redis = require('../config/redis');
 const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
+const bookingsStore = require('../config/bookingsStore');
 
 // In-memory fallback cache for fast standalone operations
 const inMemorySkills = new Map();
@@ -68,6 +69,11 @@ const syncLocation = async (req, res) => {
         { upsert: true }
       );
     } catch (e) {}
+
+    // Update technician coordinates in all assigned active bookings
+    try {
+      bookingsStore.updateTechnicianLocation(technicianId, finalLat, finalLng, speed, heading);
+    } catch (_) {}
 
     if (global.io) {
       global.io.emit(`tech:location:${technicianId}`, {

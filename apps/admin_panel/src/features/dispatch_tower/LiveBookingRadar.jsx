@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/apiClient';
 import ForceAssignModal from './ForceAssignModal';
 import OtpDisputeModal from '../support/OtpDisputeModal';
+import LiveTransitRadarModal from './LiveTransitRadarModal';
 
 const STAGES = [
   { key: 'PENDING', label: 'Unassigned (Pending)', bg: '#FFFBEB', border: '#FDE68A', text: '#D97706', dot: '#D97706' },
@@ -24,6 +25,7 @@ export default function LiveBookingRadar() {
   // Modals state
   const [forceAssignTarget, setForceAssignTarget] = useState(null);
   const [otpDisputeTarget, setOtpDisputeTarget] = useState(null);
+  const [liveTransitBooking, setLiveTransitBooking] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
   const fetchLiveBookings = useCallback(async () => {
@@ -382,7 +384,26 @@ export default function LiveBookingRadar() {
                           </div>
 
                           {/* Quick Actions */}
-                          <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                            <button
+                              onClick={() => setLiveTransitBooking(b)}
+                              className="btn btn-sm"
+                              style={{
+                                width: '100%',
+                                backgroundColor: '#2563EB',
+                                color: '#FFFFFF',
+                                fontSize: '11px',
+                                padding: '6px 8px',
+                                fontWeight: '700',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                              }}
+                            >
+                              <span>🛰️</span> Live GPS Radar (Zomato Map)
+                            </button>
+
                             {stage.key === 'PENDING' && (
                               <button
                                 onClick={() => setForceAssignTarget(b)}
@@ -530,6 +551,15 @@ export default function LiveBookingRadar() {
             showToast(msg);
             fetchLiveBookings();
           }}
+        />
+      )}
+
+      {/* Real-time Live GPS Radar & Dispatch Tracking Modal (Zomato / Blinkit / Uber Mode) */}
+      {liveTransitBooking && (
+        <LiveTransitRadarModal
+          booking={liveTransitBooking}
+          onClose={() => setLiveTransitBooking(null)}
+          onReassign={(b) => setForceAssignTarget(b)}
         />
       )}
     </div>

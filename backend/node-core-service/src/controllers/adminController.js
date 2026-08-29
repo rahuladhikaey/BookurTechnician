@@ -405,6 +405,19 @@ const clearAllBookings = async (req, res) => {
   }
 };
 
+const getBookingLiveTracking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tracking = bookingsStore.getBookingLiveTracking(id);
+    if (!tracking) {
+      return res.status(404).json({ success: false, message: 'Booking not found or no live tracking available' });
+    }
+    return res.json({ success: true, data: tracking });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 const getCustomers = async (req, res) => {
   try {
     const customerMap = new Map();
@@ -707,6 +720,7 @@ module.exports = {
   deleteService,
   updatePricing,
   getBookings,
+  getBookingLiveTracking,
   updateBookingStatus,
   assignBooking,
   cancelBooking,
