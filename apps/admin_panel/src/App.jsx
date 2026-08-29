@@ -59,6 +59,11 @@ export default function App() {
     refundSlaHours: 48
   });
 
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    const token = api.getToken();
+    return Boolean(token && !token.startsWith('bt_mock_'));
+  });
+
   // Centralized Live Data Fetcher
   const loadAllAdminData = useCallback(async () => {
     setIsSyncing(true);
@@ -90,26 +95,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Authenticate Super Admin session in background and load live database
-    const token = api.getToken();
-    if (!token || token.startsWith('bt_mock_')) {
-      api.directAdminAccess('admin@bookurtechnician.com', 'BT-ADMIN-KEY-PRIMARY-7788', 'BT-ADMIN-KEY-SECONDARY-9900')
-        .then(res => {
-          if (res?.data?.accessToken) {
-            api.setToken(res.data.accessToken, true);
-            if (res.data.refreshToken) {
-              localStorage.setItem('bt_admin_refresh_token', res.data.refreshToken);
-            }
-          }
-          loadAllAdminData();
-        })
-        .catch(() => {
-          loadAllAdminData();
-        });
-    } else {
+    if (isAuthenticated) {
       loadAllAdminData();
     }
-  }, [loadAllAdminData]);
+  }, [isAuthenticated, loadAllAdminData]);
 
   // Periodic 10-second background polling to keep bookings, technicians, and stats synced with PostgreSQL
   useEffect(() => {
@@ -148,6 +137,24 @@ export default function App() {
     setSelectedTechForIdCard(tech);
     setActiveTab('id_card');
   };
+
+  const handleLogout = () => {
+    api.logout();
+    setAdminUser(null);
+    setIsAuthenticated(false);
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <AdminLogin
+        onLoginSuccess={(user) => {
+          setIsAuthenticated(true);
+          if (user) setAdminUser(user);
+          loadAllAdminData();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="admin-layout">
@@ -324,10 +331,7 @@ export default function App() {
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  api.logout();
-                  setAdminUser(null);
-                }}
+                onClick={handleLogout}
                 title="Sign Out of Admin Console"
                 style={{
                   marginLeft: '8px',
