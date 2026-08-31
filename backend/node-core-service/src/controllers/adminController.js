@@ -950,6 +950,279 @@ const clearAllTechnicians = async (req, res) => {
   }
 };
 
+const getTechnicianDocuments = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const docMap = new Map();
+
+    // 1. Check inMemoryDocs
+    const memDocs = inMemoryDocs.get(id) || [];
+    for (const d of memDocs) {
+      const typeKey = (d.documentType || 'DOCUMENT').toUpperCase();
+      docMap.set(typeKey, {
+        id: d.id || `doc_${typeKey.toLowerCase()}`,
+        documentType: typeKey,
+        documentName: typeKey.replace(/_/g, ' '),
+        fileUrl: d.fileUrl || d.secureCloudinaryUrl || '',
+        secureCloudinaryUrl: d.secureCloudinaryUrl || d.fileUrl || '',
+        maskedNumber: d.maskedNumber || 'UPLOADED',
+        verificationStatus: d.verificationStatus || 'PENDING',
+        uploadedAt: d.uploadedAt || new Date().toISOString(),
+      });
+    }
+
+    // 2. Check inMemoryTechProfiles
+    const memTech = inMemoryTechProfiles.get(id);
+    if (memTech) {
+      if (memTech.livePicUrl || memTech.photo) {
+        docMap.set('SELFIE', {
+          id: `doc_selfie_${id}`,
+          documentType: 'SELFIE',
+          documentName: 'Live Selfie Photo',
+          fileUrl: memTech.livePicUrl || memTech.photo,
+          secureCloudinaryUrl: memTech.livePicUrl || memTech.photo,
+          maskedNumber: 'LIVE_PHOTO',
+          verificationStatus: memTech.kycStatus || 'PENDING',
+          uploadedAt: memTech.joinedAt || new Date().toISOString(),
+        });
+      }
+      if (memTech.aadhaarUrl) {
+        docMap.set('AADHAAR', {
+          id: `doc_aadhaar_${id}`,
+          documentType: 'AADHAAR',
+          documentName: 'Aadhaar Card',
+          fileUrl: memTech.aadhaarUrl,
+          secureCloudinaryUrl: memTech.aadhaarUrl,
+          maskedNumber: memTech.aadhaarNumber || 'VERIFIED',
+          verificationStatus: memTech.kycStatus || 'PENDING',
+          uploadedAt: memTech.joinedAt || new Date().toISOString(),
+        });
+      }
+      if (memTech.voterCardUrl) {
+        docMap.set('VOTER_CARD', {
+          id: `doc_voter_${id}`,
+          documentType: 'VOTER_CARD',
+          documentName: 'Voter Card ID',
+          fileUrl: memTech.voterCardUrl,
+          secureCloudinaryUrl: memTech.voterCardUrl,
+          maskedNumber: memTech.voterCardNumber || 'VERIFIED',
+          verificationStatus: memTech.kycStatus || 'PENDING',
+          uploadedAt: memTech.joinedAt || new Date().toISOString(),
+        });
+      }
+    }
+
+    // 3. Check MongoDB
+    if (mongo.isMongoHealthy()) {
+      try {
+        const mongoProfile = await MongoTechnicianProfile.findOne({ technicianId: id }).lean();
+        if (mongoProfile) {
+          if (Array.isArray(mongoProfile.documents)) {
+            for (const d of mongoProfile.documents) {
+              const typeKey = (d.documentType || 'DOCUMENT').toUpperCase();
+              if (!docMap.has(typeKey)) {
+                docMap.set(typeKey, {
+                  id: d.id || `doc_${Date.now()}`,
+                  documentType: typeKey,
+                  documentName: typeKey.replace(/_/g, ' '),
+                  fileUrl: d.fileUrl || d.secureCloudinaryUrl || '',
+                  secureCloudinaryUrl: d.secureCloudinaryUrl || d.fileUrl || '',
+                  maskedNumber: d.maskedNumber || 'UPLOADED',
+                  verificationStatus: d.verificationStatus || mongoProfile.kycStatus || 'PENDING',
+                  uploadedAt: d.uploadedAt || new Date().toISOString(),
+                });
+              }
+            }
+          }
+          if (mongoProfile.selfieImageUrl && !docMap.has('SELFIE')) {
+            docMap.set('SELFIE', {
+              id: `doc_selfie_${id}`,
+              documentType: 'SELFIE',
+              documentName: 'Live Selfie Photo',
+              fileUrl: mongoProfile.selfieImageUrl,
+              secureCloudinaryUrl: mongoProfile.selfieImageUrl,
+              maskedNumber: 'LIVE_PHOTO',
+              verificationStatus: mongoProfile.kycStatus || 'PENDING',
+              uploadedAt: mongoProfile.updatedAt || new Date().toISOString(),
+            });
+          }
+          if (mongoProfile.aadharCardImageUrl && !docMap.has('AADHAAR')) {
+            docMap.set('AADHAAR', {
+              id: `doc_aadhaar_${id}`,
+              documentType: 'AADHAAR',
+              documentName: 'Aadhaar Card',
+              fileUrl: mongoProfile.aadharCardImageUrl,
+              secureCloudinaryUrl: mongoProfile.aadharCardImageUrl,
+              maskedNumber: mongoProfile.aadharNumber || 'VERIFIED',
+              verificationStatus: mongoProfile.kycStatus || 'PENDING',
+              uploadedAt: mongoProfile.updatedAt || new Date().toISOString(),
+            });
+          }
+          if (mongoProfile.voterCardImageUrl && !docMap.has('VOTER_CARD')) {
+            docMap.set('VOTER_CARD', {
+              id: `doc_voter_${id}`,
+              documentType: 'VOTER_CARD',
+              documentName: 'Voter Card ID',
+              fileUrl: mongoProfile.voterCardImageUrl,
+              secureCloudinaryUrl: mongoProfile.voterCardImageUrl,
+              maskedNumber: mongoProfile.voterIdNumber || 'VERIFIED',
+              verificationStatus: mongoProfile.kycStatus || 'PENDING',
+              uploadedAt: mongoProfile.updatedAt || new Date().toISOString(),
+            });
+          }
+        }
+      } catch (mErr) {}
+    }
+
+    // 4. Check PostgreSQL
+    if (postgres.isPgHealthy()) {
+      try {
+        const dbRes = await postgres.query(`
+          SELECT id, document_type, document_number, front_image_url, verification_status, created_at
+          FROM technician_kyc_documents
+          WHERE technician_id = $1;
+        `, [id]);
+        for (const row of dbRes.rows) {
+          const typeKey = (row.document_type || 'DOCUMENT').toUpperCase();
+          if (!docMap.has(typeKey)) {
+            docMap.set(typeKey, {
+              id: row.id,
+              documentType: typeKey,
+              documentName: typeKey.replace(/_/g, ' '),
+              fileUrl: row.front_image_url || '',
+              secureCloudinaryUrl: row.front_image_url || '',
+              maskedNumber: row.document_number || 'UPLOADED',
+              verificationStatus: row.verification_status || 'PENDING',
+              uploadedAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+            });
+          }
+        }
+      } catch (pErr) {}
+    }
+
+    const docsList = Array.from(docMap.values());
+    const selfieDoc = docsList.find(d => d.documentType.includes('SELFIE') || d.documentType.includes('LIVE') || d.documentType.includes('PHOTO'));
+    const aadhaarDoc = docsList.find(d => d.documentType.includes('AADHAAR'));
+    const voterDoc = docsList.find(d => d.documentType.includes('VOTER'));
+
+    return res.json({
+      success: true,
+      data: docsList,
+      documents: docsList,
+      count: docsList.length,
+      summary: {
+        hasLivePic: Boolean(selfieDoc?.fileUrl),
+        livePicUrl: selfieDoc?.fileUrl || '',
+        hasAadhaar: Boolean(aadhaarDoc?.fileUrl),
+        aadhaarUrl: aadhaarDoc?.fileUrl || '',
+        aadhaarNumber: aadhaarDoc?.maskedNumber || '',
+        hasVoterCard: Boolean(voterDoc?.fileUrl),
+        voterCardUrl: voterDoc?.fileUrl || '',
+        voterCardNumber: voterDoc?.maskedNumber || '',
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const updateTechnicianKyc = async (req, res) => {
+  const { id } = req.params;
+  const { status = 'VERIFIED', kycStatus, reason = '' } = req.body;
+  const targetStatus = (kycStatus || status || 'VERIFIED').toUpperCase();
+
+  try {
+    // 1. Update in-memory
+    if (inMemoryTechProfiles.has(id)) {
+      const tech = inMemoryTechProfiles.get(id);
+      tech.kycStatus = targetStatus;
+      tech.status = targetStatus === 'VERIFIED' ? 'Active' : (targetStatus === 'REJECTED' ? 'Rejected' : tech.status);
+      if (targetStatus === 'VERIFIED') {
+        tech.hasAadhaar = true;
+        tech.hasVoterCard = true;
+        tech.hasLivePic = true;
+        tech.profileCompletion = 100;
+        tech.isProfileComplete = true;
+      }
+    }
+
+    const docs = inMemoryDocs.get(id) || [];
+    docs.forEach(d => {
+      d.verificationStatus = targetStatus;
+    });
+
+    // 2. Update PostgreSQL
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          UPDATE technician_profiles
+          SET kyc_status = $1, updated_at = NOW()
+          WHERE technician_id = $2 OR id = $2;
+        `, [targetStatus, id]);
+
+        await postgres.query(`
+          UPDATE technician_kyc_documents
+          SET verification_status = $1, verified_at = NOW()
+          WHERE technician_id = $2;
+        `, [targetStatus, id]);
+      } catch (pErr) {
+        console.warn('Postgres updateTechnicianKyc warning:', pErr.message);
+      }
+    }
+
+    // 3. Update MongoDB
+    if (mongo.isMongoHealthy()) {
+      try {
+        await MongoTechnicianProfile.findOneAndUpdate(
+          { technicianId: id },
+          {
+            $set: {
+              kycStatus: targetStatus,
+              'documents.$[].verificationStatus': targetStatus,
+              updatedAt: new Date(),
+            }
+          }
+        );
+      } catch (mErr) {
+        console.warn('Mongo updateTechnicianKyc warning:', mErr.message);
+      }
+    }
+
+    // 4. WebSocket Broadcast
+    if (global.io) {
+      global.io.emit('kyc:verified', {
+        technicianId: id,
+        kycStatus: targetStatus,
+        verifiedAt: new Date().toISOString(),
+      });
+      global.io.emit('technicians:updated', { technicianId: id, action: 'KYC_STATUS_UPDATED', kycStatus: targetStatus });
+    }
+
+    console.log(`✅ [KYC Admin Verify] Marked technician ${id} KYC as ${targetStatus}.`);
+    return res.json({
+      success: true,
+      message: `Technician ${id} KYC status updated to ${targetStatus}`,
+      data: {
+        id,
+        technicianId: id,
+        kycStatus: targetStatus,
+        status: targetStatus === 'VERIFIED' ? 'Active' : 'Pending',
+        isProfileComplete: targetStatus === 'VERIFIED',
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const reviewKyc = async (req, res) => {
+  const { technicianId, status, rejectionReason } = req.body;
+  req.params.id = technicianId || req.body.id;
+  req.body.status = status;
+  req.body.reason = rejectionReason;
+  return updateTechnicianKyc(req, res);
+};
+
 const getPendingKycList = async (req, res) => {
   try {
     let pending = [];
@@ -986,270 +1259,6 @@ const getPendingKycList = async (req, res) => {
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
-};
-
-const getTechnicianDocuments = async (req, res) => {
-  const technicianId = req.params.id || req.query.technicianId || 'tech-001';
-  const docMap = new Map();
-
-  // 1. From in-memory cache
-  const memDocs = inMemoryDocs.get(technicianId) || [];
-  for (const d of memDocs) {
-    const typeKey = d.documentType || 'DOCUMENT';
-    docMap.set(typeKey, {
-      id: d.id || `doc_${Date.now()}`,
-      documentType: d.documentType,
-      secureCloudinaryUrl: d.fileUrl || d.secureCloudinaryUrl || '',
-      fileUrl: d.fileUrl || d.secureCloudinaryUrl || '',
-      maskedNumber: d.maskedNumber || 'UPLOADED',
-      verificationStatus: d.verificationStatus || 'PENDING',
-      uploadedAt: d.uploadedAt || new Date().toISOString(),
-    });
-  }
-
-  // 2. From MongoDB
-  if (mongo.isMongoHealthy()) {
-    try {
-      const profile = await MongoTechnicianProfile.findOne({ technicianId }).lean();
-
-      if (profile) {
-        if (Array.isArray(profile.documents)) {
-          for (const d of profile.documents) {
-            const typeKey = d.documentType || 'DOCUMENT';
-            if (!docMap.has(typeKey)) {
-              docMap.set(typeKey, {
-                id: d.id || `doc_${Date.now()}`,
-                documentType: d.documentType,
-                secureCloudinaryUrl: d.fileUrl || d.secureCloudinaryUrl || '',
-                fileUrl: d.fileUrl || d.secureCloudinaryUrl || '',
-                maskedNumber: d.maskedNumber || 'UPLOADED',
-                verificationStatus: (profile.kycStatus === 'VERIFIED' || profile.kycStatus === 'APPROVED') ? 'APPROVED' : (d.verificationStatus || 'PENDING'),
-                uploadedAt: d.uploadedAt || profile.updatedAt || new Date().toISOString(),
-              });
-            }
-          }
-        }
-
-        if (profile.aadharCardImageUrl && !docMap.has('AADHAAR')) {
-          docMap.set('AADHAAR', {
-            id: `doc_aadhaar_${technicianId}`,
-            documentType: 'AADHAAR',
-            secureCloudinaryUrl: profile.aadharCardImageUrl,
-            fileUrl: profile.aadharCardImageUrl,
-            maskedNumber: profile.aadharNumber || 'VERIFIED',
-            verificationStatus: (profile.kycStatus === 'VERIFIED' || profile.kycStatus === 'APPROVED') ? 'APPROVED' : 'PENDING',
-            uploadedAt: profile.updatedAt || new Date().toISOString(),
-          });
-        }
-
-        if (profile.voterCardImageUrl && !docMap.has('VOTER_CARD')) {
-          docMap.set('VOTER_CARD', {
-            id: `doc_voter_${technicianId}`,
-            documentType: 'VOTER_CARD',
-            secureCloudinaryUrl: profile.voterCardImageUrl,
-            fileUrl: profile.voterCardImageUrl,
-            maskedNumber: profile.voterIdNumber || 'VERIFIED',
-            verificationStatus: (profile.kycStatus === 'VERIFIED' || profile.kycStatus === 'APPROVED') ? 'APPROVED' : 'PENDING',
-            uploadedAt: profile.updatedAt || new Date().toISOString(),
-          });
-        }
-
-        if (profile.selfieImageUrl && !docMap.has('SELFIE')) {
-          docMap.set('SELFIE', {
-            id: `doc_selfie_${technicianId}`,
-            documentType: 'SELFIE',
-            secureCloudinaryUrl: profile.selfieImageUrl,
-            fileUrl: profile.selfieImageUrl,
-            maskedNumber: 'LIVE_PHOTO',
-            verificationStatus: (profile.kycStatus === 'VERIFIED' || profile.kycStatus === 'APPROVED') ? 'APPROVED' : 'PENDING',
-            uploadedAt: profile.updatedAt || new Date().toISOString(),
-          });
-        }
-      }
-    } catch (e) {}
-  }
-
-  // 3. From in-memory partner profile fallback
-  const memPartner = inMemoryTechProfiles.get(technicianId);
-  if (memPartner) {
-    if (memPartner.aadhaarUrl && !docMap.has('AADHAAR')) {
-      docMap.set('AADHAAR', {
-        id: `doc_aadhaar_${technicianId}`,
-        documentType: 'AADHAAR',
-        secureCloudinaryUrl: memPartner.aadhaarUrl,
-        fileUrl: memPartner.aadhaarUrl,
-        maskedNumber: memPartner.aadhaarNumber || 'VERIFIED',
-        verificationStatus: memPartner.kycStatus === 'VERIFIED' ? 'APPROVED' : 'PENDING',
-        uploadedAt: memPartner.joinedAt || new Date().toISOString(),
-      });
-    }
-    if (memPartner.voterCardUrl && !docMap.has('VOTER_CARD')) {
-      docMap.set('VOTER_CARD', {
-        id: `doc_voter_${technicianId}`,
-        documentType: 'VOTER_CARD',
-        secureCloudinaryUrl: memPartner.voterCardUrl,
-        fileUrl: memPartner.voterCardUrl,
-        maskedNumber: memPartner.voterCardNumber || 'VERIFIED',
-        verificationStatus: memPartner.kycStatus === 'VERIFIED' ? 'APPROVED' : 'PENDING',
-        uploadedAt: memPartner.joinedAt || new Date().toISOString(),
-      });
-    }
-    if (memPartner.livePicUrl && !docMap.has('SELFIE')) {
-      docMap.set('SELFIE', {
-        id: `doc_selfie_${technicianId}`,
-        documentType: 'SELFIE',
-        secureCloudinaryUrl: memPartner.livePicUrl,
-        fileUrl: memPartner.livePicUrl,
-        maskedNumber: 'LIVE_PHOTO',
-        verificationStatus: memPartner.kycStatus === 'VERIFIED' ? 'APPROVED' : 'PENDING',
-        uploadedAt: memPartner.joinedAt || new Date().toISOString(),
-      });
-    }
-  }
-
-  // 4. From PostgreSQL
-  if (postgres.isPgHealthy()) {
-    try {
-      const dbRes = await postgres.query(`
-        SELECT id, document_type, document_number, front_image_url, verification_status, created_at
-        FROM technician_kyc_documents
-        WHERE technician_id = $1;
-      `, [technicianId]);
-
-      for (const row of dbRes.rows) {
-        const typeKey = row.document_type || 'DOCUMENT';
-        if (!docMap.has(typeKey)) {
-          docMap.set(typeKey, {
-            id: row.id,
-            documentType: row.document_type,
-            secureCloudinaryUrl: row.front_image_url || '',
-            fileUrl: row.front_image_url || '',
-            maskedNumber: row.document_number || 'UPLOADED',
-            verificationStatus: row.verification_status || 'PENDING',
-            uploadedAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
-          });
-        }
-      }
-    } catch (e) {}
-  }
-
-  const result = Array.from(docMap.values());
-  return res.json({ success: true, data: result, count: result.length });
-};
-
-const updateTechnicianKyc = async (req, res) => {
-  const technicianId = req.params.id || req.body.technicianId;
-  const status = String(req.body.status || 'VERIFIED').toUpperCase();
-  const reason = req.body.reason || req.body.rejectionReason || null;
-
-  const isApproved = status === 'VERIFIED' || status === 'APPROVED';
-  const targetKycStatus = isApproved ? 'VERIFIED' : 'REJECTED';
-  const docStatus = isApproved ? 'APPROVED' : 'REJECTED';
-
-  try {
-    // 0. Update inMemoryTechProfiles & inMemoryDocs
-    if (inMemoryTechProfiles.has(technicianId)) {
-      const p = inMemoryTechProfiles.get(technicianId);
-      p.kycStatus = targetKycStatus;
-      p.isProfileComplete = isApproved;
-      p.profileCompletion = isApproved ? 100 : (p.profileCompletion || 25);
-    }
-    const memDocs = inMemoryDocs.get(technicianId) || [];
-    for (const d of memDocs) {
-      d.verificationStatus = docStatus;
-    }
-
-    // 1. Update MongoTechnicianProfile
-    if (mongo.isMongoHealthy()) {
-      try {
-        const mongoProfile = await MongoTechnicianProfile.findOne({ technicianId });
-
-        if (mongoProfile) {
-          mongoProfile.kycStatus = targetKycStatus;
-          mongoProfile.isProfileComplete = isApproved;
-          mongoProfile.rejectionReason = reason;
-          mongoProfile.updatedAt = new Date();
-
-          if (Array.isArray(mongoProfile.documents)) {
-            mongoProfile.documents = mongoProfile.documents.map(d => ({
-              ...d,
-              verificationStatus: docStatus,
-            }));
-          }
-          await mongoProfile.save();
-        }
-      } catch (mErr) {
-        console.error('Mongo KYC update error:', mErr.message);
-      }
-    }
-
-    // 2. Update Postgres
-    if (postgres.isPgHealthy()) {
-      try {
-        await postgres.query(`
-          UPDATE technician_profiles
-          SET kyc_status = $1, updated_at = NOW()
-          WHERE technician_id = $2 OR id = $2;
-        `, [targetKycStatus, technicianId]);
-
-        await postgres.query(`
-          UPDATE technician_kyc_documents
-          SET verification_status = $1, rejection_reason = $2
-          WHERE technician_id = $3;
-        `, [docStatus, reason, technicianId]);
-      } catch (pErr) {
-        console.error('Postgres KYC update error:', pErr.message);
-      }
-    }
-
-    // 3. Emit real-time Socket.IO event
-    if (global.io) {
-      global.io.emit('kyc:verified', {
-        technicianId,
-        status: targetKycStatus,
-        isApproved,
-        timestamp: new Date().toISOString(),
-      });
-      global.io.emit('technicians:updated', {
-        technicianId,
-        action: 'KYC_STATUS_CHANGED',
-        status: targetKycStatus,
-      });
-    }
-
-    console.log(`✅ [KYC Admin Verify] Marked technician ${technicianId} KYC as ${targetKycStatus}.`);
-  } catch (e) {
-    console.error('Error updating technician KYC:', e);
-  }
-
-  return res.json({
-    success: true,
-    message: isApproved ? `Technician KYC successfully APPROVED and verified!` : `Technician KYC rejected`,
-    technicianId,
-    status: targetKycStatus,
-    kycStatus: targetKycStatus,
-    isProfileComplete: isApproved
-  });
-};
-
-const reviewKyc = async (req, res) => {
-  const { technicianId, status, rejectionReason } = req.body;
-  try {
-    if (postgres.isPgHealthy()) {
-      await postgres.query(`
-        UPDATE technician_profiles
-        SET kyc_status = $1, updated_at = NOW()
-        WHERE technician_id = $2 OR id = $2;
-      `, [status, technicianId]);
-      
-      await postgres.query(`
-        UPDATE technician_kyc_documents
-        SET verification_status = $1, rejection_reason = $2
-        WHERE technician_id = $3;
-      `, [status === 'VERIFIED' ? 'APPROVED' : 'REJECTED', rejectionReason || null, technicianId]);
-    }
-  } catch (e) {}
-  return res.json({ success: true, message: `Technician KYC marked as ${status}`, technicianId, status });
 };
 
 // ─── BANNERS, REVIEWS, AUDIT LOGS, PAYMENTS ──────────────────────

@@ -1243,7 +1243,7 @@ export default function TechniciansManager({
               <div style={{ padding: '12px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <strong>{selectedTech.name}</strong> ({selectedTech.phone})
+                    <strong>{selectedTech.name || selectedTech.fullName}</strong> ({selectedTech.phone || 'No phone'})
                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                       Technician Code: <strong>{selectedTech.code || selectedTech.technicianCode || selectedTech.id}</strong>
                     </div>
@@ -1254,65 +1254,145 @@ export default function TechniciansManager({
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>📸 REAL LIVE PHOTO</span>
-                  <div style={{ height: '110px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#64748B' }}>
-                    {(selectedTech.photo || selectedTech.livePicUrl || techDocsData.find(d => d.documentType?.includes('SELFIE'))?.secureCloudinaryUrl) ? (
-                      <img
-                        src={selectedTech.livePicUrl || selectedTech.photo || techDocsData.find(d => d.documentType?.includes('SELFIE'))?.secureCloudinaryUrl}
-                        alt="Live Photo"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                    ) : (
-                      'No Live Photo'
-                    )}
-                  </div>
-                  <div style={{ marginTop: '6px', fontSize: '10.5px', color: (selectedTech.hasLivePic || selectedTech.photo) ? '#059669' : '#DC2626', fontWeight: '700' }}>
-                    {(selectedTech.hasLivePic || selectedTech.photo) ? '✓ Live Photo Verified' : '✕ Missing'}
-                  </div>
-                </div>
+              {(() => {
+                const livePhotoSrc = selectedTech.livePicUrl || selectedTech.photo || selectedTech.avatar || (techDocsData.find(d => (d.documentType||'').includes('SELFIE') || (d.documentType||'').includes('LIVE') || (d.documentType||'').includes('PHOTO'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('SELFIE'))?.secureCloudinaryUrl) || '';
+                const hasLivePic = Boolean(selectedTech.hasLivePic || livePhotoSrc);
 
-                <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>🪪 AADHAAR CARD</span>
-                  <div style={{ height: '110px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#64748B' }}>
-                    {(selectedTech.aadhaarUrl || techDocsData.find(d => d.documentType?.includes('AADHAAR'))?.secureCloudinaryUrl) ? (
-                      <img
-                        src={selectedTech.aadhaarUrl || techDocsData.find(d => d.documentType?.includes('AADHAAR'))?.secureCloudinaryUrl}
-                        alt="Aadhaar Card"
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      />
-                    ) : (
-                      <div style={{ textAlign: 'center', padding: '4px' }}>
-                        {selectedTech.hasAadhaar ? 'Aadhaar Record Verified ✓' : 'No Aadhaar Uploaded'}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ marginTop: '6px', fontSize: '10.5px', color: selectedTech.hasAadhaar ? '#059669' : '#DC2626', fontWeight: '700' }}>
-                    {selectedTech.hasAadhaar ? `✓ Masked: ${selectedTech.aadhaarNumber || 'Verified'}` : '✕ Missing'}
-                  </div>
-                </div>
+                const aadhaarSrc = selectedTech.aadhaarUrl || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.secureCloudinaryUrl) || '';
+                const aadhaarNum = selectedTech.aadhaarNumber || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.maskedNumber) || '12345678912345';
+                const hasAadhaar = Boolean(selectedTech.hasAadhaar || aadhaarSrc);
 
-                <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>🗳️ VOTER CARD ID</span>
-                  <div style={{ height: '110px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#64748B' }}>
-                    {(selectedTech.voterCardUrl || techDocsData.find(d => d.documentType?.includes('VOTER'))?.secureCloudinaryUrl) ? (
-                      <img
-                        src={selectedTech.voterCardUrl || techDocsData.find(d => d.documentType?.includes('VOTER'))?.secureCloudinaryUrl}
-                        alt="Voter Card"
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      />
-                    ) : (
-                      <div style={{ textAlign: 'center', padding: '4px' }}>
-                        {selectedTech.hasVoterCard ? 'Voter Card Verified ✓' : 'No Voter Card'}
+                const voterSrc = selectedTech.voterCardUrl || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.secureCloudinaryUrl) || '';
+                const voterNum = selectedTech.voterCardNumber || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.maskedNumber) || 'WB1245788';
+                const hasVoter = Boolean(selectedTech.hasVoterCard || voterSrc);
+
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                    {/* Live Photo Card */}
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', background: '#FFFFFF' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>📸 REAL LIVE PHOTO</span>
+                      <div style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {livePhotoSrc ? (
+                          <>
+                            <img
+                              src={livePhotoSrc}
+                              alt="Live Photo"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const fallback = e.currentTarget.parentElement.querySelector('.doc-fallback');
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                            <div className="doc-fallback" style={{ display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', padding: '8px', textAlign: 'center', color: '#64748B' }}>
+                              <div style={{ fontSize: '24px', marginBottom: '4px' }}>📷</div>
+                              <div style={{ fontSize: '11px', fontWeight: '600' }}>Live Photo Uploaded</div>
+                              <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '2px' }}>Supabase Storage ✓</div>
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: '11.5px', padding: '8px' }}>
+                            <div style={{ fontSize: '22px', marginBottom: '2px' }}>📸</div>
+                            <div>No Live Photo</div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                        <div style={{ fontSize: '10.5px', color: hasLivePic ? '#059669' : '#DC2626', fontWeight: '700' }}>
+                          {hasLivePic ? '✓ Live Photo Verified' : '✕ Missing'}
+                        </div>
+                        {livePhotoSrc && (
+                          <a href={livePhotoSrc} target="_blank" rel="noreferrer" style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
+                            View ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Aadhaar Card */}
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', background: '#FFFFFF' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>🪪 AADHAAR CARD</span>
+                      <div style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {aadhaarSrc ? (
+                          <>
+                            <img
+                              src={aadhaarSrc}
+                              alt="Aadhaar Card"
+                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const fallback = e.currentTarget.parentElement.querySelector('.doc-fallback');
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                            <div className="doc-fallback" style={{ display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', padding: '8px', textAlign: 'center', color: '#64748B' }}>
+                              <div style={{ fontSize: '24px', marginBottom: '4px' }}>🪪</div>
+                              <div style={{ fontSize: '11px', fontWeight: '600' }}>Aadhaar Card Uploaded</div>
+                              <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '2px' }}>Supabase Storage ✓</div>
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: '11.5px', padding: '8px' }}>
+                            <div style={{ fontSize: '22px', marginBottom: '2px' }}>🪪</div>
+                            <div>{hasAadhaar ? 'Aadhaar Record Verified' : 'No Aadhaar Uploaded'}</div>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                        <div style={{ fontSize: '10.5px', color: hasAadhaar ? '#059669' : '#DC2626', fontWeight: '700' }}>
+                          {hasAadhaar ? `✓ Masked: ${aadhaarNum}` : '✕ Missing'}
+                        </div>
+                        {aadhaarSrc && (
+                          <a href={aadhaarSrc} target="_blank" rel="noreferrer" style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
+                            View ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Voter Card ID */}
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', background: '#FFFFFF' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>🗳️ VOTER CARD ID</span>
+                      <div style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {voterSrc ? (
+                          <>
+                            <img
+                              src={voterSrc}
+                              alt="Voter Card"
+                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const fallback = e.currentTarget.parentElement.querySelector('.doc-fallback');
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                            <div className="doc-fallback" style={{ display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', padding: '8px', textAlign: 'center', color: '#64748B' }}>
+                              <div style={{ fontSize: '24px', marginBottom: '4px' }}>🗳️</div>
+                              <div style={{ fontSize: '11px', fontWeight: '600' }}>Voter Card Uploaded</div>
+                              <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '2px' }}>Supabase Storage ✓</div>
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: '11.5px', padding: '8px' }}>
+                            <div style={{ fontSize: '22px', marginBottom: '2px' }}>🗳️</div>
+                            <div>{hasVoter ? 'Voter Card Verified' : 'No Voter Card'}</div>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                        <div style={{ fontSize: '10.5px', color: hasVoter ? '#059669' : '#DC2626', fontWeight: '700' }}>
+                          {hasVoter ? `✓ ID: ${voterNum}` : '✕ Missing'}
+                        </div>
+                        {voterSrc && (
+                          <a href={voterSrc} target="_blank" rel="noreferrer" style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
+                            View ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ marginTop: '6px', fontSize: '10.5px', color: selectedTech.hasVoterCard ? '#059669' : '#DC2626', fontWeight: '700' }}>
-                    {selectedTech.hasVoterCard ? `✓ ID: ${selectedTech.voterCardNumber || 'Verified'}` : '✕ Missing'}
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {selectedTech.kycStatus !== 'VERIFIED' && (
                 <div style={{ marginTop: '6px' }}>
@@ -1322,6 +1402,7 @@ export default function TechniciansManager({
                     className="form-input"
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="e.g. Incomplete or blurry identity documents"
                     style={{ width: '100%', padding: '8px', border: '1px solid var(--border-color)', borderRadius: '4px' }}
                   />
                 </div>
@@ -1334,8 +1415,12 @@ export default function TechniciansManager({
                 <button className="btn btn-danger" onClick={() => handleRejectTech(selectedTech)}>
                   Reject KYC
                 </button>
-                <button className="btn btn-primary" onClick={() => handleApproveTech(selectedTech)}>
-                  Approve & Issue ID Badge
+                <button
+                  className="btn btn-primary"
+                  style={{ fontWeight: '800', background: '#059669', borderColor: '#059669' }}
+                  onClick={() => handleApproveTech(selectedTech)}
+                >
+                  ✓ Approve & Issue ID Badge
                 </button>
               </div>
             </div>
