@@ -4,10 +4,14 @@
 
 $ErrorActionPreference = "Continue"
 
-# Create output directory
+# Create output directories
 $OutputDir = Join-Path $PSScriptRoot "build_outputs"
 if (-not (Test-Path $OutputDir)) {
     New-Item -ItemType Directory -Path $OutputDir | Out-Null
+}
+$OutputsDir = Join-Path $PSScriptRoot "outputs"
+if (-not (Test-Path $OutputsDir)) {
+    New-Item -ItemType Directory -Path $OutputsDir | Out-Null
 }
 $ReleaseOutputDir = Join-Path $PSScriptRoot "release_apks"
 if (-not (Test-Path $ReleaseOutputDir)) {
@@ -83,6 +87,7 @@ if (Test-Path $TechAppDir) {
             if (Test-Path $BuiltTechApk) {
                 $TargetApk = Join-Path $OutputDir "technician_app-debug.apk"
                 Copy-Item -Path $BuiltTechApk -Destination $TargetApk -Force
+                Copy-Item -Path $BuiltTechApk -Destination (Join-Path $OutputsDir "technician_app-debug.apk") -Force
                 Write-Host "Successfully built and copied Technician App (Debug) to: $TargetApk" -ForegroundColor Green
             }
 
@@ -93,6 +98,8 @@ if (Test-Path $TechAppDir) {
             if (Test-Path $BuiltTechReleaseApk) {
                 $TargetReleaseApk = Join-Path $OutputDir "technician_app-release.apk"
                 Copy-Item -Path $BuiltTechReleaseApk -Destination $TargetReleaseApk -Force
+                Copy-Item -Path $BuiltTechReleaseApk -Destination (Join-Path $OutputsDir "technician_app-release.apk") -Force
+                Copy-Item -Path $BuiltTechReleaseApk -Destination (Join-Path $OutputsDir "BookurTechnician_Technician_App.apk") -Force
                 $TargetNamedApk = Join-Path $ReleaseOutputDir "BookurTechnician_Technician_App.apk"
                 Copy-Item -Path $BuiltTechReleaseApk -Destination $TargetNamedApk -Force
                 Write-Host "Successfully built and copied Technician App (Release) to: $TargetReleaseApk & $TargetNamedApk" -ForegroundColor Green
@@ -128,6 +135,7 @@ if (Test-Path $CustomerAppDir) {
             if (Test-Path $BuiltApk) {
                 $TargetApk = Join-Path $OutputDir "customer_app-debug.apk"
                 Copy-Item -Path $BuiltApk -Destination $TargetApk -Force
+                Copy-Item -Path $BuiltApk -Destination (Join-Path $OutputsDir "customer_app-debug.apk") -Force
                 Write-Host "Successfully built and copied Customer App (Debug) to: $TargetApk" -ForegroundColor Green
             }
             Write-Host "Building release APK..." -ForegroundColor Gray
@@ -137,6 +145,8 @@ if (Test-Path $CustomerAppDir) {
             if (Test-Path $BuiltReleaseApk) {
                 $TargetReleaseApk = Join-Path $OutputDir "customer_app-release.apk"
                 Copy-Item -Path $BuiltReleaseApk -Destination $TargetReleaseApk -Force
+                Copy-Item -Path $BuiltReleaseApk -Destination (Join-Path $OutputsDir "customer_app-release.apk") -Force
+                Copy-Item -Path $BuiltReleaseApk -Destination (Join-Path $OutputsDir "BookurTechnician_Customer_App.apk") -Force
                 $TargetNamedApk = Join-Path $ReleaseOutputDir "BookurTechnician_Customer_App.apk"
                 Copy-Item -Path $BuiltReleaseApk -Destination $TargetNamedApk -Force
                 Write-Host "Successfully built and copied Customer App (Release) to: $TargetReleaseApk & $TargetNamedApk" -ForegroundColor Green
