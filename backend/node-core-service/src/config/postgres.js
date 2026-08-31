@@ -94,8 +94,59 @@ const createCoreTables = async () => {
         description TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS technician_profiles (
+        id VARCHAR(64) PRIMARY KEY,
+        technician_id VARCHAR(64) UNIQUE NOT NULL,
+        technician_code VARCHAR(30),
+        full_name VARCHAR(100) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        category VARCHAR(50) DEFAULT 'ELECTRICIAN',
+        skills JSONB DEFAULT '[]'::jsonb,
+        experience_years INT DEFAULT 2,
+        kyc_status VARCHAR(30) DEFAULT 'PENDING',
+        is_online BOOLEAN DEFAULT false,
+        current_latitude DOUBLE PRECISION,
+        current_longitude DOUBLE PRECISION,
+        rating NUMERIC(3, 2) DEFAULT 4.85,
+        total_ratings_count INT DEFAULT 0,
+        total_jobs_completed INT DEFAULT 0,
+        wallet_balance NUMERIC(10, 2) DEFAULT 0.00,
+        upi_id VARCHAR(100),
+        upi_number VARCHAR(20),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS technician_kyc_documents (
+        id VARCHAR(64) PRIMARY KEY,
+        technician_id VARCHAR(64) NOT NULL,
+        document_type VARCHAR(50) NOT NULL,
+        document_number VARCHAR(100),
+        front_image_url TEXT,
+        back_image_url TEXT,
+        file_size_mb NUMERIC(5, 2),
+        verification_status VARCHAR(30) DEFAULT 'PENDING',
+        rejection_reason TEXT,
+        verified_at TIMESTAMP WITH TIME ZONE,
+        uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS uploaded_media (
+        id VARCHAR(64) PRIMARY KEY,
+        file_name VARCHAR(255) NOT NULL,
+        file_url TEXT NOT NULL,
+        storage_bucket VARCHAR(100) NOT NULL DEFAULT 'kyc-documents',
+        mime_type VARCHAR(50),
+        file_size_bytes BIGINT,
+        entity_type VARCHAR(50) NOT NULL DEFAULT 'KYC_DOCUMENT',
+        entity_id VARCHAR(64),
+        is_public BOOLEAN DEFAULT true,
+        uploaded_by VARCHAR(64),
+        uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
     `);
-    console.log('✅ [PostgreSQL] Core transactional schemas verified');
+    console.log('✅ [PostgreSQL] Core transactional & KYC schemas verified');
   } catch (err) {
     console.error('❌ [PostgreSQL] Failed to initialize tables:', err.message);
   }

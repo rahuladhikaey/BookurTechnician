@@ -1,10 +1,11 @@
 const redis = require('../config/redis');
 const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
 const bookingsStore = require('../config/bookingsStore');
+const postgres = require('../config/postgres');
+const mongo = require('../config/mongo');
 
 // In-memory fallback cache for fast standalone operations
-const inMemorySkills = new Map();
-const inMemoryDocs = new Map();
+const { inMemorySkills, inMemoryDocs, inMemoryTechProfiles } = require('../config/inMemoryTechStore');
 
 /**
  * Helper to format skillId into human-readable skill and category
@@ -140,11 +141,7 @@ const getSkills = async (req, res) => {
     const technicianId = req.params.id || req.params.techId || req.query.technicianId || req.user?.id || 'tech-001';
     let profile = null;
 
-    try {
-      profile = await MongoTechnicianProfile.findOne({
-        $or: [{ technicianId }, { _id: technicianId }]
-      });
-    } catch (e) {}
+      profile = await MongoTechnicianProfile.findOne({ technicianId });
 
     let rawSkills = profile?.skills || inMemorySkills.get(technicianId) || [];
 
@@ -209,7 +206,7 @@ const saveSkillsBulk = async (req, res) => {
     // 1. Update MongoDB
     try {
       await MongoTechnicianProfile.findOneAndUpdate(
-        { $or: [{ technicianId }, { _id: technicianId }] },
+        { technicianId },
         {
           $set: {
             skills: stringSkills,
@@ -285,9 +282,7 @@ const getProfile = async (req, res) => {
     let profile = null;
 
     try {
-      profile = await MongoTechnicianProfile.findOne({
-        $or: [{ technicianId }, { _id: technicianId }]
-      });
+      profile = await MongoTechnicianProfile.findOne({ technicianId });
     } catch (e) {}
 
     const currentSkills = profile?.skills || inMemorySkills.get(technicianId) || [
@@ -337,7 +332,7 @@ const updateProfile = async (req, res) => {
 
     try {
       await MongoTechnicianProfile.findOneAndUpdate(
-        { $or: [{ technicianId }, { _id: technicianId }] },
+        { technicianId },
         { $set: updates },
         { upsert: true, new: true }
       );
@@ -368,9 +363,7 @@ const getDocuments = async (req, res) => {
 
   // 2. From MongoDB
   try {
-    const profile = await MongoTechnicianProfile.findOne({
-      $or: [{ technicianId }, { _id: technicianId }]
-    }).lean();
+    const profile = await MongoTechnicianProfile.findOne({ technicianId }).lean();
 
     if (profile) {
       if (Array.isArray(profile.documents)) {
@@ -458,20 +451,118 @@ const getDocuments = async (req, res) => {
 };
 
 /**
- * POST /api/v1/technicians/documents
+ * POST /api/v1/technicians/profile/photo & POST /api/v1/technician/profile/photo
+ */
+const uploadProfilePhoto = async (req, res) => {
+  try {
+    const technicianId = req.user?.id || req.body.technicianId || 'tech-001';
+    const photoUrl = req.body.photoUrl || req.body.fileUrl || req.body.imageUrl || '';
+
+    if (!photoUrl) {
+      return res.status(400).json({ success: false, error: 'Missing photoUrl parameter' });
+    }
+
+    const docId = `doc_selfie_${Date.now()}`;
+    const newDoc = {
+      id: docId,
+      documentType: 'SELFIE',
+      fileUrl: photoUrl,
+      secureCloudinaryUrl: photoUrl,
+      maskedNumber: 'LIVE_PHOTO_IMG',
+      verificationStatus: 'PENDING',
+      uploadedAt: new Date().toISOString(),
+    };
+
+    // 1. In-memory update
+    const existing = inMemoryDocs.get(technicianId) || [];
+    const filtered = existing.filter(d => !['SELFIE', 'LIVE_PHOTO', 'LIVE_PIC', 'PHOTO'].includes((d.documentType || '').toUpperCase()));
+    filtered.push(newDoc);
+    inMemoryDocs.set(technicianId, filtered);
+
+    // 2. MongoDB update
+    if (mongo.isMongoHealthy()) {
+      try {
+        await MongoTechnicianProfile.updateOne(
+          { technicianId },
+          {
+            $pull: { documents: { documentType: { $in: ['SELFIE', 'LIVE_PHOTO', 'LIVE_PIC', 'PHOTO'] } } }
+          }
+        );
+        await MongoTechnicianProfile.updateOne(
+          { technicianId },
+          {
+            $push: { documents: newDoc },
+            $set: {
+              selfieImageUrl: photoUrl,
+              avatar: photoUrl,
+              updatedAt: new Date(),
+            },
+          },
+          { upsert: true }
+        );
+      } catch (e) {
+        console.error('Mongo photo update warning:', e.message);
+      }
+    }
+
+    // 3. PostgreSQL / Supabase update
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          INSERT INTO technician_kyc_documents (id, technician_id, document_type, document_number, front_image_url, verification_status)
+          VALUES ($1, $2, 'SELFIE', 'LIVE_PHOTO_IMG', $3, 'PENDING')
+          ON CONFLICT (id) DO UPDATE SET front_image_url = $3, updated_at = NOW();
+        `, [docId, technicianId, photoUrl]);
+
+        await postgres.query(`
+          INSERT INTO uploaded_media (id, file_name, file_url, storage_bucket, mime_type, entity_type, entity_id)
+          VALUES ($1, $2, $3, 'kyc-documents', 'image/jpeg', 'KYC_DOCUMENT', $4)
+          ON CONFLICT (id) DO UPDATE SET file_url = $3;
+        `, [docId, `selfie_${technicianId}.jpg`, photoUrl, technicianId]);
+
+        await postgres.query(`
+          UPDATE users SET profile_image_url = $1 WHERE id = $2;
+        `, [photoUrl, technicianId]);
+      } catch (e) {
+        console.error('Postgres photo update warning:', e.message);
+      }
+    }
+
+    // Real-time broadcast to Admin Panel
+    if (global.io) {
+      global.io.emit('kyc:uploaded', {
+        technicianId,
+        documentType: 'SELFIE',
+        fileUrl: photoUrl,
+        timestamp: new Date().toISOString(),
+      });
+      global.io.emit('technicians:updated', { technicianId, action: 'PHOTO_UPDATED' });
+    }
+
+    console.log(`📸 [Live Selfie Upload] Saved Live Photo for technician ${technicianId} into Supabase & Mongo.`);
+    return res.json({ success: true, message: 'Profile photo uploaded successfully', photoUrl, data: newDoc });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * POST /api/v1/technicians/documents & /api/v1/technicians/kyc
  */
 const submitDocument = async (req, res) => {
   const technicianId = req.user?.id || req.body.technicianId || 'tech-001';
-  const { documentType = 'AADHAAR', fileUrl = '', maskedNumber } = req.body;
+  const { documentType = 'AADHAAR', fileUrl = '', photoUrl = '', maskedNumber, fileSizeMb } = req.body;
+  const finalFileUrl = fileUrl || photoUrl || '';
 
   const docTypeUpper = String(documentType).toUpperCase();
+  const docId = `doc_${docTypeUpper.toLowerCase()}_${Date.now()}`;
 
   const newDoc = {
-    id: `doc_${Date.now()}`,
+    id: docId,
     documentType: docTypeUpper,
-    fileUrl: fileUrl || '',
-    secureCloudinaryUrl: fileUrl || '',
-    maskedNumber: maskedNumber || `${docTypeUpper}_IMAGE`,
+    fileUrl: finalFileUrl,
+    secureCloudinaryUrl: finalFileUrl,
+    maskedNumber: maskedNumber || `${docTypeUpper}_RECORD`,
     verificationStatus: 'PENDING',
     uploadedAt: new Date().toISOString(),
   };
@@ -483,57 +574,82 @@ const submitDocument = async (req, res) => {
   inMemoryDocs.set(technicianId, filtered);
 
   // 2. MongoDB update
-  try {
-    const mongoUpdate = {
-      $pull: { documents: { documentType: docTypeUpper } }
-    };
-    await MongoTechnicianProfile.updateOne(
-      { $or: [{ technicianId }, { _id: technicianId }] },
-      mongoUpdate
-    );
+  if (mongo.isMongoHealthy()) {
+    try {
+      const mongoUpdate = {
+        $pull: { documents: { documentType: docTypeUpper } }
+      };
+      await MongoTechnicianProfile.updateOne(
+        { technicianId },
+        mongoUpdate
+      );
 
-    const mongoPush = {
-      $push: { documents: newDoc },
-      $set: { updatedAt: new Date() }
-    };
+      const mongoPush = {
+        $push: { documents: newDoc },
+        $set: { updatedAt: new Date() }
+      };
 
-    if (docTypeUpper.includes('AADHAAR')) {
-      mongoPush.$set.aadharCardImageUrl = fileUrl;
-      if (maskedNumber) mongoPush.$set.aadharNumber = maskedNumber;
-    } else if (docTypeUpper.includes('VOTER')) {
-      mongoPush.$set.voterCardImageUrl = fileUrl;
-      if (maskedNumber) mongoPush.$set.voterIdNumber = maskedNumber;
-    } else if (docTypeUpper.includes('SELFIE') || docTypeUpper.includes('LIVE') || docTypeUpper.includes('PHOTO')) {
-      mongoPush.$set.selfieImageUrl = fileUrl;
-    } else if (docTypeUpper.includes('UPI')) {
-      if (maskedNumber) mongoPush.$set.upiId = maskedNumber;
+      if (docTypeUpper.includes('AADHAAR')) {
+        mongoPush.$set.aadharCardImageUrl = finalFileUrl;
+        if (maskedNumber) mongoPush.$set.aadharNumber = maskedNumber;
+      } else if (docTypeUpper.includes('VOTER')) {
+        mongoPush.$set.voterCardImageUrl = finalFileUrl;
+        if (maskedNumber) mongoPush.$set.voterIdNumber = maskedNumber;
+      } else if (docTypeUpper.includes('SELFIE') || docTypeUpper.includes('LIVE') || docTypeUpper.includes('PHOTO')) {
+        mongoPush.$set.selfieImageUrl = finalFileUrl;
+        mongoPush.$set.avatar = finalFileUrl;
+      } else if (docTypeUpper.includes('UPI')) {
+        if (maskedNumber) mongoPush.$set.upiId = maskedNumber;
+      }
+
+      await MongoTechnicianProfile.updateOne(
+        { technicianId },
+        mongoPush,
+        { upsert: true }
+      );
+    } catch (e) {
+      console.error('Error persisting document to MongoDB:', e.message);
     }
-
-    await MongoTechnicianProfile.updateOne(
-      { $or: [{ technicianId }, { _id: technicianId }] },
-      mongoPush,
-      { upsert: true }
-    );
-  } catch (e) {
-    console.error('Error persisting document to MongoDB:', e.message);
   }
 
-  // 3. PostgreSQL update
+  // 3. PostgreSQL / Supabase tables update
   if (postgres.isPgHealthy()) {
     try {
       await postgres.query(`
-        INSERT INTO technician_kyc_documents (id, technician_id, document_type, document_number, front_image_url, verification_status)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO technician_kyc_documents (id, technician_id, document_type, document_number, front_image_url, file_size_mb, verification_status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (id) DO UPDATE 
-        SET front_image_url = $5, verification_status = $6, updated_at = NOW();
-      `, [newDoc.id, technicianId, docTypeUpper, newDoc.maskedNumber, fileUrl, 'PENDING']);
+        SET front_image_url = $5, verification_status = $7, file_size_mb = $6, updated_at = NOW();
+      `, [newDoc.id, technicianId, docTypeUpper, newDoc.maskedNumber, finalFileUrl, parseFloat(fileSizeMb) || 1.2, 'PENDING']);
+
+      await postgres.query(`
+        INSERT INTO uploaded_media (id, file_name, file_url, storage_bucket, mime_type, entity_type, entity_id)
+        VALUES ($1, $2, $3, 'kyc-documents', 'image/jpeg', 'KYC_DOCUMENT', $4)
+        ON CONFLICT (id) DO UPDATE SET file_url = $3;
+      `, [newDoc.id, `${docTypeUpper.toLowerCase()}_${technicianId}.jpg`, finalFileUrl, technicianId]);
     } catch (e) {
       console.error('Error persisting document to Postgres:', e.message);
     }
   }
 
-  console.log(`📄 [KYC Upload] Saved document '${docTypeUpper}' for technician ${technicianId} across Mongo & Postgres.`);
-  return res.json({ success: true, message: `Document ${docTypeUpper} submitted successfully`, data: newDoc });
+  // 4. Real-Time Broadcast to Admin Panel
+  if (global.io) {
+    global.io.emit('kyc:uploaded', {
+      technicianId,
+      documentType: docTypeUpper,
+      fileUrl: finalFileUrl,
+      maskedNumber: newDoc.maskedNumber,
+      timestamp: new Date().toISOString(),
+    });
+    global.io.emit('technicians:updated', {
+      technicianId,
+      action: 'KYC_DOC_UPLOADED',
+      documentType: docTypeUpper,
+    });
+  }
+
+  console.log(`📄 [KYC Upload] Successfully saved '${docTypeUpper}' for technician ${technicianId} to Supabase and MongoDB.`);
+  return res.json({ success: true, message: `Document ${docTypeUpper} submitted and saved to Supabase successfully`, data: newDoc });
 };
 
 /**
@@ -643,6 +759,7 @@ module.exports = {
   toggleSkill,
   getProfile,
   updateProfile,
+  uploadProfilePhoto,
   getDocuments,
   submitDocument,
   submitKyc: submitDocument,

@@ -23,6 +23,7 @@ router.patch('/skills/:id/toggle', technicianController.toggleSkill);
 router.get('/profile', technicianController.getProfile);
 router.patch('/profile', technicianController.updateProfile);
 router.put('/profile', technicianController.updateProfile);
+router.post('/profile/photo', technicianController.uploadProfilePhoto);
 
 // Documents & KYC
 router.get('/documents', technicianController.getDocuments);
@@ -30,6 +31,7 @@ router.get('/documents/technician/:id', technicianController.getDocuments);
 router.get('/documents/:id', technicianController.getDocuments);
 router.post('/documents', technicianController.submitDocument);
 router.post('/documents/bulk', technicianController.submitDocument);
+router.post('/documents/upload', technicianController.submitDocument);
 router.post('/kyc', technicianController.submitDocument);
 
 // FCM Notifications

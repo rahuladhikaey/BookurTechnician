@@ -945,97 +945,114 @@ export default function TechniciansManager({
                   </div>
 
                   {/* 3 Dedicated Document Cards */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-                    {/* Doc 1: Live Selfie Photo */}
-                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', background: '#FFFFFF' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <strong style={{ fontSize: '12px', color: 'var(--primary)' }}>📸 REAL LIVE SELFIE</strong>
-                        <span className={`badge ${(selectedTech.hasLivePic || selectedTech.photo) ? 'badge-completed' : 'badge-warning'}`} style={{ fontSize: '10px' }}>
-                          {(selectedTech.hasLivePic || selectedTech.photo) ? '✓ Uploaded' : 'Pending'}
-                        </span>
-                      </div>
-                      <div style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {(selectedTech.photo || selectedTech.livePicUrl) ? (
-                          <img
-                            src={selectedTech.livePicUrl || selectedTech.photo}
-                            alt="Live Selfie"
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          />
-                        ) : (
-                          <div style={{ color: '#94A3B8', fontSize: '12px' }}>No Live Photo Yet</div>
-                        )}
-                      </div>
-                      <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                        {(selectedTech.photo || selectedTech.livePicUrl) && (
-                          <a href={selectedTech.livePicUrl || selectedTech.photo} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
-                            View Full Photo ↗
-                          </a>
-                        )}
-                      </div>
-                    </div>
+                  {(() => {
+                    const livePhotoSrc = selectedTech.livePicUrl || selectedTech.photo || selectedTech.avatar || (techDocsData.find(d => (d.documentType||'').includes('SELFIE') || (d.documentType||'').includes('LIVE') || (d.documentType||'').includes('PHOTO'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('SELFIE') || (d.documentType||'').includes('LIVE') || (d.documentType||'').includes('PHOTO'))?.secureCloudinaryUrl) || '';
+                    const hasLivePicUploaded = Boolean(selectedTech.hasLivePic || livePhotoSrc);
 
-                    {/* Doc 2: Aadhaar Card */}
-                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', background: '#FFFFFF' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <strong style={{ fontSize: '12px', color: 'var(--primary)' }}>🪪 AADHAAR CARD</strong>
-                        <span className={`badge ${selectedTech.hasAadhaar ? 'badge-completed' : 'badge-warning'}`} style={{ fontSize: '10px' }}>
-                          {selectedTech.hasAadhaar ? '✓ Uploaded' : 'Pending'}
-                        </span>
-                      </div>
-                      <div style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {selectedTech.aadhaarUrl ? (
-                          <img
-                            src={selectedTech.aadhaarUrl}
-                            alt="Aadhaar Card"
-                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                          />
-                        ) : (
-                          <div style={{ color: '#94A3B8', fontSize: '12px', textAlign: 'center', padding: '8px' }}>
-                            {selectedTech.hasAadhaar ? 'Aadhaar Record Verified ✓' : 'No Aadhaar Uploaded'}
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Masked: {selectedTech.aadhaarNumber || '•••• •••• ••••'}</span>
-                        {selectedTech.aadhaarUrl && (
-                          <a href={selectedTech.aadhaarUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
-                            View Image ↗
-                          </a>
-                        )}
-                      </div>
-                    </div>
+                    const aadhaarSrc = selectedTech.aadhaarUrl || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.secureCloudinaryUrl) || '';
+                    const aadhaarNum = selectedTech.aadhaarNumber || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.maskedNumber) || '•••• •••• ••••';
+                    const hasAadhaarUploaded = Boolean(selectedTech.hasAadhaar || aadhaarSrc);
 
-                    {/* Doc 3: Voter Card ID */}
-                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', background: '#FFFFFF' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <strong style={{ fontSize: '12px', color: 'var(--primary)' }}>🗳️ VOTER CARD ID</strong>
-                        <span className={`badge ${selectedTech.hasVoterCard ? 'badge-completed' : 'badge-warning'}`} style={{ fontSize: '10px' }}>
-                          {selectedTech.hasVoterCard ? '✓ Uploaded' : 'Pending'}
-                        </span>
-                      </div>
-                      <div style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {selectedTech.voterCardUrl ? (
-                          <img
-                            src={selectedTech.voterCardUrl}
-                            alt="Voter Card"
-                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                          />
-                        ) : (
-                          <div style={{ color: '#94A3B8', fontSize: '12px', textAlign: 'center', padding: '8px' }}>
-                            {selectedTech.hasVoterCard ? 'Voter ID Record Verified ✓' : 'No Voter Card Uploaded'}
+                    const voterSrc = selectedTech.voterCardUrl || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.secureCloudinaryUrl) || '';
+                    const voterNum = selectedTech.voterCardNumber || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.maskedNumber) || '•••• •••• ••••';
+                    const hasVoterUploaded = Boolean(selectedTech.hasVoterCard || voterSrc);
+
+                    return (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                        {/* Doc 1: Live Selfie Photo */}
+                        <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', background: '#FFFFFF' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <strong style={{ fontSize: '12px', color: 'var(--primary)' }}>📸 REAL LIVE SELFIE</strong>
+                            <span className={`badge ${hasLivePicUploaded ? 'badge-completed' : 'badge-warning'}`} style={{ fontSize: '10px' }}>
+                              {hasLivePicUploaded ? '✓ Uploaded' : 'Pending'}
+                            </span>
                           </div>
-                        )}
+                          <div style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {livePhotoSrc ? (
+                              <img
+                                src={livePhotoSrc}
+                                alt="Live Selfie"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <div style={{ color: '#94A3B8', fontSize: '12px' }}>No Live Photo Yet</div>
+                            )}
+                          </div>
+                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            {livePhotoSrc ? (
+                              <a href={livePhotoSrc} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
+                                View Full Photo ↗
+                              </a>
+                            ) : (
+                              <span>Pending Selfie</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Doc 2: Aadhaar Card */}
+                        <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', background: '#FFFFFF' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <strong style={{ fontSize: '12px', color: 'var(--primary)' }}>🪪 AADHAAR CARD</strong>
+                            <span className={`badge ${hasAadhaarUploaded ? 'badge-completed' : 'badge-warning'}`} style={{ fontSize: '10px' }}>
+                              {hasAadhaarUploaded ? '✓ Uploaded' : 'Pending'}
+                            </span>
+                          </div>
+                          <div style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {aadhaarSrc ? (
+                              <img
+                                src={aadhaarSrc}
+                                alt="Aadhaar Card"
+                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                              />
+                            ) : (
+                              <div style={{ color: '#94A3B8', fontSize: '12px', textAlign: 'center', padding: '8px' }}>
+                                {hasAadhaarUploaded ? 'Aadhaar Record Verified ✓' : 'No Aadhaar Uploaded'}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Masked: {aadhaarNum}</span>
+                            {aadhaarSrc && (
+                              <a href={aadhaarSrc} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
+                                View Image ↗
+                              </a>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Doc 3: Voter Card ID */}
+                        <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', background: '#FFFFFF' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <strong style={{ fontSize: '12px', color: 'var(--primary)' }}>🗳️ VOTER CARD ID</strong>
+                            <span className={`badge ${hasVoterUploaded ? 'badge-completed' : 'badge-warning'}`} style={{ fontSize: '10px' }}>
+                              {hasVoterUploaded ? '✓ Uploaded' : 'Pending'}
+                            </span>
+                          </div>
+                          <div style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {voterSrc ? (
+                              <img
+                                src={voterSrc}
+                                alt="Voter Card"
+                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                              />
+                            ) : (
+                              <div style={{ color: '#94A3B8', fontSize: '12px', textAlign: 'center', padding: '8px' }}>
+                                {hasVoterUploaded ? 'Voter ID Record Verified ✓' : 'No Voter Card Uploaded'}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Voter ID: {voterNum}</span>
+                            {voterSrc && (
+                              <a href={voterSrc} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
+                                View Image ↗
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Voter ID: {selectedTech.voterCardNumber || '•••• •••• ••••'}</span>
-                        {selectedTech.voterCardUrl && (
-                          <a href={selectedTech.voterCardUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
-                            View Image ↗
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* KYC Decision Bar */}
                   <div style={{ marginTop: '18px', padding: '14px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>

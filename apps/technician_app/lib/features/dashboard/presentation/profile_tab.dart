@@ -615,6 +615,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       child: Column(
                         children: [
                           _buildDocStatusRow(
+                            '📸 Real Live Selfie Photo',
+                            _getSpecificDocStatus('SELFIE', kycStatus),
+                            onTap: () => _promptUploadDoc('SELFIE', 'Live Selfie Photo'),
+                          ),
+                          const Divider(height: 16, color: Color(0xFFF1F5F9)),
+                          _buildDocStatusRow(
                             '🪪 Aadhaar Card (Front/Back)',
                             _getSpecificDocStatus('AADHAAR', kycStatus),
                             onTap: () => _promptUploadDoc('AADHAAR', 'Aadhaar Card'),
@@ -923,6 +929,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               Navigator.pop(ctx);
               final String supabaseStorageUrl =
                   'https://hgjvwddlwofzpdurvpzd.supabase.co/storage/v1/object/public/kyc-documents/kyc_${docType.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+              if (docType.toUpperCase().contains('SELFIE') || docType.toUpperCase().contains('LIVE')) {
+                await _profileService.uploadProfilePhoto(supabaseStorageUrl);
+              }
 
               await _profileService.submitKycDocument(
                 documentType: docType,

@@ -10,16 +10,7 @@ const getInitialBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL;
   }
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    // When running locally on Vite dev server (localhost / 127.0.0.1 / 192.168.x.x), point directly to cloud backend
-    if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.')) {
-      return PRIMARY_API_BASE_URL;
-    }
-    // When served statically by backend on custom domain or Render
-    return '/api/v1';
-  }
-  return PRIMARY_API_BASE_URL;
+  return '/api/v1';
 };
 
 const API_BASE_URL = getInitialBaseUrl();
