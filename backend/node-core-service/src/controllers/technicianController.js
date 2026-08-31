@@ -10,28 +10,40 @@ const { inMemorySkills, inMemoryDocs, inMemoryTechProfiles } = require('../confi
 /**
  * Helper to format skillId into human-readable skill and category
  */
-const resolveSkillMeta = (skillId) => {
-  const clean = (skillId || '').replace(/^sk_/, '').replace(/^cat_/, '');
+const resolveSkillMeta = (skillIdOrName) => {
+  if (!skillIdOrName) {
+    return { skillId: 'sk_general', skillName: 'General Service', categoryId: 'cat_electrical', categoryName: 'Electrical Services' };
+  }
+  const str = String(skillIdOrName);
+  const clean = str.replace(/^sk_/, '').replace(/^cat_/, '');
   const words = clean.split(/[_-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1));
-  const skillName = words.join(' ');
+  const skillName = words.join(' ') || str;
 
-  let categoryName = 'General Repairs';
-  let categoryId = 'cat_general';
-  if (skillId.includes('ac') || clean.includes('cooling') || clean.includes('gas')) {
-    categoryName = 'AC Services';
+  let categoryId = 'cat_electrical';
+  let categoryName = 'Electrical & Home Electrical';
+
+  const lower = str.toLowerCase();
+  if (lower.includes('ac') || lower.includes('cooling') || lower.includes('gas')) {
     categoryId = 'cat_ac';
-  } else if (skillId.includes('electr') || skillId.includes('wiring') || skillId.includes('fan') || skillId.includes('switch') || skillId.includes('mcb')) {
-    categoryName = 'Electrical & Home';
-    categoryId = 'cat_electrical';
-  } else if (skillId.includes('plumb') || clean.includes('pipe') || clean.includes('tap') || clean.includes('drain')) {
-    categoryName = 'Plumbing Services';
+    categoryName = 'AC Services';
+  } else if (lower.includes('refrigerator') || lower.includes('fridge') || lower.includes('compressor')) {
+    categoryId = 'cat_refrigerator';
+    categoryName = 'Refrigerator';
+  } else if (lower.includes('washing') || lower.includes('machine') || lower.includes('dryer')) {
+    categoryId = 'cat_washing_machine';
+    categoryName = 'Washing Machine';
+  } else if (lower.includes('plumb') || lower.includes('pipe') || lower.includes('tap') || lower.includes('leak') || lower.includes('motor')) {
     categoryId = 'cat_plumbing';
-  } else if (skillId.includes('appliance') || clean.includes('wash') || clean.includes('fridge') || clean.includes('ro_')) {
-    categoryName = 'Appliance Repair';
-    categoryId = 'cat_appliance';
+    categoryName = 'Plumbing Services';
+  } else if (lower.includes('clean') || lower.includes('pest') || lower.includes('disinfect')) {
+    categoryId = 'cat_cleaning';
+    categoryName = 'Cleaning & Pest Control';
+  } else if (lower.includes('cctv') || lower.includes('camera') || lower.includes('security')) {
+    categoryId = 'cat_cctv';
+    categoryName = 'CCTV & Security';
   }
 
-  return { skillName, categoryName, categoryId };
+  return { skillId: str, skillName, categoryId, categoryName };
 };
 
 /**
@@ -141,7 +153,11 @@ const getSkills = async (req, res) => {
     const technicianId = req.params.id || req.params.techId || req.query.technicianId || req.user?.id || 'tech-001';
     let profile = null;
 
-      profile = await MongoTechnicianProfile.findOne({ technicianId });
+    if (mongo.isMongoHealthy()) {
+      try {
+        profile = await MongoTechnicianProfile.findOne({ technicianId });
+      } catch (e) {}
+    }
 
     let rawSkills = profile?.skills || inMemorySkills.get(technicianId) || [];
 
@@ -158,14 +174,14 @@ const getSkills = async (req, res) => {
 
     const formattedSkills = rawSkills.map((s, idx) => {
       const skillId = typeof s === 'string' ? s : (s.skillId || s.id || `sk_${idx}`);
-      const exp = typeof s === 'object' ? (s.experienceYears || 2) : 2;
+      const exp = typeof s === 'object' ? (parseInt(s.experienceYears || 2, 10)) : 2;
       const meta = resolveSkillMeta(skillId);
       return {
         id: `ts_${idx + 1}`,
-        skillId,
-        skillName: meta.skillName,
-        categoryId: meta.categoryId,
-        categoryName: meta.categoryName,
+        skillId: meta.skillId,
+        skillName: (typeof s === 'object' && s.skillName) ? s.skillName : meta.skillName,
+        categoryId: (typeof s === 'object' && s.categoryId) ? s.categoryId : meta.categoryId,
+        categoryName: (typeof s === 'object' && s.categoryName) ? s.categoryName : meta.categoryName,
         experienceYears: exp,
         verificationStatus: 'VERIFIED',
         enabled: true,
@@ -176,16 +192,22 @@ const getSkills = async (req, res) => {
       technicianId,
       technicianCode: `BT-TECH-${technicianId.slice(-6).toUpperCase()}`,
       fullName: profile?.fullName || req.user?.name || 'Partner Technician',
-      rating: profile?.rating || 4.88,
-      totalRatingsCount: 38,
-      totalJobsCompleted: profile?.totalJobsCompleted || 142,
+      rating: profile?.rating ? parseFloat(profile.rating) : 5.0,
+      totalRatingsCount: profile?.totalRatingsCount || 0,
+      totalJobsCompleted: profile?.totalJobsCompleted || 0,
       skills: formattedSkills,
       totalSkillsCount: formattedSkills.length,
       verifiedSkillsCount: formattedSkills.length,
       pendingSkillsCount: 0,
     };
 
-    return res.json({ success: true, data: formattedSkills, skills: formattedSkills, profile: responseData });
+    return res.json({
+      success: true,
+      data: responseData,
+      profile: responseData,
+      skills: formattedSkills,
+      count: formattedSkills.length,
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -197,26 +219,50 @@ const getSkills = async (req, res) => {
 const saveSkillsBulk = async (req, res) => {
   try {
     const technicianId = req.user?.id || req.body.technicianId || req.query.technicianId || 'tech-001';
-    const { skills = [] } = req.body;
+    const rawInput = req.body.skills || req.body.data || [];
+    const skills = Array.isArray(rawInput) ? rawInput : [rawInput];
 
-    inMemorySkills.set(technicianId, skills);
+    const formattedSkills = skills.map((s, idx) => {
+      const skillId = typeof s === 'string' ? s : (s.skillId || s.id || s.name || `sk_${idx}`);
+      const exp = typeof s === 'object' ? (parseInt(s.experienceYears || 2, 10)) : 2;
+      const meta = resolveSkillMeta(skillId);
+      return {
+        id: `ts_${idx + 1}`,
+        skillId: meta.skillId,
+        skillName: (typeof s === 'object' && s.skillName) ? s.skillName : meta.skillName,
+        categoryId: (typeof s === 'object' && s.categoryId) ? s.categoryId : meta.categoryId,
+        categoryName: (typeof s === 'object' && s.categoryName) ? s.categoryName : meta.categoryName,
+        experienceYears: exp,
+        verificationStatus: 'VERIFIED',
+        enabled: true,
+      };
+    });
 
-    const stringSkills = skills.map(s => (typeof s === 'string' ? s : (s.skillId || s.skillName)));
+    // 0. Update in-memory stores
+    inMemorySkills.set(technicianId, formattedSkills);
+    if (inMemoryTechProfiles.has(technicianId)) {
+      const p = inMemoryTechProfiles.get(technicianId);
+      p.skills = formattedSkills;
+    }
+
+    const stringSkills = formattedSkills.map(s => s.skillId);
 
     // 1. Update MongoDB
-    try {
-      await MongoTechnicianProfile.findOneAndUpdate(
-        { technicianId },
-        {
-          $set: {
-            skills: stringSkills,
-            updatedAt: new Date(),
+    if (mongo.isMongoHealthy()) {
+      try {
+        await MongoTechnicianProfile.findOneAndUpdate(
+          { technicianId },
+          {
+            $set: {
+              skills: stringSkills,
+              updatedAt: new Date(),
+            },
           },
-        },
-        { upsert: true, new: true }
-      );
-    } catch (e) {
-      console.error('Error saving skills to MongoDB:', e.message);
+          { upsert: true, new: true }
+        );
+      } catch (e) {
+        console.error('Error saving skills to MongoDB:', e.message);
+      }
     }
 
     // 2. Update PostgreSQL
@@ -232,35 +278,32 @@ const saveSkillsBulk = async (req, res) => {
       }
     }
 
-    const formattedSkills = stringSkills.map((s, idx) => {
-      const meta = resolveSkillMeta(s);
-      return {
-        id: `ts_${idx + 1}`,
-        skillId: s,
-        skillName: meta.skillName,
-        categoryId: meta.categoryId,
-        categoryName: meta.categoryName,
-        experienceYears: 2,
-        verificationStatus: 'VERIFIED',
-        enabled: true,
-      };
-    });
-
     const responseData = {
       technicianId,
       technicianCode: `BT-TECH-${technicianId.slice(-6).toUpperCase()}`,
       fullName: req.user?.name || 'Partner Technician',
-      rating: 4.9,
-      totalRatingsCount: 42,
-      totalJobsCompleted: 148,
+      rating: 5.0,
+      totalRatingsCount: 0,
+      totalJobsCompleted: 0,
       skills: formattedSkills,
       totalSkillsCount: formattedSkills.length,
       verifiedSkillsCount: formattedSkills.length,
       pendingSkillsCount: 0,
     };
 
-    console.log(`🎯 [Skills Saved] Saved ${stringSkills.length} skills for technician ${technicianId}.`);
-    return res.json({ success: true, data: formattedSkills, skills: formattedSkills, profile: responseData });
+    if (global.io) {
+      global.io.emit('technicians:updated', { technicianId, action: 'SKILLS_UPDATED', skills: formattedSkills });
+    }
+
+    console.log(`🎯 [Skills Saved] Saved ${formattedSkills.length} skills for technician ${technicianId}.`);
+    return res.json({
+      success: true,
+      message: 'Skills saved successfully',
+      data: responseData,
+      profile: responseData,
+      skills: formattedSkills,
+      count: formattedSkills.length,
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }

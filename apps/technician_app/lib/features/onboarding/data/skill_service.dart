@@ -59,8 +59,25 @@ class SkillService {
   Future<TechnicianSkillProfileModel?> fetchMySkillProfile() async {
     try {
       final res = await _dioClient.dio.get('/technician/skills');
-      if (res.statusCode == 200 && res.data?['data'] != null) {
-        return TechnicianSkillProfileModel.fromJson(res.data['data']);
+      if (res.statusCode == 200 && res.data != null) {
+        final raw = res.data;
+        if (raw['data'] is Map<String, dynamic>) {
+          return TechnicianSkillProfileModel.fromJson(raw['data'] as Map<String, dynamic>);
+        } else if (raw['profile'] is Map<String, dynamic>) {
+          return TechnicianSkillProfileModel.fromJson(raw['profile'] as Map<String, dynamic>);
+        } else if (raw['data'] is List) {
+          return TechnicianSkillProfileModel.fromJson({
+            'skills': raw['data'],
+            'technicianId': 'BT-PARTNER',
+            'fullName': 'Partner Technician',
+          });
+        } else if (raw['skills'] is List) {
+          return TechnicianSkillProfileModel.fromJson({
+            'skills': raw['skills'],
+            'technicianId': 'BT-PARTNER',
+            'fullName': 'Partner Technician',
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error fetching technician skill profile: $e');
@@ -74,8 +91,19 @@ class SkillService {
       final res = await _dioClient.dio.post('/technician/skills/bulk', data: {
         'skills': skillsPayload,
       });
-      if (res.statusCode == 200 && res.data?['data'] != null) {
-        return TechnicianSkillProfileModel.fromJson(res.data['data']);
+      if (res.statusCode == 200 && res.data != null) {
+        final raw = res.data;
+        if (raw['data'] is Map<String, dynamic>) {
+          return TechnicianSkillProfileModel.fromJson(raw['data'] as Map<String, dynamic>);
+        } else if (raw['profile'] is Map<String, dynamic>) {
+          return TechnicianSkillProfileModel.fromJson(raw['profile'] as Map<String, dynamic>);
+        } else if (raw['data'] is List) {
+          return TechnicianSkillProfileModel.fromJson({
+            'skills': raw['data'],
+            'technicianId': 'BT-PARTNER',
+            'fullName': 'Partner Technician',
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error saving technician skills: $e');

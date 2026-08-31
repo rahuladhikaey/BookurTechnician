@@ -115,15 +115,27 @@ class TechnicianSkillItemModel {
   });
 
   factory TechnicianSkillItemModel.fromJson(Map<String, dynamic> json) {
+    int parsedExp = 2;
+    if (json['experienceYears'] is int) {
+      parsedExp = json['experienceYears'];
+    } else if (json['experienceYears'] is num) {
+      parsedExp = (json['experienceYears'] as num).toInt();
+    } else if (json['experienceYears'] != null) {
+      parsedExp = int.tryParse(json['experienceYears'].toString()) ?? 2;
+    }
+
+    final sId = json['skillId']?.toString() ?? json['id']?.toString() ?? '';
+    final sName = json['skillName']?.toString() ?? json['name']?.toString() ?? sId;
+
     return TechnicianSkillItemModel(
-      id: json['id']?.toString() ?? '',
-      skillId: json['skillId']?.toString() ?? '',
-      skillName: json['skillName']?.toString() ?? '',
+      id: json['id']?.toString() ?? sId,
+      skillId: sId,
+      skillName: sName,
       categoryId: json['categoryId']?.toString() ?? '',
       categoryName: json['categoryName']?.toString() ?? '',
-      experienceYears: json['experienceYears'] is int ? json['experienceYears'] : 1,
-      verificationStatus: json['verificationStatus']?.toString().toUpperCase() ?? 'PENDING',
-      enabled: json['enabled'] == true,
+      experienceYears: parsedExp,
+      verificationStatus: json['verificationStatus']?.toString().toUpperCase() ?? 'VERIFIED',
+      enabled: json['enabled'] != false,
       rejectionReason: json['rejectionReason']?.toString(),
     );
   }
@@ -182,17 +194,21 @@ class TechnicianSkillProfileModel {
       parsedRating = (json['rating'] as num).toDouble();
     }
 
+    int totalCount = json['totalSkillsCount'] is int ? json['totalSkillsCount'] : parsedSkills.length;
+    int verifiedCount = json['verifiedSkillsCount'] is int ? json['verifiedSkillsCount'] : parsedSkills.where((s) => s.verificationStatus == 'VERIFIED').length;
+    int pendingCount = json['pendingSkillsCount'] is int ? json['pendingSkillsCount'] : parsedSkills.where((s) => s.verificationStatus == 'PENDING').length;
+
     return TechnicianSkillProfileModel(
       technicianId: json['technicianId']?.toString() ?? '',
-      technicianCode: json['technicianCode']?.toString() ?? '',
+      technicianCode: json['technicianCode']?.toString() ?? 'BT-PARTNER',
       fullName: json['fullName']?.toString() ?? 'Partner Technician',
       rating: parsedRating,
       totalRatingsCount: json['totalRatingsCount'] is int ? json['totalRatingsCount'] : 0,
       totalJobsCompleted: json['totalJobsCompleted'] is int ? json['totalJobsCompleted'] : 0,
       skills: parsedSkills,
-      totalSkillsCount: json['totalSkillsCount'] is int ? json['totalSkillsCount'] : parsedSkills.length,
-      verifiedSkillsCount: json['verifiedSkillsCount'] is int ? json['verifiedSkillsCount'] : 0,
-      pendingSkillsCount: json['pendingSkillsCount'] is int ? json['pendingSkillsCount'] : 0,
+      totalSkillsCount: totalCount,
+      verifiedSkillsCount: verifiedCount,
+      pendingSkillsCount: pendingCount,
     );
   }
 }
