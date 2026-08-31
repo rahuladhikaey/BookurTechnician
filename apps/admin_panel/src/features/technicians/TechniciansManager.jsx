@@ -259,6 +259,48 @@ export default function TechniciansManager({
     }
   };
 
+  // ─── DELETE TECHNICIAN PARTNER ───
+  const handleDeleteTech = async (tech) => {
+    if (!window.confirm(`Are you sure you want to delete technician partner ${tech.name || tech.fullName || tech.id}? This will permanently remove their records from the directory.`)) {
+      return;
+    }
+    try {
+      await api.deleteTechnician(tech.id);
+      if (setTechnicians) {
+        setTechnicians(prev => prev.filter(t => t.id !== tech.id));
+      }
+      if (selectedTech && selectedTech.id === tech.id) {
+        setShowDetailModal(false);
+        setSelectedTech(null);
+      }
+      auditLogAction?.('Technicians', `Deleted technician partner ${tech.name || tech.id}`);
+      fetchTechs();
+    } catch (err) {
+      console.error('Error deleting technician:', err);
+      alert('Failed to delete technician: ' + err.message);
+    }
+  };
+
+  // ─── CLEAR ALL / RESET DIRECTORY ───
+  const handleClearAllTechs = async () => {
+    if (!window.confirm('Are you sure you want to clear all test technicians from the directory? This will reset the fleet to a clean production slate.')) {
+      return;
+    }
+    try {
+      await api.clearAllTechnicians();
+      if (setTechnicians) {
+        setTechnicians([]);
+      }
+      setShowDetailModal(false);
+      setSelectedTech(null);
+      auditLogAction?.('Technicians', 'Cleared entire technician directory for production reset');
+      fetchTechs();
+    } catch (err) {
+      console.error('Error clearing technicians:', err);
+      alert('Failed to clear technicians: ' + err.message);
+    }
+  };
+
   // ─── FILTER TECHNICIANS ───
   const filteredTechnicians = (technicians || []).filter(t => {
     const q = searchQuery.toLowerCase().trim();
@@ -317,7 +359,17 @@ export default function TechniciansManager({
             Review registered technicians, verify KYC identity proofs & declared skills, issue digital credentials, and track live GPS online telemetry.
           </p>
         </div>
-        <div className="page-actions-group" style={{ display: 'flex', gap: '10px' }}>
+        <div className="page-actions-group" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {technicians.length > 0 && (
+            <button
+              className="btn btn-outline"
+              onClick={handleClearAllTechs}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#EF4444', color: '#EF4444' }}
+              title="Clear all mock/test technician records for clean production slate"
+            >
+              <span>🗑️</span> Reset Test Data
+            </button>
+          )}
           <button
             className="btn btn-outline"
             onClick={fetchTechs}
@@ -671,6 +723,14 @@ export default function TechniciansManager({
                             onClick={() => handleSuspendTech(t)}
                           >
                             {t.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
+                          </button>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            style={{ borderColor: '#EF4444', color: '#EF4444', fontSize: '11.5px', padding: '4px 7px' }}
+                            title="Delete Technician"
+                            onClick={() => handleDeleteTech(t)}
+                          >
+                            🗑️
                           </button>
                         </div>
                       </td>
@@ -1138,7 +1198,16 @@ export default function TechniciansManager({
             </div>
 
             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-              <button className="btn btn-outline" onClick={() => setShowDetailModal(false)}>Close</button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-outline" onClick={() => setShowDetailModal(false)}>Close</button>
+                <button
+                  className="btn btn-outline"
+                  style={{ borderColor: '#EF4444', color: '#EF4444' }}
+                  onClick={() => handleDeleteTech(selectedTech)}
+                >
+                  🗑️ Delete Partner
+                </button>
+              </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   className="btn btn-secondary"

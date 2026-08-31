@@ -17,7 +17,13 @@ const {
 } = require('../config/masterCatalog');
 const bookingsStore = require('../config/bookingsStore');
 const firebase = require('../config/firebase');
-const { inMemoryDocs, inMemoryTechProfiles, SEED_PARTNERS } = require('../config/inMemoryTechStore');
+const {
+  inMemoryDocs,
+  inMemoryTechProfiles,
+  setTechnicianProfile,
+  deleteTechnicianProfile,
+  clearAllTechniciansStore,
+} = require('../config/inMemoryTechStore');
 
 let adminBanners = [
   {
@@ -770,6 +776,180 @@ const updateTechnicianStatus = async (req, res) => {
   return res.json({ success: true, message: `Technician status updated to ${status}`, id, status });
 };
 
+const createTechnician = async (req, res) => {
+  try {
+    const {
+      name,
+      fullName,
+      phone,
+      email,
+      category = 'Electrician',
+      skills = [],
+      experienceYears = 2,
+      upiId = '',
+      rating = 5.0,
+      isOnline = false,
+      latitude,
+      longitude,
+    } = req.body;
+
+    const techName = fullName || name || 'New Partner';
+    const techId = `tech-${Date.now().toString(36)}`;
+    const techCode = `BT-TECH-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const stringSkills = Array.isArray(skills) ? skills.map(s => (typeof s === 'string' ? s : (s.skillName || s.skillId || 'General'))) : [];
+
+    const newPartner = {
+      id: techId,
+      technicianId: techId,
+      technicianCode: techCode,
+      fullName: techName,
+      name: techName,
+      phone: phone || '',
+      email: email || '',
+      category,
+      skills: stringSkills,
+      experienceYears: parseInt(experienceYears || 2, 10),
+      kycStatus: 'PENDING',
+      isOnline: Boolean(isOnline),
+      rating: parseFloat(rating || 5.0),
+      totalJobsCompleted: 0,
+      walletBalance: 0.00,
+      upiId,
+      upiNumber: phone || '',
+      latitude: latitude || 22.5726,
+      longitude: longitude || 88.3639,
+      joinedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      hasAadhaar: false,
+      hasVoterCard: false,
+      hasLivePic: false,
+      profileCompletion: 25,
+      isProfileComplete: false,
+    };
+
+    setTechnicianProfile(techId, newPartner);
+
+    // Save to Postgres
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          INSERT INTO technician_profiles (
+            id, technician_id, technician_code, full_name, phone, category, skills,
+            experience_years, kyc_status, is_online, rating, total_jobs_completed,
+            wallet_balance, upi_id, upi_number, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+          ON CONFLICT (technician_id) DO UPDATE 
+          SET full_name = $4, phone = $5, category = $6, skills = $7, updated_at = NOW();
+        `, [
+          techId, techId, techCode, techName, phone || '', category, JSON.stringify(stringSkills),
+          parseInt(experienceYears || 2, 10), 'PENDING', Boolean(isOnline), parseFloat(rating || 5.0),
+          0, 0.00, upiId, phone || ''
+        ]);
+      } catch (pErr) {
+        console.warn('Postgres createTechnician notice:', pErr.message);
+      }
+    }
+
+    // Save to Mongo
+    if (mongo.isMongoHealthy()) {
+      try {
+        await MongoTechnicianProfile.findOneAndUpdate(
+          { technicianId: techId },
+          {
+            $set: {
+              technicianId: techId,
+              fullName: techName,
+              phone: phone || '',
+              category,
+              skills: stringSkills,
+              experienceYears: parseInt(experienceYears || 2, 10),
+              kycStatus: 'PENDING',
+              isOnline: Boolean(isOnline),
+              rating: parseFloat(rating || 5.0),
+              totalJobsCompleted: 0,
+              walletBalance: 0.00,
+              upiId,
+              upiNumber: phone || '',
+              updatedAt: new Date(),
+            }
+          },
+          { upsert: true, new: true }
+        );
+      } catch (mErr) {
+        console.warn('Mongo createTechnician notice:', mErr.message);
+      }
+    }
+
+    if (global.io) {
+      global.io.emit('technicians:updated', { action: 'CREATED', technicianId: techId });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: `Technician partner ${techName} created successfully`,
+      data: newPartner,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const deleteTechnician = async (req, res) => {
+  const { id } = req.params;
+  try {
+    deleteTechnicianProfile(id);
+
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`DELETE FROM technician_kyc_documents WHERE technician_id = $1;`, [id]);
+        await postgres.query(`DELETE FROM technician_profiles WHERE technician_id = $1 OR id = $1;`, [id]);
+      } catch (e) {}
+    }
+
+    if (mongo.isMongoHealthy()) {
+      try {
+        await MongoTechnicianProfile.deleteOne({ technicianId: id });
+      } catch (e) {}
+    }
+
+    if (global.io) {
+      global.io.emit('technicians:updated', { action: 'DELETED', technicianId: id });
+    }
+
+    return res.json({ success: true, message: `Technician ${id} deleted successfully`, id });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const clearAllTechnicians = async (req, res) => {
+  try {
+    clearAllTechniciansStore();
+
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`DELETE FROM technician_kyc_documents;`);
+        await postgres.query(`DELETE FROM technician_profiles;`);
+      } catch (e) {}
+    }
+
+    if (mongo.isMongoHealthy()) {
+      try {
+        await MongoTechnicianProfile.deleteMany({});
+      } catch (e) {}
+    }
+
+    if (global.io) {
+      global.io.emit('technicians:updated', { action: 'CLEARED_ALL' });
+    }
+
+    return res.json({ success: true, message: 'All technicians directory cleared successfully' });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 const getPendingKycList = async (req, res) => {
   try {
     let pending = [];
@@ -1139,6 +1319,9 @@ module.exports = {
   clearAllBookings,
   getCustomers,
   getTechnicians,
+  createTechnician,
+  deleteTechnician,
+  clearAllTechnicians,
   getTechnicianDocuments,
   updateTechnicianStatus,
   updateTechnicianKyc,

@@ -204,6 +204,8 @@ class ApiClient {
   getTechnicians(params) { return this.get('/admin/technicians', params); }
   getTechnicianById(id) { return this.get(`/admin/technicians/${id}`); }
   createTechnician(data) { return this.post('/admin/technicians', data); }
+  deleteTechnician(id) { return this.delete(`/admin/technicians/${id}`); }
+  clearAllTechnicians() { return this.delete('/admin/technicians'); }
   getOnlineTechnicians() { return this.get('/admin/technicians/online'); }
   getTechnicianDocuments(id) { return this.get(`/admin/technicians/${id}/documents`); }
   getTechnicianSkills(techId) { return this.get(`/technician/skills/technician/${techId}`); }
