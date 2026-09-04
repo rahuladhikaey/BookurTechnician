@@ -299,7 +299,9 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       try {
         final dioClient = DioClient(SecureStorage());
         await dioClient.dio.post('/technician/online-status', data: {
+          'isOnline': true,
           'online': true,
+          'availabilityStatus': 'AVAILABLE',
           'latitude': state.currentLatitude,
           'longitude': state.currentLongitude,
         });
@@ -315,7 +317,9 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       try {
         final dioClient = DioClient(SecureStorage());
         await dioClient.dio.post('/technician/online-status', data: {
+          'isOnline': false,
           'online': false,
+          'availabilityStatus': 'OFFLINE',
         });
       } catch (e) {
         debugPrint('Backend offline status update error: $e');

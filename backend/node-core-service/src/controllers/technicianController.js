@@ -48,11 +48,16 @@ const resolveSkillMeta = (skillIdOrName) => {
 
 /**
  * POST /api/v1/technicians/location-sync & POST /api/v1/technician/location
+ * Strict JWT Authentication, Coordinate Validation, Redis GEO + PostGIS Updates
  */
 const syncLocation = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.body.technicianId || 'tech-001';
-    const { category = 'ELECTRICIAN', longitude, latitude, lat, lng, speed = 0, heading = 0 } = req.body;
+    const technicianId = req.user?.id || req.user?.sub;
+    if (!technicianId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: valid technician JWT token required' });
+    }
+
+    const { category = 'ELECTRICIAN', longitude, latitude, lat, lng, speed = 0, heading = 0, timestamp } = req.body;
 
     const finalLat = latitude !== undefined ? parseFloat(latitude) : (lat !== undefined ? parseFloat(lat) : null);
     const finalLng = longitude !== undefined ? parseFloat(longitude) : (lng !== undefined ? parseFloat(lng) : null);
@@ -61,12 +66,55 @@ const syncLocation = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing or invalid latitude or longitude' });
     }
 
+    // Validate coordinate boundaries (-90..90, -180..180)
+    if (finalLat < -90.0 || finalLat > 90.0 || finalLng < -180.0 || finalLng > 180.0) {
+      return res.status(400).json({ success: false, error: 'GPS coordinates out of valid range' });
+    }
+
+    // Reject impossible null coordinates
+    if (Math.abs(finalLat) < 0.0001 && Math.abs(finalLng) < 0.0001) {
+      return res.status(400).json({ success: false, error: 'Impossible coordinates (0, 0) rejected' });
+    }
+
+    // Reject future/spoofed timestamps
+    if (timestamp) {
+      const tsTime = new Date(timestamp).getTime();
+      if (!isNaN(tsTime) && tsTime > Date.now() + 60000) {
+        return res.status(400).json({ success: false, error: 'Future timestamp rejected' });
+      }
+    }
+
+    const staleSeconds = parseInt(process.env.TECHNICIAN_LOCATION_STALE_SECONDS || '60', 10);
     const normCat = String(category || 'electrician').toLowerCase().replace(/^cat_/, '');
+
+    // 1. Update Redis GEO & Freshness Heartbeat
     try {
+      await redis.geoAdd('technician:locations', finalLng, finalLat, technicianId);
       await redis.geoAdd(`tech_geo:${normCat}`, finalLng, finalLat, technicianId);
       await redis.geoAdd('tech_geo:all', finalLng, finalLat, technicianId);
-    } catch (_) {}
+      await redis.setHeartbeat(technicianId, staleSeconds);
+    } catch (e) {
+      console.warn('⚠️ [Redis GEO] Sync error:', e.message);
+    }
 
+    // 2. Update PostgreSQL PostGIS durable spatial location
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          UPDATE technician_profiles
+          SET current_latitude = $1,
+              current_longitude = $2,
+              location = ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+              last_location_update = NOW(),
+              updated_at = NOW()
+          WHERE technician_id = $3
+        `, [finalLat, finalLng, technicianId]);
+      } catch (e) {
+        console.warn('⚠️ [PostGIS Update] Spatial update error:', e.message);
+      }
+    }
+
+    // 3. Update MongoDB if active
     try {
       await MongoTechnicianProfile.updateOne(
         { technicianId },
@@ -76,6 +124,7 @@ const syncLocation = async (req, res) => {
               type: 'Point',
               coordinates: [finalLng, finalLat],
             },
+            lastLocationUpdate: new Date(),
             isOnline: true,
             updatedAt: new Date(),
           },
@@ -84,33 +133,34 @@ const syncLocation = async (req, res) => {
       );
     } catch (e) {}
 
-    // Update technician coordinates in all assigned active bookings
+    // 4. Update coordinates in assigned active bookings
     try {
       bookingsStore.updateTechnicianLocation(technicianId, finalLat, finalLng, speed, heading);
     } catch (_) {}
 
+    // 5. Broadcast real-time telemetry & availability invalidation
     if (global.io) {
-      global.io.emit(`tech:location:${technicianId}`, {
+      const payload = {
         technicianId,
         longitude: finalLng,
         latitude: finalLat,
         speed: parseFloat(speed) || 0,
         heading: parseFloat(heading) || 0,
         timestamp: Date.now(),
-      });
-      global.io.emit('technician:location:broadcast', {
+      };
+      global.io.emit(`tech:location:${technicianId}`, payload);
+      global.io.emit('technician:location:broadcast', payload);
+      global.io.emit('availability:updated', {
         technicianId,
-        longitude: finalLng,
         latitude: finalLat,
-        speed: parseFloat(speed) || 0,
-        heading: parseFloat(heading) || 0,
+        longitude: finalLng,
         timestamp: Date.now(),
       });
     }
 
     return res.json({
       success: true,
-      message: 'Location synced successfully to Redis 15km index',
+      message: 'Location synced successfully to PostGIS and Redis GEO 15km index',
       technicianId,
       coordinates: [finalLng, finalLat],
     });
@@ -120,25 +170,89 @@ const syncLocation = async (req, res) => {
 };
 
 /**
- * POST /api/v1/technicians/toggle-status
+ * POST /api/v1/technicians/online-status
+ * Handles ONLINE, OFFLINE, AVAILABLE, BUSY state transitions with KYC and Redis GEO cleanup
  */
 const toggleOnlineStatus = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.body.technicianId || 'tech-001';
-    const { isOnline, category = 'ELECTRICIAN' } = req.body;
+    const technicianId = req.user?.id || req.user?.sub;
+    if (!technicianId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: valid technician JWT token required' });
+    }
 
-    try {
-      await MongoTechnicianProfile.updateOne(
-        { technicianId },
-        { $set: { isOnline: !!isOnline } }
-      );
-    } catch (e) {}
+    const { isOnline, availabilityStatus } = req.body;
+    const online = Boolean(isOnline);
+
+    if (online) {
+      // Validate KYC status in PostgreSQL
+      if (postgres.isPgHealthy()) {
+        const checkRes = await postgres.query(
+          `SELECT kyc_status FROM technician_profiles WHERE technician_id = $1`,
+          [technicianId]
+        );
+        if (checkRes.rows.length > 0 && checkRes.rows[0].kyc_status !== 'VERIFIED') {
+          return res.status(403).json({
+            success: false,
+            error: `Cannot switch ONLINE: KYC verification is ${checkRes.rows[0].kyc_status || 'PENDING'}. Please wait for admin approval.`
+          });
+        }
+
+        const newStatus = availabilityStatus || 'AVAILABLE';
+        await postgres.query(`
+          UPDATE technician_profiles
+          SET is_online = true, availability_status = $2, updated_at = NOW()
+          WHERE technician_id = $1
+        `, [technicianId, newStatus]);
+      }
+
+      try {
+        await MongoTechnicianProfile.updateOne(
+          { technicianId },
+          { $set: { isOnline: true, availabilityStatus: availabilityStatus || 'AVAILABLE', updatedAt: new Date() } }
+        );
+      } catch (e) {}
+    } else {
+      // Offline transition: clean up from Redis GEO
+      if (postgres.isPgHealthy()) {
+        await postgres.query(`
+          UPDATE technician_profiles
+          SET is_online = false, availability_status = 'OFFLINE', updated_at = NOW()
+          WHERE technician_id = $1
+        `, [technicianId]);
+      }
+
+      try {
+        await redis.geoRemove('technician:locations', technicianId);
+        await redis.geoRemove('tech_geo:all', technicianId);
+        await redis.del(`technician:heartbeat:${technicianId}`);
+      } catch (e) {
+        console.warn('⚠️ [Redis Cleanup] Failed to remove offline technician:', e.message);
+      }
+
+      try {
+        await MongoTechnicianProfile.updateOne(
+          { technicianId },
+          { $set: { isOnline: false, availabilityStatus: 'OFFLINE', updatedAt: new Date() } }
+        );
+      } catch (e) {}
+    }
+
+    // Broadcast availability updated event
+    if (global.io) {
+      global.io.emit('availability:updated', {
+        technicianId,
+        isOnline: online,
+        availabilityStatus: online ? (availabilityStatus || 'AVAILABLE') : 'OFFLINE',
+        timestamp: Date.now(),
+      });
+    }
 
     return res.json({
       success: true,
       technicianId,
-      isOnline: !!isOnline,
-      message: `Technician status is now ${isOnline ? 'ONLINE' : 'OFFLINE'}`,
+      isOnline: online,
+      availabilityStatus: online ? (availabilityStatus || 'AVAILABLE') : 'OFFLINE',
+      message: `Technician status is now ${online ? 'ONLINE' : 'OFFLINE'}`,
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
@@ -150,7 +264,10 @@ const toggleOnlineStatus = async (req, res) => {
  */
 const getSkills = async (req, res) => {
   try {
-    const technicianId = req.params.id || req.params.techId || req.query.technicianId || req.user?.id || 'tech-001';
+    const technicianId = req.params.id || req.params.techId || req.query.technicianId || req.user?.id;
+    if (!technicianId) {
+      return res.status(400).json({ success: false, error: 'Technician ID is required' });
+    }
     let profile = null;
 
     if (mongo.isMongoHealthy()) {
@@ -218,7 +335,10 @@ const getSkills = async (req, res) => {
  */
 const saveSkillsBulk = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.body.technicianId || req.query.technicianId || 'tech-001';
+    const technicianId = req.user?.id || req.body.technicianId || req.query.technicianId;
+    if (!technicianId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: valid technician token required' });
+    }
     const rawInput = req.body.skills || req.body.data || [];
     const skills = Array.isArray(rawInput) ? rawInput : [rawInput];
 
@@ -321,7 +441,10 @@ const toggleSkill = async (req, res) => {
  */
 const getProfile = async (req, res) => {
   try {
-    const technicianId = req.params.id || req.query.technicianId || req.user?.id || 'tech-001';
+    const technicianId = req.params.id || req.query.technicianId || req.user?.id;
+    if (!technicianId) {
+      return res.status(400).json({ success: false, error: 'Technician ID is required' });
+    }
     let profile = null;
 
     try {
@@ -362,7 +485,10 @@ const getProfile = async (req, res) => {
  */
 const updateProfile = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.body.technicianId || 'tech-001';
+    const technicianId = req.user?.id || req.body.technicianId;
+    if (!technicianId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: valid technician token required' });
+    }
     const { fullName, upiId, phone } = req.body;
 
     const updates = {};
@@ -394,7 +520,10 @@ const updateProfile = async (req, res) => {
  * GET /api/v1/technicians/documents
  */
 const getDocuments = async (req, res) => {
-  const technicianId = req.user?.id || req.query.technicianId || req.params.id || 'tech-001';
+  const technicianId = req.user?.id || req.query.technicianId || req.params.id;
+  if (!technicianId) {
+    return res.status(400).json({ success: false, error: 'Technician ID is required' });
+  }
   const docMap = new Map();
 
   // 1. From in-memory cache
@@ -498,7 +627,10 @@ const getDocuments = async (req, res) => {
  */
 const uploadProfilePhoto = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.body.technicianId || 'tech-001';
+    const technicianId = req.user?.id || req.body.technicianId;
+    if (!technicianId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: valid technician token required' });
+    }
     const photoUrl = req.body.photoUrl || req.body.fileUrl || req.body.imageUrl || '';
 
     if (!photoUrl) {
@@ -593,7 +725,10 @@ const uploadProfilePhoto = async (req, res) => {
  * POST /api/v1/technicians/documents & /api/v1/technicians/kyc
  */
 const submitDocument = async (req, res) => {
-  const technicianId = req.user?.id || req.body.technicianId || 'tech-001';
+  const technicianId = req.user?.id || req.body.technicianId;
+  if (!technicianId) {
+    return res.status(401).json({ success: false, error: 'Unauthorized: valid technician token required' });
+  }
   const { documentType = 'AADHAAR', fileUrl = '', photoUrl = '', maskedNumber, fileSizeMb } = req.body;
   const finalFileUrl = fileUrl || photoUrl || '';
 

@@ -7,7 +7,7 @@ import '../theme.dart';
 import '../booking_provider.dart';
 import '../models.dart';
 import '../services/api_client.dart';
-import 'booking_status_map_screen.dart';
+import 'tracking_screen.dart';
 import 'profile_completion_wizard_screen.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
@@ -26,7 +26,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   String? _currentServiceName;
   double _currentAmount = 0.0;
   String? _currentSchedule;
-  String? _currentAddress;
   String? _currentRazorpayOrderId;
 
   @override
@@ -416,7 +415,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     _currentServiceName = state.cartItems.isNotEmpty ? state.cartItems.first.name : 'Service Booking';
     _currentAmount = state.grandTotal;
     _currentSchedule = '${state.selectedScheduleDate} • ${state.selectedScheduleSlot}';
-    _currentAddress = state.selectedAddressTitle;
 
     setState(() => _isProcessingPayment = true);
 
@@ -523,26 +521,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       customBookingId: _currentBookingId,
     );
 
-    final startOtp = booked?.otpCode.isNotEmpty == true ? booked!.otpCode : (1000 + Random().nextInt(9000)).toString();
-
-    // Navigate directly to BookingStatusMapScreen (Live Tracking & OTP Page)
+    // Navigate directly to Live Tracking Screen (Uber/Rapido/Zomato style)
     if (mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => BookingStatusMapScreen(
-            initialBookingData: {
-              'id': booked?.id ?? _currentBookingId,
-              'bookingCode': booked?.id ?? _currentBookingCode,
-              'serviceName': _currentServiceName,
-              'status': 'SEARCHING_TECHNICIAN',
-              'scheduledSlot': '$_currentSchedule',
-              'startServiceOtp': startOtp,
-              'startOtpExpiresAt': DateTime.now().add(const Duration(hours: 3)).toIso8601String(),
-              'fullAddress': _currentAddress,
-              'grandTotal': _currentAmount,
-              'paymentId': paymentId,
-            },
+          builder: (_) => BookingTrackingScreen(
+            bookingId: booked?.id ?? _currentBookingId ?? 'BK-100',
           ),
         ),
       );
@@ -558,7 +543,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     _currentServiceName = state.cartItems.isNotEmpty ? state.cartItems.first.name : 'Service Booking';
     _currentAmount = state.grandTotal;
     _currentSchedule = '${state.selectedScheduleDate} • ${state.selectedScheduleSlot}';
-    _currentAddress = state.selectedAddressTitle;
 
     final scheduleParts = (_currentSchedule ?? '').split('•');
     final date = scheduleParts.first.trim();
@@ -575,24 +559,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     if (!mounted) return;
     setState(() => _isProcessingPayment = false);
 
-    final startOtp = booked?.otpCode.isNotEmpty == true ? booked!.otpCode : (1000 + Random().nextInt(9000)).toString();
-
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => BookingStatusMapScreen(
-          initialBookingData: {
-            'id': booked?.id ?? _currentBookingId,
-            'bookingCode': booked?.id ?? _currentBookingCode,
-            'serviceName': _currentServiceName,
-            'status': 'SEARCHING_TECHNICIAN',
-            'scheduledSlot': '$_currentSchedule',
-            'startServiceOtp': startOtp,
-            'startOtpExpiresAt': DateTime.now().add(const Duration(hours: 3)).toIso8601String(),
-            'fullAddress': _currentAddress,
-            'grandTotal': _currentAmount,
-            'paymentId': 'PAY_AFTER_SERVICE',
-          },
+        builder: (_) => BookingTrackingScreen(
+          bookingId: booked?.id ?? _currentBookingId ?? 'BK-100',
         ),
       ),
     );

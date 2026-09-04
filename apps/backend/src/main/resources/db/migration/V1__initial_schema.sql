@@ -1,14 +1,12 @@
 -- ============================================================================
--- BOOKURTECHNICIAN — COMPLETE SUPABASE DATABASE SCHEMA & STORAGE SETUP
--- Target Database: Supabase PostgreSQL 16 + PostGIS Spatial Engine
+-- V1__initial_schema.sql
+-- BookurTechnician Core Database Schema Baseline
 -- ============================================================================
 
--- ─── 1. EXTENSIONS ──────────────────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "postgis";
 
--- ─── 2. USERS & PROFILES ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(64) PRIMARY KEY,
     phone VARCHAR(20) UNIQUE NOT NULL,
@@ -27,7 +25,6 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
--- ─── 3. CUSTOMER ADDRESSES ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS customer_addresses (
     id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -45,7 +42,6 @@ CREATE TABLE IF NOT EXISTS customer_addresses (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ─── 4. SERVICE CATEGORIES ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS service_categories (
     id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -58,7 +54,6 @@ CREATE TABLE IF NOT EXISTS service_categories (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ─── 5. SERVICES & CATALOG ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS services (
     id VARCHAR(64) PRIMARY KEY,
     category_id VARCHAR(64) NOT NULL REFERENCES service_categories(id) ON DELETE CASCADE,
@@ -78,7 +73,6 @@ CREATE TABLE IF NOT EXISTS services (
 
 CREATE INDEX IF NOT EXISTS idx_services_category ON services(category_id);
 
--- ─── 6. TECHNICIAN PROFILES & KYC ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS technician_profiles (
     id VARCHAR(64) PRIMARY KEY,
     technician_id VARCHAR(64) UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -92,9 +86,6 @@ CREATE TABLE IF NOT EXISTS technician_profiles (
     is_online BOOLEAN DEFAULT false,
     current_latitude DOUBLE PRECISION,
     current_longitude DOUBLE PRECISION,
-    location geography(Point, 4326),
-    last_location_update TIMESTAMP WITH TIME ZONE,
-    availability_status VARCHAR(30) DEFAULT 'AVAILABLE',
     rating NUMERIC(3, 2) DEFAULT 4.85,
     total_ratings_count INT DEFAULT 0,
     total_jobs_completed INT DEFAULT 0,
@@ -106,23 +97,6 @@ CREATE TABLE IF NOT EXISTS technician_profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_technician_profiles_location ON technician_profiles USING GIST(location);
-CREATE INDEX IF NOT EXISTS idx_technician_profiles_status_perf ON technician_profiles(is_online, availability_status, kyc_status, last_location_update);
-
--- ─── 6b. TECHNICIAN SERVICES RELATIONSHIP ────────────────────────────────────
-CREATE TABLE IF NOT EXISTS technician_services (
-    id VARCHAR(64) PRIMARY KEY,
-    technician_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    service_id VARCHAR(64) NOT NULL REFERENCES services(id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    active BOOLEAN DEFAULT true,
-    CONSTRAINT uq_technician_service UNIQUE(technician_id, service_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_tech_services_service ON technician_services(service_id, active);
-CREATE INDEX IF NOT EXISTS idx_tech_services_technician ON technician_services(technician_id, active);
-
--- ─── 7. TECHNICIAN KYC DOCUMENTS ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS technician_kyc_documents (
     id VARCHAR(64) PRIMARY KEY,
     technician_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -137,24 +111,6 @@ CREATE TABLE IF NOT EXISTS technician_kyc_documents (
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ─── 8. UPLOADED MEDIA / PICTURES REPOSITORY (SUPABASE STORAGE REPO) ─────────
-CREATE TABLE IF NOT EXISTS uploaded_media (
-    id VARCHAR(64) PRIMARY KEY,
-    file_name VARCHAR(255) NOT NULL,
-    file_url TEXT NOT NULL,
-    storage_bucket VARCHAR(100) NOT NULL DEFAULT 'app-assets',
-    mime_type VARCHAR(50),
-    file_size_bytes BIGINT,
-    entity_type VARCHAR(50) NOT NULL CHECK (entity_type IN ('BANNER', 'CATEGORY_ICON', 'SERVICE_THUMBNAIL', 'KYC_DOCUMENT', 'AVATAR', 'RECEIPT', 'OTHER')),
-    entity_id VARCHAR(64),
-    is_public BOOLEAN DEFAULT true,
-    uploaded_by VARCHAR(64),
-    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_uploaded_media_entity ON uploaded_media(entity_type, entity_id);
-
--- ─── 9. BOOKINGS & DISPATCH LIFECYCLE ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS bookings (
     id VARCHAR(64) PRIMARY KEY,
     booking_code VARCHAR(30) UNIQUE NOT NULL,
@@ -187,7 +143,6 @@ CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_technician ON bookings(technician_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
 
--- ─── 10. WALLET TRANSACTIONS & PAYMENTS ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS wallet_transactions (
     id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL REFERENCES users(id),
@@ -199,25 +154,5 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
     gateway_order_id VARCHAR(100),
     status VARCHAR(30) DEFAULT 'SUCCESS' CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED')),
     description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ─── 11. PLATFORM SETTINGS ──────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS platform_settings (
-    key VARCHAR(100) PRIMARY KEY,
-    value JSONB NOT NULL,
-    description TEXT,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- ─── 12. AUDIT LOGS ─────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id VARCHAR(64) PRIMARY KEY,
-    actor_id VARCHAR(64),
-    actor_name VARCHAR(100),
-    action VARCHAR(100) NOT NULL,
-    resource_type VARCHAR(50) NOT NULL,
-    resource_id VARCHAR(64),
-    details JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

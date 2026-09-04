@@ -1308,8 +1308,82 @@ const getSupportTickets = async (req, res) => res.json({ success: true, data: []
 const getNotificationsHistory = async (req, res) => res.json({ success: true, data: [] });
 const createNotification = async (req, res) => res.json({ success: true, message: 'Notification sent' });
 
+const getAvailabilityOverview = async (req, res) => {
+  try {
+    const { radiusKm = 15 } = req.query;
+    const radius = parseFloat(radiusKm) || 15;
+    const staleSeconds = parseInt(process.env.TECHNICIAN_LOCATION_STALE_SECONDS || '60', 10);
+
+    let totalOnline = 0;
+    let totalAvailable = 0;
+    let totalBusy = 0;
+    let totalStale = 0;
+    let serviceAvailability = [];
+
+    if (postgres.isPgHealthy()) {
+      const statsRes = await postgres.query(`
+        SELECT 
+          COUNT(*) FILTER (WHERE is_online = true) AS online_count,
+          COUNT(*) FILTER (WHERE is_online = true AND (availability_status = 'AVAILABLE' OR availability_status IS NULL)) AS available_count,
+          COUNT(*) FILTER (WHERE is_online = true AND availability_status = 'BUSY') AS busy_count,
+          COUNT(*) FILTER (WHERE is_online = true AND (last_location_update IS NULL OR last_location_update < (NOW() - ($1 * INTERVAL '1 second')))) AS stale_count
+        FROM technician_profiles
+      `, [staleSeconds]);
+
+      if (statsRes.rows.length > 0) {
+        totalOnline = parseInt(statsRes.rows[0].online_count, 10) || 0;
+        totalAvailable = parseInt(statsRes.rows[0].available_count, 10) || 0;
+        totalBusy = parseInt(statsRes.rows[0].busy_count, 10) || 0;
+        totalStale = parseInt(statsRes.rows[0].stale_count, 10) || 0;
+      }
+
+      const srvRes = await postgres.query(`
+        SELECT 
+          s.id AS service_id,
+          s.name AS service_name,
+          COUNT(DISTINCT tp.technician_id) AS technician_count
+        FROM services s
+        LEFT JOIN technician_services ts ON ts.service_id = s.id AND ts.active = true
+        LEFT JOIN technician_profiles tp ON tp.technician_id = ts.technician_id
+          AND tp.is_online = true
+          AND (tp.availability_status = 'AVAILABLE' OR tp.availability_status IS NULL)
+          AND tp.kyc_status = 'VERIFIED'
+          AND tp.last_location_update >= (NOW() - ($2 * INTERVAL '1 second'))
+          AND ST_DWithin(
+            tp.location,
+            ST_SetSRID(ST_MakePoint(88.3639, 22.5726), 4326)::geography,
+            $1
+          )
+        WHERE s.is_active = true
+        GROUP BY s.id, s.name
+        ORDER BY s.name ASC
+      `, [radius * 1000.0, staleSeconds]);
+
+      serviceAvailability = srvRes.rows.map(r => ({
+        serviceId: r.service_id,
+        serviceName: r.service_name,
+        availableTechnicianCount: parseInt(r.technician_count, 10) || 0,
+      }));
+    }
+
+    return res.json({
+      success: true,
+      totalOnlineTechnicians: totalOnline,
+      totalAvailableTechnicians: totalAvailable,
+      totalBusyTechnicians: totalBusy,
+      staleLocationTechnicians: totalStale,
+      radiusKm: radius,
+      updatedAt: new Date().toISOString(),
+      serviceAvailability,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getOverview,
+  getAvailabilityOverview,
   getCategories,
   createCategory,
   updateCategory,

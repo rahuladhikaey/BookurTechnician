@@ -218,27 +218,33 @@ class _ServiceCard extends ConsumerWidget {
             Text('${service.durationMinutes} mins • ${service.warrantyText}',
                 style: const TextStyle(fontSize: 11, color: kTextGray)),
             const SizedBox(height: 4),
-            Row(
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF10B981),
-                    shape: BoxShape.circle,
+            Builder(builder: (_) {
+              final count = state.getServiceAvailabilityCount(service.id);
+              final hasTechs = count > 0;
+              return Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: hasTechs ? const Color(0xFF1E40AF) : const Color(0xFF94A3B8),
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                const Text(
-                  '4 Technicians Available in 15 km',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0D9488),
+                  const SizedBox(width: 5),
+                  Text(
+                    hasTechs
+                        ? '$count ${count == 1 ? "technician" : "technicians"} available nearby'
+                        : 'No technicians available nearby',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: hasTechs ? const Color(0xFF1E40AF) : const Color(0xFF64748B),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              );
+            }),
           ])),
           ElevatedButton(
             onPressed: () => ref.read(bookingProvider.notifier).toggleCartItem(service),

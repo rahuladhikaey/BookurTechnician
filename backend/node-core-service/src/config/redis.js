@@ -147,12 +147,39 @@ const del = async (key) => {
   memoryStore.delete(key);
 };
 
+const geoRemove = async (key, member) => {
+  if (isRedisConnected && redisClient) {
+    try {
+      await redisClient.zrem(key, member);
+      return;
+    } catch (e) {}
+  }
+  if (memoryGeo.has(key)) {
+    const list = memoryGeo.get(key).filter(item => item.member !== member);
+    memoryGeo.set(key, list);
+  }
+};
+
+const setHeartbeat = async (technicianId, staleSeconds = 60) => {
+  const key = `technician:heartbeat:${technicianId}`;
+  await setWithExpiry(key, { timestamp: Date.now() }, staleSeconds);
+};
+
+const isTechnicianFresh = async (technicianId) => {
+  const key = `technician:heartbeat:${technicianId}`;
+  const hb = await get(key);
+  return hb !== null;
+};
+
 const isRedisHealthy = () => isRedisConnected;
 
 module.exports = {
   initRedis,
   geoAdd,
   geoRadius,
+  geoRemove,
+  setHeartbeat,
+  isTechnicianFresh,
   setWithExpiry,
   get,
   del,

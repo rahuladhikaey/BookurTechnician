@@ -106,33 +106,53 @@ io.on('connection', (socket) => {
     console.log(`👤 Customer ${customerId} joined tracking room.`);
   });
 
-  // Technician live GPS sync stream
-  const handleLocationStream = async ({ technicianId, category = 'electrician', longitude, latitude, speed, heading }) => {
+  // Join booking specific room for real-time tracking
+  socket.on('job:join', ({ bookingId }) => {
+    if (bookingId) {
+      socket.join(`booking_${bookingId}`);
+      console.log(`📦 Client joined live booking tracking room: booking_${bookingId}`);
+    }
+  });
+
+  const handleLocationStream = async ({ technicianId, category = 'electrician', longitude, latitude, speed, heading, bookingId }) => {
     if (longitude !== undefined && latitude !== undefined) {
-      const techId = technicianId || socket.handshake?.auth?.technicianId || 'tech-001';
+      const techId = technicianId || socket.handshake?.auth?.technicianId;
+      if (!techId) return;
       const normCat = String(category || 'electrician').toLowerCase().replace(/^cat_/, '');
+      const parsedLng = parseFloat(longitude);
+      const parsedLat = parseFloat(latitude);
+      const parsedSpeed = parseFloat(speed) || 0;
+      const parsedHeading = parseFloat(heading) || 0;
+
       try {
-        await geoAdd(`tech_geo:${normCat}`, parseFloat(longitude), parseFloat(latitude), techId);
-        await geoAdd('tech_geo:all', parseFloat(longitude), parseFloat(latitude), techId);
+        await geoAdd(`tech_geo:${normCat}`, parsedLng, parsedLat, techId);
+        await geoAdd('tech_geo:all', parsedLng, parsedLat, techId);
       } catch (_) {}
 
+      // Update in centralized live bookings store
+      try {
+        bookingsStore.updateTechnicianLocation(techId, parsedLat, parsedLng, parsedSpeed, parsedHeading);
+      } catch (_) {}
+
+      const locationPayload = {
+        technicianId: techId,
+        bookingId: bookingId || null,
+        longitude: parsedLng,
+        latitude: parsedLat,
+        speed: parsedSpeed,
+        heading: parsedHeading,
+        timestamp: Date.now(),
+      };
+
       // Broadcast location to customers tracking this technician
-      io.emit(`tech:location:${techId}`, {
-        technicianId: techId,
-        longitude: parseFloat(longitude),
-        latitude: parseFloat(latitude),
-        speed: speed || 0,
-        heading: heading || 0,
-        timestamp: Date.now(),
-      });
-      io.emit('technician:location:broadcast', {
-        technicianId: techId,
-        longitude: parseFloat(longitude),
-        latitude: parseFloat(latitude),
-        speed: speed || 0,
-        heading: heading || 0,
-        timestamp: Date.now(),
-      });
+      io.emit(`tech:location:${techId}`, locationPayload);
+      io.emit('technician:location:broadcast', locationPayload);
+      io.emit('job:partner_location', locationPayload);
+      io.emit('telemetry', locationPayload);
+
+      if (bookingId) {
+        io.to(`booking_${bookingId}`).emit('job:partner_location', locationPayload);
+      }
     }
   };
 
@@ -165,5 +185,6 @@ const startServer = async () => {
     console.log(`=======================================================`);
   });
 };
-
 startServer();
+
+

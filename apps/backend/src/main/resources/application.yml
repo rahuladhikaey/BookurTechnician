@@ -28,3 +28,13 @@ management:
     web:
       exposure:
         include: health,info,metrics
+
+jwt:
+  secret: ${JWT_SECRET:super_secret_jwt_key_bookurtechnician_2026_secure}
+
+technician:
+  search-radius-km: ${TECHNICIAN_SEARCH_RADIUS_KM:15}
+  location-stale-seconds: ${TECHNICIAN_LOCATION_STALE_SECONDS:60}
+  location-update-interval-seconds: ${LOCATION_UPDATE_INTERVAL_SECONDS:10}
+  location-min-distance-meters: ${LOCATION_MIN_DISTANCE_METERS:50}
+  dispatch-response-timeout-seconds: ${DISPATCH_RESPONSE_TIMEOUT_SECONDS:30}

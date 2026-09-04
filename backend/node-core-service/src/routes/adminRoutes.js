@@ -5,6 +5,7 @@ const adminController = require('../controllers/adminController');
 // Overview & Executive Analytics
 router.get('/overview', adminController.getOverview);
 router.get('/stats', adminController.getOverview);
+router.get('/availability-overview', adminController.getAvailabilityOverview);
 
 // Categories Management
 router.get('/categories', adminController.getCategories);

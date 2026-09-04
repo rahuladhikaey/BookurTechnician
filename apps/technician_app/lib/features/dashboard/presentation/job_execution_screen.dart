@@ -49,6 +49,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
   void _showStartOtpDialog() {
     final otpCtrl = TextEditingController();
     String? errorText;
+    bool isResending = false;
 
     showDialog(
       context: context,
@@ -85,6 +86,20 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: isResending
+                    ? null
+                    : () async {
+                        setDialogState(() => isResending = true);
+                        await _resendStartOtpToCustomer();
+                        setDialogState(() => isResending = false);
+                      },
+                icon: isResending
+                    ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.refresh, size: 14, color: Color(0xFF1E3A8A)),
+                label: const Text('Resend Start OTP to Customer', style: TextStyle(fontSize: 12, color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
           actions: [
@@ -116,9 +131,62 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
     );
   }
 
+  Future<void> _resendStartOtpToCustomer() async {
+    final bookingId = widget.job['id'];
+    if (bookingId == null) return;
+    try {
+      final dioClient = DioClient(SecureStorage());
+      await dioClient.dio.post('/bookings/$bookingId/resend-start-otp');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF166534),
+            content: Text('Start OTP resent to customer successfully!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFDC2626),
+            content: Text('Could not resend OTP: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _resendEndOtpToCustomer() async {
+    final bookingId = widget.job['id'];
+    if (bookingId == null) return;
+    try {
+      final dioClient = DioClient(SecureStorage());
+      await dioClient.dio.post('/bookings/$bookingId/resend-end-otp');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF166534),
+            content: Text('Ending OTP resent to customer successfully!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFDC2626),
+            content: Text('Could not resend End OTP: $e'),
+          ),
+        );
+      }
+    }
+  }
+
   void _showEndOtpDialog() {
     final otpCtrl = TextEditingController();
     String? errorText;
+    bool isResending = false;
 
     showDialog(
       context: context,
@@ -136,7 +204,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Ask customer for the 4-digit Completion OTP sent to their registered email inbox.',
+                'Ask customer for the 4-digit Completion OTP sent to their registered app / phone inbox.',
                 style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
               ),
               const SizedBox(height: 16),
@@ -154,6 +222,20 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                   fillColor: const Color(0xFFF0FDF4),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: isResending
+                    ? null
+                    : () async {
+                        setDialogState(() => isResending = true);
+                        await _resendEndOtpToCustomer();
+                        setDialogState(() => isResending = false);
+                      },
+                icon: isResending
+                    ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.refresh, size: 14, color: Color(0xFF16A34A)),
+                label: const Text('Resend Ending OTP to Customer', style: TextStyle(fontSize: 12, color: Color(0xFF16A34A), fontWeight: FontWeight.bold)),
               ),
             ],
           ),

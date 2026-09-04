@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../booking_provider.dart';
 import '../models.dart';
 import '../theme.dart';
-import 'booking_status_map_screen.dart';
+import 'tracking_screen.dart';
 
 class BookingHistoryScreen extends ConsumerStatefulWidget {
   const BookingHistoryScreen({super.key});
@@ -156,18 +156,7 @@ class _BookingCard extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => BookingStatusMapScreen(
-                    initialBookingData: {
-                      'id': booking.id,
-                      'bookingCode': booking.id,
-                      'serviceName': serviceTitle,
-                      'status': booking.status == BookingStatus.confirmed ? 'SEARCHING_TECHNICIAN' : 'IN_PROGRESS',
-                      'scheduledSlot': '${booking.date} • ${booking.timeSlot}',
-                      'startServiceOtp': booking.otpCode.isNotEmpty ? booking.otpCode : '1234',
-                      'fullAddress': booking.address,
-                      'grandTotal': booking.grandTotal,
-                    },
-                  ),
+                  builder: (_) => BookingTrackingScreen(bookingId: booking.id),
                 ),
               );
             } else {
@@ -292,18 +281,7 @@ class _BookingCard extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => BookingStatusMapScreen(
-                                initialBookingData: {
-                                  'id': booking.id,
-                                  'bookingCode': booking.id,
-                                  'serviceName': serviceTitle,
-                                  'status': booking.status == BookingStatus.confirmed ? 'SEARCHING_TECHNICIAN' : 'IN_PROGRESS',
-                                  'scheduledSlot': '${booking.date} • ${booking.timeSlot}',
-                                  'startServiceOtp': booking.otpCode.isNotEmpty ? booking.otpCode : '1234',
-                                  'fullAddress': booking.address,
-                                  'grandTotal': booking.grandTotal,
-                                },
-                              ),
+                              builder: (_) => BookingTrackingScreen(bookingId: booking.id),
                             ),
                           );
                         } else {
@@ -312,7 +290,7 @@ class _BookingCard extends StatelessWidget {
                       },
                       icon: Icon(isLive ? Icons.near_me_rounded : Icons.receipt_long_rounded, size: 14, color: kBrandPrimary),
                       label: Text(
-                        isLive ? 'Track Live Status' : 'View Invoice',
+                        isLive ? '📍 Track Live Location' : 'View Invoice',
                         style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: kBrandPrimary),
                       ),
                       style: TextButton.styleFrom(
@@ -432,3 +410,5 @@ class _InvoiceRow extends StatelessWidget {
     );
   }
 }
+
+

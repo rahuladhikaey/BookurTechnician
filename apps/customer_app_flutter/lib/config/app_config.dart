@@ -8,6 +8,7 @@ class AppConfig {
   
   // Primary Live Production Backend Gateway
   static const String apiBaseUrl = 'https://api.bookurtechnician.online/api/v1';
+  static const String baseUrl = apiBaseUrl;
   
   static const String socketUrl = 'https://api.bookurtechnician.online';
   static const String prodSocketUrl = 'https://api.bookurtechnician.online';

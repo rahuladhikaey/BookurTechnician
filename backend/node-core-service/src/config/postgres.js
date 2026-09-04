@@ -95,6 +95,8 @@ const createCoreTables = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
 
+      CREATE EXTENSION IF NOT EXISTS postgis;
+
       CREATE TABLE IF NOT EXISTS technician_profiles (
         id VARCHAR(64) PRIMARY KEY,
         technician_id VARCHAR(64) UNIQUE NOT NULL,
@@ -108,6 +110,9 @@ const createCoreTables = async () => {
         is_online BOOLEAN DEFAULT false,
         current_latitude DOUBLE PRECISION,
         current_longitude DOUBLE PRECISION,
+        location geography(Point, 4326),
+        last_location_update TIMESTAMP WITH TIME ZONE,
+        availability_status VARCHAR(30) DEFAULT 'AVAILABLE',
         rating NUMERIC(3, 2) DEFAULT 4.85,
         total_ratings_count INT DEFAULT 0,
         total_jobs_completed INT DEFAULT 0,
@@ -117,6 +122,21 @@ const createCoreTables = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
+
+      CREATE INDEX IF NOT EXISTS idx_technician_profiles_location ON technician_profiles USING GIST(location);
+      CREATE INDEX IF NOT EXISTS idx_technician_profiles_status_perf ON technician_profiles(is_online, availability_status, kyc_status, last_location_update);
+
+      CREATE TABLE IF NOT EXISTS technician_services (
+        id VARCHAR(64) PRIMARY KEY,
+        technician_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        service_id VARCHAR(64) NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        active BOOLEAN DEFAULT true,
+        CONSTRAINT uq_technician_service UNIQUE(technician_id, service_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_tech_services_service ON technician_services(service_id, active);
+      CREATE INDEX IF NOT EXISTS idx_tech_services_technician ON technician_services(technician_id, active);
 
       CREATE TABLE IF NOT EXISTS technician_kyc_documents (
         id VARCHAR(64) PRIMARY KEY,

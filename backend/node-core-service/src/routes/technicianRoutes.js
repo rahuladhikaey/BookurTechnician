@@ -1,14 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const technicianController = require('../controllers/technicianController');
+const bookingController = require('../controllers/bookingController');
+
+const { authenticateToken } = require('../middleware/authMiddleware');
 
 // Location & Status
 router.get('/nearby', technicianController.getNearbyTechnicians);
 router.get('/count', technicianController.getNearbyTechnicians);
-router.post('/location', technicianController.syncLocation);
-router.post('/location-sync', technicianController.syncLocation);
-router.post('/online-status', technicianController.toggleOnlineStatus);
-router.post('/toggle-status', technicianController.toggleOnlineStatus);
+router.post('/location', authenticateToken, technicianController.syncLocation);
+router.post('/location-sync', authenticateToken, technicianController.syncLocation);
+router.post('/online-status', authenticateToken, technicianController.toggleOnlineStatus);
+router.post('/toggle-status', authenticateToken, technicianController.toggleOnlineStatus);
+
+// Jobs & Lifecycle for Technician App
+router.get('/jobs', bookingController.getTechnicianBookings);
+router.patch('/jobs/:id/status', bookingController.updateBookingStatus);
+router.post('/jobs/:id/accept', bookingController.acceptBooking);
+router.post('/jobs/:id/verify-start-otp', bookingController.verifyStartOtp);
+router.post('/jobs/:id/verify-end-otp', bookingController.verifyEndOtp);
+router.post('/jobs/:id/resend-start-otp', bookingController.resendStartOtp);
+router.post('/jobs/:id/resend-end-otp', bookingController.resendEndOtp);
 
 // Skills Management (Active for service dispatches)
 router.get('/skills', technicianController.getSkills);

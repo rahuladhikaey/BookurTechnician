@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'app/app.dart';
+import 'core/security/secure_storage.dart';
 import 'core/services/location_tracking_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/socket_service.dart';
@@ -22,7 +23,14 @@ void main() async {
 
   // Initialize socket dispatch & ringing listener
   TechnicianSocketService().setNavigatorKey(rootNavigatorKey);
-  TechnicianSocketService().connect(technicianId: 'tech-001', category: 'electrician');
+  try {
+    final savedUserId = await SecureStorage().getUserId();
+    if (savedUserId != null && savedUserId.isNotEmpty) {
+      TechnicianSocketService().connect(technicianId: savedUserId, category: 'electrician');
+    }
+  } catch (e) {
+    debugPrint('Socket lazy-connect notice: $e');
+  }
 
   try {
     await LocationTrackingService().initializeService();

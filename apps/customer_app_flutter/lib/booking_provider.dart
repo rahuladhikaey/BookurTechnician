@@ -43,6 +43,11 @@ class AppState {
   final double? selectedLongitude;
   final bool isAcquiringLocation;
   final String? newServiceAnnouncement;
+  final Map<String, int> serviceAvailabilityCounts;
+  final bool isAvailabilityLoading;
+  final DateTime? lastAvailabilityFetchTime;
+  final double? lastAvailabilityLatitude;
+  final double? lastAvailabilityLongitude;
 
   const AppState({
     this.isGuest = true,
@@ -75,12 +80,21 @@ class AppState {
     this.paymentStatus = PaymentStatus.idle,
     this.paymentError,
     this.restoredCartTotal = 0.0,
+    this.serviceAvailabilityCounts = const {},
+    this.isAvailabilityLoading = false,
+    this.lastAvailabilityFetchTime,
+    this.lastAvailabilityLatitude,
+    this.lastAvailabilityLongitude,
   });
 
   // Convenience getters
   String get userName => profile.fullName;
   String get userPhone => profile.phone;
   String get userEmail => profile.email;
+
+  int getServiceAvailabilityCount(String serviceId) {
+    return serviceAvailabilityCounts[serviceId] ?? 0;
+  }
 
   AppState copyWith({
     bool? isGuest,
@@ -116,6 +130,11 @@ class AppState {
     String? paymentError,
     bool clearPaymentError = false,
     double? restoredCartTotal,
+    Map<String, int>? serviceAvailabilityCounts,
+    bool? isAvailabilityLoading,
+    DateTime? lastAvailabilityFetchTime,
+    double? lastAvailabilityLatitude,
+    double? lastAvailabilityLongitude,
   }) {
     return AppState(
       isGuest: isGuest ?? this.isGuest,
@@ -148,6 +167,11 @@ class AppState {
       paymentStatus: paymentStatus ?? this.paymentStatus,
       paymentError: clearPaymentError ? null : paymentError ?? this.paymentError,
       restoredCartTotal: restoredCartTotal ?? this.restoredCartTotal,
+      serviceAvailabilityCounts: serviceAvailabilityCounts ?? this.serviceAvailabilityCounts,
+      isAvailabilityLoading: isAvailabilityLoading ?? this.isAvailabilityLoading,
+      lastAvailabilityFetchTime: lastAvailabilityFetchTime ?? this.lastAvailabilityFetchTime,
+      lastAvailabilityLatitude: lastAvailabilityLatitude ?? this.lastAvailabilityLatitude,
+      lastAvailabilityLongitude: lastAvailabilityLongitude ?? this.lastAvailabilityLongitude,
     );
   }
 }
@@ -220,8 +244,63 @@ class BookingNotifier extends StateNotifier<AppState> {
         debugPrint('🔄 [Customer App] Catalog updated by Admin. Refreshing catalog...');
         loadCatalog();
       });
+
+      _notificationSocket!.on('availability:updated', (_) {
+        debugPrint('⚡ [Customer App] Realtime availability:updated push received. Refreshing 15km availability...');
+        fetchNearbyAvailability();
+      });
     } catch (e) {
       debugPrint('Customer socket listener warning: $e');
+    }
+  }
+
+  /// Real 15 KM Nearby Technician Spatial Availability API Client
+  Future<void> fetchNearbyAvailability({double? lat, double? lng}) async {
+    final targetLat = lat ?? state.selectedLatitude;
+    final targetLng = lng ?? state.selectedLongitude;
+
+    if (targetLat == null || targetLng == null) {
+      debugPrint('⚠️ [Availability] Skipped fetch: latitude or longitude is null');
+      return;
+    }
+
+    try {
+      state = state.copyWith(isAvailabilityLoading: true);
+      final url = '${AppConfig.apiBaseUrl}/api/v1/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final servicesList = data['services'] as List<dynamic>? ?? [];
+        final Map<String, int> counts = {};
+
+        for (final item in servicesList) {
+          if (item is Map<String, dynamic>) {
+            final sId = item['serviceId']?.toString() ?? '';
+            final count = (item['availableTechnicianCount'] as num?)?.toInt() ?? 0;
+            if (sId.isNotEmpty) {
+              counts[sId] = count;
+            }
+          }
+        }
+
+        state = state.copyWith(
+          serviceAvailabilityCounts: counts,
+          isAvailabilityLoading: false,
+          lastAvailabilityFetchTime: DateTime.now(),
+          lastAvailabilityLatitude: targetLat,
+          lastAvailabilityLongitude: targetLng,
+        );
+        debugPrint('📍 [Nearby Availability] Loaded live 15km counts for ${counts.length} services at [$targetLat, $targetLng]');
+      } else {
+        state = state.copyWith(isAvailabilityLoading: false);
+      }
+    } catch (e) {
+      debugPrint('⚠️ [Nearby Availability] Fetch error: $e');
+      state = state.copyWith(isAvailabilityLoading: false);
     }
   }
 
@@ -535,6 +614,7 @@ class BookingNotifier extends StateNotifier<AppState> {
             );
             addCustomerAddress(autoAddress);
           }
+          fetchNearbyAvailability(lat: lat, lng: lng);
           return;
         }
       } catch (e) {
@@ -548,6 +628,7 @@ class BookingNotifier extends StateNotifier<AppState> {
         address: 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}',
         isAcquiringLocation: false,
       );
+      fetchNearbyAvailability(lat: lat, lng: lng);
     } catch (e) {
       debugPrint('Auto GPS error: $e');
       state = state.copyWith(
@@ -914,7 +995,6 @@ class BookingNotifier extends StateNotifier<AppState> {
       debugPrint('Catalog live load warning: $e');
     }
     state = state.copyWith(
-      categories: MockData.categoriesList,
       isCatalogLoading: false,
     );
   }

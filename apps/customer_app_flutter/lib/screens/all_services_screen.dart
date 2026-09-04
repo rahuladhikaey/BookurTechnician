@@ -875,6 +875,37 @@ class _AllServiceCardItem extends ConsumerWidget {
                     ],
                   ),
 
+                  const SizedBox(height: 6),
+
+                  // Dynamic 15 KM Nearby Technician Availability
+                  Builder(builder: (_) {
+                    final techCount = state.getServiceAvailabilityCount(service.id);
+                    final hasTechs = techCount > 0;
+                    return Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: hasTechs ? const Color(0xFF1E40AF) : const Color(0xFF94A3B8),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          hasTechs
+                              ? '$techCount ${techCount == 1 ? "technician" : "technicians"} available nearby'
+                              : 'No technicians available nearby',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: hasTechs ? const Color(0xFF1E40AF) : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+
                   const SizedBox(height: 12),
 
                   // Price & Action Button Row
