@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../booking_provider.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/nearby_technicians_sheet.dart';
 import 'booking_status_map_screen.dart';
 
 class CategoryServicesScreen extends ConsumerStatefulWidget {
@@ -221,28 +222,41 @@ class _ServiceCard extends ConsumerWidget {
             Builder(builder: (_) {
               final count = state.getServiceAvailabilityCount(service.id);
               final hasTechs = count > 0;
-              return Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: hasTechs ? const Color(0xFF1E40AF) : const Color(0xFF94A3B8),
-                      shape: BoxShape.circle,
-                    ),
+              return InkWell(
+                onTap: () => NearbyTechniciansSheet.show(
+                  context,
+                  serviceId: service.id,
+                  serviceName: service.name,
+                  serviceItem: service,
+                ),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6.5,
+                        height: 6.5,
+                        decoration: BoxDecoration(
+                          color: hasTechs ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        hasTechs
+                            ? '$count online in 15 km • View ›'
+                            : 'Check availability in 15 km ›',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: hasTechs ? const Color(0xFF047857) : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 5),
-                  Text(
-                    hasTechs
-                        ? '$count ${count == 1 ? "technician" : "technicians"} available nearby'
-                        : 'No technicians available nearby',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color: hasTechs ? const Color(0xFF1E40AF) : const Color(0xFF64748B),
-                    ),
-                  ),
-                ],
+                ),
               );
             }),
           ])),
@@ -440,7 +454,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 28),
                 
                 // 15km Radius Online & Available Technicians Banner
-                _buildNearbyTechniciansSection(service),
+                _buildNearbyTechniciansSection(context, ref, service),
                 const SizedBox(height: 24),
                 
                 // 2. Why Choose Section
@@ -474,103 +488,130 @@ class ServiceDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildNearbyTechniciansSection(ServiceItem service) {
-    final int availableCount = (service.price > 1000) ? 3 : (service.price > 400 ? 5 : 6);
-    final int estimatedMinutes = (service.price > 1000) ? 25 : 18;
+  Widget _buildNearbyTechniciansSection(BuildContext context, WidgetRef ref, ServiceItem service) {
+    final state = ref.watch(bookingProvider);
+    final count = state.getServiceAvailabilityCount(service.id);
+    final hasTechs = count > 0;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF), // Soft Blue
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFBFDBFE), width: 1.2),
+    return InkWell(
+      onTap: () => NearbyTechniciansSheet.show(
+        context,
+        serviceId: service.id,
+        serviceName: service.name,
+        serviceItem: service,
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E40AF),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0x401E40AF),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                )
-              ],
-            ),
-            child: const Icon(Icons.near_me_rounded, color: Colors.white, size: 20),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF6FF), // Soft Blue
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasTechs ? const Color(0xFF93C5FD) : const Color(0xFFCBD5E1),
+            width: 1.2,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF10B981), // Live green pulse
-                        shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1E40AF).withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: hasTechs ? const Color(0xFF1E40AF) : const Color(0xFF64748B),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: hasTechs ? const Color(0x401E40AF) : Colors.black12,
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  )
+                ],
+              ),
+              child: const Icon(Icons.near_me_rounded, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: hasTechs ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '$availableCount Technicians Online in 15 km',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13.5,
-                        color: Color(0xFF1E3A8A),
+                      const SizedBox(width: 6),
+                      Text(
+                        hasTechs
+                            ? '$count ${count == 1 ? "Technician" : "Technicians"} Online in 15 km'
+                            : 'Technicians On Standby in 15 km',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                          color: hasTechs ? const Color(0xFF1E3A8A) : const Color(0xFF334155),
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    hasTechs
+                        ? 'Live GPS verified • Tap to see technicians & arrival ETA ›'
+                        : 'Tap to check live availability & schedule service ›',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: hasTechs ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'Free for immediate dispatch • Avg arrival $estimatedMinutes mins',
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFF475569),
-                    fontWeight: FontWeight.w500,
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: hasTechs ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: hasTechs ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1),
                 ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFFDCFCE7),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF86EFAC)),
-            ),
-            child: const Column(
-              children: [
-                Text(
-                  'FAST DISPATCH',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF047857),
-                    letterSpacing: 0.3,
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    hasTechs ? 'VIEW ALL' : 'CHECK',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w900,
+                      color: hasTechs ? const Color(0xFF047857) : const Color(0xFF475569),
+                      letterSpacing: 0.3,
+                    ),
                   ),
-                ),
-                Text(
-                  '15 km Radius',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: Color(0xFF065F46),
-                    fontWeight: FontWeight.w600,
+                  const Text(
+                    '15 km Radius',
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

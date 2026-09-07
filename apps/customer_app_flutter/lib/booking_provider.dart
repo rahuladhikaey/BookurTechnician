@@ -8,6 +8,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'config/app_config.dart';
 import 'models.dart';
 import 'models/customer_profile_models.dart';
+import 'models/nearby_technician.dart';
 import 'services/api_client.dart';
 
 // ─── App State ───────────────────────────────────────────────────────────────
@@ -254,6 +255,27 @@ class BookingNotifier extends StateNotifier<AppState> {
     }
   }
 
+  /// Candidate URLs for resilient availability discovery
+  List<String> get _availabilityCandidates => [
+    AppConfig.apiBaseUrl,
+    AppConfig.renderApiBaseUrl,
+    AppConfig.renderFallbackApiUrl,
+    AppConfig.prodApiBaseUrl,
+    AppConfig.localWifiApiBaseUrl,
+    AppConfig.localApiBaseUrl,
+  ];
+
+  String _cleanUrl(String base, String endpoint) {
+    String cleanBase = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+    String cleanEp = endpoint.startsWith('/') ? endpoint : '/$endpoint';
+    if (cleanBase.endsWith('/api/v1') && cleanEp.startsWith('/api/v1')) {
+      cleanEp = cleanEp.substring(7);
+    } else if (!cleanBase.endsWith('/api/v1') && !cleanEp.startsWith('/api/v1')) {
+      cleanEp = '/api/v1$cleanEp';
+    }
+    return '$cleanBase$cleanEp';
+  }
+
   /// Real 15 KM Nearby Technician Spatial Availability API Client
   Future<void> fetchNearbyAvailability({double? lat, double? lng}) async {
     final targetLat = lat ?? state.selectedLatitude;
@@ -266,42 +288,104 @@ class BookingNotifier extends StateNotifier<AppState> {
 
     try {
       state = state.copyWith(isAvailabilityLoading: true);
-      final url = '${AppConfig.apiBaseUrl}/api/v1/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 8));
+      final endpoint = '/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15';
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final servicesList = data['services'] as List<dynamic>? ?? [];
-        final Map<String, int> counts = {};
+      for (final base in _availabilityCandidates) {
+        try {
+          final fullUrl = _cleanUrl(base, endpoint);
+          final response = await http.get(
+            Uri.parse(fullUrl),
+            headers: {'Content-Type': 'application/json'},
+          ).timeout(const Duration(seconds: 4));
 
-        for (final item in servicesList) {
-          if (item is Map<String, dynamic>) {
-            final sId = item['serviceId']?.toString() ?? '';
-            final count = (item['availableTechnicianCount'] as num?)?.toInt() ?? 0;
-            if (sId.isNotEmpty) {
-              counts[sId] = count;
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            final servicesList = (data['services'] ?? data['data']) as List<dynamic>? ?? [];
+            final Map<String, int> counts = {};
+
+            for (final item in servicesList) {
+              if (item is Map<String, dynamic>) {
+                final sId = item['serviceId']?.toString() ?? '';
+                final count = (item['availableTechnicianCount'] as num?)?.toInt() ?? 0;
+                if (sId.isNotEmpty) {
+                  counts[sId] = count;
+                }
+              }
             }
-          }
-        }
 
-        state = state.copyWith(
-          serviceAvailabilityCounts: counts,
-          isAvailabilityLoading: false,
-          lastAvailabilityFetchTime: DateTime.now(),
-          lastAvailabilityLatitude: targetLat,
-          lastAvailabilityLongitude: targetLng,
-        );
-        debugPrint('📍 [Nearby Availability] Loaded live 15km counts for ${counts.length} services at [$targetLat, $targetLng]');
-      } else {
-        state = state.copyWith(isAvailabilityLoading: false);
+            state = state.copyWith(
+              serviceAvailabilityCounts: counts,
+              isAvailabilityLoading: false,
+              lastAvailabilityFetchTime: DateTime.now(),
+              lastAvailabilityLatitude: targetLat,
+              lastAvailabilityLongitude: targetLng,
+            );
+            debugPrint('📍 [Nearby Availability] Loaded live 15km counts for ${counts.length} services at [$targetLat, $targetLng] via $base');
+            return;
+          }
+        } catch (candidateErr) {
+          debugPrint('⚠️ [Nearby Availability] Candidate $base warning: $candidateErr');
+        }
       }
+
+      state = state.copyWith(isAvailabilityLoading: false);
     } catch (e) {
       debugPrint('⚠️ [Nearby Availability] Fetch error: $e');
       state = state.copyWith(isAvailabilityLoading: false);
     }
+  }
+
+  /// Real 15 KM Nearby Online Technicians for a specific service or category
+  Future<NearbyTechniciansResult?> fetchNearbyTechniciansForService({
+    required String serviceId,
+    String? categoryId,
+    double? lat,
+    double? lng,
+  }) async {
+    final targetLat = lat ?? state.selectedLatitude;
+    final targetLng = lng ?? state.selectedLongitude;
+
+    if (targetLat == null || targetLng == null) {
+      debugPrint('⚠️ [Nearby Technicians] Coordinates missing (lat=$targetLat, lng=$targetLng)');
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'latitude': targetLat.toString(),
+      'longitude': targetLng.toString(),
+      'radiusKm': '15',
+    };
+    if (serviceId.isNotEmpty) {
+      queryParams['serviceId'] = serviceId;
+    }
+    if (categoryId != null && categoryId.isNotEmpty) {
+      queryParams['categoryId'] = categoryId;
+    }
+
+    for (final base in _availabilityCandidates) {
+      try {
+        final fullBaseUrl = _cleanUrl(base, '/catalog/technicians/nearby');
+        final uri = Uri.parse(fullBaseUrl).replace(queryParameters: queryParams);
+
+        final response = await http.get(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+        ).timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data is Map<String, dynamic>) {
+            final result = NearbyTechniciansResult.fromJson(data);
+            debugPrint('📍 [Nearby Technicians] Discovered ${result.technicians.length} online technicians for service $serviceId within 15km via $base');
+            return result;
+          }
+        }
+      } catch (candidateErr) {
+        debugPrint('⚠️ [Nearby Technicians] Candidate $base warning: $candidateErr');
+      }
+    }
+
+    return null;
   }
 
   void clearNewServiceAnnouncement() {
@@ -963,13 +1047,20 @@ class BookingNotifier extends StateNotifier<AppState> {
       addresses: [addr],
     );
 
+    final finalLat = latitude ?? state.selectedLatitude;
+    final finalLng = longitude ?? state.selectedLongitude;
+
     state = state.copyWith(
       address: address,
       selectedAddressTitle: address,
-      selectedLatitude: latitude ?? state.selectedLatitude,
-      selectedLongitude: longitude ?? state.selectedLongitude,
+      selectedLatitude: finalLat,
+      selectedLongitude: finalLng,
       profile: updatedProfile,
     );
+
+    if (finalLat != null && finalLng != null) {
+      fetchNearbyAvailability(lat: finalLat, lng: finalLng);
+    }
   }
 
   Future<void> loadCatalog() async {
@@ -988,6 +1079,7 @@ class BookingNotifier extends StateNotifier<AppState> {
             categories: categories,
             isCatalogLoading: false,
           );
+          fetchNearbyAvailability();
           return;
         }
       }
@@ -997,6 +1089,7 @@ class BookingNotifier extends StateNotifier<AppState> {
     state = state.copyWith(
       isCatalogLoading: false,
     );
+    fetchNearbyAvailability();
   }
 
   Future<void> refreshAllData() async {
@@ -1048,6 +1141,15 @@ class BookingNotifier extends StateNotifier<AppState> {
     }
     state = state.copyWith(cartItems: list);
     _recalculatePrices();
+  }
+
+  void addToCart(ServiceItem service) {
+    final list = [...state.cartItems];
+    if (!list.any((s) => s.id == service.id)) {
+      list.add(service);
+      state = state.copyWith(cartItems: list);
+      _recalculatePrices();
+    }
   }
 
   void removeFromCart(String serviceId) {

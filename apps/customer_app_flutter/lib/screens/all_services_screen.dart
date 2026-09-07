@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../booking_provider.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/nearby_technicians_sheet.dart';
 
 enum ServiceSortOption {
   recommended('Recommended', Icons.auto_awesome_rounded),
@@ -881,28 +882,57 @@ class _AllServiceCardItem extends ConsumerWidget {
                   Builder(builder: (_) {
                     final techCount = state.getServiceAvailabilityCount(service.id);
                     final hasTechs = techCount > 0;
-                    return Row(
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: hasTechs ? const Color(0xFF1E40AF) : const Color(0xFF94A3B8),
-                            shape: BoxShape.circle,
+                    return InkWell(
+                      onTap: () => NearbyTechniciansSheet.show(
+                        context,
+                        serviceId: service.id,
+                        serviceName: service.name,
+                        serviceItem: service,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 3, bottom: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: hasTechs ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: hasTechs ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0),
+                            width: 1,
                           ),
                         ),
-                        const SizedBox(width: 5),
-                        Text(
-                          hasTechs
-                              ? '$techCount ${techCount == 1 ? "technician" : "technicians"} available nearby'
-                              : 'No technicians available nearby',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: hasTechs ? const Color(0xFF1E40AF) : const Color(0xFF64748B),
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: hasTechs ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                                shape: BoxShape.circle,
+                                boxShadow: hasTechs ? const [
+                                  BoxShadow(
+                                    color: Color(0x6610B981),
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
+                                  ),
+                                ] : null,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              hasTechs
+                                  ? '⚡ $techCount ${techCount == 1 ? "Technician" : "Technicians"} Online in 15 km • View ›'
+                                  : 'Technicians on standby in 15 km ›',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: hasTechs ? const Color(0xFF065F46) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     );
                   }),
 

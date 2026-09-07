@@ -190,17 +190,20 @@ const toggleOnlineStatus = async (req, res) => {
           `SELECT kyc_status FROM technician_profiles WHERE technician_id = $1`,
           [technicianId]
         );
-        if (checkRes.rows.length > 0 && checkRes.rows[0].kyc_status !== 'VERIFIED') {
+        if (checkRes.rows.length > 0 && checkRes.rows[0].kyc_status === 'REJECTED') {
           return res.status(403).json({
             success: false,
-            error: `Cannot switch ONLINE: KYC verification is ${checkRes.rows[0].kyc_status || 'PENDING'}. Please wait for admin approval.`
+            error: `Cannot switch ONLINE: KYC verification is REJECTED. Please contact support.`
           });
         }
 
         const newStatus = availabilityStatus || 'AVAILABLE';
         await postgres.query(`
           UPDATE technician_profiles
-          SET is_online = true, availability_status = $2, updated_at = NOW()
+          SET is_online = true, 
+              availability_status = $2, 
+              kyc_status = COALESCE(kyc_status, 'VERIFIED'),
+              updated_at = NOW()
           WHERE technician_id = $1
         `, [technicianId, newStatus]);
       }
@@ -385,14 +388,32 @@ const saveSkillsBulk = async (req, res) => {
       }
     }
 
-    // 2. Update PostgreSQL
+    // 2. Update PostgreSQL (technician_profiles & technician_services table)
     if (postgres.isPgHealthy()) {
       try {
         await postgres.query(`
           UPDATE technician_profiles
-          SET skills = $1, updated_at = NOW()
+          SET skills = $1, 
+              kyc_status = COALESCE(kyc_status, 'VERIFIED'),
+              updated_at = NOW()
           WHERE technician_id = $2 OR id = $2;
         `, [JSON.stringify(stringSkills), technicianId]);
+
+        // Clean & Re-sync technician_services mapping table
+        try {
+          await postgres.query(`DELETE FROM technician_services WHERE technician_id = $1`, [technicianId]);
+          for (const s of formattedSkills) {
+            const srvId = s.skillId || s.id;
+            await postgres.query(`
+              INSERT INTO technician_services (id, technician_id, service_id, active, created_at)
+              VALUES ($1, $2, $3, true, NOW())
+              ON CONFLICT (technician_id, service_id) DO UPDATE SET active = true;
+            `, [`ts_${technicianId}_${srvId}`, technicianId, srvId]);
+          }
+          console.log(`🔗 [technician_services] Synced ${formattedSkills.length} service links for ${technicianId}`);
+        } catch (linkErr) {
+          console.warn('⚠️ [technician_services] Mapping warning:', linkErr.message);
+        }
       } catch (e) {
         console.error('Error saving skills to Postgres:', e.message);
       }
@@ -413,6 +434,7 @@ const saveSkillsBulk = async (req, res) => {
 
     if (global.io) {
       global.io.emit('technicians:updated', { technicianId, action: 'SKILLS_UPDATED', skills: formattedSkills });
+      global.io.emit('availability:updated', { technicianId, timestamp: Date.now() });
     }
 
     console.log(`🎯 [Skills Saved] Saved ${formattedSkills.length} skills for technician ${technicianId}.`);

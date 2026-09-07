@@ -389,9 +389,15 @@ async function runSeed() {
       await client.query(`
         INSERT INTO technician_profiles (
           id, technician_id, technician_code, full_name, phone, category, skills,
-          rating, total_jobs_completed, kyc_status, is_online, upi_id, upi_number
+          rating, total_jobs_completed, kyc_status, is_online, availability_status,
+          current_latitude, current_longitude, location, last_location_update,
+          upi_id, upi_number
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'VERIFIED', true, $10, $10)
+        VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, 'VERIFIED', true, 'AVAILABLE',
+          22.5726, 88.3639, ST_SetSRID(ST_MakePoint(88.3639, 22.5726), 4326)::geography, NOW(),
+          $10, $10
+        )
         ON CONFLICT (technician_id) DO UPDATE SET
           full_name = EXCLUDED.full_name,
           skills = EXCLUDED.skills,
@@ -399,8 +405,29 @@ async function runSeed() {
           total_jobs_completed = EXCLUDED.total_jobs_completed,
           kyc_status = 'VERIFIED',
           is_online = true,
+          availability_status = 'AVAILABLE',
+          current_latitude = 22.5726,
+          current_longitude = 88.3639,
+          location = ST_SetSRID(ST_MakePoint(88.3639, 22.5726), 4326)::geography,
+          last_location_update = NOW(),
           upi_id = EXCLUDED.upi_id;
       `, [t.userId, t.userId, t.code, t.name, t.phone, t.category, t.skills, t.rating, t.jobs, t.upi]);
+
+      // Seed technician_services links
+      const serviceIdsForCategory = {
+        'ELECTRICIAN': ['fan_rep', 'fan_install', 'switch_rep', 'socket_rep', 'switchboard_rep', 'light_rep', 'mcb_rep', 'inverter_rep'],
+        'AC_REPAIR': ['ac_service', 'ac_deep_cleaning', 'ac_repair_general', 'ac_gas_charging', 'ac_installation', 'fan_rep'],
+        'PLUMBING': ['tap_repair', 'pipe_leakage', 'motor_repair', 'bathroom_drain'],
+        'APPLIANCE': ['washing_rep', 'fridge_rep', 'ro_repair', 'microwave_rep'],
+      }[t.category] || ['fan_rep', 'switch_rep'];
+
+      for (const sId of serviceIdsForCategory) {
+        await client.query(`
+          INSERT INTO technician_services (id, technician_id, service_id, active, created_at)
+          VALUES ($1, $2, $3, true, NOW())
+          ON CONFLICT (technician_id, service_id) DO UPDATE SET active = true;
+        `, [`ts_${t.userId}_${sId}`, t.userId, sId]);
+      }
 
       // KYC Aadhaar & Voter Docs
       await client.query(`

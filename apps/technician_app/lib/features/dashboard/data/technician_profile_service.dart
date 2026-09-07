@@ -92,7 +92,7 @@ class TechnicianProfileService {
 
   Future<TechnicianProfileData?> fetchProfile() async {
     try {
-      final res = await _dioClient.dio.get('/technician/profile');
+      final res = await _dioClient.dio.get('/technicians/profile');
       if (res.statusCode == 200 && res.data?['data'] != null) {
         return TechnicianProfileData.fromJson(res.data['data']);
       }
@@ -113,7 +113,7 @@ class TechnicianProfileService {
       if (profileImageUrl != null) payload['profileImageUrl'] = profileImageUrl;
       if (upiId != null) payload['upiId'] = upiId;
 
-      final res = await _dioClient.dio.put('/technician/profile', data: payload);
+      final res = await _dioClient.dio.put('/technicians/profile', data: payload);
       if (res.statusCode == 200 && res.data?['data'] != null) {
         return TechnicianProfileData.fromJson(res.data['data']);
       }
@@ -125,7 +125,7 @@ class TechnicianProfileService {
 
   Future<String?> reportIncident(String category, String description) async {
     try {
-      final res = await _dioClient.dio.post('/technician/incident', data: {
+      final res = await _dioClient.dio.post('/technicians/incident', data: {
         'category': category,
         'description': description,
       });
@@ -140,7 +140,7 @@ class TechnicianProfileService {
 
   Future<List<KycDocumentItem>> fetchKycDocuments() async {
     try {
-      final res = await _dioClient.dio.get('/technician/documents');
+      final res = await _dioClient.dio.get('/technicians/documents');
       if (res.statusCode == 200 && res.data?['data'] is List) {
         final List list = res.data['data'];
         return list.map((item) => KycDocumentItem.fromJson(item as Map<String, dynamic>)).toList();
@@ -153,7 +153,7 @@ class TechnicianProfileService {
 
   Future<bool> uploadProfilePhoto(String photoUrl) async {
     try {
-      final res = await _dioClient.dio.post('/technician/profile/photo', data: {
+      final res = await _dioClient.dio.post('/technicians/profile/photo', data: {
         'photoUrl': photoUrl,
       });
       return res.statusCode == 200;
@@ -169,7 +169,7 @@ class TechnicianProfileService {
     String? maskedNumber,
   }) async {
     try {
-      final res = await _dioClient.dio.post('/technician/documents', data: {
+      final res = await _dioClient.dio.post('/technicians/documents', data: {
         'documentType': documentType,
         'fileUrl': fileUrl,
         'maskedNumber': maskedNumber ?? '',

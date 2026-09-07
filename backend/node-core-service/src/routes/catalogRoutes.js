@@ -6,5 +6,6 @@ router.get('/categories', catalogController.getCatalog);
 router.get('/hierarchy', catalogController.getHierarchy);
 router.get('/services', catalogController.getServices);
 router.get('/availability', catalogController.getAvailability);
+router.get('/technicians/nearby', catalogController.getNearbyTechniciansByService);
 
 module.exports = router;
