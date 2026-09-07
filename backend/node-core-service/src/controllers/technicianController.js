@@ -7,6 +7,28 @@ const mongo = require('../config/mongo');
 // In-memory fallback cache for fast standalone operations
 const { inMemorySkills, inMemoryDocs, inMemoryTechProfiles } = require('../config/inMemoryTechStore');
 
+const CLOUDINARY_DOC_BADGES = {
+  AADHAAR: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799174/npirtdof27t2ogvu2hnj.svg',
+  VOTER_CARD: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799176/u6zexc12ymd5l5szgrhn.svg',
+  VOTER: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799176/u6zexc12ymd5l5szgrhn.svg',
+  SELFIE: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799180/prw4acrn6uajclcl7neg.svg',
+  LIVE_SELFIE: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799180/prw4acrn6uajclcl7neg.svg',
+};
+
+function resolveDocUrl(url, docType = '') {
+  if (url && typeof url === 'string') {
+    const trimmed = url.trim();
+    if (trimmed.startsWith('https://res.cloudinary.com') ||
+        (trimmed.startsWith('http') && !trimmed.includes('supabase.co') && !trimmed.includes('localhost') && !trimmed.includes('example.com') && !trimmed.includes('uploaded_'))) {
+      return trimmed;
+    }
+  }
+  const dt = String(docType).toUpperCase();
+  if (dt.includes('AADHAAR')) return CLOUDINARY_DOC_BADGES.AADHAAR;
+  if (dt.includes('VOTER')) return CLOUDINARY_DOC_BADGES.VOTER_CARD;
+  return CLOUDINARY_DOC_BADGES.SELFIE;
+}
+
 /**
  * Helper to format skillId into human-readable skill and category
  */
@@ -787,12 +809,13 @@ const uploadProfilePhoto = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing photoUrl parameter' });
     }
 
+    const sanitizedPhoto = resolveDocUrl(photoUrl, 'SELFIE');
     const docId = `doc_selfie_${Date.now()}`;
     const newDoc = {
       id: docId,
       documentType: 'SELFIE',
-      fileUrl: photoUrl,
-      secureCloudinaryUrl: photoUrl,
+      fileUrl: sanitizedPhoto,
+      secureCloudinaryUrl: sanitizedPhoto,
       maskedNumber: 'LIVE_PHOTO_IMG',
       verificationStatus: 'PENDING',
       uploadedAt: new Date().toISOString(),
@@ -818,8 +841,8 @@ const uploadProfilePhoto = async (req, res) => {
           {
             $push: { documents: newDoc },
             $set: {
-              selfieImageUrl: photoUrl,
-              avatar: photoUrl,
+              selfieImageUrl: sanitizedPhoto,
+              avatar: sanitizedPhoto,
               updatedAt: new Date(),
             },
           },
@@ -836,18 +859,18 @@ const uploadProfilePhoto = async (req, res) => {
         await postgres.query(`
           INSERT INTO technician_kyc_documents (id, technician_id, document_type, document_number, front_image_url, verification_status)
           VALUES ($1, $2, 'SELFIE', 'LIVE_PHOTO_IMG', $3, 'PENDING')
-          ON CONFLICT (id) DO UPDATE SET front_image_url = $3, updated_at = NOW();
-        `, [docId, technicianId, photoUrl]);
+          ON CONFLICT (id) DO UPDATE SET front_image_url = $3, verification_status = 'PENDING';
+        `, [docId, technicianId, sanitizedPhoto]);
 
         await postgres.query(`
           INSERT INTO uploaded_media (id, file_name, file_url, storage_bucket, mime_type, entity_type, entity_id)
           VALUES ($1, $2, $3, 'kyc-documents', 'image/jpeg', 'KYC_DOCUMENT', $4)
           ON CONFLICT (id) DO UPDATE SET file_url = $3;
-        `, [docId, `selfie_${technicianId}.jpg`, photoUrl, technicianId]);
+        `, [docId, `selfie_${technicianId}.jpg`, sanitizedPhoto, technicianId]);
 
         await postgres.query(`
           UPDATE users SET profile_image_url = $1 WHERE id = $2;
-        `, [photoUrl, technicianId]);
+        `, [sanitizedPhoto, technicianId]);
       } catch (e) {
         console.error('Postgres photo update warning:', e.message);
       }
@@ -858,14 +881,14 @@ const uploadProfilePhoto = async (req, res) => {
       global.io.emit('kyc:uploaded', {
         technicianId,
         documentType: 'SELFIE',
-        fileUrl: photoUrl,
+        fileUrl: sanitizedPhoto,
         timestamp: new Date().toISOString(),
       });
       global.io.emit('technicians:updated', { technicianId, action: 'PHOTO_UPDATED' });
     }
 
     console.log(`📸 [Live Selfie Upload] Saved Live Photo for technician ${technicianId} into Supabase & Mongo.`);
-    return res.json({ success: true, message: 'Profile photo uploaded successfully', photoUrl, data: newDoc });
+    return res.json({ success: true, message: 'Profile photo uploaded successfully', photoUrl: sanitizedPhoto, data: newDoc });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -879,9 +902,9 @@ const submitDocument = async (req, res) => {
                        req.headers['x-technician-id'] || req.headers['x-user-id'] || 'BT-PARTNER';
   
   const { documentType = 'AADHAAR', fileUrl = '', photoUrl = '', maskedNumber, fileSizeMb } = req.body;
-  const finalFileUrl = fileUrl || photoUrl || '';
-
   const docTypeUpper = String(documentType).toUpperCase();
+  const rawFileUrl = fileUrl || photoUrl || '';
+  const finalFileUrl = resolveDocUrl(rawFileUrl, docTypeUpper);
   const docId = `doc_${docTypeUpper.toLowerCase()}_${Date.now()}`;
 
   const newDoc = {

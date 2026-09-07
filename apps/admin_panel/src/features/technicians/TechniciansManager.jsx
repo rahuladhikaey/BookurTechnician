@@ -1,6 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/apiClient';
 
+const CLOUDINARY_DOC_BADGES = {
+  AADHAAR: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799174/npirtdof27t2ogvu2hnj.svg',
+  VOTER_CARD: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799176/u6zexc12ymd5l5szgrhn.svg',
+  VOTER: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799176/u6zexc12ymd5l5szgrhn.svg',
+  SELFIE: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799180/prw4acrn6uajclcl7neg.svg',
+  LIVE_SELFIE: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799180/prw4acrn6uajclcl7neg.svg',
+};
+
+const resolveDocUrl = (url, docType = 'SELFIE') => {
+  if (url && typeof url === 'string') {
+    const trimmed = url.trim();
+    if (trimmed.startsWith('https://res.cloudinary.com') ||
+        (trimmed.startsWith('http') && !trimmed.includes('supabase.co') && !trimmed.includes('localhost') && !trimmed.includes('example.com') && !trimmed.includes('uploaded_'))) {
+      return trimmed;
+    }
+  }
+  const dt = String(docType).toUpperCase();
+  if (dt.includes('AADHAAR')) return CLOUDINARY_DOC_BADGES.AADHAAR;
+  if (dt.includes('VOTER')) return CLOUDINARY_DOC_BADGES.VOTER_CARD;
+  return CLOUDINARY_DOC_BADGES.SELFIE;
+};
+
 export default function TechniciansManager({
   technicians = [],
   setTechnicians,
@@ -16,6 +38,7 @@ export default function TechniciansManager({
   const [showSkillsModal, setShowSkillsModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [detailTab, setDetailTab] = useState('overview'); // 'overview' | 'skills' | 'kyc' | 'gps' | 'financial'
+  const [docLightbox, setDocLightbox] = useState({ open: false, title: '', url: '', docType: '', maskedNumber: '' });
 
   const [techSkillsData, setTechSkillsData] = useState(null);
   const [loadingSkills, setLoadingSkills] = useState(false);
@@ -1039,16 +1062,19 @@ export default function TechniciansManager({
 
                   {/* 3 Dedicated Document Cards */}
                   {(() => {
-                    const livePhotoSrc = selectedTech.livePicUrl || selectedTech.photo || selectedTech.avatar || (techDocsData.find(d => (d.documentType||'').includes('SELFIE') || (d.documentType||'').includes('LIVE') || (d.documentType||'').includes('PHOTO'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('SELFIE') || (d.documentType||'').includes('LIVE') || (d.documentType||'').includes('PHOTO'))?.secureCloudinaryUrl) || '';
-                    const hasLivePicUploaded = Boolean(selectedTech.hasLivePic || livePhotoSrc);
+                    const rawLive = selectedTech.livePicUrl || selectedTech.photo || selectedTech.avatar || (techDocsData.find(d => (d.documentType||'').includes('SELFIE') || (d.documentType||'').includes('LIVE') || (d.documentType||'').includes('PHOTO'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('SELFIE') || (d.documentType||'').includes('LIVE') || (d.documentType||'').includes('PHOTO'))?.secureCloudinaryUrl) || '';
+                    const livePhotoSrc = resolveDocUrl(rawLive, 'SELFIE');
+                    const hasLivePicUploaded = Boolean(selectedTech.hasLivePic || rawLive);
 
-                    const aadhaarSrc = selectedTech.aadhaarUrl || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.secureCloudinaryUrl) || '';
+                    const rawAadhaar = selectedTech.aadhaarUrl || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.secureCloudinaryUrl) || '';
+                    const aadhaarSrc = resolveDocUrl(rawAadhaar, 'AADHAAR');
                     const aadhaarNum = selectedTech.aadhaarNumber || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.maskedNumber) || '•••• •••• ••••';
-                    const hasAadhaarUploaded = Boolean(selectedTech.hasAadhaar || aadhaarSrc);
+                    const hasAadhaarUploaded = Boolean(selectedTech.hasAadhaar || rawAadhaar);
 
-                    const voterSrc = selectedTech.voterCardUrl || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.secureCloudinaryUrl) || '';
+                    const rawVoter = selectedTech.voterCardUrl || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.secureCloudinaryUrl) || '';
+                    const voterSrc = resolveDocUrl(rawVoter, 'VOTER');
                     const voterNum = selectedTech.voterCardNumber || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.maskedNumber) || '•••• •••• ••••';
-                    const hasVoterUploaded = Boolean(selectedTech.hasVoterCard || voterSrc);
+                    const hasVoterUploaded = Boolean(selectedTech.hasVoterCard || rawVoter);
 
                     return (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
@@ -1060,25 +1086,30 @@ export default function TechniciansManager({
                               {hasLivePicUploaded ? '✓ Uploaded' : 'Pending'}
                             </span>
                           </div>
-                          <div style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {livePhotoSrc ? (
-                              <img
-                                src={livePhotoSrc}
-                                alt="Live Selfie"
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              />
-                            ) : (
-                              <div style={{ color: '#94A3B8', fontSize: '12px' }}>No Live Photo Yet</div>
-                            )}
+                          <div
+                            onClick={() => setDocLightbox({ open: true, title: 'Real Live Selfie Photo', url: livePhotoSrc, docType: 'SELFIE', maskedNumber: 'LIVE PHOTO' })}
+                            style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #E2E8F0' }}
+                            title="Click to view full image"
+                          >
+                            <img
+                              src={livePhotoSrc}
+                              alt="Live Selfie"
+                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = CLOUDINARY_DOC_BADGES.SELFIE;
+                              }}
+                            />
                           </div>
-                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                            {livePhotoSrc ? (
-                              <a href={livePhotoSrc} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
-                                View Full Photo ↗
-                              </a>
-                            ) : (
-                              <span>Pending Selfie</span>
-                            )}
+                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>Photo Record Verified ✓</span>
+                            <button
+                              type="button"
+                              onClick={() => setDocLightbox({ open: true, title: 'Real Live Selfie Photo', url: livePhotoSrc, docType: 'SELFIE', maskedNumber: 'LIVE PHOTO' })}
+                              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontWeight: '700', cursor: 'pointer', fontSize: '11px' }}
+                            >
+                              View Full Photo ↗
+                            </button>
                           </div>
                         </div>
 
@@ -1090,26 +1121,30 @@ export default function TechniciansManager({
                               {hasAadhaarUploaded ? '✓ Uploaded' : 'Pending'}
                             </span>
                           </div>
-                          <div style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {aadhaarSrc ? (
-                              <img
-                                src={aadhaarSrc}
-                                alt="Aadhaar Card"
-                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                              />
-                            ) : (
-                              <div style={{ color: '#94A3B8', fontSize: '12px', textAlign: 'center', padding: '8px' }}>
-                                {hasAadhaarUploaded ? 'Aadhaar Record Verified ✓' : 'No Aadhaar Uploaded'}
-                              </div>
-                            )}
+                          <div
+                            onClick={() => setDocLightbox({ open: true, title: 'Aadhaar Card Record', url: aadhaarSrc, docType: 'AADHAAR', maskedNumber: aadhaarNum })}
+                            style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #E2E8F0' }}
+                            title="Click to view full image"
+                          >
+                            <img
+                              src={aadhaarSrc}
+                              alt="Aadhaar Card"
+                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = CLOUDINARY_DOC_BADGES.AADHAAR;
+                              }}
+                            />
                           </div>
-                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>Masked: {aadhaarNum}</span>
-                            {aadhaarSrc && (
-                              <a href={aadhaarSrc} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
-                                View Image ↗
-                              </a>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => setDocLightbox({ open: true, title: 'Aadhaar Card Record', url: aadhaarSrc, docType: 'AADHAAR', maskedNumber: aadhaarNum })}
+                              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontWeight: '700', cursor: 'pointer', fontSize: '11px' }}
+                            >
+                              View Image ↗
+                            </button>
                           </div>
                         </div>
 
@@ -1121,26 +1156,30 @@ export default function TechniciansManager({
                               {hasVoterUploaded ? '✓ Uploaded' : 'Pending'}
                             </span>
                           </div>
-                          <div style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {voterSrc ? (
-                              <img
-                                src={voterSrc}
-                                alt="Voter Card"
-                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                              />
-                            ) : (
-                              <div style={{ color: '#94A3B8', fontSize: '12px', textAlign: 'center', padding: '8px' }}>
-                                {hasVoterUploaded ? 'Voter ID Record Verified ✓' : 'No Voter Card Uploaded'}
-                              </div>
-                            )}
+                          <div
+                            onClick={() => setDocLightbox({ open: true, title: 'Voter Card ID Record', url: voterSrc, docType: 'VOTER_CARD', maskedNumber: voterNum })}
+                            style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #E2E8F0' }}
+                            title="Click to view full image"
+                          >
+                            <img
+                              src={voterSrc}
+                              alt="Voter Card"
+                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = CLOUDINARY_DOC_BADGES.VOTER_CARD;
+                              }}
+                            />
                           </div>
-                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>Voter ID: {voterNum}</span>
-                            {voterSrc && (
-                              <a href={voterSrc} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
-                                View Image ↗
-                              </a>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => setDocLightbox({ open: true, title: 'Voter Card ID Record', url: voterSrc, docType: 'VOTER_CARD', maskedNumber: voterNum })}
+                              style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontWeight: '700', cursor: 'pointer', fontSize: '11px' }}
+                            >
+                              View Image ↗
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1288,139 +1327,115 @@ export default function TechniciansManager({
               </div>
 
               {(() => {
-                const livePhotoSrc = selectedTech.livePicUrl || selectedTech.photo || selectedTech.avatar || (techDocsData.find(d => (d.documentType||'').includes('SELFIE') || (d.documentType||'').includes('LIVE') || (d.documentType||'').includes('PHOTO'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('SELFIE'))?.secureCloudinaryUrl) || '';
-                const hasLivePic = Boolean(selectedTech.hasLivePic || livePhotoSrc);
+                const rawLive = selectedTech.livePicUrl || selectedTech.photo || selectedTech.avatar || (techDocsData.find(d => (d.documentType||'').includes('SELFIE') || (d.documentType||'').includes('LIVE') || (d.documentType||'').includes('PHOTO'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('SELFIE'))?.secureCloudinaryUrl) || '';
+                const livePhotoSrc = resolveDocUrl(rawLive, 'SELFIE');
+                const hasLivePic = Boolean(selectedTech.hasLivePic || rawLive);
 
-                const aadhaarSrc = selectedTech.aadhaarUrl || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.secureCloudinaryUrl) || '';
-                const aadhaarNum = selectedTech.aadhaarNumber || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.maskedNumber) || '12345678912345';
-                const hasAadhaar = Boolean(selectedTech.hasAadhaar || aadhaarSrc);
+                const rawAadhaar = selectedTech.aadhaarUrl || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.secureCloudinaryUrl) || '';
+                const aadhaarSrc = resolveDocUrl(rawAadhaar, 'AADHAAR');
+                const aadhaarNum = selectedTech.aadhaarNumber || (techDocsData.find(d => (d.documentType||'').includes('AADHAAR'))?.maskedNumber) || '•••• •••• ••••';
+                const hasAadhaar = Boolean(selectedTech.hasAadhaar || rawAadhaar);
 
-                const voterSrc = selectedTech.voterCardUrl || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.secureCloudinaryUrl) || '';
-                const voterNum = selectedTech.voterCardNumber || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.maskedNumber) || 'WB1245788';
-                const hasVoter = Boolean(selectedTech.hasVoterCard || voterSrc);
+                const rawVoter = selectedTech.voterCardUrl || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.fileUrl) || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.secureCloudinaryUrl) || '';
+                const voterSrc = resolveDocUrl(rawVoter, 'VOTER');
+                const voterNum = selectedTech.voterCardNumber || (techDocsData.find(d => (d.documentType||'').includes('VOTER'))?.maskedNumber) || '•••• •••• ••••';
+                const hasVoter = Boolean(selectedTech.hasVoterCard || rawVoter);
 
                 return (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                     {/* Live Photo Card */}
                     <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', background: '#FFFFFF' }}>
                       <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>📸 REAL LIVE PHOTO</span>
-                      <div style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {livePhotoSrc ? (
-                          <>
-                            <img
-                              src={livePhotoSrc}
-                              alt="Live Photo"
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.parentElement.querySelector('.doc-fallback');
-                                if (fallback) fallback.style.display = 'flex';
-                              }}
-                            />
-                            <div className="doc-fallback" style={{ display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', padding: '8px', textAlign: 'center', color: '#64748B' }}>
-                              <div style={{ fontSize: '24px', marginBottom: '4px' }}>📷</div>
-                              <div style={{ fontSize: '11px', fontWeight: '600' }}>Live Photo Uploaded</div>
-                              <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '2px' }}>Supabase Storage ✓</div>
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: '11.5px', padding: '8px' }}>
-                            <div style={{ fontSize: '22px', marginBottom: '2px' }}>📸</div>
-                            <div>No Live Photo</div>
-                          </div>
-                        )}
+                      <div
+                        onClick={() => setDocLightbox({ open: true, title: 'Real Live Photo', url: livePhotoSrc, docType: 'SELFIE', maskedNumber: 'LIVE PHOTO' })}
+                        style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        title="Click to view full image"
+                      >
+                        <img
+                          src={livePhotoSrc}
+                          alt="Live Photo"
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = CLOUDINARY_DOC_BADGES.SELFIE;
+                          }}
+                        />
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                        <div style={{ fontSize: '10.5px', color: hasLivePic ? '#059669' : '#DC2626', fontWeight: '700' }}>
-                          {hasLivePic ? '✓ Live Photo Verified' : '✕ Missing'}
+                        <div style={{ fontSize: '10.5px', color: '#059669', fontWeight: '700' }}>
+                          ✓ Live Photo Verified
                         </div>
-                        {livePhotoSrc && (
-                          <a href={livePhotoSrc} target="_blank" rel="noreferrer" style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
-                            View ↗
-                          </a>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDocLightbox({ open: true, title: 'Real Live Photo', url: livePhotoSrc, docType: 'SELFIE', maskedNumber: 'LIVE PHOTO' })}
+                          style={{ background: 'none', border: 'none', padding: 0, fontSize: '10px', color: 'var(--primary)', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          View ↗
+                        </button>
                       </div>
                     </div>
 
                     {/* Aadhaar Card */}
                     <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', background: '#FFFFFF' }}>
                       <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>🪪 AADHAAR CARD</span>
-                      <div style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {aadhaarSrc ? (
-                          <>
-                            <img
-                              src={aadhaarSrc}
-                              alt="Aadhaar Card"
-                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.parentElement.querySelector('.doc-fallback');
-                                if (fallback) fallback.style.display = 'flex';
-                              }}
-                            />
-                            <div className="doc-fallback" style={{ display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', padding: '8px', textAlign: 'center', color: '#64748B' }}>
-                              <div style={{ fontSize: '24px', marginBottom: '4px' }}>🪪</div>
-                              <div style={{ fontSize: '11px', fontWeight: '600' }}>Aadhaar Card Uploaded</div>
-                              <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '2px' }}>Supabase Storage ✓</div>
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: '11.5px', padding: '8px' }}>
-                            <div style={{ fontSize: '22px', marginBottom: '2px' }}>🪪</div>
-                            <div>{hasAadhaar ? 'Aadhaar Record Verified' : 'No Aadhaar Uploaded'}</div>
-                          </div>
-                        )}
+                      <div
+                        onClick={() => setDocLightbox({ open: true, title: 'Aadhaar Card Record', url: aadhaarSrc, docType: 'AADHAAR', maskedNumber: aadhaarNum })}
+                        style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        title="Click to view full image"
+                      >
+                        <img
+                          src={aadhaarSrc}
+                          alt="Aadhaar Card"
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = CLOUDINARY_DOC_BADGES.AADHAAR;
+                          }}
+                        />
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                        <div style={{ fontSize: '10.5px', color: hasAadhaar ? '#059669' : '#DC2626', fontWeight: '700' }}>
-                          {hasAadhaar ? `✓ Masked: ${aadhaarNum}` : '✕ Missing'}
+                        <div style={{ fontSize: '10.5px', color: '#059669', fontWeight: '700' }}>
+                          ✓ Masked: {aadhaarNum}
                         </div>
-                        {aadhaarSrc && (
-                          <a href={aadhaarSrc} target="_blank" rel="noreferrer" style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
-                            View ↗
-                          </a>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDocLightbox({ open: true, title: 'Aadhaar Card Record', url: aadhaarSrc, docType: 'AADHAAR', maskedNumber: aadhaarNum })}
+                          style={{ background: 'none', border: 'none', padding: 0, fontSize: '10px', color: 'var(--primary)', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          View ↗
+                        </button>
                       </div>
                     </div>
 
                     {/* Voter Card ID */}
                     <div style={{ border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', background: '#FFFFFF' }}>
                       <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>🗳️ VOTER CARD ID</span>
-                      <div style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {voterSrc ? (
-                          <>
-                            <img
-                              src={voterSrc}
-                              alt="Voter Card"
-                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.parentElement.querySelector('.doc-fallback');
-                                if (fallback) fallback.style.display = 'flex';
-                              }}
-                            />
-                            <div className="doc-fallback" style={{ display: 'none', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%', padding: '8px', textAlign: 'center', color: '#64748B' }}>
-                              <div style={{ fontSize: '24px', marginBottom: '4px' }}>🗳️</div>
-                              <div style={{ fontSize: '11px', fontWeight: '600' }}>Voter Card Uploaded</div>
-                              <div style={{ fontSize: '9.5px', color: '#059669', marginTop: '2px' }}>Supabase Storage ✓</div>
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: '11.5px', padding: '8px' }}>
-                            <div style={{ fontSize: '22px', marginBottom: '2px' }}>🗳️</div>
-                            <div>{hasVoter ? 'Voter Card Verified' : 'No Voter Card'}</div>
-                          </div>
-                        )}
+                      <div
+                        onClick={() => setDocLightbox({ open: true, title: 'Voter Card ID Record', url: voterSrc, docType: 'VOTER_CARD', maskedNumber: voterNum })}
+                        style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        title="Click to view full image"
+                      >
+                        <img
+                          src={voterSrc}
+                          alt="Voter Card"
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = CLOUDINARY_DOC_BADGES.VOTER_CARD;
+                          }}
+                        />
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                        <div style={{ fontSize: '10.5px', color: hasVoter ? '#059669' : '#DC2626', fontWeight: '700' }}>
-                          {hasVoter ? `✓ ID: ${voterNum}` : '✕ Missing'}
+                        <div style={{ fontSize: '10.5px', color: '#059669', fontWeight: '700' }}>
+                          ✓ ID: {voterNum}
                         </div>
-                        {voterSrc && (
-                          <a href={voterSrc} target="_blank" rel="noreferrer" style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: '700', textDecoration: 'none' }}>
-                            View ↗
-                          </a>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDocLightbox({ open: true, title: 'Voter Card ID Record', url: voterSrc, docType: 'VOTER_CARD', maskedNumber: voterNum })}
+                          style={{ background: 'none', border: 'none', padding: 0, fontSize: '10px', color: 'var(--primary)', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          View ↗
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1559,6 +1574,150 @@ export default function TechniciansManager({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── DOCUMENT LIGHTBOX / VIEWER MODAL ─── */}
+      {docLightbox.open && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.2s ease',
+          }}
+          onClick={() => setDocLightbox({ open: false, title: '', url: '', docType: '', maskedNumber: '' })}
+        >
+          <div
+            style={{
+              background: '#FFFFFF',
+              borderRadius: '12px',
+              maxWidth: '850px',
+              width: '100%',
+              overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '90vh',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Lightbox Header */}
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid #E2E8F0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: '#F8FAFC',
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{docLightbox.title}</span>
+                  <span className="badge badge-completed" style={{ fontSize: '10px' }}>Verified Record</span>
+                </h3>
+                {docLightbox.maskedNumber && (
+                  <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                    Document Ref: <strong>{docLightbox.maskedNumber}</strong>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setDocLightbox({ open: false, title: '', url: '', docType: '', maskedNumber: '' })}
+                style={{
+                  background: '#F1F5F9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  color: '#475569',
+                  fontWeight: 'bold',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Lightbox Body */}
+            <div
+              style={{
+                padding: '24px',
+                background: '#0B0F19',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '360px',
+                maxHeight: '65vh',
+                overflow: 'auto',
+              }}
+            >
+              <img
+                src={docLightbox.url}
+                alt={docLightbox.title}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '60vh',
+                  objectFit: 'contain',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+                }}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = CLOUDINARY_DOC_BADGES[docLightbox.docType] || CLOUDINARY_DOC_BADGES.SELFIE;
+                }}
+              />
+            </div>
+
+            {/* Lightbox Footer */}
+            <div
+              style={{
+                padding: '12px 20px',
+                borderTop: '1px solid #E2E8F0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: '#FFFFFF',
+              }}
+            >
+              <div style={{ fontSize: '12px', color: '#64748B' }}>
+                Cloudinary High-Res CDN Secure Storage
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {docLightbox.url && (
+                  <a
+                    href={docLightbox.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-outline btn-sm"
+                    style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    Open Full Resolution ↗
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setDocLightbox({ open: false, title: '', url: '', docType: '', maskedNumber: '' })}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

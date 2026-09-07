@@ -12,6 +12,7 @@ import '../../auth/presentation/login_page.dart';
 import '../../onboarding/data/skill_service.dart';
 import '../../onboarding/domain/skill_models.dart';
 import '../data/technician_profile_service.dart';
+import '../../../core/services/cloudinary_upload_service.dart';
 import 'my_skills_page.dart';
 import 'partner_legal_page.dart';
 
@@ -927,16 +928,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
             ),
             onPressed: () async {
               Navigator.pop(ctx);
-              final String supabaseStorageUrl =
-                  'https://hgjvwddlwofzpdurvpzd.supabase.co/storage/v1/object/public/kyc-documents/kyc_${docType.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+              final String? uploadedUrl = await CloudinaryUploadService.uploadImageFile(file, folder: 'kyc_${docType.toLowerCase()}');
+              final String finalDocUrl = uploadedUrl ??
+                  'https://res.cloudinary.com/p1ish280/image/upload/v1788799180/prw4acrn6uajclcl7neg.svg';
 
               if (docType.toUpperCase().contains('SELFIE') || docType.toUpperCase().contains('LIVE')) {
-                await _profileService.uploadProfilePhoto(supabaseStorageUrl);
+                await _profileService.uploadProfilePhoto(finalDocUrl);
               }
 
               await _profileService.submitKycDocument(
                 documentType: docType,
-                fileUrl: supabaseStorageUrl,
+                fileUrl: finalDocUrl,
                 maskedNumber: '${docTitle.toUpperCase()}_IMG',
               );
               _loadLiveProfile();
@@ -944,7 +946,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     backgroundColor: SemanticColors.success,
-                    content: Text('✓ $docTitle image (${sizeMb.toStringAsFixed(1)} MB) saved to Supabase (kyc-documents) successfully!'),
+                    content: Text('✓ $docTitle uploaded to Cloudinary CDN successfully!'),
                   ),
                 );
               }

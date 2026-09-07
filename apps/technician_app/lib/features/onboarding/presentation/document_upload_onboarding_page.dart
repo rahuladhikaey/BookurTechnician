@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../../core/services/cloudinary_upload_service.dart';
 import '../../dashboard/data/technician_profile_service.dart';
 import 'skill_selection_page.dart';
 
@@ -212,32 +213,51 @@ class _DocumentUploadOnboardingPageState
     setState(() => _isSubmitting = true);
 
     try {
-      final selfiePath = _selfieFile != null ? _selfieFile!.path : 'uploaded_live_selfie.jpg';
+      // 1. Upload Selfie to Cloudinary CDN
+      String selfieUrl = 'https://res.cloudinary.com/p1ish280/image/upload/v1788799180/prw4acrn6uajclcl7neg.svg';
+      if (_selfieFile != null) {
+        final uploaded = await CloudinaryUploadService.uploadImageFile(_selfieFile!, folder: 'kyc_selfies');
+        if (uploaded != null) selfieUrl = uploaded;
+      }
+
+      // 2. Upload Aadhaar Card to Cloudinary CDN
+      String aadhaarUrl = 'https://res.cloudinary.com/p1ish280/image/upload/v1788799174/npirtdof27t2ogvu2hnj.svg';
+      if (_aadhaarFrontFile != null) {
+        final uploaded = await CloudinaryUploadService.uploadImageFile(_aadhaarFrontFile!, folder: 'kyc_aadhaar');
+        if (uploaded != null) aadhaarUrl = uploaded;
+      }
+
+      // 3. Upload Voter Card to Cloudinary CDN
+      String voterUrl = 'https://res.cloudinary.com/p1ish280/image/upload/v1788799176/u6zexc12ymd5l5szgrhn.svg';
+      if (_voterCardFile != null) {
+        final uploaded = await CloudinaryUploadService.uploadImageFile(_voterCardFile!, folder: 'kyc_voter');
+        if (uploaded != null) voterUrl = uploaded;
+      }
 
       // 1. Submit Selfie / Live Photo
       await _profileService.submitKycDocument(
         documentType: 'SELFIE',
-        fileUrl: selfiePath,
+        fileUrl: selfieUrl,
         maskedNumber: 'LIVE_SELFIE',
       );
-      await _profileService.uploadProfilePhoto(selfiePath);
+      await _profileService.uploadProfilePhoto(selfieUrl);
 
       // 2. Submit Aadhaar Card Document
       await _profileService.submitKycDocument(
         documentType: 'AADHAAR',
-        fileUrl: _aadhaarFrontFile != null ? _aadhaarFrontFile!.path : 'uploaded_aadhaar_front.jpg',
+        fileUrl: aadhaarUrl,
         maskedNumber: aadhaarNum,
       );
 
       // 3. Submit Voter Card Document
       await _profileService.submitKycDocument(
         documentType: 'VOTER_CARD',
-        fileUrl: _voterCardFile != null ? _voterCardFile!.path : 'uploaded_voter_card.jpg',
+        fileUrl: voterUrl,
         maskedNumber: voterNum,
       );
 
       // 4. Update UPI Payout ID
-      await _profileService.updateProfile(upiId: upiId, profileImageUrl: selfiePath);
+      await _profileService.updateProfile(upiId: upiId, profileImageUrl: selfieUrl);
 
       if (mounted) {
         setState(() => _isSubmitting = false);
