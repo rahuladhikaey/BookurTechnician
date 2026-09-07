@@ -15,6 +15,11 @@ class TechnicianSocketService {
   bool _isConnected = false;
   GlobalKey<NavigatorState>? _navigatorKey;
 
+  String? _currentTechnicianId;
+  String? _currentPhone;
+  String _currentCategory = 'electrician';
+  int _candidateUrlIndex = 0;
+
   bool get isConnected => _isConnected;
 
   void setNavigatorKey(GlobalKey<NavigatorState> key) {
@@ -22,33 +27,60 @@ class TechnicianSocketService {
   }
 
   /// Initialize and connect to Node.js Core Service Dispatch Engine
-  void connect({required String technicianId, String category = 'electrician'}) {
-    if (_socket != null && _socket!.connected) return;
+  void connect({
+    required String technicianId,
+    String? phone,
+    String category = 'electrician',
+  }) {
+    _currentTechnicianId = technicianId;
+    if (phone != null && phone.isNotEmpty) _currentPhone = phone;
+    if (category.isNotEmpty) _currentCategory = category;
+
+    if (_socket != null && _socket!.connected) {
+      _joinRooms();
+      return;
+    }
+
+    _attemptConnect();
+  }
+
+  void _attemptConnect() {
+    const candidateUrls = AppConfig.candidateSocketUrls;
+    if (candidateUrls.isEmpty) return;
+
+    final url = candidateUrls[_candidateUrlIndex % candidateUrls.length];
+    debugPrint('🔌 [TechnicianSocket] Connecting to dispatch socket: $url (index: $_candidateUrlIndex)');
 
     try {
-      const String url = AppConfig.socketUrl;
-      debugPrint('🔌 [TechnicianSocket] Connecting to dispatch engine: $url');
-
+      _socket?.dispose();
       _socket = io.io(
         url,
         io.OptionBuilder()
             .setTransports(['websocket', 'polling'])
             .enableAutoConnect()
             .enableReconnection()
-            .setReconnectionAttempts(999)
+            .setReconnectionAttempts(5)
             .setReconnectionDelay(2000)
+            .setTimeout(5000)
             .build(),
       );
 
       _socket!.onConnect((_) {
         _isConnected = true;
-        debugPrint('✅ [TechnicianSocket] Connected to Dispatch Socket: ${_socket!.id}');
+        debugPrint('✅ [TechnicianSocket] Connected to Dispatch Socket: ${_socket!.id} on $url');
+        _joinRooms();
+      });
 
-        // Join personal and category rooms
-        _socket!.emit('technician:join', {
-          'technicianId': technicianId,
-          'category': category.toLowerCase(),
-        });
+      _socket!.onConnectError((err) {
+        _isConnected = false;
+        debugPrint('⚠️ [TechnicianSocket] Socket connection error ($url): $err');
+        _rotateCandidateUrl();
+      });
+
+      _socket!.onConnectTimeout((_) {
+        _isConnected = false;
+        debugPrint('⚠️ [TechnicianSocket] Socket connection timeout ($url)');
+        _rotateCandidateUrl();
       });
 
       _socket!.onDisconnect((_) {
@@ -56,14 +88,34 @@ class TechnicianSocketService {
         debugPrint('⚠️ [TechnicianSocket] Disconnected from dispatch socket');
       });
 
-      // ─── 1. REAL-TIME AUDIBLE DISPATCH RINGING EVENT ───────────────────────
+      // ─── 1. REAL-TIME AUDIBLE DISPATCH RINGING & ASSIGNMENT EVENTS ──────────
       _socket!.on('booking:dispatch_ringing', (data) {
         debugPrint('🚨 [TechnicianSocket] Incoming Dispatch Ringing: $data');
         _handleIncomingJobAlert(data is Map ? Map<String, dynamic>.from(data) : {});
       });
 
+      _socket!.on('booking:assigned', (data) {
+        debugPrint('🎯 [TechnicianSocket] Direct Booking Assigned: $data');
+        _handleIncomingJobAlert(data is Map ? Map<String, dynamic>.from(data) : {});
+      });
+
       _socket!.on('booking:new_available', (data) {
         debugPrint('📢 [TechnicianSocket] New Job Available in Category: $data');
+        _handleIncomingJobAlert(data is Map ? Map<String, dynamic>.from(data) : {});
+      });
+
+      _socket!.on('booking:dispatch', (data) {
+        debugPrint('⚡ [TechnicianSocket] Booking Dispatched: $data');
+        _handleIncomingJobAlert(data is Map ? Map<String, dynamic>.from(data) : {});
+      });
+
+      _socket!.on('proposal:new', (data) {
+        debugPrint('📋 [TechnicianSocket] New Proposal Received: $data');
+        _handleIncomingJobAlert(data is Map ? Map<String, dynamic>.from(data) : {});
+      });
+
+      _socket!.on('job:assigned', (data) {
+        debugPrint('🛎️ [TechnicianSocket] Job Assigned: $data');
         _handleIncomingJobAlert(data is Map ? Map<String, dynamic>.from(data) : {});
       });
 
@@ -82,9 +134,48 @@ class TechnicianSocketService {
         AudioAlertService().stopAlert();
       });
 
+      _socket!.on('booking:rejected', (_) {
+        AudioAlertService().stopAlert();
+      });
+
+      _socket!.on('booking:accepted', (_) {
+        AudioAlertService().stopAlert();
+      });
+
     } catch (e) {
-      debugPrint('❌ [TechnicianSocket] Connection Error: $e');
+      debugPrint('❌ [TechnicianSocket] Socket initialization error: $e');
     }
+  }
+
+  void _rotateCandidateUrl() {
+    const candidateUrls = AppConfig.candidateSocketUrls;
+    if (candidateUrls.isEmpty) return;
+    _candidateUrlIndex = (_candidateUrlIndex + 1) % candidateUrls.length;
+  }
+
+  void _joinRooms() {
+    if (_socket == null || !_socket!.connected) return;
+
+    final techId = _currentTechnicianId;
+    final phone = _currentPhone;
+    final cat = _currentCategory.toLowerCase();
+
+    debugPrint('🤝 [TechnicianSocket] Joining rooms: techId=$techId, phone=$phone, cat=$cat');
+
+    _socket!.emit('technician:join', {
+      'technicianId': techId ?? '',
+      'phone': phone ?? '',
+      'category': cat,
+    });
+
+    if (techId != null && techId.isNotEmpty) {
+      _socket!.emit('join:room', 'tech_$techId');
+    }
+    if (phone != null && phone.isNotEmpty) {
+      _socket!.emit('join:room', 'tech_$phone');
+    }
+    _socket!.emit('join:room', 'category_$cat');
+    _socket!.emit('join:room', 'global_dispatch');
   }
 
   /// Triggers loud audio ringtone, haptic vibration, and full-screen incoming job modal
@@ -164,7 +255,7 @@ class TechnicianSocketService {
         'longitude': longitude,
         'speed': speed,
         'heading': heading,
-        'category': category ?? 'electrician',
+        'category': category ?? _currentCategory,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
     }
@@ -174,6 +265,7 @@ class TechnicianSocketService {
   void disconnect() {
     AudioAlertService().stopAlert();
     _socket?.disconnect();
+    _socket?.dispose();
     _socket = null;
     _isConnected = false;
   }

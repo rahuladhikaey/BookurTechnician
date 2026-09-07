@@ -82,13 +82,11 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
         actions: [
           TextButton.icon(
             onPressed: () async {
-              final updated = await Navigator.push<bool>(
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const SkillSelectionPage()),
               );
-              if (updated == true) {
-                _loadSkills();
-              }
+              _loadSkills();
             },
             icon: const Icon(Icons.add, size: 18, color: Color(0xFF1E3A8A)),
             label: const Text(
@@ -531,11 +529,11 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: () async {
-              final updated = await Navigator.push<bool>(
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const SkillSelectionPage()),
               );
-              if (updated == true) _loadSkills();
+              _loadSkills();
             },
             icon: const Icon(Icons.add, size: 18),
             label: const Text('Select Skills Now'),

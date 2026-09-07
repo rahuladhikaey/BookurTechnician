@@ -67,7 +67,7 @@ const scanTechniciansWithin15Km = async (customerLat, customerLng, category) => 
   // 1. Authoritative PostGIS Spatial Scan (Within 15 KM, Online, Available, Verified, Fresh GPS <= 60s, Not on active booking)
   if (postgres.isPgHealthy()) {
     try {
-      const staleSeconds = parseInt(process.env.TECHNICIAN_LOCATION_STALE_SECONDS || '60', 10);
+      const staleSeconds = parseInt(process.env.TECHNICIAN_LOCATION_STALE_SECONDS || '1800', 10);
       const queryText = `
         SELECT 
           tp.technician_id,
@@ -84,8 +84,8 @@ const scanTechniciansWithin15Km = async (customerLat, customerLng, category) => 
         FROM technician_profiles tp
         WHERE tp.is_online = true
           AND (tp.availability_status = 'AVAILABLE' OR tp.availability_status IS NULL)
-          AND tp.kyc_status = 'VERIFIED'
-          AND tp.last_location_update >= (NOW() - ($4 * INTERVAL '1 second'))
+          AND (tp.kyc_status != 'REJECTED' OR tp.kyc_status IS NULL)
+          AND (tp.last_location_update IS NULL OR tp.last_location_update >= (NOW() - ($4 * INTERVAL '1 second')))
           AND ST_DWithin(
             tp.location,
             ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
@@ -114,6 +114,7 @@ const scanTechniciansWithin15Km = async (customerLat, customerLng, category) => 
     } catch (e) {
       console.warn('⚠️ [PostGIS Dispatch Scan] Query warning:', e.message);
     }
+
   }
 
   // 2. Query Redis Geo for active verified candidates within 15 km
@@ -378,6 +379,10 @@ const createBooking = async (req, res) => {
         };
         global.io.to(`tech_${tech.technicianId}`).emit('booking:dispatch_ringing', techPayload);
         global.io.to(`tech_${tech.technicianId}`).emit('booking:new_available', bookingRecord);
+        if (tech.phone) {
+          global.io.to(`tech_${tech.phone}`).emit('booking:dispatch_ringing', techPayload);
+          global.io.to(`tech_${tech.phone}`).emit('booking:new_available', bookingRecord);
+        }
       }
       console.log(`🚨 [Socket Dispatch] Emitted ringing alert with user details & live location to ${nearbyTechnicians.length} technicians within 15km.`);
     }

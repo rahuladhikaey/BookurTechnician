@@ -345,6 +345,34 @@ const assignBooking = async (req, res) => {
       timestamp: new Date().toISOString(),
     });
 
+    if (global.io && updated) {
+      const ringingPayload = {
+        proposalId: `prop-${id.slice(0, 8)}`,
+        bookingId: id,
+        bookingCode: updated.bookingCode || id,
+        serviceType: updated.serviceName || updated.service || 'Assigned Service Job',
+        serviceName: updated.serviceName || updated.service || 'Assigned Service Job',
+        category: updated.category || 'Home Services',
+        customerName: updated.customerName || updated.customer || 'Customer',
+        customerPhone: updated.customerPhone || updated.phone || '',
+        customerAddress: updated.address || updated.fullAddress || 'Customer Address',
+        address: updated.address || updated.fullAddress || 'Customer Address',
+        latitude: updated.latitude || 22.5726,
+        longitude: updated.longitude || 88.3639,
+        distanceKm: '1.5',
+        payout: (parseFloat(updated.totalAmount || 350) * 0.8).toFixed(0),
+        totalAmount: updated.totalAmount || 350,
+        timeoutSeconds: 45,
+        playRingtone: true,
+        vibrate: true,
+      };
+
+      global.io.to(`tech_${technicianId}`).emit('booking:dispatch_ringing', ringingPayload);
+      global.io.to(`tech_${technicianId}`).emit('booking:assigned', updated);
+      global.io.emit('booking:assigned', updated);
+      console.log(`🚨 [Admin Assign Dispatch] Emitted ringing alert directly to technician ${technicianId} for booking #${id}.`);
+    }
+
     return res.json({ success: true, message: `Technician assigned to booking #${id}`, data: updated });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
@@ -511,10 +539,10 @@ const getTechnicians = async (req, res) => {
           SELECT 
             tp.id,
             tp.technician_id as "technicianId",
-            tp.full_name as "fullName",
-            tp.full_name as name,
-            tp.phone,
-            tp.category,
+            COALESCE(tp.full_name, u.full_name, 'Technician') as "fullName",
+            COALESCE(tp.full_name, u.full_name, 'Technician') as name,
+            COALESCE(tp.phone, u.phone, '') as phone,
+            COALESCE(tp.category, 'Electrician') as category,
             tp.skills,
             tp.kyc_status as "kycStatus",
             tp.rating,
@@ -524,8 +552,14 @@ const getTechnicians = async (req, res) => {
             tp.wallet_balance as "walletBalance",
             tp.upi_id as "upiId",
             tp.upi_number as "upiNumber",
+            tp.avatar as "tpAvatar",
+            tp.live_pic_url as "tpLivePic",
+            tp.aadhaar_url as "tpAadhaarUrl",
+            tp.aadhaar_number as "tpAadhaarNumber",
+            tp.voter_card_url as "tpVoterUrl",
+            tp.voter_card_number as "tpVoterNumber",
             u.email,
-            u.profile_image_url as avatar,
+            COALESCE(tp.avatar, u.profile_image_url, '') as avatar,
             tp.created_at as "joinedAt"
           FROM technician_profiles tp
           LEFT JOIN users u ON tp.technician_id = u.id
@@ -534,6 +568,13 @@ const getTechnicians = async (req, res) => {
         for (const row of dbRes.rows) {
           const id = row.technicianId || row.id;
           const existing = techMap.get(id) || {};
+          const photoUrl = row.tpLivePic || row.avatar || existing.livePicUrl || existing.avatar || '';
+          const hasAadhaar = Boolean(row.tpAadhaarUrl || row.tpAadhaarNumber || existing.hasAadhaar);
+          const hasVoterCard = Boolean(row.tpVoterUrl || row.tpVoterNumber || existing.hasVoterCard);
+          const hasLivePic = Boolean(photoUrl || existing.hasLivePic);
+          const isVer = (row.kycStatus || existing.kycStatus || 'PENDING').toUpperCase() === 'VERIFIED';
+          const completion = isVer ? 100 : ((hasAadhaar ? 25 : 0) + (hasVoterCard ? 25 : 0) + (hasLivePic ? 25 : 0) + 25);
+
           techMap.set(id, {
             ...existing,
             id,
@@ -551,12 +592,48 @@ const getTechnicians = async (req, res) => {
             experienceYears: parseInt(row.experienceYears || existing.experienceYears || 2, 10),
             walletBalance: parseFloat(row.walletBalance || existing.walletBalance || 0),
             upiId: row.upiId || row.upiNumber || existing.upiId || '',
-            avatar: row.avatar || existing.avatar || '',
-            livePicUrl: row.avatar || existing.livePicUrl || '',
-            photo: row.avatar || existing.photo || '',
+            avatar: photoUrl,
+            livePicUrl: photoUrl,
+            photo: photoUrl,
+            hasAadhaar,
+            hasVoterCard,
+            hasLivePic,
+            aadhaarUrl: row.tpAadhaarUrl || existing.aadhaarUrl || '',
+            aadhaarNumber: row.tpAadhaarNumber || existing.aadhaarNumber || '',
+            voterCardUrl: row.tpVoterUrl || existing.voterCardUrl || '',
+            voterCardNumber: row.tpVoterNumber || existing.voterCardNumber || '',
+            profileCompletion: completion,
+            isProfileComplete: isVer || completion === 100,
             joinedAt: row.joinedAt ? new Date(row.joinedAt).toISOString() : (existing.joinedAt || new Date().toISOString()),
           });
         }
+
+        // Merge skills from PostgreSQL technician_services
+        try {
+          const srvLinks = await postgres.query(`
+            SELECT ts.technician_id, ts.service_id, s.name as service_name, s.category_id, c.name as category_name, ts.active
+            FROM technician_services ts
+            JOIN services s ON s.id = ts.service_id
+            LEFT JOIN categories c ON c.id = s.category_id;
+          `);
+          for (const link of srvLinks.rows) {
+            const tech = techMap.get(link.technician_id);
+            if (tech) {
+              if (!Array.isArray(tech.skills)) tech.skills = [];
+              if (!tech.skills.some(sk => (typeof sk === 'object' ? sk.skillId : sk) === link.service_id)) {
+                tech.skills.push({
+                  id: `ts_${link.service_id}`,
+                  skillId: link.service_id,
+                  skillName: link.service_name || link.service_id,
+                  categoryId: link.category_id || 'cat_home',
+                  categoryName: link.category_name || 'Home Services',
+                  experienceYears: 2,
+                  verificationStatus: 'VERIFIED',
+                });
+              }
+            }
+          }
+        } catch (_) {}
 
         // Merge documents from PostgreSQL technician_kyc_documents
         const docsRes = await postgres.query(`
@@ -580,6 +657,9 @@ const getTechnicians = async (req, res) => {
               tech.livePicUrl = docRow.front_image_url || tech.livePicUrl;
               tech.photo = docRow.front_image_url || tech.photo;
             }
+            const comp = (tech.hasAadhaar ? 25 : 0) + (tech.hasVoterCard ? 25 : 0) + (tech.hasLivePic ? 25 : 0) + 25;
+            tech.profileCompletion = (tech.kycStatus === 'VERIFIED' || tech.kycStatus === 'APPROVED') ? 100 : comp;
+            tech.isProfileComplete = tech.profileCompletion === 100;
           }
         }
       } catch (e) {
@@ -621,7 +701,7 @@ const getTechnicians = async (req, res) => {
         const profileCompletion = isVer ? 100 : ((hasAadhaar ? 25 : 0) + (hasVoterCard ? 25 : 0) + (hasLivePic ? 25 : 0) + 25);
         const isProfileComplete = isVer || profileCompletion === 100;
 
-        const rawSkillsArr = t.skills && t.skills.length > 0 ? t.skills : (existing.skills && existing.skills.length > 0 ? existing.skills : ['Wiring', 'Switchboard Repair']);
+        const rawSkillsArr = t.skills && t.skills.length > 0 ? t.skills : (existing.skills && existing.skills.length > 0 ? existing.skills : []);
         const formattedSkillsList = rawSkillsArr.map((s, idx) => {
           if (typeof s === 'object' && s !== null) {
             return {

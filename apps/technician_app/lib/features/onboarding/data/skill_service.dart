@@ -57,8 +57,19 @@ class SkillService {
 
   /// Fetch the logged in technician's configured skills and ratings
   Future<TechnicianSkillProfileModel?> fetchMySkillProfile() async {
+    final userId = await SecureStorage().getUserId();
+    final token = await SecureStorage().getToken();
+
     try {
-      final res = await _dioClient.dio.get('/technicians/skills');
+      final res = await _dioClient.dio.get(
+        '/technicians/skills',
+        queryParameters: {
+          if (userId != null && userId.isNotEmpty) 'technicianId': userId,
+        },
+        options: Options(headers: {
+          if (userId != null && userId.isNotEmpty) 'x-technician-id': userId,
+        }),
+      );
       if (res.statusCode == 200 && res.data != null) {
         final raw = res.data;
         if (raw['data'] is Map<String, dynamic>) {
@@ -68,29 +79,77 @@ class SkillService {
         } else if (raw['data'] is List) {
           return TechnicianSkillProfileModel.fromJson({
             'skills': raw['data'],
-            'technicianId': 'BT-PARTNER',
+            'technicianId': userId ?? 'BT-PARTNER',
             'fullName': 'Partner Technician',
           });
         } else if (raw['skills'] is List) {
           return TechnicianSkillProfileModel.fromJson({
             'skills': raw['skills'],
-            'technicianId': 'BT-PARTNER',
+            'technicianId': userId ?? 'BT-PARTNER',
             'fullName': 'Partner Technician',
           });
         }
       }
     } catch (e) {
-      debugPrint('Error fetching technician skill profile: $e');
+      debugPrint('Primary technician skill profile warning: $e');
     }
+
+    // Try candidate fallback endpoints
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 4),
+      receiveTimeout: const Duration(seconds: 4),
+      headers: {
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        if (userId != null && userId.isNotEmpty) 'x-technician-id': userId,
+      },
+    ));
+
+    for (final baseUrl in AppConfig.candidateBaseUrls) {
+      try {
+        final res = await dio.get(
+          '$baseUrl/technicians/skills',
+          queryParameters: {
+            if (userId != null && userId.isNotEmpty) 'technicianId': userId,
+          },
+        );
+        if (res.statusCode == 200 && res.data != null) {
+          final raw = res.data;
+          if (raw['data'] is Map<String, dynamic>) {
+            return TechnicianSkillProfileModel.fromJson(raw['data'] as Map<String, dynamic>);
+          } else if (raw['profile'] is Map<String, dynamic>) {
+            return TechnicianSkillProfileModel.fromJson(raw['profile'] as Map<String, dynamic>);
+          } else if (raw['data'] is List) {
+            return TechnicianSkillProfileModel.fromJson({
+              'skills': raw['data'],
+              'technicianId': userId ?? 'BT-PARTNER',
+              'fullName': 'Partner Technician',
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
     return null;
   }
 
   /// Bulk-save newly selected skills
   Future<TechnicianSkillProfileModel?> saveSelectedSkills(List<Map<String, dynamic>> skillsPayload) async {
+    final userId = await SecureStorage().getUserId();
+    final token = await SecureStorage().getToken();
+
+    final payload = {
+      'skills': skillsPayload,
+      if (userId != null && userId.isNotEmpty) 'technicianId': userId,
+    };
+
     try {
-      final res = await _dioClient.dio.post('/technicians/skills/bulk', data: {
-        'skills': skillsPayload,
-      });
+      final res = await _dioClient.dio.post(
+        '/technicians/skills/bulk',
+        data: payload,
+        options: Options(headers: {
+          if (userId != null && userId.isNotEmpty) 'x-technician-id': userId,
+        }),
+      );
       if (res.statusCode == 200 && res.data != null) {
         final raw = res.data;
         if (raw['data'] is Map<String, dynamic>) {
@@ -100,7 +159,7 @@ class SkillService {
         } else if (raw['data'] is List) {
           return TechnicianSkillProfileModel.fromJson({
             'skills': raw['data'],
-            'technicianId': 'BT-PARTNER',
+            'technicianId': userId ?? 'BT-PARTNER',
             'fullName': 'Partner Technician',
           });
         }
@@ -113,13 +172,18 @@ class SkillService {
     final dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 4),
       receiveTimeout: const Duration(seconds: 4),
+      headers: {
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+        if (userId != null && userId.isNotEmpty) 'x-technician-id': userId,
+      },
     ));
 
     for (final baseUrl in AppConfig.candidateBaseUrls) {
       try {
-        final res = await dio.post('$baseUrl/technicians/skills/bulk', data: {
-          'skills': skillsPayload,
-        });
+        final res = await dio.post(
+          '$baseUrl/technicians/skills/bulk',
+          data: payload,
+        );
         if (res.statusCode == 200 && res.data != null) {
           final raw = res.data;
           if (raw['data'] is Map<String, dynamic>) {
@@ -133,7 +197,7 @@ class SkillService {
 
     return TechnicianSkillProfileModel.fromJson({
       'skills': skillsPayload,
-      'technicianId': 'BT-PARTNER',
+      'technicianId': userId ?? 'BT-PARTNER',
       'fullName': 'Partner Technician',
     });
   }

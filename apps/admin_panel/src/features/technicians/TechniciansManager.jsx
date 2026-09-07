@@ -120,7 +120,7 @@ export default function TechniciansManager({
       await api.verifyTechnicianSkill(skillItem.id, newStatus, reason);
       auditLogAction?.(
         'Technicians',
-        `${newStatus === 'VERIFIED' ? 'Approved' : 'Rejected'} skill "${skillItem.skillName}" for technician ${selectedTech?.name}.`
+        `${newStatus === 'VERIFIED' ? 'Approved' : 'Rejected'} skill "${skillItem.skillName}" for technician ${selectedTech?.name || selectedTech?.fullName}.`
       );
       if (selectedTech) {
         await loadTechSkills(selectedTech.id);
@@ -128,6 +128,21 @@ export default function TechniciansManager({
       fetchTechs();
     } catch (err) {
       alert('Failed to update skill verification status: ' + err.message);
+    }
+  };
+
+  const handleBulkVerifySkills = async () => {
+    if (!selectedTech) return;
+    try {
+      await api.bulkVerifyTechnicianSkills(selectedTech.id, 'VERIFIED');
+      auditLogAction?.(
+        'Technicians',
+        `Bulk approved all declared skills for technician ${selectedTech?.name || selectedTech?.fullName}.`
+      );
+      await loadTechSkills(selectedTech.id);
+      fetchTechs();
+    } catch (err) {
+      alert('Failed to bulk verify skills: ' + err.message);
     }
   };
 
@@ -568,7 +583,7 @@ export default function TechniciansManager({
                           </div>
                           <small style={{ color: 'var(--text-secondary)', fontSize: '11px', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {skillsList.length > 0
-                              ? skillsList.map(s => s.skillName).join(', ')
+                              ? skillsList.map(s => typeof s === 'string' ? s : (s?.skillName || s?.name || s?.serviceName || 'Skill')).join(', ')
                               : 'No skills declared yet'}
                           </small>
                         </div>
@@ -889,7 +904,16 @@ export default function TechniciansManager({
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800' }}>Declared Service Skills & Experience</h4>
-                    <button className="btn btn-outline btn-sm" onClick={() => loadTechSkills(selectedTech.id)}>🔄 Refresh Skills</button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ background: '#059669', borderColor: '#059669', color: '#FFFFFF', fontWeight: '700' }}
+                        onClick={handleBulkVerifySkills}
+                      >
+                        ✓ Verify All Skills
+                      </button>
+                      <button className="btn btn-outline btn-sm" onClick={() => loadTechSkills(selectedTech.id)}>🔄 Refresh Skills</button>
+                    </div>
                   </div>
 
                   {loadingSkills ? (
@@ -910,49 +934,58 @@ export default function TechniciansManager({
                           </tr>
                         </thead>
                         <tbody>
-                          {(techSkillsData?.skills || selectedTech.skills || []).map((s) => (
-                            <tr key={s.id}>
-                              <td>
-                                <strong>{s.skillName}</strong>
-                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{s.categoryName}</div>
-                              </td>
-                              <td>{s.experienceYears} {s.experienceYears === 1 ? 'year' : 'years'}</td>
-                              <td>
-                                <span className={`badge ${
-                                  s.verificationStatus === 'VERIFIED' ? 'badge-completed' :
-                                  s.verificationStatus === 'REJECTED' ? 'badge-cancelled' : 'badge-pending'
-                                }`}>
-                                  {s.verificationStatus === 'VERIFIED' ? '✓ Verified' :
-                                   s.verificationStatus === 'REJECTED' ? '❌ Rejected' : '⏳ Pending'}
-                                </span>
-                              </td>
-                              <td style={{ textAlign: 'right' }}>
-                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                                  {s.verificationStatus !== 'VERIFIED' && (
-                                    <button
-                                      className="btn btn-primary btn-sm"
-                                      style={{ padding: '2px 8px', fontSize: '11px' }}
-                                      onClick={() => handleVerifySkill(s, 'VERIFIED')}
-                                    >
-                                      Verify
-                                    </button>
-                                  )}
-                                  {s.verificationStatus !== 'REJECTED' && (
-                                    <button
-                                      className="btn btn-danger btn-sm"
-                                      style={{ padding: '2px 8px', fontSize: '11px' }}
-                                      onClick={() => {
-                                        const reason = prompt(`Reason for rejecting skill "${s.skillName}":`, 'Insufficient certificate or experience proof');
-                                        if (reason) handleVerifySkill(s, 'REJECTED', reason);
-                                      }}
-                                    >
-                                      Reject
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                          {(techSkillsData?.skills || selectedTech.skills || []).map((s, idx) => {
+                            const skillId = typeof s === 'object' ? (s.id || s._id || `skill-${idx}`) : `skill-${idx}`;
+                            const skillName = typeof s === 'string' ? s : (s.skillName || s.name || s.title || s.serviceName || `Skill #${idx + 1}`);
+                            const catName = typeof s === 'object' ? (s.categoryName || s.category || selectedTech.category || 'General') : (selectedTech.category || 'General');
+                            const expYears = typeof s === 'object' ? (s.experienceYears ?? s.experience ?? 1) : 1;
+                            const isVerified = typeof s === 'object' ? (s.verificationStatus === 'VERIFIED') : (selectedTech.kycStatus === 'VERIFIED');
+                            const isRejected = typeof s === 'object' ? (s.verificationStatus === 'REJECTED') : false;
+
+                            return (
+                              <tr key={skillId}>
+                                <td>
+                                  <strong>{skillName}</strong>
+                                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{catName}</div>
+                                </td>
+                                <td>{expYears} {expYears === 1 ? 'year' : 'years'}</td>
+                                <td>
+                                  <span className={`badge ${
+                                    isVerified ? 'badge-completed' :
+                                    isRejected ? 'badge-cancelled' : 'badge-pending'
+                                  }`}>
+                                    {isVerified ? '✓ Verified' :
+                                     isRejected ? '❌ Rejected' : '⏳ Pending'}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                                    {!isVerified && (
+                                      <button
+                                        className="btn btn-primary btn-sm"
+                                        style={{ padding: '2px 8px', fontSize: '11px' }}
+                                        onClick={() => handleVerifySkill({ ...(typeof s === 'object' ? s : {}), id: skillId, skillName }, 'VERIFIED')}
+                                      >
+                                        Verify
+                                      </button>
+                                    )}
+                                    {!isRejected && (
+                                      <button
+                                        className="btn btn-danger btn-sm"
+                                        style={{ padding: '2px 8px', fontSize: '11px' }}
+                                        onClick={() => {
+                                          const reason = prompt(`Reason for rejecting skill "${skillName}":`, 'Insufficient certificate or experience proof');
+                                          if (reason) handleVerifySkill({ ...(typeof s === 'object' ? s : {}), id: skillId, skillName }, 'REJECTED', reason);
+                                        }}
+                                      >
+                                        Reject
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

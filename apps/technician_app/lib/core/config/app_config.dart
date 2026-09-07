@@ -23,6 +23,14 @@ class AppConfig {
     'http://10.0.2.2:4000/api/v1',
   ];
 
+  static const List<String> candidateSocketUrls = [
+    'https://api.bookurtechnician.online',
+    'https://bookurtechnician-backend.onrender.com',
+    'https://bookurtechnician.onrender.com',
+    'http://192.168.1.3:4000',
+    'http://10.0.2.2:4000',
+  ];
+
   // Request timeout
   static const Duration requestTimeout = Duration(seconds: 8);
 }

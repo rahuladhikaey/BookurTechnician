@@ -8,6 +8,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/network/brevo_service.dart';
 import '../domain/auth_repository.dart';
 import '../../../core/network/api_result.dart';
+import '../../../core/services/socket_service.dart';
 
 enum AuthStatus { unauthenticated, authenticating, otpSent, authenticated }
 
@@ -77,6 +78,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       final savedAge = int.tryParse(userDetails['age'] ?? '');
       
       if (cachedToken != null && cachedToken.isNotEmpty) {
+        final savedUserId = await _secureStorage.getUserId();
         state = AuthState(
           status: AuthStatus.authenticated,
           token: cachedToken,
@@ -85,6 +87,14 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
           phone: userDetails['phone'],
           email: userDetails['email'],
         );
+
+        if (savedUserId != null && savedUserId.isNotEmpty) {
+          TechnicianSocketService().connect(
+            technicianId: savedUserId,
+            phone: userDetails['phone'],
+            category: 'electrician',
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error restoring cached token session: $e');
@@ -273,6 +283,16 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
             phone: targetPhone,
             email: targetEmail,
           );
+
+          try {
+            TechnicianSocketService().connect(
+              technicianId: userId,
+              phone: targetPhone,
+              category: 'electrician',
+            );
+          } catch (e) {
+            debugPrint('Socket connect error on login: $e');
+          }
 
           state = AuthState(
             status: AuthStatus.authenticated,

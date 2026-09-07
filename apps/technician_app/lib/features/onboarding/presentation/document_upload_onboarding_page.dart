@@ -28,6 +28,9 @@ class _DocumentUploadOnboardingPageState
   // Uploaded document states with size tracking (Max 10 MB)
   static const int kMaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
 
+  XFile? _selfieFile;
+  int _selfieBytes = 0;
+
   XFile? _aadhaarFrontFile;
   int _aadhaarFrontBytes = 0;
 
@@ -162,6 +165,16 @@ class _DocumentUploadOnboardingPageState
   Future<void> _submitDocumentsAndContinue() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_selfieFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please capture or upload your Live Selfie / Partner Photo.'),
+          backgroundColor: SemanticColors.error,
+        ),
+      );
+      return;
+    }
+
     final aadhaarNum = _aadhaarNumberController.text.trim();
     final voterNum = _voterNumberController.text.trim();
     final upiId = _upiIdController.text.trim();
@@ -199,29 +212,39 @@ class _DocumentUploadOnboardingPageState
     setState(() => _isSubmitting = true);
 
     try {
-      // 1. Submit Aadhaar Card Document
+      final selfiePath = _selfieFile != null ? _selfieFile!.path : 'uploaded_live_selfie.jpg';
+
+      // 1. Submit Selfie / Live Photo
+      await _profileService.submitKycDocument(
+        documentType: 'SELFIE',
+        fileUrl: selfiePath,
+        maskedNumber: 'LIVE_SELFIE',
+      );
+      await _profileService.uploadProfilePhoto(selfiePath);
+
+      // 2. Submit Aadhaar Card Document
       await _profileService.submitKycDocument(
         documentType: 'AADHAAR',
         fileUrl: _aadhaarFrontFile != null ? _aadhaarFrontFile!.path : 'uploaded_aadhaar_front.jpg',
         maskedNumber: aadhaarNum,
       );
 
-      // 2. Submit Voter Card Document
+      // 3. Submit Voter Card Document
       await _profileService.submitKycDocument(
         documentType: 'VOTER_CARD',
         fileUrl: _voterCardFile != null ? _voterCardFile!.path : 'uploaded_voter_card.jpg',
         maskedNumber: voterNum,
       );
 
-      // 3. Update UPI Payout ID
-      await _profileService.updateProfile(upiId: upiId);
+      // 4. Update UPI Payout ID
+      await _profileService.updateProfile(upiId: upiId, profileImageUrl: selfiePath);
 
       if (mounted) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: SemanticColors.success,
-            content: Text('KYC documents submitted successfully! Next, select your skills.'),
+            content: Text('All documents (Selfie, Aadhaar, Voter) uploaded! Next, select your skills.'),
           ),
         );
 
@@ -290,9 +313,30 @@ class _DocumentUploadOnboardingPageState
                 'Submit clear documents (Max 10 MB per file). Aadhaar Card, Voter Card, and UPI Payout ID are required for account activation.',
                 style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
               ),
+              // ─── 1. LIVE PHOTO / SELFIE SECTION ───
+              _buildSectionCard(
+                icon: Icons.face_retouching_natural,
+                title: '📸 Live Selfie / Partner Photo *',
+                subtitle: 'Take a clear real-time selfie for customer identification (Max 10 MB)',
+                children: [
+                  _buildUploadBox(
+                    label: 'Take Live Selfie / Partner Photo',
+                    file: _selfieFile,
+                    bytes: _selfieBytes,
+                    isWide: true,
+                    onTap: () => _pickDocument(
+                      docLabel: 'Live Selfie',
+                      onFileSelected: (f, b) {
+                        _selfieFile = f;
+                        _selfieBytes = b;
+                      },
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
 
-              // ─── 1. AADHAAR CARD SECTION ───
+              // ─── 2. AADHAAR CARD SECTION ───
               _buildSectionCard(
                 icon: Icons.badge_outlined,
                 title: '🪪 Aadhaar Card Verification',
@@ -352,7 +396,7 @@ class _DocumentUploadOnboardingPageState
               ),
               const SizedBox(height: 20),
 
-              // ─── 2. VOTER CARD SECTION ───
+              // ─── 3. VOTER CARD SECTION ───
               _buildSectionCard(
                 icon: Icons.how_to_vote_outlined,
                 title: '🗳️ Voter Card ID (EPIC)',
@@ -390,7 +434,7 @@ class _DocumentUploadOnboardingPageState
               ),
               const SizedBox(height: 20),
 
-              // ─── 3. UPI PAYOUT NUMBER / ID ───
+              // ─── 4. UPI PAYOUT NUMBER / ID ───
               _buildSectionCard(
                 icon: Icons.account_balance_wallet_outlined,
                 title: '📱 Instant UPI Payout Account',

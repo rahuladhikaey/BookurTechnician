@@ -212,6 +212,9 @@ class ApiClient {
   verifyTechnicianSkill(technicianSkillId, status, rejectionReason = '') {
     return this.post(`/technician/skills/admin/${technicianSkillId}/verify`, { status, rejectionReason });
   }
+  bulkVerifyTechnicianSkills(technicianId, status = 'VERIFIED') {
+    return this.post('/technician/skills/admin/bulk-verify', { technicianId, status });
+  }
   updateKyc(id, status, reason = '') { return this.patch(`/admin/technicians/${id}/kyc`, { status, reason }); }
   updateTechnicianStatus(id, status) { return this.patch(`/admin/technicians/${id}/status`, { status }); }
 

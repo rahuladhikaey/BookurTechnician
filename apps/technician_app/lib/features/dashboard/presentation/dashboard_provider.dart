@@ -8,6 +8,7 @@ import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
 import '../../../core/services/location_tracking_service.dart';
 import '../../../core/services/gps_permission_helper.dart';
+import '../../../core/services/socket_service.dart';
 
 enum ActiveJobStep {
   accepted,
@@ -296,6 +297,21 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
 
       state = state.copyWith(isOnline: true);
       await LocationTrackingService().startTracking();
+
+      try {
+        final savedUserId = await SecureStorage().getUserId();
+        final userDetails = await SecureStorage().getUserDetails();
+        if (savedUserId != null && savedUserId.isNotEmpty) {
+          TechnicianSocketService().connect(
+            technicianId: savedUserId,
+            phone: userDetails['phone'],
+            category: userDetails['category'] ?? 'electrician',
+          );
+        }
+      } catch (e) {
+        debugPrint('Socket connect on toggleOnline warning: $e');
+      }
+
       try {
         final dioClient = DioClient(SecureStorage());
         await dioClient.dio.post('/technician/online-status', data: {

@@ -217,37 +217,81 @@ const verifyOtp = async (req, res) => {
       } catch (_) {}
     }
 
-    // If Technician, ensure profile in MongoDB & notify admin
+    // If Technician, ensure profile in PostgreSQL, MongoDB & notify admin
     if (userRole === 'TECHNICIAN') {
+      const techPhone = finalPhone || phone || identifier;
+      const techEmail = finalEmail || email || identifier;
+
+      // 1. Persist to PostgreSQL technician_profiles
+      if (postgres.isPgHealthy()) {
+        try {
+          const techCode = `BT-TECH-${String(userId).slice(-6).toUpperCase()}`;
+          await postgres.query(`
+            INSERT INTO technician_profiles (
+              id, technician_id, technician_code, full_name, phone, category,
+              experience_years, kyc_status, is_online, rating, total_jobs_completed,
+              wallet_balance, created_at, updated_at
+            ) VALUES ($1, $1, $2, $3, $4, 'Electrician', 2, 'PENDING', true, 5.0, 0, 0.00, NOW(), NOW())
+            ON CONFLICT (technician_id) DO UPDATE 
+            SET full_name = EXCLUDED.full_name,
+                phone = EXCLUDED.phone,
+                is_online = true,
+                updated_at = NOW();
+          `, [userId, techCode, userName, techPhone]);
+        } catch (tpErr) {
+          console.warn('⚠️ [Postgres] Technician profile registration insert warning:', tpErr.message);
+        }
+      }
+
+      // 2. Persist to MongoDB
       try {
         await MongoTechnicianProfile.findOneAndUpdate(
           { technicianId: userId },
           {
             technicianId: userId,
             fullName: userName,
-            phone: phone || identifier,
-            email: email || identifier,
+            phone: techPhone,
+            email: techEmail,
             isOnline: true,
             fcmToken: fcmToken || null,
           },
           { upsert: true, new: true }
         );
-
-        if (global.io) {
-          global.io.emit('admin:technician_registered', {
-            id: userId,
-            technicianId: userId,
-            fullName: userName,
-            phone: phone || identifier,
-            email: email || identifier,
-            isOnline: true,
-            joinedAt: new Date().toISOString(),
-          });
-        }
       } catch (err) {
         // Mongo offline fallback
       }
+
+      // 3. Register in in-memory store
+      try {
+        setTechnicianProfile(userId, {
+          id: userId,
+          technicianId: userId,
+          fullName: userName,
+          name: userName,
+          phone: techPhone,
+          email: techEmail,
+          category: 'Electrician',
+          isOnline: true,
+          kycStatus: 'PENDING',
+          rating: 5.0,
+          joinedAt: new Date().toISOString(),
+        });
+      } catch (_) {}
+
+      if (global.io) {
+        global.io.emit('admin:technician_registered', {
+          id: userId,
+          technicianId: userId,
+          fullName: userName,
+          phone: techPhone,
+          email: techEmail,
+          isOnline: true,
+          joinedAt: new Date().toISOString(),
+        });
+        global.io.emit('technicians:updated', { action: 'REGISTERED', technicianId: userId });
+      }
     }
+
 
     // Sign JWT Tokens
     const tokenPayload = { id: userId, phone: finalPhone || phone, email: finalEmail || email, role: userRole, name: userName };
