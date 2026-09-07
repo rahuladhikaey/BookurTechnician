@@ -1,5 +1,4 @@
 package com.bookurtechnician;
-
 import com.bookurtechnician.dto.AvailabilityResponse;
 import com.bookurtechnician.dto.ServiceAvailabilityDto;
 import com.bookurtechnician.dto.TechnicianLocationRequest;
@@ -16,6 +15,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -23,6 +26,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -53,6 +57,8 @@ public class TechnicianAvailabilityTest {
     private TechnicianLocationService locationService;
     private TechnicianStatusService statusService;
     private BookingDispatchService dispatchService;
+
+    private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
 
     @BeforeEach
     void setUp() {
