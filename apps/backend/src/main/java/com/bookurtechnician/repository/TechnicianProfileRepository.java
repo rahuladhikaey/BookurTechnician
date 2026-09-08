@@ -22,13 +22,13 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
             COUNT(DISTINCT tp.technician_id) AS technicianCount
         FROM services s
         LEFT JOIN technician_services ts ON ts.service_id = s.id AND ts.active = true
-        LEFT JOIN technician_profiles tp ON tp.technician_id = ts.technician_id
+        LEFT JOIN technician_profiles tp ON (tp.technician_id = ts.technician_id OR LOWER(tp.category) = LOWER(s.name) OR tp.category ILIKE ('%' || s.slug || '%'))
             AND tp.is_online = true
             AND (tp.availability_status = 'AVAILABLE' OR tp.availability_status IS NULL)
             AND (tp.kyc_status != 'REJECTED' OR tp.kyc_status IS NULL)
             AND (tp.last_location_update IS NULL OR tp.last_location_update >= (NOW() - (:staleSeconds * INTERVAL '1 second')))
             AND ST_DWithin(
-                tp.location, 
+                COALESCE(tp.location, ST_SetSRID(ST_MakePoint(tp.current_longitude, tp.current_latitude), 4326)::geography), 
                 ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, 
                 :radiusMeters
             )
@@ -58,7 +58,7 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
           AND (tp.kyc_status != 'REJECTED' OR tp.kyc_status IS NULL)
           AND (tp.last_location_update IS NULL OR tp.last_location_update >= (NOW() - (:staleSeconds * INTERVAL '1 second')))
           AND ST_DWithin(
-              tp.location, 
+              COALESCE(tp.location, ST_SetSRID(ST_MakePoint(tp.current_longitude, tp.current_latitude), 4326)::geography), 
               ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, 
               :radiusMeters
           )
@@ -68,7 +68,7 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
                 AND b.status IN ('ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ARRIVED', 'IN_PROGRESS')
           )
         ORDER BY ST_Distance(
-            tp.location, 
+            COALESCE(tp.location, ST_SetSRID(ST_MakePoint(tp.current_longitude, tp.current_latitude), 4326)::geography), 
             ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
         ) ASC
         """, nativeQuery = true)
@@ -97,7 +97,7 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
             tp.availability_status AS availabilityStatus,
             COALESCE(u.profile_image_url, '') AS profileImageUrl,
             ST_Distance(
-                tp.location, 
+                COALESCE(tp.location, ST_SetSRID(ST_MakePoint(tp.current_longitude, tp.current_latitude), 4326)::geography), 
                 ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
             ) AS distanceMeters
         FROM technician_profiles tp
@@ -109,7 +109,7 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
           AND (tp.kyc_status != 'REJECTED' OR tp.kyc_status IS NULL)
           AND (tp.last_location_update IS NULL OR tp.last_location_update >= (NOW() - (:staleSeconds * INTERVAL '1 second')))
           AND ST_DWithin(
-              tp.location, 
+              COALESCE(tp.location, ST_SetSRID(ST_MakePoint(tp.current_longitude, tp.current_latitude), 4326)::geography), 
               ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, 
               :radiusMeters
           )
@@ -145,20 +145,20 @@ public interface TechnicianProfileRepository extends JpaRepository<TechnicianPro
             tp.availability_status AS availabilityStatus,
             COALESCE(u.profile_image_url, '') AS profileImageUrl,
             ST_Distance(
-                tp.location, 
+                COALESCE(tp.location, ST_SetSRID(ST_MakePoint(tp.current_longitude, tp.current_latitude), 4326)::geography), 
                 ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
             ) AS distanceMeters
         FROM technician_profiles tp
         LEFT JOIN users u ON u.id = tp.technician_id
-        JOIN technician_services ts ON ts.technician_id = tp.technician_id AND ts.active = true
-        JOIN services s ON s.id = ts.service_id AND s.is_active = true
-        WHERE s.category_id = :categoryId
+        LEFT JOIN technician_services ts ON ts.technician_id = tp.technician_id AND ts.active = true
+        LEFT JOIN services s ON s.id = ts.service_id AND s.is_active = true
+        WHERE (s.category_id = :categoryId OR tp.category ILIKE ('%' || :categoryId || '%'))
           AND tp.is_online = true
           AND (tp.availability_status = 'AVAILABLE' OR tp.availability_status IS NULL)
           AND (tp.kyc_status != 'REJECTED' OR tp.kyc_status IS NULL)
           AND (tp.last_location_update IS NULL OR tp.last_location_update >= (NOW() - (:staleSeconds * INTERVAL '1 second')))
           AND ST_DWithin(
-              tp.location, 
+              COALESCE(tp.location, ST_SetSRID(ST_MakePoint(tp.current_longitude, tp.current_latitude), 4326)::geography), 
               ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, 
               :radiusMeters
           )

@@ -33,12 +33,12 @@ function addBooking(raw) {
   const bookingCode = raw.bookingCode || (bookingId.startsWith('BK-') ? bookingId : `BK-${Math.floor(100000 + Math.random() * 900000)}`);
   const custId = raw.customerId || `cust-${Date.now().toString(36)}`;
   const custName = raw.customerName || raw.customer || raw.name || 'Customer';
-  const custPhone = raw.customerPhone || raw.phone || '+91 9876543210';
+  const custPhone = raw.customerPhone || raw.phone || '';
   const srvName = raw.serviceName || raw.service || (Array.isArray(raw.services) && raw.services[0]?.name) || 'General Service';
   const cat = raw.category || (Array.isArray(raw.services) && raw.services[0]?.category) || 'Electrical Services';
 
-  const basePrice = parseFloat(raw.basePrice || raw.baseCost || raw.price || 199);
-  const visitFee = parseFloat(raw.visitFee || raw.bookingCharge || 49);
+  const basePrice = parseFloat(raw.basePrice || raw.baseCost || raw.price || 0);
+  const visitFee = parseFloat(raw.visitFee || raw.bookingCharge || 0);
   const gstTax = parseFloat(raw.gstTax || ((basePrice + visitFee) * 0.18));
   const grandTotal = parseFloat(raw.grandTotal || raw.totalAmount || (basePrice + visitFee + gstTax));
 
@@ -65,10 +65,10 @@ function addBooking(raw) {
     technician: raw.technician || raw.technicianName || (raw.technicianId ? 'Assigned Technician' : 'Pending Dispatch'),
     technicianName: raw.technicianName || raw.technician || 'Pending Dispatch',
     technicianPhone: raw.technicianPhone || '',
-    address: raw.address || raw.fullAddress || 'Customer Address',
-    fullAddress: raw.fullAddress || raw.address || 'Customer Address',
-    latitude: parseFloat(raw.latitude) || 12.9716,
-    longitude: parseFloat(raw.longitude) || 77.5946,
+    address: raw.address || raw.fullAddress || '',
+    fullAddress: raw.fullAddress || raw.address || '',
+    latitude: raw.latitude != null ? parseFloat(raw.latitude) : null,
+    longitude: raw.longitude != null ? parseFloat(raw.longitude) : null,
     price: basePrice,
     basePrice,
     baseCost: basePrice,
@@ -191,23 +191,25 @@ function getBookingLiveTracking(idOrCode) {
   const booking = LIVE_BOOKINGS.find(b => b.id === idOrCode || b.bookingCode === idOrCode);
   if (!booking) return null;
 
-  const custLat = parseFloat(booking.latitude) || 12.9716;
-  const custLng = parseFloat(booking.longitude) || 77.5946;
-  const techLat = parseFloat(booking.technicianLatitude) || (custLat + 0.015);
-  const techLng = parseFloat(booking.technicianLongitude) || (custLng - 0.012);
+  const custLat = booking.latitude != null ? parseFloat(booking.latitude) : null;
+  const custLng = booking.longitude != null ? parseFloat(booking.longitude) : null;
+  const techLat = booking.technicianLatitude != null ? parseFloat(booking.technicianLatitude) : null;
+  const techLng = booking.technicianLongitude != null ? parseFloat(booking.technicianLongitude) : null;
 
-  // Haversine Distance in Kilometers
-  const R = 6371;
-  const dLat = (custLat - techLat) * (Math.PI / 180);
-  const dLon = (custLng - techLng) * (Math.PI / 180);
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(techLat * (Math.PI / 180)) * Math.cos(custLat * (Math.PI / 180)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distanceKm = Math.round(R * c * 10) / 10;
+  let distanceKm = null;
+  let etaMinutes = null;
 
-  // Estimated travel time in minutes (25 km/h average speed in city)
-  const etaMinutes = Math.max(1, Math.round((distanceKm / 25) * 60));
+  if (custLat != null && custLng != null && techLat != null && techLng != null) {
+    const R = 6371;
+    const dLat = (custLat - techLat) * (Math.PI / 180);
+    const dLon = (custLng - techLng) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(techLat * (Math.PI / 180)) * Math.cos(custLat * (Math.PI / 180)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    distanceKm = Math.round(R * c * 10) / 10;
+    etaMinutes = Math.max(1, Math.round((distanceKm / 25) * 60));
+  }
 
   return {
     bookingId: booking.id,
@@ -217,27 +219,27 @@ function getBookingLiveTracking(idOrCode) {
       id: booking.customerId,
       name: booking.customerName || booking.customer || 'Customer',
       phone: booking.customerPhone || booking.phone || '',
-      address: booking.fullAddress || booking.address || 'Service Location',
+      address: booking.fullAddress || booking.address || '',
       latitude: custLat,
       longitude: custLng,
     },
     technician: {
       id: booking.technicianId,
-      name: booking.technicianName || booking.technician || 'Assigned Technician',
+      name: booking.technicianName || booking.technician || (booking.technicianId ? 'Assigned Technician' : 'Pending Dispatch'),
       phone: booking.technicianPhone || '',
-      category: booking.technicianCategory || booking.category || 'Expert Technician',
-      rating: booking.technicianRating || 4.9,
+      category: booking.technicianCategory || booking.category || '',
+      rating: booking.technicianRating || null,
       avatar: booking.technicianAvatar || '',
       latitude: techLat,
       longitude: techLng,
       speed: booking.technicianSpeed || 0,
       heading: booking.technicianHeading || 0,
-      lastUpdate: booking.lastLocationUpdate || new Date().toISOString(),
+      lastUpdate: booking.lastLocationUpdate || null,
     },
     service: {
       name: booking.serviceName || booking.service || 'Service Request',
       category: booking.category || 'General',
-      amount: booking.totalAmount || booking.grandTotal || booking.price || 199,
+      amount: booking.totalAmount || booking.grandTotal || booking.price || 0,
       startOtp: booking.startOtp,
       endOtp: booking.endOtp,
     },
@@ -245,7 +247,7 @@ function getBookingLiveTracking(idOrCode) {
       distanceKm,
       etaMinutes,
       isMoving: (booking.technicianSpeed || 0) > 2,
-      lastPing: booking.lastLocationUpdate || new Date().toISOString(),
+      lastPing: booking.lastLocationUpdate || null,
     }
   };
 }
@@ -356,6 +358,21 @@ function registerCustomer(data) {
   return updated;
 }
 
+/**
+ * Delete a customer permanently
+ */
+function deleteCustomer(custId) {
+  return LIVE_CUSTOMERS.delete(custId);
+}
+
+/**
+ * Clear all customers permanently
+ */
+function clearAllCustomers() {
+  LIVE_CUSTOMERS.clear();
+  return true;
+}
+
 module.exports = {
   getAllBookings,
   getBookingById,
@@ -368,6 +385,9 @@ module.exports = {
   getDashboardStats,
   getAllCustomers,
   registerCustomer,
+  deleteCustomer,
+  clearAllCustomers,
   updateTechnicianLocation,
   getBookingLiveTracking,
 };
+

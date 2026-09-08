@@ -95,6 +95,52 @@ const createCoreTables = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS customer_addresses (
+        id VARCHAR(64) PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        address_type VARCHAR(20) DEFAULT 'HOME',
+        house_flat VARCHAR(100),
+        street VARCHAR(255),
+        landmark VARCHAR(255),
+        area VARCHAR(100),
+        city VARCHAR(100) DEFAULT 'Kolkata',
+        state VARCHAR(100) DEFAULT 'West Bengal',
+        postal_code VARCHAR(20),
+        latitude DOUBLE PRECISION,
+        longitude DOUBLE PRECISION,
+        is_primary BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS service_categories (
+        id VARCHAR(64) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        slug VARCHAR(100) UNIQUE,
+        description TEXT,
+        icon_url TEXT,
+        banner_image_url TEXT,
+        display_order INT DEFAULT 0,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS services (
+        id VARCHAR(64) PRIMARY KEY,
+        category_id VARCHAR(64) REFERENCES service_categories(id) ON DELETE CASCADE,
+        name VARCHAR(150) NOT NULL,
+        slug VARCHAR(150) UNIQUE,
+        description TEXT,
+        base_price NUMERIC(10, 2) NOT NULL,
+        strike_price NUMERIC(10, 2),
+        discount_percentage INT DEFAULT 0,
+        estimated_time_minutes INT DEFAULT 45,
+        warranty_period_days INT DEFAULT 30,
+        image_url TEXT,
+        is_popular BOOLEAN DEFAULT false,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
       CREATE EXTENSION IF NOT EXISTS postgis;
 
       CREATE TABLE IF NOT EXISTS technician_profiles (
@@ -125,11 +171,12 @@ const createCoreTables = async () => {
 
       CREATE INDEX IF NOT EXISTS idx_technician_profiles_location ON technician_profiles USING GIST(location);
       CREATE INDEX IF NOT EXISTS idx_technician_profiles_status_perf ON technician_profiles(is_online, availability_status, kyc_status, last_location_update);
+      CREATE INDEX IF NOT EXISTS idx_technician_profiles_coords ON technician_profiles(current_latitude, current_longitude);
 
       CREATE TABLE IF NOT EXISTS technician_services (
         id VARCHAR(64) PRIMARY KEY,
-        technician_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        service_id VARCHAR(64) NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+        technician_id VARCHAR(64) NOT NULL,
+        service_id VARCHAR(64) NOT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         active BOOLEAN DEFAULT true,
         CONSTRAINT uq_technician_service UNIQUE(technician_id, service_id)
@@ -166,6 +213,18 @@ const createCoreTables = async () => {
         uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
+
+    // Auto-backfill PostGIS geography point if coordinates exist but location is null
+    try {
+      await pool.query(`
+        UPDATE technician_profiles 
+        SET location = ST_SetSRID(ST_MakePoint(current_longitude, current_latitude), 4326)::geography
+        WHERE location IS NULL AND current_latitude IS NOT NULL AND current_longitude IS NOT NULL;
+      `);
+    } catch (_) {
+      // Safe skip if postgis extension is absent
+    }
+
     console.log('✅ [PostgreSQL] Core transactional & KYC schemas verified');
   } catch (err) {
     console.error('❌ [PostgreSQL] Failed to initialize tables:', err.message);

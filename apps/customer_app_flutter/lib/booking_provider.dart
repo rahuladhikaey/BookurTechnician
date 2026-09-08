@@ -1264,6 +1264,17 @@ class BookingNotifier extends StateNotifier<AppState> {
     }
   }
 
+  String _resolveServiceCategory(String serviceId) {
+    for (final cat in state.categories) {
+      for (final sub in cat.subcategories) {
+        if (sub.services.any((s) => s.id == serviceId)) {
+          return cat.name;
+        }
+      }
+    }
+    return 'General Service';
+  }
+
   Future<Booking?> confirmOrder(
     String date,
     String slot, {
@@ -1284,10 +1295,10 @@ class BookingNotifier extends StateNotifier<AppState> {
     final primaryAddr = state.profile.primaryAddress;
     final fullAddr = state.address.isNotEmpty && state.address != 'Fetching live address...'
         ? state.address
-        : (primaryAddr?.formattedAddress ?? 'Bangalore Central, Karnataka');
-    final lat = state.selectedLatitude ?? (primaryAddr?.latitude ?? 12.9716);
-    final lng = state.selectedLongitude ?? (primaryAddr?.longitude ?? 77.5946);
-    final code = customBookingCode ?? 'BK-${100000 + (DateTime.now().millisecondsSinceEpoch % 900000)}';
+        : (primaryAddr?.formattedAddress ?? '');
+    final lat = state.selectedLatitude ?? primaryAddr?.latitude;
+    final lng = state.selectedLongitude ?? primaryAddr?.longitude;
+    final code = customBookingCode ?? 'BT-${10000000 + (DateTime.now().millisecondsSinceEpoch % 90000000)}';
     final bookingId = customBookingId ?? 'bkg_${DateTime.now().millisecondsSinceEpoch}';
     final startOtp = (1000 + (DateTime.now().millisecondsSinceEpoch % 9000)).toString();
     final scheduleDateStr = date == 'Tomorrow'
@@ -1307,7 +1318,7 @@ class BookingNotifier extends StateNotifier<AppState> {
       gstTax: totalGst,
       grandTotal: totalGrand,
       address: fullAddr,
-      technicianName: 'Assigning Expert...',
+      technicianName: 'Assigning Verified Expert...',
       technicianPhone: '',
       otpCode: startOtp,
     );
@@ -1316,14 +1327,14 @@ class BookingNotifier extends StateNotifier<AppState> {
       final payload = {
         'id': bookingId,
         'bookingCode': code,
-        'customerId': state.profile.customerId.isNotEmpty ? state.profile.customerId : 'cust_${DateTime.now().millisecondsSinceEpoch}',
+        'customerId': state.profile.customerId,
         'customerName': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
         'customer': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
-        'customerPhone': state.profile.phone.isNotEmpty ? state.profile.phone : '+91 9876543210',
-        'phone': state.profile.phone.isNotEmpty ? state.profile.phone : '+91 9876543210',
+        'customerPhone': state.profile.phone,
+        'phone': state.profile.phone,
         'serviceId': firstService.id,
         'serviceName': serviceNames,
-        'category': 'ELECTRICIAN',
+        'category': _resolveServiceCategory(firstService.id),
         'latitude': lat,
         'longitude': lng,
         'address': fullAddr,
@@ -1393,9 +1404,9 @@ class BookingNotifier extends StateNotifier<AppState> {
     final primaryAddr = state.profile.primaryAddress;
     final fullAddr = state.address.isNotEmpty && state.address != 'Fetching live address...'
         ? state.address
-        : (primaryAddr?.formattedAddress ?? 'Bangalore Central, Karnataka');
-    final lat = state.selectedLatitude ?? (primaryAddr?.latitude ?? 12.9716);
-    final lng = state.selectedLongitude ?? (primaryAddr?.longitude ?? 77.5946);
+        : (primaryAddr?.formattedAddress ?? '');
+    final lat = state.selectedLatitude ?? primaryAddr?.latitude;
+    final lng = state.selectedLongitude ?? primaryAddr?.longitude;
     final code = customBookingCode ?? 'BT-${10000000 + (DateTime.now().millisecondsSinceEpoch % 90000000)}';
     final bookingId = customBookingId ?? 'bkg_${DateTime.now().millisecondsSinceEpoch}';
     final startOtp = (1000 + (DateTime.now().millisecondsSinceEpoch % 9000)).toString();
@@ -1424,10 +1435,14 @@ class BookingNotifier extends StateNotifier<AppState> {
       final payload = {
         'id': bookingId,
         'bookingCode': code,
-        'customerId': state.profile.customerId.isNotEmpty ? state.profile.customerId : 'cust_${DateTime.now().millisecondsSinceEpoch}',
+        'customerId': state.profile.customerId,
+        'customerName': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
+        'customer': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
+        'customerPhone': state.profile.phone,
+        'phone': state.profile.phone,
         'serviceId': service.id,
         'serviceName': service.name,
-        'category': 'ELECTRICIAN',
+        'category': _resolveServiceCategory(service.id),
         'latitude': lat,
         'longitude': lng,
         'address': fullAddr,
@@ -1477,21 +1492,22 @@ class BookingNotifier extends StateNotifier<AppState> {
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
         final List list = decoded['data'] ?? decoded['bookings'] ?? [];
-        if (list.isNotEmpty) {
-          final backendHistory = list.map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
+        final backendHistory = list.map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
 
-          final bookingMap = <String, Booking>{};
-          for (var b in state.bookingHistory) {
-            bookingMap[b.id] = b;
+        Booking? active;
+        for (var b in backendHistory) {
+          if (b.status != BookingStatus.completed && b.status != BookingStatus.cancelled) {
+            active = b;
+            break;
           }
-          for (var b in backendHistory) {
-            bookingMap[b.id] = b;
-          }
-
-          final merged = bookingMap.values.toList();
-          state = state.copyWith(bookingHistory: merged);
-          await _saveBookingsLocally();
         }
+
+        state = state.copyWith(
+          bookingHistory: backendHistory,
+          activeBooking: active,
+          clearActiveBooking: active == null,
+        );
+        await _saveBookingsLocally();
       }
     } catch (e) {
       debugPrint('Error loading booking history from backend: $e');
@@ -1510,7 +1526,7 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   void verifyOtp(String otp) {
     final b = state.activeBooking;
-    if (b != null && (otp == b.otpCode || otp == '1234')) {
+    if (b != null && b.otpCode.isNotEmpty && otp.trim() == b.otpCode.trim()) {
       final updated = b.copyWith(status: BookingStatus.serviceStarted);
       final updatedHistory = state.bookingHistory.map((item) => item.id == b.id ? updated : item).toList();
       state = state.copyWith(
@@ -1538,6 +1554,68 @@ class BookingNotifier extends StateNotifier<AppState> {
       );
       _saveBookingsLocally();
     }
+  }
+
+  Future<void> deleteBooking(String bookingId) async {
+    try {
+      await ApiClient.delete('/bookings/$bookingId');
+    } catch (e) {
+      debugPrint('Delete booking backend note: $e');
+    }
+
+    final updated = state.bookingHistory.where((b) => b.id != bookingId).toList();
+    final isActiveMatch = state.activeBooking?.id == bookingId;
+
+    state = state.copyWith(
+      bookingHistory: updated,
+      activeBooking: isActiveMatch ? null : state.activeBooking,
+      clearActiveBooking: isActiveMatch,
+    );
+
+    await _saveBookingsLocally();
+  }
+
+  Future<void> cancelBooking(String bookingId, {String reason = 'Cancelled by Customer'}) async {
+    try {
+      await ApiClient.post('/bookings/$bookingId/cancel', {'reason': reason});
+    } catch (e) {
+      debugPrint('Cancel booking backend note: $e');
+    }
+
+    final updated = state.bookingHistory.map((b) {
+      if (b.id == bookingId) {
+        return b.copyWith(status: BookingStatus.cancelled);
+      }
+      return b;
+    }).toList();
+
+    final isActiveMatch = state.activeBooking?.id == bookingId;
+
+    state = state.copyWith(
+      bookingHistory: updated,
+      activeBooking: isActiveMatch ? null : state.activeBooking,
+      clearActiveBooking: isActiveMatch,
+    );
+
+    await _saveBookingsLocally();
+  }
+
+  Future<void> clearAllLocalBookings() async {
+    try {
+      await ApiClient.delete('/bookings/my-bookings');
+    } catch (e) {
+      debugPrint('Clear customer bookings note: $e');
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('bt_active_booking');
+    await prefs.remove('bt_booking_history');
+
+    state = state.copyWith(
+      bookingHistory: [],
+      activeBooking: null,
+      clearActiveBooking: true,
+    );
   }
 
   // ─── Payments ─────────────────────────────────────────────────

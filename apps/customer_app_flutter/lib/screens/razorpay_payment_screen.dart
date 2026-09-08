@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -150,9 +149,9 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
     setState(() => _isProcessing = true);
 
     final userProfile = ref.read(bookingProvider).profile;
-    final phone = userProfile.phone.isNotEmpty ? userProfile.phone : '9876543210';
-    final email = userProfile.email.isNotEmpty ? userProfile.email : 'customer@bookurtechnician.com';
-    final name = userProfile.fullName.isNotEmpty ? userProfile.fullName : 'Valued Customer';
+    final phone = userProfile.phone;
+    final email = userProfile.email;
+    final name = userProfile.fullName.isNotEmpty ? userProfile.fullName : 'Customer';
     final key = (_razorpayKeyId != null && _razorpayKeyId!.isNotEmpty)
         ? _razorpayKeyId!
         : 'rzp_test_ShRpqbs6hVT6Ie';
@@ -164,9 +163,9 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
       'description': '${widget.serviceName} (#${widget.bookingCode})',
       'timeout': 300,
       'prefill': {
-        'contact': phone,
-        'email': email,
-        'name': name,
+        if (phone.isNotEmpty) 'contact': phone,
+        if (email.isNotEmpty) 'email': email,
+        if (name.isNotEmpty) 'name': name,
       },
       'theme': {
         'color': '#0284C7',
@@ -194,9 +193,9 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
   }
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    final paymentId = response.paymentId ?? 'pay_${Random().nextInt(900000) + 100000}';
-    final orderId = response.orderId ?? _razorpayOrderId ?? 'order_rzp_${widget.bookingCode}';
-    final signature = response.signature ?? 'sig_rzp_${Random().nextInt(900000)}';
+    final paymentId = response.paymentId ?? '';
+    final orderId = response.orderId ?? _razorpayOrderId ?? '';
+    final signature = response.signature ?? '';
 
     // Submit signature verification to backend
     bool verified = false;

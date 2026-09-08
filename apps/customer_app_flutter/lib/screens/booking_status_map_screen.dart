@@ -24,9 +24,9 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
   bool _isResendingEmail = false;
   bool _isLoading = false;
 
-  // Default coordinate center
+  // Coordinate state
   LatLng _userPos = const LatLng(12.9716, 77.5946);
-  LatLng _techPos = const LatLng(12.9780, 77.6050);
+  LatLng? _techPos;
 
   @override
   void initState() {
@@ -61,8 +61,8 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
     }
     if (tLat != null && tLng != null) {
       _techPos = LatLng(tLat, tLng);
-    } else if (uLat != null && uLng != null) {
-      _techPos = LatLng(uLat + 0.008, uLng + 0.008);
+    } else {
+      _techPos = null;
     }
   }
 
@@ -103,10 +103,15 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
   void _fitBounds() {
     if (_mapController == null) return;
 
-    final double southWestLat = min(_userPos.latitude, _techPos.latitude);
-    final double southWestLng = min(_userPos.longitude, _techPos.longitude);
-    final double northEastLat = max(_userPos.latitude, _techPos.latitude);
-    final double northEastLng = max(_userPos.longitude, _techPos.longitude);
+    if (_techPos == null) {
+      _mapController!.animateCamera(CameraUpdate.newLatLngZoom(_userPos, 14));
+      return;
+    }
+
+    final double southWestLat = min(_userPos.latitude, _techPos!.latitude);
+    final double southWestLng = min(_userPos.longitude, _techPos!.longitude);
+    final double northEastLat = max(_userPos.latitude, _techPos!.latitude);
+    final double northEastLng = max(_userPos.longitude, _techPos!.longitude);
 
     final LatLngBounds bounds = LatLngBounds(
       southwest: LatLng(southWestLat, southWestLng),
@@ -171,7 +176,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
     final status = (_booking['status'] ?? 'ACCEPTED').toString().toUpperCase();
     final isInProgress = status == 'IN_PROGRESS';
     final isCompleted = status == 'COMPLETED';
-    final distanceKm = _calculateDistanceKm(_userPos, _techPos);
+    final distanceKm = _techPos != null ? _calculateDistanceKm(_userPos, _techPos!) : null;
 
     // ─── 2 STATIC CUSTOM MARKERS ONLY (NO POLYLINES / NO DIRECTIONS API) ───
     final Set<Marker> markers = {
@@ -181,22 +186,23 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
         infoWindow: const InfoWindow(title: 'Your Location', snippet: 'Service Delivery Address'),
       ),
-      Marker(
-        markerId: const MarkerId('technician_pin'),
-        position: _techPos,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: InfoWindow(
-          title: _booking['technicianName'] ?? 'Technician Partner',
-          snippet: '★ ${_booking['technicianRating'] ?? 4.8} ($distanceKm km away)',
+      if (_techPos != null)
+        Marker(
+          markerId: const MarkerId('technician_pin'),
+          position: _techPos!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          infoWindow: InfoWindow(
+            title: _booking['technicianName'] ?? 'Technician Partner',
+            snippet: '${_booking['technicianRating'] != null ? '★ ${_booking['technicianRating']} • ' : ''}${distanceKm != null ? '$distanceKm km away' : 'Assigned'}',
+          ),
         ),
-      ),
     };
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
-          'Booking #${_booking['bookingCode'] ?? 'BT-900'}',
+          'Booking #${_booking['bookingCode'] ?? (_booking['id'] != null ? _booking['id'].toString() : '')}',
           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF111827)),
         ),
         backgroundColor: Colors.white,
@@ -294,18 +300,19 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF86EFAC)),
+                  if (distanceKm != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: Text(
+                        '$distanceKm km away',
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: Color(0xFF065F46)),
+                      ),
                     ),
-                    child: Text(
-                      '$distanceKm km away',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: Color(0xFF065F46)),
-                    ),
-                  ),
                 ],
               ),
             ),

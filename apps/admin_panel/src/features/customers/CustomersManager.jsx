@@ -117,6 +117,35 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
     }
   };
 
+  const handleDeleteCustomer = async (customerId) => {
+    if (!window.confirm(`Are you sure you want to permanently delete customer #${customerId}?`)) return;
+    try {
+      await api.deleteCustomer(customerId);
+      const updated = (activeCustomerList || []).filter(c => (c.id !== customerId && c.customerId !== customerId));
+      setLocalCustomers(updated);
+      if (setCustomers) setCustomers(updated);
+      auditLogAction?.('Customers', `Deleted customer #${customerId}`);
+      if (selectedCustomer && (selectedCustomer.id === customerId || selectedCustomer.customerId === customerId)) {
+        setShowProfileModal(false);
+        setSelectedCustomer(null);
+      }
+    } catch (err) {
+      alert('Failed to delete customer: ' + err.message);
+    }
+  };
+
+  const handleClearAllCustomers = async () => {
+    if (!window.confirm('⚠️ Are you sure you want to delete all test customers? This will reset the customer directory to a clean slate.')) return;
+    try {
+      await api.clearAllCustomers();
+      setLocalCustomers([]);
+      if (setCustomers) setCustomers([]);
+      auditLogAction?.('Customers', 'Cleared all test customers for clean slate');
+    } catch (err) {
+      alert('Failed to clear customers: ' + err.message);
+    }
+  };
+
   const handleOpenDetails = (c) => {
     setSelectedCustomer(c);
     setShowProfileModal(true);
@@ -132,7 +161,17 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
               Monitor registered customers, backend-verified profile completion scores, addresses, and account compliance
             </p>
           </div>
-          <div className="page-actions-group">
+          <div className="page-actions-group" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {activeCustomerList.length > 0 && (
+              <button
+                className="btn btn-outline"
+                onClick={handleClearAllCustomers}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#EF4444', color: '#EF4444' }}
+                title="Clear all mock/test customer records for clean production slate"
+              >
+                <span>🗑️</span> Reset Test Customers
+              </button>
+            )}
             <button
               className="btn btn-outline"
               onClick={async () => {
@@ -265,10 +304,19 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
                           {c.status}
                         </span>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button className="btn btn-primary btn-sm" onClick={() => handleOpenDetails(c)}>
-                          Inspect File →
-                        </button>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                          <button className="btn btn-primary btn-sm" onClick={() => handleOpenDetails(c)}>
+                            Inspect File →
+                          </button>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => handleDeleteCustomer(c.id || c.customerId)}
+                            title="Delete customer permanently"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -379,7 +427,13 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
                 </div>
               </div>
 
-              <div className="modal-footer">
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => handleDeleteCustomer(selectedCustomer.id || selectedCustomer.customerId)}
+                >
+                  🗑️ Delete Customer Record
+                </button>
                 <button className="btn btn-outline" onClick={() => setShowProfileModal(false)}>Close File</button>
               </div>
             </div>

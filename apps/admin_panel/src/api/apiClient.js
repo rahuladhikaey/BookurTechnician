@@ -200,6 +200,8 @@ class ApiClient {
   getStats() { return this.get('/admin/stats'); }
   getCustomers(params) { return this.get('/admin/customers', params); }
   updateCustomerStatus(id, status) { return this.patch(`/admin/customers/${id}/status`, { status }); }
+  deleteCustomer(id) { return this.delete(`/admin/customers/${id}`); }
+  clearAllCustomers() { return this.delete('/admin/customers'); }
 
   getTechnicians(params) { return this.get('/admin/technicians', params); }
   getTechnicianById(id) { return this.get(`/admin/technicians/${id}`); }

@@ -3,6 +3,7 @@ const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
 const bookingsStore = require('../config/bookingsStore');
 const postgres = require('../config/postgres');
 const mongo = require('../config/mongo');
+const postgresSpatialScanner = require('../services/postgresSpatialScanner');
 
 // In-memory fallback cache for fast standalone operations
 const { inMemorySkills, inMemoryDocs, inMemoryTechProfiles } = require('../config/inMemoryTechStore');
@@ -633,12 +634,12 @@ const getProfile = async (req, res) => {
       id: technicianId,
       technicianCode: `BT-TECH-${technicianId.slice(-6).toUpperCase()}`,
       fullName: profile?.fullName || req.user?.name || 'Partner Technician',
-      phone: profile?.phone || req.user?.phone || '+91 9876543210',
-      email: req.user?.email || 'partner@bookurtechnician.com',
+      phone: profile?.phone || req.user?.phone || '',
+      email: req.user?.email || profile?.email || '',
       profileImageUrl: profile?.selfieImageUrl || '',
-      rating: profile?.rating || 4.88,
-      totalRatingsCount: 38,
-      totalJobsCompleted: profile?.totalJobsCompleted || 142,
+      rating: profile?.rating || 5.0,
+      totalRatingsCount: profile?.totalRatingsCount || 0,
+      totalJobsCompleted: profile?.totalJobsCompleted || 0,
       kycStatus: profile?.kycStatus || 'VERIFIED',
       isOnline: profile?.isOnline ?? true,
       upiId: profile?.upiId || profile?.upiNumber || '',
@@ -1058,90 +1059,13 @@ const getNearbyTechnicians = async (req, res) => {
       return parseFloat((R * c).toFixed(2));
     };
 
-    const realTechsMap = new Map();
-
-    // 1. Query Redis Geo for active technicians in 15km
-    try {
-      const redisTechs = await redis.geoRadius('technician:locations', custLng, custLat, radiusKm);
-      for (const t of redisTechs) {
-        const isFresh = await redis.isTechnicianFresh(t.member);
-        if (!isFresh) continue;
-
-        const distance = t.distanceKm !== undefined ? t.distanceKm : calculateDistance(custLat, custLng, t.latitude, t.longitude);
-        realTechsMap.set(t.member, {
-          id: t.member,
-          technicianId: t.member,
-          distanceKm: parseFloat(distance.toFixed(1)),
-          latitude: t.latitude,
-          longitude: t.longitude,
-          source: 'REDIS_LIVE',
-        });
-      }
-    } catch (e) {
-      console.warn('⚠️ [Redis Geo Radius] Scan warning:', e.message);
-    }
-
-    // 2. Query Postgres PostGIS
-    if (postgres.isPgHealthy()) {
-      try {
-        const staleSeconds = parseInt(process.env.TECHNICIAN_LOCATION_STALE_SECONDS || '1800', 10);
-        let queryText = `
-          SELECT 
-            tp.id,
-            tp.technician_id,
-            tp.full_name,
-            tp.phone,
-            tp.category,
-            tp.rating,
-            tp.current_latitude,
-            tp.current_longitude,
-            tp.is_online,
-            ST_Distance(
-              tp.location,
-              ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
-            ) / 1000.0 AS distance_km
-          FROM technician_profiles tp
-          WHERE tp.is_online = true
-            AND (tp.kyc_status != 'REJECTED' OR tp.kyc_status IS NULL)
-            AND ST_DWithin(
-              tp.location,
-              ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
-              $3
-            )
-        `;
-        const params = [custLat, custLng, radiusKm * 1000.0];
-
-        if (normCat && normCat !== 'all') {
-          queryText += ` AND (LOWER(tp.category) LIKE $4 OR tp.skills::text ILIKE $4)`;
-          params.push(`%${normCat}%`);
-        }
-
-        queryText += ` ORDER BY distance_km ASC LIMIT 50;`;
-
-        const pgRes = await postgres.query(queryText, params);
-        for (const row of pgRes.rows) {
-          const techId = row.technician_id || row.id;
-          const dist = parseFloat(parseFloat(row.distance_km).toFixed(1));
-          realTechsMap.set(techId, {
-            id: techId,
-            technicianId: techId,
-            name: row.full_name || 'Verified Technician',
-            phone: row.phone || '',
-            category: row.category || 'General',
-            rating: parseFloat(row.rating) || 5.0,
-            distanceKm: dist,
-            latitude: parseFloat(row.current_latitude),
-            longitude: parseFloat(row.current_longitude),
-            isOnline: true,
-            source: 'POSTGIS_LIVE',
-          });
-        }
-      } catch (e) {
-        console.warn('⚠️ [PostGIS Scan] Radius scan warning:', e.message);
-      }
-    }
-
-    const techniciansList = Array.from(realTechsMap.values()).sort((a, b) => a.distanceKm - b.distanceKm);
+    const techniciansList = await postgresSpatialScanner.scanNearbyTechnicians({
+      latitude: custLat,
+      longitude: custLng,
+      radiusKm,
+      category: normCat,
+      staleSeconds: parseInt(process.env.TECHNICIAN_LOCATION_STALE_SECONDS || '1800', 10),
+    });
 
     // Compute counts by category
     const categoryCounts = {};

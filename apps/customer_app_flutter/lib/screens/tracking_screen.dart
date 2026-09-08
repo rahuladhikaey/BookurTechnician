@@ -470,7 +470,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
         address: state.address.isNotEmpty ? state.address : 'Selected Customer Location',
         technicianName: 'Assigning Verified Specialist...',
         technicianPhone: '',
-        otpCode: _liveStartOtp ?? '1234',
+        otpCode: _liveStartOtp ?? '',
       ),
     );
 
@@ -478,13 +478,11 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
         ? booking.services.map((s) => s.name).join(', ')
         : (_remoteBookingData?['serviceName'] ?? 'Domain Specialist Service');
 
-    final effectiveTechPos = _technicianLocation ?? LatLng(
-      _customerLocation.latitude + 0.008,
-      _customerLocation.longitude + 0.008,
-    );
+    final effectiveTechPos = _technicianLocation;
+    final hasTechPos = effectiveTechPos != null;
 
     final routePoints = <LatLng>[
-      effectiveTechPos,
+      if (hasTechPos) effectiveTechPos,
       _customerLocation,
     ];
 
@@ -496,7 +494,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: effectiveTechPos,
+                initialCenter: effectiveTechPos ?? _customerLocation,
                 initialZoom: 14.5,
                 maxZoom: 18,
                 minZoom: 10,
@@ -507,18 +505,19 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                   userAgentPackageName: 'com.bookurtechnician.customer',
                 ),
                 
-                // Real-time Dynamic Polyline between Tech & Customer
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: routePoints,
-                      color: kBrandPrimary,
-                      strokeWidth: 4.5,
-                      borderColor: const Color(0xFF93C5FD),
-                      borderStrokeWidth: 2.0,
-                    ),
-                  ],
-                ),
+                // Real-time Dynamic Polyline between Tech & Customer (Only when tech is live)
+                if (hasTechPos)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: routePoints,
+                        color: kBrandPrimary,
+                        strokeWidth: 4.5,
+                        borderColor: const Color(0xFF93C5FD),
+                        borderStrokeWidth: 2.0,
+                      ),
+                    ],
+                  ),
 
                 // Markers layer for OSM
                 MarkerLayer(
@@ -538,25 +537,18 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                               borderRadius: BorderRadius.circular(8),
                               boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
                             ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.home_rounded, color: Colors.white, size: 12),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Your Location',
-                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                              ],
+                            child: const Text(
+                              'Your Location',
+                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                             ),
                           ),
                           const SizedBox(height: 2),
                           Container(
-                            width: 28,
-                            height: 28,
+                            width: 32,
+                            height: 32,
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
                               color: Colors.white,
+                              shape: BoxShape.circle,
                               border: Border.all(color: const Color(0xFF0284C7), width: 3),
                               boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
                             ),
@@ -568,53 +560,54 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                       ),
                     ),
 
-                    // 2. Live Moving Technician Marker (Vehicle & Rotation)
-                    Marker(
-                      point: effectiveTechPos,
-                      width: 140,
-                      height: 80,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF16A34A),
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.two_wheeler_rounded, color: Colors.white, size: 12),
-                                const SizedBox(width: 4),
-                                Text(
-                                  booking.technicianName.isNotEmpty ? booking.technicianName.split(' ').first : 'Technician',
-                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Transform.rotate(
-                            angle: (_technicianHeading * pi / 180),
-                            child: Container(
-                              width: 36,
-                              height: 36,
+                    // 2. Live Moving Technician Marker (Shown only when real GPS is streaming)
+                    if (hasTechPos)
+                      Marker(
+                        point: effectiveTechPos,
+                        width: 140,
+                        height: 80,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 8)],
-                                border: Border.all(color: const Color(0xFF16A34A), width: 2.5),
+                                color: const Color(0xFF16A34A),
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
                               ),
-                              child: const Center(
-                                child: Icon(Icons.navigation_rounded, color: Color(0xFF16A34A), size: 20),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.two_wheeler_rounded, color: Colors.white, size: 12),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    booking.technicianName.isNotEmpty ? booking.technicianName.split(' ').first : 'Technician',
+                                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 2),
+                            Transform.rotate(
+                              angle: (_technicianHeading * pi / 180),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 8)],
+                                  border: Border.all(color: const Color(0xFF16A34A), width: 2.5),
+                                ),
+                                child: const Center(
+                                  child: Icon(Icons.navigation_rounded, color: Color(0xFF16A34A), size: 20),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ],
@@ -838,7 +831,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                             border: Border.all(color: const Color(0xFFBFDBFE)),
                           ),
                           child: Text(
-                            '₹${booking.grandTotal > 0 ? booking.grandTotal.toStringAsFixed(0) : '499'}',
+                            '₹${booking.grandTotal > 0 ? booking.grandTotal.toStringAsFixed(0) : (booking.baseCost > 0 ? booking.baseCost.toStringAsFixed(0) : '0')}',
                             style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E40AF), fontSize: 14),
                           ),
                         ),
@@ -938,7 +931,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                 ],
                               ),
                               child: Text(
-                                _liveStartOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '4821'),
+                                _liveStartOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '••••'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 24,

@@ -1,4 +1,5 @@
 const { getMasterCatalog, getCatalogHierarchy, getFlattenedServices } = require('../config/masterCatalog');
+const postgresSpatialScanner = require('../services/postgresSpatialScanner');
 
 /**
  * GET /api/v1/catalog/categories
@@ -99,60 +100,23 @@ const getAvailability = async (req, res) => {
       });
     }
 
-    // 1. Authoritative PostGIS Spatial Query
-    if (postgres.isPgHealthy()) {
-      try {
-        const queryText = `
-          SELECT 
-            s.id AS service_id,
-            s.name AS service_name,
-            COUNT(DISTINCT tp.technician_id) AS available_technician_count
-          FROM services s
-          LEFT JOIN technician_services ts ON ts.service_id = s.id AND ts.active = true
-          LEFT JOIN technician_profiles tp ON tp.technician_id = ts.technician_id
-            AND tp.is_online = true
-            AND (tp.availability_status = 'AVAILABLE' OR tp.availability_status IS NULL)
-            AND tp.kyc_status = 'VERIFIED'
-            AND tp.last_location_update >= (NOW() - ($4 * INTERVAL '1 second'))
-            AND ST_DWithin(
-              tp.location,
-              ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
-              $3
-            )
-            AND NOT EXISTS (
-              SELECT 1 FROM bookings b 
-              WHERE b.technician_id = tp.technician_id 
-                AND b.status IN ('ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ARRIVED', 'IN_PROGRESS')
-            )
-          WHERE s.is_active = true
-          GROUP BY s.id, s.name
-        `;
-        const result = await postgres.query(queryText, [parsedLat, parsedLng, radiusMeters, staleSeconds]);
-        for (const row of result.rows) {
-          serviceCounts.set(row.service_id, {
-            serviceId: row.service_id,
-            serviceName: row.service_name,
-            availableTechnicianCount: parseInt(row.available_technician_count, 10) || 0,
-          });
-        }
-      } catch (err) {
-        console.warn('⚠️ [PostGIS Availability] Spatial query warning:', err.message);
-      }
-    }
-
-    // 2. Cross-verify with Redis GEO Realtime Freshness & Heartbeat
+    // Query available technicians per service using dual-tier spatial scanner
     try {
-      const geoCandidates = await redis.geoRadius('technician:locations', parsedLng, parsedLat, radius);
-      if (geoCandidates && geoCandidates.length > 0) {
-        for (const c of geoCandidates) {
-          const isFresh = await redis.isTechnicianFresh(c.member);
-          if (!isFresh) {
-            // Ephemeral GPS is stale: filter out
-            continue;
-          }
+      const countsMap = await postgresSpatialScanner.scanServiceAvailability({
+        latitude: parsedLat,
+        longitude: parsedLng,
+        radiusKm: radius,
+        staleSeconds,
+      });
+
+      for (const [srvId, count] of countsMap.entries()) {
+        if (serviceCounts.has(srvId)) {
+          serviceCounts.get(srvId).availableTechnicianCount = count;
         }
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn('⚠️ [Availability Scan] Spatial query warning:', err.message);
+    }
 
     const responseList = Array.from(serviceCounts.values());
 
@@ -216,128 +180,35 @@ const getNearbyTechniciansByService = async (req, res) => {
 
     const technicians = [];
 
-    // 1. Authoritative PostGIS Spatial Query
-    if (postgres.isPgHealthy()) {
-      try {
-        let queryText = '';
-        let queryParams = [];
+    const scannedTechnicians = await postgresSpatialScanner.scanNearbyTechnicians({
+      latitude: parsedLat,
+      longitude: parsedLng,
+      radiusKm: radius,
+      category: categoryId,
+      serviceId,
+      staleSeconds,
+    });
 
-        if (serviceId) {
-          queryText = `
-            SELECT 
-              tp.technician_id AS "technicianId",
-              tp.technician_code AS "technicianCode",
-              tp.full_name AS "fullName",
-              tp.phone AS "phone",
-              tp.category AS "category",
-              tp.experience_years AS "experienceYears",
-              tp.rating AS "rating",
-              tp.total_ratings_count AS "totalRatingsCount",
-              tp.total_jobs_completed AS "totalJobsCompleted",
-              tp.current_latitude AS "currentLatitude",
-              tp.current_longitude AS "currentLongitude",
-              tp.is_online AS "isOnline",
-              tp.availability_status AS "availabilityStatus",
-              COALESCE(u.profile_image_url, '') AS "profileImageUrl",
-              ST_Distance(
-                  tp.location, 
-                  ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
-              ) AS "distanceMeters"
-            FROM technician_profiles tp
-            LEFT JOIN users u ON u.id = tp.technician_id
-            JOIN technician_services ts ON ts.technician_id = tp.technician_id AND ts.active = true
-            WHERE ts.service_id = $5
-              AND tp.is_online = true
-              AND (tp.availability_status = 'AVAILABLE' OR tp.availability_status IS NULL)
-              AND tp.kyc_status = 'VERIFIED'
-              AND tp.last_location_update >= (NOW() - ($4 * INTERVAL '1 second'))
-              AND ST_DWithin(
-                  tp.location, 
-                  ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, 
-                  $3
-              )
-              AND NOT EXISTS (
-                  SELECT 1 FROM bookings b 
-                  WHERE b.technician_id = tp.technician_id 
-                    AND b.status IN ('ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ARRIVED', 'IN_PROGRESS')
-              )
-            ORDER BY "distanceMeters" ASC
-          `;
-          queryParams = [parsedLat, parsedLng, radiusMeters, staleSeconds, serviceId];
-        } else {
-          queryText = `
-            SELECT DISTINCT
-              tp.technician_id AS "technicianId",
-              tp.technician_code AS "technicianCode",
-              tp.full_name AS "fullName",
-              tp.phone AS "phone",
-              tp.category AS "category",
-              tp.experience_years AS "experienceYears",
-              tp.rating AS "rating",
-              tp.total_ratings_count AS "totalRatingsCount",
-              tp.total_jobs_completed AS "totalJobsCompleted",
-              tp.current_latitude AS "currentLatitude",
-              tp.current_longitude AS "currentLongitude",
-              tp.is_online AS "isOnline",
-              tp.availability_status AS "availabilityStatus",
-              COALESCE(u.profile_image_url, '') AS "profileImageUrl",
-              ST_Distance(
-                  tp.location, 
-                  ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
-              ) AS "distanceMeters"
-            FROM technician_profiles tp
-            LEFT JOIN users u ON u.id = tp.technician_id
-            JOIN technician_services ts ON ts.technician_id = tp.technician_id AND ts.active = true
-            JOIN services s ON s.id = ts.service_id AND s.is_active = true
-            WHERE s.category_id = $5
-              AND tp.is_online = true
-              AND (tp.availability_status = 'AVAILABLE' OR tp.availability_status IS NULL)
-              AND tp.kyc_status = 'VERIFIED'
-              AND tp.last_location_update >= (NOW() - ($4 * INTERVAL '1 second'))
-              AND ST_DWithin(
-                  tp.location, 
-                  ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, 
-                  $3
-              )
-              AND NOT EXISTS (
-                  SELECT 1 FROM bookings b 
-                  WHERE b.technician_id = tp.technician_id 
-                    AND b.status IN ('ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ARRIVED', 'IN_PROGRESS')
-              )
-            ORDER BY "distanceMeters" ASC
-          `;
-          queryParams = [parsedLat, parsedLng, radiusMeters, staleSeconds, categoryId];
-        }
-
-        const result = await postgres.query(queryText, queryParams);
-        for (const row of result.rows) {
-          const distMeters = parseFloat(row.distanceMeters) || 0.0;
-          const distKm = Math.round((distMeters / 1000.0) * 10) / 10;
-          const etaMinutes = Math.max(5, Math.round(distKm * 3.0 + 5.0));
-
-          technicians.push({
-            technicianId: row.technicianId,
-            technicianCode: row.technicianCode || `BT-${row.technicianId.slice(-6).toUpperCase()}`,
-            fullName: row.fullName || 'Verified Technician',
-            phone: maskPhone(row.phone),
-            category: row.category || 'GENERAL',
-            profileImageUrl: row.profileImageUrl || '',
-            experienceYears: parseInt(row.experienceYears, 10) || 2,
-            rating: row.rating ? Math.round(parseFloat(row.rating) * 10) / 10 : 4.8,
-            totalRatingsCount: parseInt(row.totalRatingsCount, 10) || 0,
-            totalJobsCompleted: parseInt(row.totalJobsCompleted, 10) || 0,
-            currentLatitude: parseFloat(row.currentLatitude) || parsedLat,
-            currentLongitude: parseFloat(row.currentLongitude) || parsedLng,
-            distanceMeters: distMeters,
-            distanceKm: distKm,
-            estimatedArrivalMinutes: etaMinutes,
-            isOnline: true,
-            availabilityStatus: row.availabilityStatus || 'AVAILABLE',
-          });
-        }
-      } catch (err) {
-        console.warn('⚠️ [PostGIS Nearby Technicians] Spatial query warning:', err.message);
-      }
+    for (const t of scannedTechnicians) {
+      technicians.push({
+        technicianId: t.technicianId,
+        technicianCode: t.technicianCode,
+        fullName: t.name,
+        phone: maskPhone(t.phone),
+        category: t.category,
+        profileImageUrl: '',
+        experienceYears: 2,
+        rating: t.rating,
+        totalRatingsCount: t.totalRatingsCount,
+        totalJobsCompleted: t.totalJobsCompleted,
+        currentLatitude: t.latitude,
+        currentLongitude: t.longitude,
+        distanceMeters: Math.round(t.distanceKm * 1000.0),
+        distanceKm: t.distanceKm,
+        estimatedArrivalMinutes: t.etaMinutes,
+        isOnline: true,
+        availabilityStatus: 'AVAILABLE',
+      });
     }
 
     return res.json({

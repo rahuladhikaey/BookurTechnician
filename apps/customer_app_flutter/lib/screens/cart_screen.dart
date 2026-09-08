@@ -448,9 +448,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         ? razorpayKeyId
         : 'rzp_test_ShRpqbs6hVT6Ie';
 
-    final phone = state.profile.phone.isNotEmpty ? state.profile.phone : '9876543210';
-    final email = state.profile.email.isNotEmpty ? state.profile.email : 'customer@bookurtechnician.com';
-    final name = state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Valued Customer';
+    final phone = state.profile.phone;
+    final email = state.profile.email;
+    final name = state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer';
 
     final options = <String, dynamic>{
       'key': key,
@@ -459,8 +459,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       'description': '$_currentServiceName (#$_currentBookingCode)',
       'timeout': 300,
       'prefill': {
-        'contact': phone,
-        'email': email,
+        if (phone.isNotEmpty) 'contact': phone,
+        if (email.isNotEmpty) 'email': email,
         'name': name,
       },
       'theme': {
@@ -471,7 +471,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       }
     };
 
-    if (razorpayOrderId != null && razorpayOrderId.startsWith('order_') && !razorpayOrderId.contains('order_rzp_BT')) {
+    if (razorpayOrderId != null && razorpayOrderId.startsWith('order_')) {
       options['order_id'] = razorpayOrderId;
     }
 
@@ -489,20 +489,22 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    final paymentId = response.paymentId ?? 'pay_${Random().nextInt(900000) + 100000}';
-    final orderId = response.orderId ?? _currentRazorpayOrderId ?? 'order_rzp_$_currentBookingCode';
-    final signature = response.signature ?? 'sig_rzp_${Random().nextInt(900000)}';
+    final paymentId = response.paymentId ?? '';
+    final orderId = response.orderId ?? _currentRazorpayOrderId ?? '';
+    final signature = response.signature ?? '';
 
-    // Verify signature on backend
-    try {
-      await ApiClient.post('/payments/verify-signature', {
-        'bookingId': _currentBookingId,
-        'razorpayOrderId': orderId,
-        'razorpayPaymentId': paymentId,
-        'razorpaySignature': signature,
-      });
-    } catch (e) {
-      debugPrint('[Razorpay Verification note]: $e');
+    // Verify signature on backend if available
+    if (paymentId.isNotEmpty && orderId.isNotEmpty) {
+      try {
+        await ApiClient.post('/payments/verify-signature', {
+          'bookingId': _currentBookingId,
+          'razorpayOrderId': orderId,
+          'razorpayPaymentId': paymentId,
+          'razorpaySignature': signature,
+        });
+      } catch (e) {
+        debugPrint('[Razorpay Verification note]: $e');
+      }
     }
 
     if (!mounted) return;
@@ -521,13 +523,13 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       customBookingId: _currentBookingId,
     );
 
-    // Navigate directly to Live Tracking Screen (Uber/Rapido/Zomato style)
+    // Navigate directly to Live Tracking Screen
     if (mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => BookingTrackingScreen(
-            bookingId: booked?.id ?? _currentBookingId ?? 'BK-100',
+            bookingId: booked?.id ?? _currentBookingCode ?? _currentBookingId ?? '',
           ),
         ),
       );
@@ -563,7 +565,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => BookingTrackingScreen(
-          bookingId: booked?.id ?? _currentBookingId ?? 'BK-100',
+          bookingId: booked?.id ?? _currentBookingCode ?? _currentBookingId ?? '',
         ),
       ),
     );

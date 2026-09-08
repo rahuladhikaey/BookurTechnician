@@ -20,6 +20,8 @@ router.post('/:id/resend-end-otp', bookingController.resendEndOtp);
 router.post('/:id/generate-end-otp', bookingController.resendEndOtp);
 router.post('/:id/add-bill', bookingController.addBillCharges);
 router.post('/:id/verify-end-otp', bookingController.verifyEndOtp);
-router.patch('/:id/status', bookingController.updateBookingStatus);
+// Deletion & Cancellation
+router.delete('/my-bookings', bookingController.clearCustomerBookings);
+router.delete('/:id', bookingController.deleteBooking);
 
 module.exports = router;

@@ -1478,7 +1478,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                                   if (!ctx.mounted) return;
                                   Navigator.pop(modalCtx); // Close sheet
 
-                                  final startOtp = booked?.otpCode.isNotEmpty == true ? booked!.otpCode : (1000 + Random().nextInt(9000)).toString();
+                                  final startOtp = booked?.otpCode.isNotEmpty == true ? booked!.otpCode : '';
 
                                   // Direct Dispatch to Live Tracking Page
                                   Navigator.push(
@@ -1540,7 +1540,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                                   if (!ctx.mounted) return;
                                   Navigator.pop(modalCtx); // Close sheet
 
-                                  final startOtp = booked?.otpCode.isNotEmpty == true ? booked!.otpCode : (1000 + Random().nextInt(9000)).toString();
+                                  final startOtp = booked?.otpCode.isNotEmpty == true ? booked!.otpCode : '';
 
                                   // Direct Dispatch to Live Tracking Page
                                   Navigator.push(

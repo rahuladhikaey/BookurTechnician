@@ -59,6 +59,57 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
             onPressed: _fetchHistory,
             tooltip: 'Refresh Bookings',
           ),
+          if (allBookings.isNotEmpty)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF64748B)),
+              tooltip: 'Booking Options',
+              onSelected: (val) async {
+                if (val == 'clear_all') {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      title: const Text('Clear All Bookings?'),
+                      content: const Text(
+                        'This will permanently delete all your booking records and purge test bookings from your account and device.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Clear All', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && mounted) {
+                    final messenger = ScaffoldMessenger.of(context);
+                    await ref.read(bookingProvider.notifier).clearAllLocalBookings();
+                    if (mounted) {
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('All bookings cleared successfully.')),
+                      );
+                    }
+                  }
+                }
+              },
+              itemBuilder: (ctx) => [
+                const PopupMenuItem(
+                  value: 'clear_all',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_sweep_rounded, color: Color(0xFFDC2626), size: 20),
+                      SizedBox(width: 8),
+                      Text('Clear All Bookings', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
       body: RefreshIndicator(
@@ -119,12 +170,12 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
   }
 }
 
-class _BookingCard extends StatelessWidget {
+class _BookingCard extends ConsumerWidget {
   final Booking booking;
   const _BookingCard({required this.booking});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final statusLabel = _statusLabel(booking.status);
     final statusColor = _statusColor(booking.status);
     final isLive = booking.status != BookingStatus.completed && booking.status != BookingStatus.cancelled;
@@ -190,17 +241,58 @@ class _BookingCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-                      ),
-                      child: Text(
-                        statusLabel,
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor),
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            statusLabel,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF94A3B8)),
+                          tooltip: 'Delete Booking',
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                title: const Text('Delete Booking?'),
+                                content: Text('Do you want to permanently delete booking #${booking.id}?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              await ref.read(bookingProvider.notifier).deleteBooking(booking.id);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Booking #${booking.id} deleted.')),
+                                );
+                              }
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),

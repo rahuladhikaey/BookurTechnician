@@ -16,6 +16,7 @@ const {
   deleteCategoryItem,
 } = require('../config/masterCatalog');
 const bookingsStore = require('../config/bookingsStore');
+const bookingController = require('./bookingController');
 const firebase = require('../config/firebase');
 const {
   inMemoryDocs,
@@ -423,8 +424,16 @@ const cancelBooking = async (req, res) => {
 const deleteBooking = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = bookingsStore.deleteBooking(id);
-    if (!deleted) return res.status(404).json({ success: false, error: 'Booking not found' });
+    bookingsStore.deleteBooking(id);
+    bookingController.deleteMemoryBooking?.(id);
+
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query('DELETE FROM bookings WHERE id = $1 OR booking_code = $1', [id]);
+      } catch (pgErr) {
+        console.warn('[Admin] PG deleteBooking error:', pgErr.message);
+      }
+    }
 
     adminAuditLogs.unshift({
       id: 'log-' + uuidv4().slice(0, 6),
@@ -446,10 +455,23 @@ const deleteBooking = async (req, res) => {
 const clearAllBookings = async (req, res) => {
   try {
     bookingsStore.clearAllBookings();
+    bookingController.clearMemoryBookings?.();
+
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query('DELETE FROM bookings');
+      } catch (pgErr) {
+        console.warn('[Admin] PG clearAllBookings error:', pgErr.message);
+      }
+    }
+
+    // Also purge fake customer records created by mock bookings
+    bookingsStore.clearAllCustomers();
+
     adminAuditLogs.unshift({
       id: 'log-' + uuidv4().slice(0, 6),
       module: 'Bookings',
-      action: 'Cleared all booking records',
+      action: 'Cleared all booking records and test stores',
       timestamp: new Date().toISOString(),
     });
 
@@ -458,6 +480,49 @@ const clearAllBookings = async (req, res) => {
     }
 
     return res.json({ success: true, message: 'All bookings cleared successfully' });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const deleteCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    bookingsStore.deleteCustomer(id);
+
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query('DELETE FROM users WHERE id = $1 AND role = $2', [id, 'CUSTOMER']);
+      } catch (pgErr) {
+        console.warn('[Admin] PG deleteCustomer error:', pgErr.message);
+      }
+    }
+
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Customers',
+      action: `Deleted customer #${id}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    return res.json({ success: true, message: `Customer #${id} deleted successfully` });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+const clearAllCustomers = async (req, res) => {
+  try {
+    bookingsStore.clearAllCustomers();
+
+    adminAuditLogs.unshift({
+      id: 'log-' + uuidv4().slice(0, 6),
+      module: 'Customers',
+      action: 'Cleared all test customers registry',
+      timestamp: new Date().toISOString(),
+    });
+
+    return res.json({ success: true, message: 'All test customers cleared successfully' });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -948,18 +1013,33 @@ const createTechnician = async (req, res) => {
     // Save to Postgres
     if (postgres.isPgHealthy()) {
       try {
+        const parsedLat = latitude != null ? parseFloat(latitude) : null;
+        const parsedLng = longitude != null ? parseFloat(longitude) : null;
+
         await postgres.query(`
           INSERT INTO technician_profiles (
             id, technician_id, technician_code, full_name, phone, category, skills,
             experience_years, kyc_status, is_online, rating, total_jobs_completed,
-            wallet_balance, upi_id, upi_number, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+            wallet_balance, upi_id, upi_number, current_latitude, current_longitude,
+            location, last_location_update, created_at, updated_at
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+            $16, $17,
+            CASE WHEN $16 IS NOT NULL AND $17 IS NOT NULL THEN ST_SetSRID(ST_MakePoint($17, $16), 4326)::geography ELSE NULL END,
+            CASE WHEN $16 IS NOT NULL THEN NOW() ELSE NULL END,
+            NOW(), NOW()
+          )
           ON CONFLICT (technician_id) DO UPDATE 
-          SET full_name = $4, phone = $5, category = $6, skills = $7, updated_at = NOW();
+          SET full_name = $4, phone = $5, category = $6, skills = $7,
+              current_latitude = COALESCE($16, technician_profiles.current_latitude),
+              current_longitude = COALESCE($17, technician_profiles.current_longitude),
+              location = CASE WHEN $16 IS NOT NULL AND $17 IS NOT NULL THEN ST_SetSRID(ST_MakePoint($17, $16), 4326)::geography ELSE technician_profiles.location END,
+              last_location_update = CASE WHEN $16 IS NOT NULL THEN NOW() ELSE technician_profiles.last_location_update END,
+              updated_at = NOW();
         `, [
           techId, techId, techCode, techName, phone || '', category, JSON.stringify(stringSkills),
-          parseInt(experienceYears || 2, 10), 'PENDING', Boolean(isOnline), parseFloat(rating || 5.0),
-          0, 0.00, upiId, phone || ''
+          parseInt(experienceYears || 2, 10), 'VERIFIED', Boolean(isOnline), parseFloat(rating || 5.0),
+          0, 0.00, upiId, phone || '', parsedLat, parsedLng
         ]);
       } catch (pErr) {
         console.warn('Postgres createTechnician notice:', pErr.message);
@@ -1566,6 +1646,8 @@ module.exports = {
   deleteBooking,
   clearAllBookings,
   getCustomers,
+  deleteCustomer,
+  clearAllCustomers,
   getTechnicians,
   createTechnician,
   deleteTechnician,

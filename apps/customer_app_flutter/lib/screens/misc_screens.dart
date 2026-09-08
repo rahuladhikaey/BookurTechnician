@@ -164,7 +164,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        profile.fullName.isNotEmpty ? profile.fullName : 'Valued Customer',
+                        profile.fullName.isNotEmpty ? profile.fullName : 'Customer',
                         style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: kPrimaryText),
                       ),
                       const SizedBox(height: 2),

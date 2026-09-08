@@ -32,6 +32,8 @@ router.delete('/bookings', adminController.clearAllBookings);
 
 // Customers Management
 router.get('/customers', adminController.getCustomers);
+router.delete('/customers/:id', adminController.deleteCustomer);
+router.delete('/customers', adminController.clearAllCustomers);
 
 // Technicians Management & KYC
 router.get('/technicians', adminController.getTechnicians);

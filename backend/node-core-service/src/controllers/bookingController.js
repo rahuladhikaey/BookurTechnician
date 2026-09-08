@@ -8,6 +8,7 @@ const kafka = require('../config/kafka');
 const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
 const bookingsStore = require('../config/bookingsStore');
 const { inMemoryTechProfiles } = require('../config/inMemoryTechStore');
+const postgresSpatialScanner = require('../services/postgresSpatialScanner');
 
 // Microservice URLs
 const PYTHON_AI_URL = process.env.PYTHON_AI_SERVICE_URL || 'http://localhost:8000';
@@ -15,6 +16,19 @@ const JAVA_COMPUTE_URL = process.env.JAVA_COMPUTE_SERVICE_URL || 'http://localho
 
 // In-Memory store for bookings if Postgres is offline
 const memoryBookings = new Map();
+
+const clearMemoryBookings = () => {
+  memoryBookings.clear();
+};
+
+const deleteMemoryBooking = (id) => {
+  if (!id) return;
+  for (const [key, b] of memoryBookings.entries()) {
+    if (key === id || b.id === id || b.bookingCode === id) {
+      memoryBookings.delete(key);
+    }
+  }
+};
 
 /**
  * Generate secure 4-digit numeric OTP for Start and End service verification
@@ -62,89 +76,22 @@ const normalizeCategoryKey = (cat) => {
  */
 const scanTechniciansWithin15Km = async (customerLat, customerLng, category) => {
   const normCat = normalizeCategoryKey(category);
-  const matchedMap = new Map(); // technicianId -> object
 
-  // 1. Authoritative PostGIS Spatial Scan (Within 15 KM, Online, Available, Verified, Fresh GPS <= 60s, Not on active booking)
-  if (postgres.isPgHealthy()) {
-    try {
-      const staleSeconds = parseInt(process.env.TECHNICIAN_LOCATION_STALE_SECONDS || '1800', 10);
-      const queryText = `
-        SELECT 
-          tp.technician_id,
-          tp.full_name,
-          tp.phone,
-          tp.category,
-          tp.rating,
-          tp.current_latitude,
-          tp.current_longitude,
-          ST_Distance(
-            tp.location,
-            ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
-          ) / 1000.0 AS distance_km
-        FROM technician_profiles tp
-        WHERE tp.is_online = true
-          AND (tp.availability_status = 'AVAILABLE' OR tp.availability_status IS NULL)
-          AND (tp.kyc_status != 'REJECTED' OR tp.kyc_status IS NULL)
-          AND (tp.last_location_update IS NULL OR tp.last_location_update >= (NOW() - ($4 * INTERVAL '1 second')))
-          AND ST_DWithin(
-            tp.location,
-            ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
-            $3
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM bookings b 
-            WHERE b.technician_id = tp.technician_id 
-              AND b.status IN ('ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ARRIVED', 'IN_PROGRESS')
-          )
-        ORDER BY distance_km ASC
-      `;
-      const pgRes = await postgres.query(queryText, [customerLat, customerLng, 15000.0, staleSeconds]);
-      for (const row of pgRes.rows) {
-        matchedMap.set(row.technician_id, {
-          technicianId: row.technician_id,
-          name: row.full_name || 'Verified Technician',
-          phone: row.phone || '',
-          category: (row.category || normCat).toLowerCase(),
-          distanceKm: parseFloat(parseFloat(row.distance_km).toFixed(2)),
-          latitude: parseFloat(row.current_latitude),
-          longitude: parseFloat(row.current_longitude),
-          rating: parseFloat(row.rating) || 4.85,
-        });
-      }
-    } catch (e) {
-      console.warn('⚠️ [PostGIS Dispatch Scan] Query warning:', e.message);
-    }
-
-  }
-
-  // 2. Query Redis Geo for active verified candidates within 15 km
   try {
-    const redisTechs = await redis.geoRadius('technician:locations', customerLng, customerLat, 15);
-    for (const t of redisTechs) {
-      const isFresh = await redis.isTechnicianFresh(t.member);
-      if (!isFresh) continue;
+    const results = await postgresSpatialScanner.scanNearbyTechnicians({
+      latitude: customerLat,
+      longitude: customerLng,
+      radiusKm: 15,
+      category: normCat,
+      staleSeconds: parseInt(process.env.TECHNICIAN_LOCATION_STALE_SECONDS || '1800', 10),
+    });
 
-      if (!matchedMap.has(t.member)) {
-        matchedMap.set(t.member, {
-          technicianId: t.member,
-          distanceKm: t.distanceKm,
-          latitude: t.latitude,
-          longitude: t.longitude,
-          category: normCat,
-          name: 'Verified Technician',
-          rating: 4.9,
-        });
-      }
-    }
-  } catch (e) {
-    // Redis fallback
+    console.log(`🔍 [15km Geo Scan] Found ${results.length} active domain technicians within 15km for category '${normCat}' (Dual-tier PostGIS & SQL Haversine)`);
+    return results;
+  } catch (err) {
+    console.error('❌ [15km Geo Scan] Error scanning nearby technicians:', err.message);
+    return [];
   }
-
-  const result = Array.from(matchedMap.values());
-  result.sort((a, b) => a.distanceKm - b.distanceKm);
-
-  console.log(`🔍 [15km Geo Scan] Found ${result.length} active domain technicians within 15km for category '${normCat}' (No Mock Data)`);
-  return result;
 };
 
 /**
@@ -155,7 +102,7 @@ const createBooking = async (req, res) => {
   try {
     const customerId = req.user?.id || req.body.customerId || 'cust-' + uuidv4().slice(0, 8);
     const customerName = req.body.customerName || req.body.customer || req.user?.name || req.body.name || 'Customer';
-    const customerPhone = req.body.customerPhone || req.body.phone || req.user?.phone || '+91 9876543210';
+    const customerPhone = req.body.customerPhone || req.body.phone || req.user?.phone || '';
     const {
       serviceId = 'serv-01',
       serviceName = 'Home Service Repair',
@@ -1138,6 +1085,69 @@ const getTechnicianBookings = async (req, res) => {
   return res.json({ success: true, count: list.length, data: list, bookings: list });
 };
 
+/**
+ * DELETE /api/v1/bookings/:id
+ * Customer / general booking cancellation & permanent deletion
+ */
+const deleteBooking = async (req, res) => {
+  try {
+    const id = req.params.id;
+    deleteMemoryBooking(id);
+    bookingsStore.deleteBooking(id);
+
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query('DELETE FROM bookings WHERE id = $1 OR booking_code = $1', [id]);
+      } catch (pgErr) {
+        console.warn('[BookingController] PG deleteBooking error:', pgErr.message);
+      }
+    }
+
+    if (global.io) {
+      global.io.emit('booking:deleted', { id });
+    }
+
+    return res.json({ success: true, message: `Booking #${id} deleted successfully` });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * DELETE /api/v1/bookings/my-bookings
+ * Clear all bookings for the calling customer
+ */
+const clearCustomerBookings = async (req, res) => {
+  try {
+    const customerId = req.user?.id || req.headers['x-user-id'] || req.query.customerId;
+
+    if (customerId) {
+      for (const [key, b] of memoryBookings.entries()) {
+        if (b.customerId === customerId) {
+          memoryBookings.delete(key);
+        }
+      }
+      const allBookings = bookingsStore.getAllBookings();
+      for (const b of allBookings) {
+        if (b.customerId === customerId) {
+          bookingsStore.deleteBooking(b.id || b.bookingCode);
+        }
+      }
+      if (postgres.isPgHealthy()) {
+        try {
+          await postgres.query('DELETE FROM bookings WHERE customer_id = $1', [customerId]);
+        } catch (pgErr) {
+          console.warn('[BookingController] PG clearCustomerBookings error:', pgErr.message);
+        }
+      }
+    }
+
+    return res.json({ success: true, message: 'All bookings for customer cleared successfully' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 module.exports = {
   createBooking,
   acceptBooking,
@@ -1151,4 +1161,9 @@ module.exports = {
   getBookingById,
   getCustomerBookings,
   getTechnicianBookings,
+  deleteBooking,
+  clearCustomerBookings,
+  clearMemoryBookings,
+  deleteMemoryBooking,
 };
+
