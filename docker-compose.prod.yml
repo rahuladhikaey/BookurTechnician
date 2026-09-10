@@ -18,10 +18,10 @@ services:
       PG_DATABASE: postgres
       PG_USER: ${PG_USER:-postgres.hgjvwddlwofzpdurvpzd}
       PG_PASSWORD: ${PG_PASSWORD:-Rahul@2005@#}
-      REDIS_URL: ${REDIS_URL:-rediss://default:gQAAAAAAAioGAAIgcDExMTk3NzY1MDdiYjE0MjRjYTAxN2JhOGE4NGNlMTBkZA@model-wahoo-141830.upstash.io:6379}
-      REDIS_HOST: ${REDIS_HOST:-model-wahoo-141830.upstash.io}
+      REDIS_URL: ${REDIS_URL:-rediss://default:gQAAAAAAAbxoAAIgcDFkZTE2YzRhODc3NGY0ZjBkYjlhODEwMTcyZjJhZjg1ZQ@deciding-panda-113768.upstash.io:6379}
+      REDIS_HOST: ${REDIS_HOST:-deciding-panda-113768.upstash.io}
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-gQAAAAAAAioGAAIgcDExMTk3NzY1MDdiYjE0MjRjYTAxN2JhOGE4NGNlMTBkZA}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-gQAAAAAAAbxoAAIgcDFkZTE2YzRhODc3NGY0ZjBkYjlhODEwMTcyZjJhZjg1ZQ}
       PYTHON_AI_SERVICE_URL: http://python-ai-service:8000
       JAVA_COMPUTE_SERVICE_URL: http://java-compute-service:8080
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
@@ -75,9 +75,9 @@ services:
       SPRING_DATASOURCE_URL: ${DATABASE_URL:-jdbc:postgresql://aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require}
       SPRING_DATASOURCE_USERNAME: ${PG_USER:-postgres.hgjvwddlwofzpdurvpzd}
       SPRING_DATASOURCE_PASSWORD: ${PG_PASSWORD:-Rahul@2005@#}
-      REDIS_HOST: ${REDIS_HOST:-model-wahoo-141830.upstash.io}
+      REDIS_HOST: ${REDIS_HOST:-deciding-panda-113768.upstash.io}
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-gQAAAAAAAioGAAIgcDExMTk3NzY1MDdiYjE0MjRjYTAxN2JhOGE4NGNlMTBkZA}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-gQAAAAAAAbxoAAIgcDFkZTE2YzRhODc3NGY0ZjBkYjlhODEwMTcyZjJhZjg1ZQ}
       REDIS_SSL_ENABLED: "true"
     networks:
       - bookurtechnician-net

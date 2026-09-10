@@ -24,10 +24,10 @@ spring:
             non_contextual_creation: true
   data:
     redis:
-      url: ${REDIS_URL:${SPRING_DATA_REDIS_URL:rediss://default:gQAAAAAAAioGAAIgcDExMTk3NzY1MDdiYjE0MjRjYTAxN2JhOGE4NGNlMTBkZA@model-wahoo-141830.upstash.io:6379}}
-      host: ${REDIS_HOST:model-wahoo-141830.upstash.io}
+      url: ${REDIS_URL:${SPRING_DATA_REDIS_URL:rediss://default:gQAAAAAAAbxoAAIgcDFkZTE2YzRhODc3NGY0ZjBkYjlhODEwMTcyZjJhZjg1ZQ@deciding-panda-113768.upstash.io:6379}}
+      host: ${REDIS_HOST:deciding-panda-113768.upstash.io}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:gQAAAAAAAioGAAIgcDExMTk3NzY1MDdiYjE0MjRjYTAxN2JhOGE4NGNlMTBkZA}
+      password: ${REDIS_PASSWORD:gQAAAAAAAbxoAAIgcDFkZTE2YzRhODc3NGY0ZjBkYjlhODEwMTcyZjJhZjg1ZQ}
       ssl:
         enabled: ${REDIS_SSL_ENABLED:true}
 
