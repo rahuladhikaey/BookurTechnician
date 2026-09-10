@@ -4,6 +4,7 @@ const redis = require('../config/redis');
 const postgres = require('../config/postgres');
 const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
 const { sendOtpEmail } = require('../services/brevoService');
+const { sendOtpSms } = require('../services/smsService');
 const bookingsStore = require('../config/bookingsStore');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_bookurtechnician_2026_secure';
@@ -101,6 +102,14 @@ const requestOtp = async (req, res) => {
       });
     }
 
+    // If identifier is a phone number, send transactional SMS via Fast2SMS / Twilio
+    const targetPhone = phone || (!identifier.includes('@') ? identifier : null);
+    if (targetPhone) {
+      sendOtpSms(targetPhone, otp, role).catch((smsErr) => {
+        console.warn('⚠️ [SMS Gateway Dispatch Warning]:', smsErr.message);
+      });
+    }
+
     return res.json({
       success: true,
       message: `OTP sent successfully to ${identifier}`,
@@ -146,8 +155,9 @@ const verifyOtp = async (req, res) => {
       if (cachedData) break;
     }
 
-    // Allow valid OTP or master test OTP '123456'
-    const isValid = (cachedData && cachedData.otp.toString().trim() === inputOtp) || inputOtp === '123456';
+    // Allow valid OTP or master test OTP '123456' ONLY when not in strict production mode
+    const isTestOtpAllowed = process.env.NODE_ENV !== 'production' || process.env.ALLOW_TEST_OTP === 'true';
+    const isValid = (cachedData && cachedData.otp.toString().trim() === inputOtp) || (isTestOtpAllowed && inputOtp === '123456');
 
     if (!isValid) {
       return res.status(400).json({ success: false, error: 'Invalid or expired OTP' });

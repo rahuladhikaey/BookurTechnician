@@ -21,6 +21,7 @@ const technicianRoutes = require('./routes/technicianRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const catalogRoutes = require('./routes/catalogRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -65,6 +66,7 @@ app.use('/api/v1/technician', technicianRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/catalog', catalogRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/payments', paymentRoutes);
 
 // Fallback compatible route alias
 app.use('/api/bookings', bookingRoutes);
@@ -73,6 +75,7 @@ app.use('/api/catalog', catalogRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/technicians', technicianRoutes);
 app.use('/api/technician', technicianRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Comprehensive Health Check
 app.get('/health', (req, res) => {

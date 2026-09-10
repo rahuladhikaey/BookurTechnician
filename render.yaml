@@ -42,3 +42,22 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+
+  # ─── PYTHON FASTAPI AI & MATCHMAKING MICROSERVICE ───────────────────────────
+  - type: web
+    name: bookurtechnician-python-ai
+    runtime: docker
+    dockerfilePath: ./backend/python-ai-service/Dockerfile
+    dockerContext: ./backend/python-ai-service
+    plan: free
+    region: singapore
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    domains:
+      - ai.bookurtechnician.online
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: PYTHONUNBUFFERED
+        value: "1"

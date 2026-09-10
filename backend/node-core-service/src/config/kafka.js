@@ -14,17 +14,43 @@ const initKafka = async () => {
     return;
   }
 
+  const rawBrokers = process.env.KAFKA_BROKERS || '';
+  if (!rawBrokers) {
+    console.log('ℹ️ [Event Streaming] No KAFKA_BROKERS provided; using Internal Event Bus');
+    return;
+  }
+
+  const brokers = rawBrokers.split(',').map(b => b.trim()).filter(Boolean);
+  const useSsl = process.env.KAFKA_SSL === 'true' || rawBrokers.includes('upstash.io') || rawBrokers.includes('confluent.cloud');
+
+  let sasl = undefined;
+  if (process.env.KAFKA_SASL_USERNAME && process.env.KAFKA_SASL_PASSWORD) {
+    const mech = (process.env.KAFKA_SASL_MECHANISM || 'scram-sha-256').toLowerCase();
+    sasl = {
+      mechanism: mech,
+      username: process.env.KAFKA_SASL_USERNAME,
+      password: process.env.KAFKA_SASL_PASSWORD,
+    };
+  }
+
   try {
     const kafka = new Kafka({
       clientId: process.env.KAFKA_CLIENT_ID || 'bookurtechnician-node-gateway',
-      brokers: (process.env.KAFKA_BROKERS || 'localhost:9092').split(','),
-      retry: { retries: 2 },
+      brokers,
+      ssl: useSsl ? { rejectUnauthorized: true } : false,
+      sasl,
+      connectionTimeout: 8000,
+      authenticationTimeout: 8000,
+      retry: {
+        initialRetryTime: 300,
+        retries: 3,
+      },
     });
 
     kafkaProducer = kafka.producer();
     await kafkaProducer.connect();
     isKafkaEnabled = true;
-    console.log('✅ [Apache Kafka] Connected to broker cluster (Real-time Asynchronous Event Streaming active)');
+    console.log(`✅ [Apache Kafka] Connected to cloud broker cluster (${brokers.join(', ')}) [SSL: ${useSsl}, SASL: ${sasl ? sasl.mechanism : 'None'}]`);
   } catch (err) {
     console.warn('⚠️ [Apache Kafka] Connection warning, falling back to internal event bus:', err.message);
     isKafkaEnabled = false;

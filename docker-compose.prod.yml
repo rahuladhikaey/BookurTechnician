@@ -1,0 +1,87 @@
+services:
+  # ─── 1. Node.js Core API Gateway & Real-time WebSockets ────────────
+  node-core-service:
+    build:
+      context: ./backend/node-core-service
+      dockerfile: Dockerfile
+    container_name: bookurtechnician-node-gateway
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      MONGO_URI: ${MONGO_URI:-mongodb+srv://server:Rahul%402005%40%23@prod-db.j8loxfl.mongodb.net/bookurtechnician_prod?retryWrites=true&w=majority&appName=prod-db}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres.hgjvwddlwofzpdurvpzd:Rahul%402005%40%23@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require}
+      PG_HOST: ${PG_HOST:-aws-0-ap-south-1.pooler.supabase.com}
+      PG_PORT: 5432
+      PG_DATABASE: postgres
+      PG_USER: ${PG_USER:-postgres.hgjvwddlwofzpdurvpzd}
+      PG_PASSWORD: ${PG_PASSWORD:-Rahul@2005@#}
+      REDIS_URL: ${REDIS_URL:-rediss://default:gQAAAAAAAioGAAIgcDExMTk3NzY1MDdiYjE0MjRjYTAxN2JhOGE4NGNlMTBkZA@model-wahoo-141830.upstash.io:6379}
+      REDIS_HOST: ${REDIS_HOST:-model-wahoo-141830.upstash.io}
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-gQAAAAAAAioGAAIgcDExMTk3NzY1MDdiYjE0MjRjYTAxN2JhOGE4NGNlMTBkZA}
+      PYTHON_AI_SERVICE_URL: http://python-ai-service:8000
+      JAVA_COMPUTE_SERVICE_URL: http://java-compute-service:8080
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_UPLOAD_PRESET: ${CLOUDINARY_UPLOAD_PRESET:-}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      API_BASE_URL: https://api.bookurtechnician.online
+      ALLOW_TEST_OTP: "false"
+      ENABLE_KAFKA: ${ENABLE_KAFKA:-false}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-}
+      KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID:-bookurtechnician-gateway-prod}
+      KAFKA_SSL: ${KAFKA_SSL:-true}
+      KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-scram-sha-256}
+      KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME:-}
+      KAFKA_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-}
+    networks:
+      - bookurtechnician-net
+    depends_on:
+      - python-ai-service
+      - java-compute-service
+
+  # ─── 2. Python FastAPI AI Matchmaker & Dynamic Pricing ──────────────
+  python-ai-service:
+    build:
+      context: ./backend/python-ai-service
+      dockerfile: Dockerfile
+    container_name: bookurtechnician-python-ai
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: 8000
+      PYTHONUNBUFFERED: 1
+    networks:
+      - bookurtechnician-net
+
+  # ─── 3. Java 21 Spring Boot ACID Ledger & Wallet Service ────────────
+  java-compute-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bookurtechnician-java-ledger
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      SPRING_DATASOURCE_URL: ${DATABASE_URL:-jdbc:postgresql://aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require}
+      SPRING_DATASOURCE_USERNAME: ${PG_USER:-postgres.hgjvwddlwofzpdurvpzd}
+      SPRING_DATASOURCE_PASSWORD: ${PG_PASSWORD:-Rahul@2005@#}
+      REDIS_HOST: ${REDIS_HOST:-model-wahoo-141830.upstash.io}
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-gQAAAAAAAioGAAIgcDExMTk3NzY1MDdiYjE0MjRjYTAxN2JhOGE4NGNlMTBkZA}
+      REDIS_SSL_ENABLED: "true"
+    networks:
+      - bookurtechnician-net
+
+networks:
+  bookurtechnician-net:
+    driver: bridge

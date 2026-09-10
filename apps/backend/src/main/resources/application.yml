@@ -7,21 +7,29 @@ spring:
   flyway:
     enabled: ${FLYWAY_ENABLED:false}
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:bookurtechnician_dev;DB_CLOSE_DELAY=-1;MODE=PostgreSQL}
-    username: ${SPRING_DATASOURCE_USERNAME:sa}
-    password: ${SPRING_DATASOURCE_PASSWORD:}
-    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
+    url: ${DATABASE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require}}
+    username: ${PG_USER:${SPRING_DATASOURCE_USERNAME:postgres.hgjvwddlwofzpdurvpzd}}
+    password: ${PG_PASSWORD:${SPRING_DATASOURCE_PASSWORD:Rahul@2005@#}}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.postgresql.Driver}
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
+        dialect: org.hibernate.spatial.dialect.postgis.PostgisDialect
+        jdbc:
+          lob:
+            non_contextual_creation: true
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      url: ${REDIS_URL:${SPRING_DATA_REDIS_URL:rediss://default:gQAAAAAAAioGAAIgcDExMTk3NzY1MDdiYjE0MjRjYTAxN2JhOGE4NGNlMTBkZA@model-wahoo-141830.upstash.io:6379}}
+      host: ${REDIS_HOST:model-wahoo-141830.upstash.io}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:gQAAAAAAAioGAAIgcDExMTk3NzY1MDdiYjE0MjRjYTAxN2JhOGE4NGNlMTBkZA}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:true}
 
 management:
   endpoints:

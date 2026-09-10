@@ -150,22 +150,28 @@ const createBooking = async (req, res) => {
         customerLatitude: custLat,
         customerLongitude: custLng,
         candidateTechnicians: nearbyTechnicians.map(t => ({
-          technicianId: t.technicianId,
-          distanceKm: t.distanceKm,
-          latitude: t.latitude,
-          longitude: t.longitude,
+          technicianId: t.technicianId || t.id,
+          distanceKm: parseFloat(t.distanceKm) || 2.0,
+          latitude: t.latitude ? parseFloat(t.latitude) : null,
+          longitude: t.longitude ? parseFloat(t.longitude) : null,
+          rating: parseFloat(t.rating) || 4.8,
+          totalJobsCompleted: parseInt(t.totalJobsCompleted || t.jobsCompleted || 25, 10),
+          acceptanceRate: parseFloat(t.acceptanceRate || 95.0),
+          skills: Array.isArray(t.skills) ? t.skills : [category],
         })),
-      }, { timeout: 2000 });
+      }, { timeout: 3000 });
 
       if (aiResponse.data?.rankedMatches) {
         rankedTechnicians = aiResponse.data.rankedMatches;
         console.log(`🧠 [Python AI Matchmaker] Ranked ${rankedTechnicians.length} technicians.`);
       }
     } catch (e) {
+      console.warn('⚠️ [Python AI Matchmaker] Cloud service call notice, applying local multi-factor ranking:', e.message);
       rankedTechnicians = nearbyTechnicians.map(t => ({
-        technicianId: t.technicianId,
-        matchScore: parseFloat((100 - t.distanceKm * 2).toFixed(1)),
-        distanceKm: t.distanceKm,
+        technicianId: t.technicianId || t.id,
+        matchScore: parseFloat((100 - (t.distanceKm || 2.0) * 2).toFixed(1)),
+        distanceKm: parseFloat(t.distanceKm) || 2.0,
+        rating: parseFloat(t.rating) || 4.8,
       }));
     }
 
@@ -523,6 +529,18 @@ const acceptBooking = async (req, res) => {
       },
     });
 
+    // Publish Kafka Event: booking.assigned
+    await kafka.publishEvent('booking.assigned', {
+      bookingId: booking.id || bookingId,
+      bookingCode: booking.bookingCode,
+      technicianId,
+      technicianName: techName,
+      customerId: booking.customerId,
+      distanceKm: distanceKm.toFixed(1),
+      startOtp,
+      timestamp: new Date().toISOString(),
+    });
+
     return res.json({
       success: true,
       message: 'Booking confirmed and accepted. Technician details and live location sent to customer.',
@@ -654,6 +672,17 @@ const verifyStartOtp = async (req, res) => {
       title: '🚀 Service Started!',
       body: `Work is now in progress. Your Completion OTP is ${endOtp}. Share this only when work is completed.`,
       data: { bookingId, endOtp, type: 'END_OTP' },
+    });
+
+    // Publish Kafka Event: booking.started
+    await kafka.publishEvent('booking.started', {
+      bookingId: booking.id || bookingId,
+      bookingCode: booking.bookingCode,
+      technicianId: booking.technicianId,
+      customerId: booking.customerId,
+      startedAt: booking.startedAt,
+      endOtp,
+      timestamp: new Date().toISOString(),
     });
 
     return res.json({
@@ -818,13 +847,17 @@ const verifyEndOtp = async (req, res) => {
       console.log('ℹ️ [Java Ledger] Standalone fallback: Settled in local ledger store');
     }
 
-    // Publish Kafka Event
+    // Publish Kafka Event: booking.completed
     await kafka.publishEvent('booking.completed', {
       bookingId,
+      bookingCode: booking.bookingCode,
       technicianId: booking.technicianId,
+      customerId: booking.customerId,
       totalAmount,
+      commissionAmount: platformCommission,
       technicianEarnings,
       settlementLedgerId,
+      timestamp: new Date().toISOString(),
     });
 
     if (global.io) {
