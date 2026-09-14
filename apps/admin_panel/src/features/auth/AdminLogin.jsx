@@ -26,7 +26,7 @@ export default function AdminLogin({ onLoginSuccess }) {
     setIsLoading(true);
 
     try {
-      // Direct Security Verification with Backend using master keys
+      // Direct Security Verification with Backend using multi-host resilient client
       const response = await api.directAdminAccess(trimmedEmail, DEFAULT_KEY_1, DEFAULT_KEY_2);
       const accessToken = response?.accessToken || response?.token || response?.data?.accessToken || response?.data?.token;
 
@@ -35,7 +35,7 @@ export default function AdminLogin({ onLoginSuccess }) {
       }
 
       const authUser = response?.user || response?.data?.user || {
-        id: 'admin-root-001',
+        id: 'admin-master-001',
         email: trimmedEmail,
         fullName: 'System Administrator',
         role: 'SUPER_ADMIN'
@@ -51,10 +51,16 @@ export default function AdminLogin({ onLoginSuccess }) {
       
       setTimeout(() => {
         onLoginSuccess(authUser);
-      }, 200);
+      }, 300);
 
     } catch (err) {
-      setErrorMessage(err?.message || 'Access Denied: Could not connect to authentication server.');
+      console.error('Admin Login Error:', err);
+      const msg = err?.message || '';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('Could not connect')) {
+        setErrorMessage('Connecting to Cloud Server... Render backend may be waking up. Please click again in 10 seconds.');
+      } else {
+        setErrorMessage(msg || 'Access Denied: Could not connect to authentication server.');
+      }
     } finally {
       setIsLoading(false);
     }

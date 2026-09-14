@@ -1,42 +1,18 @@
 // ============================================================================
-// BOOKURTECHNICIAN ADMIN PANEL — CENTRALIZED API CLIENT
-// Production-Ready Token Interception, Error Handling, and REST Integration
+// BOOKURTECHNICIAN ADMIN PANEL — CENTRALIZED RESILIENT API CLIENT
+// Multi-Host Auto-Failover, Preflight/CORS Resilience, and Self-Healing Network
 // ============================================================================
 
-const PRIMARY_API_BASE_URL = 'https://api.bookurtechnician.online/api/v1';
-const FALLBACK_API_BASE_URL = 'https://bookurtechnician-backend.onrender.com/api/v1';
-
-const getInitialBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
-  if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
-    let clean = envUrl.trim();
-    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-      clean = `https://${clean}`;
-    }
-    if (!clean.endsWith('/api/v1')) {
-      clean = clean.replace(/\/+$/, '') + '/api/v1';
-    }
-    return clean;
-  }
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    // If running in production (admin.bookurtechnician.online, Render, Vercel, etc.)
-    if (host.includes('bookurtechnician.online')) {
-      return PRIMARY_API_BASE_URL;
-    }
-    if (host !== 'localhost' && host !== '127.0.0.1') {
-      return PRIMARY_API_BASE_URL;
-    }
-  }
-  return '/api/v1';
-};
-
-const API_BASE_URL = getInitialBaseUrl();
+const API_CANDIDATE_HOSTS = [
+  'https://bookurtechnician-backend.onrender.com/api/v1',
+  'https://api.bookurtechnician.online/api/v1',
+  '/api/v1'
+];
 
 class ApiClient {
   constructor() {
-    this.baseUrl = API_BASE_URL;
-    this.fallbackBaseUrl = FALLBACK_API_BASE_URL;
+    this.candidateUrls = [...API_CANDIDATE_HOSTS];
+    this.baseUrl = this.candidateUrls[0];
     this.onUnauthorizedCallback = null;
   }
 
@@ -76,9 +52,20 @@ class ApiClient {
   }
 
   async request(endpoint, options = {}) {
-    let url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-    const headers = this.getHeaders(options.headers || {});
+    const isFullUrl = endpoint.startsWith('http://') || endpoint.startsWith('https://');
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
+    // List of URLs to attempt in priority order
+    const urlsToTry = isFullUrl
+      ? [endpoint]
+      : [
+          `${this.baseUrl}${normalizedEndpoint}`,
+          ...this.candidateUrls
+            .filter(c => `${c}${normalizedEndpoint}` !== `${this.baseUrl}${normalizedEndpoint}`)
+            .map(c => `${c}${normalizedEndpoint}`)
+        ];
+
+    const headers = this.getHeaders(options.headers || {});
     const config = {
       ...options,
       headers
@@ -88,97 +75,77 @@ class ApiClient {
       config.body = JSON.stringify(config.body);
     }
 
-    try {
-      let response;
+    let lastError = null;
+
+    for (const targetUrl of urlsToTry) {
       try {
-        response = await fetch(url, config);
-        // If local proxy returned 500/502/503/404 on Vite localhost, fallback to cloud
-        if (response.status >= 500 || (response.status === 404 && url.startsWith('/api/v1'))) {
-          const fallbackUrl = url.replace(/^(https:\/\/api\.bookurtechnician\.online\/api\/v1|\/api\/v1|http:\/\/localhost:\d+\/api\/v1)/, this.fallbackBaseUrl);
-          if (fallbackUrl !== url) {
-            console.warn(`Initial request failed with status ${response.status}. Retrying with render cloud fallback: ${fallbackUrl}`);
-            response = await fetch(fallbackUrl, config);
-          }
-        }
-      } catch (fetchErr) {
-        let fallbackUrl = null;
-        if (url.includes('api.bookurtechnician.online')) {
-          fallbackUrl = url.replace('https://api.bookurtechnician.online/api/v1', this.fallbackBaseUrl);
-        } else if (url.startsWith('/api/v1') || url.includes('localhost')) {
-          fallbackUrl = `${this.fallbackBaseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-        }
-        
-        if (fallbackUrl) {
-          console.warn(`API unreachable. Retrying with render fallback: ${fallbackUrl}`);
-          response = await fetch(fallbackUrl, config);
-        } else {
-          throw fetchErr;
-        }
-      }
+        const response = await fetch(targetUrl, config);
 
-      if ((response.status === 401 || response.status === 403) && !url.includes('/auth/')) {
-        console.warn('Admin token expired or invalid (HTTP ' + response.status + '). Auto-refreshing admin credentials...');
-        try {
-          const authRes = await this.directAdminAccess('admin@bookurtechnician.com', 'BT-ADMIN-KEY-PRIMARY-7788', 'BT-ADMIN-KEY-SECONDARY-9900');
-          if (authRes?.data?.accessToken || authRes?.accessToken) {
-            const freshToken = authRes?.data?.accessToken || authRes?.accessToken;
-            this.setToken(freshToken, true);
-            const newHeaders = this.getHeaders(options.headers || {});
-            const retryConfig = { ...options, headers: newHeaders };
-            if (retryConfig.body && typeof retryConfig.body === 'object' && !(retryConfig.body instanceof FormData)) {
-              retryConfig.body = JSON.stringify(retryConfig.body);
+        // Handle expired token auto-renewal
+        if ((response.status === 401 || response.status === 403) && !targetUrl.includes('/auth/')) {
+          console.warn(`[ApiClient] Token expired (HTTP ${response.status}). Auto-refreshing...`);
+          try {
+            const authRes = await this.directAdminAccess('admin@bookurtechnician.com', 'BT-ADMIN-KEY-PRIMARY-7788', 'BT-ADMIN-KEY-SECONDARY-9900');
+            const freshToken = authRes?.data?.accessToken || authRes?.accessToken || authRes?.token;
+            if (freshToken) {
+              this.setToken(freshToken, true);
+              const retryHeaders = this.getHeaders(options.headers || {});
+              const retryConfig = { ...options, headers: retryHeaders };
+              if (retryConfig.body && typeof retryConfig.body === 'object' && !(retryConfig.body instanceof FormData)) {
+                retryConfig.body = JSON.stringify(retryConfig.body);
+              }
+              const retryResp = await fetch(targetUrl, retryConfig);
+              const retryText = await retryResp.text();
+              let retryData = null;
+              try { retryData = JSON.parse(retryText); } catch (_) { retryData = { message: retryText }; }
+              if (retryResp.ok) return retryData;
             }
-            response = await fetch(url, retryConfig);
-          }
-        } catch (authErr) {
-          console.error('Auto-reauth failed:', authErr);
-          if (this.onUnauthorizedCallback) {
-            this.onUnauthorizedCallback();
+          } catch (e) {
+            console.warn('[ApiClient] Reauth attempt notice:', e.message);
           }
         }
-      }
 
-      const text = await response.text();
-      let data = null;
-      const isHtmlResponse = text && (text.trim().startsWith('<!doctype') || text.trim().startsWith('<html') || text.trim().startsWith('<'));
-      
-      // If the static site server returned HTML instead of API JSON, retry with backend fallback URL
-      if (isHtmlResponse && !url.startsWith(this.fallbackBaseUrl)) {
-        const fallbackUrl = `${this.fallbackBaseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-        console.warn(`[API Client] Static server returned HTML for API endpoint. Retrying on Render backend: ${fallbackUrl}`);
-        const fallbackResponse = await fetch(fallbackUrl, config);
-        const fallbackText = await fallbackResponse.text();
-        try {
-          data = JSON.parse(fallbackText);
-        } catch (_) {
-          data = { message: fallbackText };
+        const text = await response.text();
+        const isHtml = text && (text.trim().startsWith('<!doctype') || text.trim().startsWith('<html') || text.trim().startsWith('<'));
+
+        // If response is HTML (e.g. index.html from static web server), it's not our API, try next candidate
+        if (isHtml) {
+          console.warn(`[ApiClient] Endpoint ${targetUrl} returned HTML. Trying fallback host...`);
+          continue;
         }
-        if (!fallbackResponse.ok) {
-          throw new Error(data?.message || data?.error || `HTTP ${fallbackResponse.status}: Backend request failed`);
+
+        let data = null;
+        if (text && text.trim().length > 0) {
+          try {
+            data = JSON.parse(text);
+          } catch (_) {
+            data = { message: text, data: text };
+          }
+        } else {
+          data = { success: response.ok, data: null };
         }
+
+        if (!response.ok) {
+          const errMsg = data?.message || data?.error || `HTTP ${response.status}: Request failed`;
+          throw new Error(errMsg);
+        }
+
+        // Remember the working base URL
+        const matchedBase = this.candidateUrls.find(c => targetUrl.startsWith(c));
+        if (matchedBase && matchedBase !== this.baseUrl) {
+          this.baseUrl = matchedBase;
+          console.log(`[ApiClient] Switched active base URL to: ${matchedBase}`);
+        }
+
         return data;
-      }
 
-      if (text && text.trim().length > 0) {
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          data = { message: text, data: text };
-        }
-      } else {
-        data = { success: response.ok, data: null };
+      } catch (err) {
+        lastError = err;
+        console.warn(`[ApiClient] Attempt on ${targetUrl} failed: ${err.message}. Trying next candidate...`);
       }
-
-      if (!response.ok) {
-        const errorMessage = data?.message || data?.error || `HTTP ${response.status}: Request failed`;
-        throw new Error(errorMessage);
-      }
-
-      return data;
-    } catch (error) {
-      console.error(`API Error on [${options.method || 'GET'}] ${url}:`, error.message);
-      throw error;
     }
+
+    throw lastError || new Error('Could not connect to backend servers. Please check your connection.');
   }
 
   get(endpoint, params = {}) {
@@ -236,124 +203,65 @@ class ApiClient {
   // ─── ADMIN CONVENIENCE METHODS ─────────────────────────────────────────────
   getAdminMe() { return this.get('/admin/me'); }
   getStats() { return this.get('/admin/stats'); }
-  getCustomers(params) { return this.get('/admin/customers', params); }
-  updateCustomerStatus(id, status) { return this.patch(`/admin/customers/${id}/status`, { status }); }
-  deleteCustomer(id) { return this.delete(`/admin/customers/${id}`); }
-  clearAllCustomers() { return this.delete('/admin/customers'); }
+  getOverview() { return this.get('/admin/overview'); }
+  getAvailabilityOverview(params) { return this.get('/admin/availability-overview', params); }
 
-  getTechnicians(params) { return this.get('/admin/technicians', params); }
-  getTechnicianById(id) { return this.get(`/admin/technicians/${id}`); }
-  createTechnician(data) { return this.post('/admin/technicians', data); }
-  deleteTechnician(id) { return this.delete(`/admin/technicians/${id}`); }
-  clearAllTechnicians() { return this.delete('/admin/technicians'); }
-  getOnlineTechnicians() { return this.get('/admin/technicians/online'); }
-  getTechnicianDocuments(id) { return this.get(`/admin/technicians/${id}/documents`); }
-  getTechnicianSkills(techId) { return this.get(`/technician/skills/technician/${techId}`); }
-  verifyTechnicianSkill(technicianSkillId, status, rejectionReason = '') {
-    return this.post(`/technician/skills/admin/${technicianSkillId}/verify`, { status, rejectionReason });
-  }
-  bulkVerifyTechnicianSkills(technicianId, status = 'VERIFIED') {
-    return this.post('/technician/skills/admin/bulk-verify', { technicianId, status });
-  }
-  updateKyc(id, status, reason = '') { return this.patch(`/admin/technicians/${id}/kyc`, { status, reason }); }
-  updateTechnicianStatus(id, status) { return this.patch(`/admin/technicians/${id}/status`, { status }); }
+  // Categories
+  getCategories() { return this.get('/admin/categories'); }
+  createCategory(data) { return this.post('/admin/categories', data); }
+  updateCategory(id, data) { return this.put(`/admin/categories/${id}`, data); }
+  deleteCategory(id) { return this.delete(`/admin/categories/${id}`); }
 
+  // Services & Pricing
+  getServices() { return this.get('/admin/services'); }
+  createService(data) { return this.post('/admin/services', data); }
+  updateService(id, data) { return this.put(`/admin/services/${id}`, data); }
+  deleteService(id) { return this.delete(`/admin/services/${id}`); }
+  updatePricing(id, data) { return this.put(`/admin/pricing/${id}`, data); }
+
+  // Bookings
   getBookings(params) { return this.get('/admin/bookings', params); }
   getBookingLiveTracking(id) { return this.get(`/admin/bookings/${id}/live-tracking`); }
-  assignBooking(id, technicianId) { return this.post(`/admin/bookings/${id}/assign`, { technicianId }); }
-  updateBookingStatus(id, status) { return this.patch(`/admin/bookings/${id}/status`, { status }); }
+  updateBookingStatus(id, status, extra = {}) { return this.patch(`/admin/bookings/${id}/status`, { status, ...extra }); }
+  assignBooking(id, data) { return this.post(`/admin/bookings/${id}/assign`, data); }
   cancelBooking(id, reason) { return this.post(`/admin/bookings/${id}/cancel`, { reason }); }
   deleteBooking(id) { return this.delete(`/admin/bookings/${id}`); }
   clearAllBookings() { return this.delete('/admin/bookings'); }
 
-  async getCategories() {
-    try {
-      return await this.get('/admin/categories');
-    } catch (err) {
-      console.warn('Failed to load /admin/categories, falling back to /catalog/categories:', err.message);
-      return await this.get('/catalog/categories');
-    }
-  }
-  getCatalogCategories() { return this.get('/catalog/categories'); }
-  createCategory(category) { return this.post('/admin/categories', category); }
-  updateCategory(id, category) { return this.put(`/admin/categories/${id}`, category); }
-  deleteCategory(id) { return this.delete(`/admin/categories/${id}`); }
+  // Customers
+  getCustomers(params) { return this.get('/admin/customers', params); }
+  deleteCustomer(id) { return this.delete(`/admin/customers/${id}`); }
+  clearAllCustomers() { return this.delete('/admin/customers'); }
 
-  async getServices() {
-    try {
-      return await this.get('/admin/services');
-    } catch (err) {
-      console.warn('Failed to load /admin/services, falling back to /catalog/services:', err.message);
-      return await this.get('/catalog/services');
-    }
-  }
-  getCatalogServices() { return this.get('/catalog/services'); }
-  createService(service) { return this.post('/admin/services', service); }
-  updateService(id, service) { return this.put(`/admin/services/${id}`, service); }
-  deleteService(id) { return this.delete(`/admin/services/${id}`); }
-  updatePricing(serviceId, data) { return this.put(`/admin/pricing/${serviceId}`, data); }
+  // Technicians & KYC
+  getTechnicians(params) { return this.get('/admin/technicians', params); }
+  createTechnician(data) { return this.post('/admin/technicians', data); }
+  deleteTechnician(id) { return this.delete(`/admin/technicians/${id}`); }
+  clearAllTechnicians() { return this.delete('/admin/technicians'); }
+  getTechnicianDocuments(id) { return this.get(`/admin/technicians/${id}/documents`); }
+  updateTechnicianStatus(id, status) { return this.patch(`/admin/technicians/${id}/status`, { status }); }
+  updateTechnicianKyc(id, data) { return this.patch(`/admin/technicians/${id}/kyc`, data); }
+  getPendingKycList() { return this.get('/admin/kyc-pending'); }
+  reviewKyc(data) { return this.post('/admin/kyc-review', data); }
 
-  getPayments() { return this.get('/admin/payments'); }
-  getRefunds() { return this.get('/admin/refunds'); }
-  updateRefundStatus(id, status) { return this.patch(`/admin/refunds/${id}/status`, { status }); }
-  getWithdrawals() { return this.get('/admin/withdrawals'); }
-  updateWithdrawalStatus(id, status, utrNumber = '') { return this.patch(`/admin/withdrawals/${id}/status`, { status, utrNumber }); }
-
-  getReviews() { return this.get('/admin/reviews'); }
-  toggleHideReview(id) { return this.patch(`/admin/reviews/${id}/hide`); }
-  toggleFlagReview(id) { return this.patch(`/admin/reviews/${id}/flag`); }
-
+  // Banners
   getBanners() { return this.get('/admin/banners'); }
-  createBanner(banner) { return this.post('/admin/banners', banner); }
-  updateBanner(id, banner) { return this.put(`/admin/banners/${id}`, banner); }
+  createBanner(data) { return this.post('/admin/banners', data); }
   deleteBanner(id) { return this.delete(`/admin/banners/${id}`); }
 
-  getSupportTickets(params) { return this.get('/admin/support/tickets', params); }
-  updateTicketStatus(id, status, resolutionNotes = '') { return this.patch(`/admin/support/tickets/${id}/status`, { status, resolutionNotes }); }
-
-  getNotifications() { return this.get('/admin/notifications/history'); }
+  // Reviews, Payments, Withdrawals, Support, Notifications, Audit Logs
+  getReviews() { return this.get('/admin/reviews'); }
+  getAuditLogs() { return this.get('/admin/audit-logs'); }
+  getPayments(params) { return this.get('/admin/payments', params); }
+  getWithdrawals(params) { return this.get('/admin/withdrawals', params); }
+  updateWithdrawalStatus(id, status) { return this.patch(`/admin/withdrawals/${id}/status`, { status }); }
+  getSupportTickets() { return this.get('/admin/support/tickets'); }
+  getNotificationsHistory() { return this.get('/admin/notifications/history'); }
   createNotification(data) { return this.post('/admin/notifications', data); }
 
-  getAiDocs() { return this.get('/admin/ai/documents'); }
-  createAiDoc(doc) { return this.post('/admin/ai/documents', doc); }
-  deleteAiDoc(id) { return this.delete(`/admin/ai/documents/${id}`); }
-  getAiFaqs() { return this.get('/admin/ai/faqs'); }
-  createAiFaq(faq) { return this.post('/admin/ai/faqs', faq); }
-  deleteAiFaq(id) { return this.delete(`/admin/ai/faqs/${id}`); }
-
-  getAuditLogs() { return this.get('/admin/audit-logs'); }
-  
-  // ─── SKILL HIERARCHY & VERIFICATION APIs ───
-  getSkillsHierarchy() { return this.get('/catalog/hierarchy'); }
-  getSkills() { return this.get('/catalog/skills'); }
-  createSkill(skill) { return this.post('/catalog/admin/skills', skill); }
-  updateSkill(id, skill) { return this.put(`/catalog/admin/skills/${id}`, skill); }
-  deleteSkill(id) { return this.delete(`/catalog/admin/skills/${id}`); }
-  getSkillCompatibility(skillId) { return this.get(`/catalog/admin/skills/${skillId}/compatibility`); }
-  updateSkillCompatibility(skillId, serviceItemIds) { return this.put(`/catalog/admin/skills/${skillId}/compatibility`, { serviceItemIds }); }
-  getMatchingRules() { return this.get('/catalog/admin/matching-rules'); }
-  updateMatchingRules(rules) { return this.put('/catalog/admin/matching-rules', rules); }
-
-  // ─── CONTROL TOWER & OPERATIONS MANAGEMENT APIs ───
-  getControlTowerOverview() { return this.get('/admin/stats/overview'); }
-  getLiveBookingsRadar(params = {}) { return this.get('/admin/bookings/live', params); }
-  getNearbyTechniciansForBooking(bookingId) { return this.get(`/admin/bookings/${bookingId}/nearby-technicians`); }
-  forceAssignBooking(bookingId, technicianId, reason = '') {
-    return this.post(`/admin/bookings/${bookingId}/force-assign`, { technicianId, reason });
-  }
-  releaseWalletPayout(payoutData) {
-    return this.post('/admin/payouts/release', payoutData);
-  }
-  getPayoutTransactions(technicianId = 'all', params = {}) {
-    return this.get(`/admin/payouts/history/${technicianId}`, params);
-  }
-  updatePartnerKycStatus(partnerId, statusData) {
-    return this.patch(`/admin/partners/${partnerId}/status`, statusData);
-  }
-  emergencyBypassOtp(bookingId, otpType, reason) {
-    return this.post(`/admin/bookings/${bookingId}/bypass-otp`, { otpType, reason });
-  }
+  // Clean Slate Data Purge
+  cleanSlatePurge() { return this.post('/admin/clean-slate', {}); }
 }
 
-export const api = new ApiClient();
+const api = new ApiClient();
 export default api;
