@@ -47,11 +47,10 @@ services:
         source: /*
         destination: /index.html
     envVars:
+      - key: VITE_API_BASE_URL
+        value: https://bookurtechnician-backend.onrender.com/api/v1
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: bookurtechnician-backend
-          property: host
+        value: https://bookurtechnician-backend.onrender.com/api/v1
 
 databases:
   # ─── 3. FREE MANAGED POSTGRESQL DATABASE ─────────────────────────────────────

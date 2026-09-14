@@ -7,8 +7,23 @@ const PRIMARY_API_BASE_URL = 'https://api.bookurtechnician.online/api/v1';
 const FALLBACK_API_BASE_URL = 'https://bookurtechnician-backend.onrender.com/api/v1';
 
 const getInitialBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
+  const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
+    let clean = envUrl.trim();
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `https://${clean}`;
+    }
+    if (!clean.endsWith('/api/v1')) {
+      clean = clean.replace(/\/+$/, '') + '/api/v1';
+    }
+    return clean;
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    // If running in production (Render, Vercel, Netlify, Custom Domain), point directly to live backend
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return FALLBACK_API_BASE_URL;
+    }
   }
   return '/api/v1';
 };
@@ -102,8 +117,9 @@ class ApiClient {
         console.warn('Admin token expired or invalid (HTTP ' + response.status + '). Auto-refreshing admin credentials...');
         try {
           const authRes = await this.directAdminAccess('admin@bookurtechnician.com', 'BT-ADMIN-KEY-PRIMARY-7788', 'BT-ADMIN-KEY-SECONDARY-9900');
-          if (authRes?.data?.accessToken) {
-            this.setToken(authRes.data.accessToken, true);
+          if (authRes?.data?.accessToken || authRes?.accessToken) {
+            const freshToken = authRes?.data?.accessToken || authRes?.accessToken;
+            this.setToken(freshToken, true);
             const newHeaders = this.getHeaders(options.headers || {});
             const retryConfig = { ...options, headers: newHeaders };
             if (retryConfig.body && typeof retryConfig.body === 'object' && !(retryConfig.body instanceof FormData)) {
@@ -121,6 +137,25 @@ class ApiClient {
 
       const text = await response.text();
       let data = null;
+      const isHtmlResponse = text && (text.trim().startsWith('<!doctype') || text.trim().startsWith('<html') || text.trim().startsWith('<'));
+      
+      // If the static site server returned HTML instead of API JSON, retry with backend fallback URL
+      if (isHtmlResponse && !url.startsWith(this.fallbackBaseUrl)) {
+        const fallbackUrl = `${this.fallbackBaseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+        console.warn(`[API Client] Static server returned HTML for API endpoint. Retrying on Render backend: ${fallbackUrl}`);
+        const fallbackResponse = await fetch(fallbackUrl, config);
+        const fallbackText = await fallbackResponse.text();
+        try {
+          data = JSON.parse(fallbackText);
+        } catch (_) {
+          data = { message: fallbackText };
+        }
+        if (!fallbackResponse.ok) {
+          throw new Error(data?.message || data?.error || `HTTP ${fallbackResponse.status}: Backend request failed`);
+        }
+        return data;
+      }
+
       if (text && text.trim().length > 0) {
         try {
           data = JSON.parse(text);
