@@ -1,0 +1,63 @@
+services:
+  # ─── UNIFIED SPRING BOOT 3 + EMBEDDED REACT ADMIN PANEL ─────────────────────
+  # Handles both API (api.bookurtechnician.online) and Admin UI (admin.bookurtechnician.online)
+  - type: web
+    name: bookurtechnician-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /actuator/health
+    domains:
+      - api.bookurtechnician.online
+      - admin.bookurtechnician.online
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PORT
+        value: 8080
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: SPRING_DATA_REDIS_URL
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        value: noreply@asaliswad.com
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+
+  # ─── PYTHON FASTAPI AI & MATCHMAKING MICROSERVICE ───────────────────────────
+  - type: web
+    name: bookurtechnician-python-ai
+    runtime: docker
+    dockerfilePath: ./backend/python-ai-service/Dockerfile
+    dockerContext: ./backend/python-ai-service
+    plan: free
+    region: singapore
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    domains:
+      - ai.bookurtechnician.online
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: PYTHONUNBUFFERED
+        value: "1"

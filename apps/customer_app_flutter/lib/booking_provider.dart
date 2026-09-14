@@ -1,0 +1,1806 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'config/app_config.dart';
+import 'models.dart';
+import 'models/customer_profile_models.dart';
+import 'models/nearby_technician.dart';
+import 'services/api_client.dart';
+
+// ─── App State ───────────────────────────────────────────────────────────────
+
+class AppState {
+  final List<Category> categories;
+  final bool isCatalogLoading;
+  final List<PromotionalBanner> heroBanners;
+  final List<PromotionalBanner> spotlightBanners;
+  final bool isBannersLoading;
+  final List<ServiceItem> cartItems;
+  final String address;
+  final String couponCode;
+  final double baseCost;
+  final double visitFee;
+  final double discount;
+  final double gstTax;
+  final double grandTotal;
+  final bool isCalculatingPrice;
+  final Booking? activeBooking;
+  final List<Booking> bookingHistory;
+  final String trackingOtpStatus;
+  final PaymentStatus paymentStatus;
+  final String? paymentError;
+  final double restoredCartTotal;
+  final bool isGuest;
+  final CustomerProfile profile;
+  final String selectedScheduleDate;
+  final String selectedScheduleSlot;
+  final String selectedAddressTitle;
+  final String selectedAddressType;
+  final double? selectedLatitude;
+  final double? selectedLongitude;
+  final bool isAcquiringLocation;
+  final String? newServiceAnnouncement;
+  final Map<String, int> serviceAvailabilityCounts;
+  final bool isAvailabilityLoading;
+  final String? refreshingServiceId;
+  final DateTime? lastAvailabilityFetchTime;
+  final double? lastAvailabilityLatitude;
+  final double? lastAvailabilityLongitude;
+
+  const AppState({
+    this.isGuest = true,
+    required this.profile,
+    this.selectedScheduleDate = 'Tomorrow',
+    this.selectedScheduleSlot = '3:00 PM – 4:00 PM',
+    this.selectedAddressTitle = 'Locating...',
+    this.selectedAddressType = 'Home',
+    this.selectedLatitude,
+    this.selectedLongitude,
+    this.isAcquiringLocation = false,
+    this.newServiceAnnouncement,
+    this.categories = const [],
+    this.isCatalogLoading = false,
+    this.heroBanners = const [],
+    this.spotlightBanners = const [],
+    this.isBannersLoading = false,
+    this.cartItems = const [],
+    this.address = 'Fetching live address...',
+    this.couponCode = '',
+    this.baseCost = 0.0,
+    this.visitFee = 99.0,
+    this.discount = 0.0,
+    this.gstTax = 0.0,
+    this.grandTotal = 0.0,
+    this.isCalculatingPrice = false,
+    this.activeBooking,
+    this.bookingHistory = const [],
+    this.trackingOtpStatus = 'PENDING',
+    this.paymentStatus = PaymentStatus.idle,
+    this.paymentError,
+    this.restoredCartTotal = 0.0,
+    this.serviceAvailabilityCounts = const {},
+    this.isAvailabilityLoading = false,
+    this.refreshingServiceId,
+    this.lastAvailabilityFetchTime,
+    this.lastAvailabilityLatitude,
+    this.lastAvailabilityLongitude,
+  });
+
+  // Convenience getters
+  String get userName => profile.fullName;
+  String get userPhone => profile.phone;
+  String get userEmail => profile.email;
+
+  int getServiceAvailabilityCount(String serviceId) {
+    return serviceAvailabilityCounts[serviceId] ?? 0;
+  }
+
+  bool isServiceRefreshing(String serviceId) {
+    return isAvailabilityLoading && (refreshingServiceId == null || refreshingServiceId == serviceId);
+  }
+
+  bool get hasValidLocation => selectedLatitude != null && selectedLongitude != null;
+
+  String getServiceAvailabilityText(String serviceId) {
+    if (!hasValidLocation) {
+      return 'Enable location to check nearby technician availability';
+    }
+    final count = getServiceAvailabilityCount(serviceId);
+    if (count == 0) {
+      return 'Currently no technician available';
+    } else if (count == 1) {
+      return '1 technician online within 15 km';
+    } else {
+      return '$count technicians online within 15 km';
+    }
+  }
+
+  bool isServiceAvailable(String serviceId) {
+    if (!hasValidLocation) return false;
+    return getServiceAvailabilityCount(serviceId) > 0;
+  }
+
+  AppState copyWith({
+    bool? isGuest,
+    CustomerProfile? profile,
+    String? selectedScheduleDate,
+    String? selectedScheduleSlot,
+    String? selectedAddressTitle,
+    String? selectedAddressType,
+    double? selectedLatitude,
+    double? selectedLongitude,
+    bool? isAcquiringLocation,
+    String? newServiceAnnouncement,
+    bool clearNewServiceAnnouncement = false,
+    List<Category>? categories,
+    bool? isCatalogLoading,
+    List<PromotionalBanner>? heroBanners,
+    List<PromotionalBanner>? spotlightBanners,
+    bool? isBannersLoading,
+    List<ServiceItem>? cartItems,
+    String? address,
+    String? couponCode,
+    double? baseCost,
+    double? visitFee,
+    double? discount,
+    double? gstTax,
+    double? grandTotal,
+    bool? isCalculatingPrice,
+    Booking? activeBooking,
+    bool clearActiveBooking = false,
+    List<Booking>? bookingHistory,
+    String? trackingOtpStatus,
+    PaymentStatus? paymentStatus,
+    String? paymentError,
+    bool clearPaymentError = false,
+    double? restoredCartTotal,
+    Map<String, int>? serviceAvailabilityCounts,
+    bool? isAvailabilityLoading,
+    String? refreshingServiceId,
+    bool clearRefreshingServiceId = false,
+    DateTime? lastAvailabilityFetchTime,
+    double? lastAvailabilityLatitude,
+    double? lastAvailabilityLongitude,
+  }) {
+    return AppState(
+      isGuest: isGuest ?? this.isGuest,
+      profile: profile ?? this.profile,
+      selectedScheduleDate: selectedScheduleDate ?? this.selectedScheduleDate,
+      selectedScheduleSlot: selectedScheduleSlot ?? this.selectedScheduleSlot,
+      selectedAddressTitle: selectedAddressTitle ?? this.selectedAddressTitle,
+      selectedAddressType: selectedAddressType ?? this.selectedAddressType,
+      selectedLatitude: selectedLatitude ?? this.selectedLatitude,
+      selectedLongitude: selectedLongitude ?? this.selectedLongitude,
+      isAcquiringLocation: isAcquiringLocation ?? this.isAcquiringLocation,
+      newServiceAnnouncement: clearNewServiceAnnouncement ? null : (newServiceAnnouncement ?? this.newServiceAnnouncement),
+      categories: categories ?? this.categories,
+      isCatalogLoading: isCatalogLoading ?? this.isCatalogLoading,
+      heroBanners: heroBanners ?? this.heroBanners,
+      spotlightBanners: spotlightBanners ?? this.spotlightBanners,
+      isBannersLoading: isBannersLoading ?? this.isBannersLoading,
+      cartItems: cartItems ?? this.cartItems,
+      address: address ?? this.address,
+      couponCode: couponCode ?? this.couponCode,
+      baseCost: baseCost ?? this.baseCost,
+      visitFee: visitFee ?? this.visitFee,
+      discount: discount ?? this.discount,
+      gstTax: gstTax ?? this.gstTax,
+      grandTotal: grandTotal ?? this.grandTotal,
+      isCalculatingPrice: isCalculatingPrice ?? this.isCalculatingPrice,
+      activeBooking: clearActiveBooking ? null : (activeBooking ?? this.activeBooking),
+      bookingHistory: bookingHistory ?? this.bookingHistory,
+      trackingOtpStatus: trackingOtpStatus ?? this.trackingOtpStatus,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentError: clearPaymentError ? null : (paymentError ?? this.paymentError),
+      restoredCartTotal: restoredCartTotal ?? this.restoredCartTotal,
+      serviceAvailabilityCounts: serviceAvailabilityCounts ?? this.serviceAvailabilityCounts,
+      isAvailabilityLoading: isAvailabilityLoading ?? this.isAvailabilityLoading,
+      refreshingServiceId: clearRefreshingServiceId ? null : (refreshingServiceId ?? this.refreshingServiceId),
+      lastAvailabilityFetchTime: lastAvailabilityFetchTime ?? this.lastAvailabilityFetchTime,
+      lastAvailabilityLatitude: lastAvailabilityLatitude ?? this.lastAvailabilityLatitude,
+      lastAvailabilityLongitude: lastAvailabilityLongitude ?? this.lastAvailabilityLongitude,
+    );
+  }
+}
+
+// ─── Notifier / Provider ─────────────────────────────────────────────────────
+
+class BookingNotifier extends StateNotifier<AppState> {
+  BookingNotifier()
+      : super(AppState(
+          isGuest: true,
+          profile: CustomerProfile.createWithCalculation(
+            customerId: '',
+            userId: '',
+            fullName: '',
+            phone: '',
+            isPhoneVerified: false,
+            email: '',
+            isEmailVerified: false,
+            addresses: const [],
+          ),
+        )) {
+    initAppSession();
+  }
+
+  /// Initialize application session: restore persisted login state & real GPS location
+  Future<void> initAppSession() async {
+    await restoreSession();
+    await _loadLocalBookings();
+    loadCatalog();
+    loadBanners();
+    loadBookingHistory();
+    autoAcquireGpsLocation();
+    _initSocketListener();
+  }
+
+  io.Socket? _notificationSocket;
+
+  void _initSocketListener() {
+    try {
+      final socketUrl = AppConfig.socketUrl;
+      _notificationSocket = io.io(
+        socketUrl,
+        io.OptionBuilder()
+            .setTransports(['websocket', 'polling'])
+            .enableAutoConnect()
+            .enableReconnection()
+            .build(),
+      );
+
+      _notificationSocket!.onConnect((_) {
+        debugPrint('🔌 [Customer App] Connected to live notification & catalog socket');
+        if (state.profile.customerId.isNotEmpty) {
+          _notificationSocket!.emit('customer:join', {'customerId': state.profile.customerId});
+        }
+      });
+
+      _notificationSocket!.on('notification:new_service', (data) {
+        debugPrint('🎉 [Customer App] Live New Service Announcement: $data');
+        loadCatalog();
+        if (data is Map) {
+          final srvName = data['serviceName'] ?? data['title'] ?? 'New Service';
+          final price = data['price'] ?? '';
+          state = state.copyWith(
+            newServiceAnnouncement: '🎉 New Service: $srvName launched! (₹$price)',
+          );
+        }
+      });
+
+      _notificationSocket!.on('catalog:updated', (_) {
+        debugPrint('🔄 [Customer App] Catalog updated by Admin. Refreshing catalog...');
+        loadCatalog();
+      });
+
+      void onTechAvailabilityTrigger(_) {
+        debugPrint('⚡ [Customer App] Realtime availability/technician event received. Refreshing 15km counts...');
+        fetchNearbyAvailability();
+      }
+
+      _notificationSocket!.on('availability:updated', onTechAvailabilityTrigger);
+      _notificationSocket!.on('technician:status_changed', onTechAvailabilityTrigger);
+      _notificationSocket!.on('technician:online', onTechAvailabilityTrigger);
+      _notificationSocket!.on('technician:offline', onTechAvailabilityTrigger);
+      _notificationSocket!.on('technician:busy', onTechAvailabilityTrigger);
+      _notificationSocket!.on('technician:location_update', onTechAvailabilityTrigger);
+    } catch (e) {
+      debugPrint('Customer socket listener warning: $e');
+    }
+  }
+
+  /// Candidate URLs for resilient availability discovery
+  List<String> get _availabilityCandidates => [
+    AppConfig.apiBaseUrl,
+    AppConfig.renderApiBaseUrl,
+    AppConfig.renderFallbackApiUrl,
+    AppConfig.prodApiBaseUrl,
+    AppConfig.localWifiApiBaseUrl,
+    AppConfig.localApiBaseUrl,
+  ];
+
+  String _cleanUrl(String base, String endpoint) {
+    String cleanBase = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+    String cleanEp = endpoint.startsWith('/') ? endpoint : '/$endpoint';
+    if (cleanBase.endsWith('/api/v1') && cleanEp.startsWith('/api/v1')) {
+      cleanEp = cleanEp.substring(7);
+    } else if (!cleanBase.endsWith('/api/v1') && !cleanEp.startsWith('/api/v1')) {
+      cleanEp = '/api/v1$cleanEp';
+    }
+    return '$cleanBase$cleanEp';
+  }
+
+  /// Real 15 KM Nearby Technician Spatial Availability API Client
+  Future<void> fetchNearbyAvailability({double? lat, double? lng}) async {
+    final targetLat = lat ?? state.selectedLatitude;
+    final targetLng = lng ?? state.selectedLongitude;
+
+    if (targetLat == null || targetLng == null) {
+      debugPrint('⚠️ [Availability] Skipped fetch: latitude or longitude is null');
+      return;
+    }
+
+    try {
+      state = state.copyWith(isAvailabilityLoading: true);
+      final endpoint = '/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15';
+
+      for (final base in _availabilityCandidates) {
+        try {
+          final fullUrl = _cleanUrl(base, endpoint);
+          final response = await http.get(
+            Uri.parse(fullUrl),
+            headers: {'Content-Type': 'application/json'},
+          ).timeout(const Duration(seconds: 4));
+
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            final servicesList = (data['services'] ?? data['data']) as List<dynamic>? ?? [];
+            final Map<String, int> counts = {};
+
+            for (final item in servicesList) {
+              if (item is Map<String, dynamic>) {
+                final sId = item['serviceId']?.toString() ?? '';
+                final count = (item['availableTechnicianCount'] as num?)?.toInt() ?? 0;
+                if (sId.isNotEmpty) {
+                  counts[sId] = count;
+                }
+              }
+            }
+
+            state = state.copyWith(
+              serviceAvailabilityCounts: counts,
+              isAvailabilityLoading: false,
+              lastAvailabilityFetchTime: DateTime.now(),
+              lastAvailabilityLatitude: targetLat,
+              lastAvailabilityLongitude: targetLng,
+            );
+            debugPrint('📍 [Nearby Availability] Loaded live 15km counts for ${counts.length} services at [$targetLat, $targetLng] via $base');
+            return;
+          }
+        } catch (candidateErr) {
+          debugPrint('⚠️ [Nearby Availability] Candidate $base warning: $candidateErr');
+        }
+      }
+
+      state = state.copyWith(isAvailabilityLoading: false);
+    } catch (e) {
+      debugPrint('⚠️ [Nearby Availability] Fetch error: $e');
+      state = state.copyWith(isAvailabilityLoading: false);
+    }
+  }
+
+  /// Real 15 KM Single Service Availability Fetcher
+  Future<int?> fetchSingleServiceAvailability(String serviceId, {double? lat, double? lng}) async {
+    final targetLat = lat ?? state.selectedLatitude;
+    final targetLng = lng ?? state.selectedLongitude;
+
+    if (targetLat == null || targetLng == null) return null;
+
+    for (final base in _availabilityCandidates) {
+      try {
+        final fullUrl = _cleanUrl(base, '/services/$serviceId/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15&force=true');
+        final response = await http.get(
+          Uri.parse(fullUrl),
+          headers: {'Content-Type': 'application/json'},
+        ).timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final count = (data['availableTechnicianCount'] as num?)?.toInt() ?? 0;
+          final updatedCounts = Map<String, int>.from(state.serviceAvailabilityCounts);
+          updatedCounts[serviceId] = count;
+          state = state.copyWith(
+            serviceAvailabilityCounts: updatedCounts,
+            lastAvailabilityFetchTime: DateTime.now(),
+            lastAvailabilityLatitude: targetLat,
+            lastAvailabilityLongitude: targetLng,
+          );
+          debugPrint('📍 [Service Availability] Service $serviceId count: $count via $base');
+          return count;
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  /// Manually trigger live GPS re-acquisition and on-demand 15 km PostGIS spatial scan for a service
+  Future<int?> refreshServiceAvailabilityWithLiveLocation(String serviceId) async {
+    state = state.copyWith(isAvailabilityLoading: true, refreshingServiceId: serviceId);
+    try {
+      // 1. If coordinates are missing, acquire fresh device GPS
+      if (state.selectedLatitude == null || state.selectedLongitude == null) {
+        await autoAcquireGpsLocation();
+      } else {
+        // Quick background GPS update for high accuracy
+        try {
+          final isEnabled = await Geolocator.isLocationServiceEnabled();
+          if (isEnabled) {
+            final permission = await Geolocator.checkPermission();
+            if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+              final pos = await Geolocator.getCurrentPosition(
+                desiredAccuracy: LocationAccuracy.high,
+                timeLimit: const Duration(seconds: 3),
+              );
+              state = state.copyWith(
+                selectedLatitude: pos.latitude,
+                selectedLongitude: pos.longitude,
+              );
+            }
+          }
+        } catch (_) {}
+      }
+
+      final lat = state.selectedLatitude;
+      final lng = state.selectedLongitude;
+
+      if (lat != null && lng != null) {
+        final count = await fetchSingleServiceAvailability(serviceId, lat: lat, lng: lng);
+        // Also refresh overall catalog availability in background
+        fetchNearbyAvailability(lat: lat, lng: lng);
+        return count;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [Availability] Manual refresh error: $e');
+    } finally {
+      state = state.copyWith(isAvailabilityLoading: false, clearRefreshingServiceId: true);
+    }
+    return null;
+  }
+
+  /// Real 15 KM Nearby Online Technicians for a specific service or category
+  Future<NearbyTechniciansResult?> fetchNearbyTechniciansForService({
+    required String serviceId,
+    String? categoryId,
+    double? lat,
+    double? lng,
+  }) async {
+    final targetLat = lat ?? state.selectedLatitude;
+    final targetLng = lng ?? state.selectedLongitude;
+
+    if (targetLat == null || targetLng == null) {
+      debugPrint('⚠️ [Nearby Technicians] Coordinates missing (lat=$targetLat, lng=$targetLng)');
+      return null;
+    }
+
+    final queryParams = <String, String>{
+      'latitude': targetLat.toString(),
+      'longitude': targetLng.toString(),
+      'radiusKm': '15',
+    };
+    if (serviceId.isNotEmpty) {
+      queryParams['serviceId'] = serviceId;
+    }
+    if (categoryId != null && categoryId.isNotEmpty) {
+      queryParams['categoryId'] = categoryId;
+    }
+
+    for (final base in _availabilityCandidates) {
+      try {
+        final fullBaseUrl = _cleanUrl(base, '/catalog/technicians/nearby');
+        final uri = Uri.parse(fullBaseUrl).replace(queryParameters: queryParams);
+
+        final response = await http.get(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+        ).timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data is Map<String, dynamic>) {
+            final result = NearbyTechniciansResult.fromJson(data);
+            debugPrint('📍 [Nearby Technicians] Discovered ${result.technicians.length} online technicians for service $serviceId within 15km via $base');
+            return result;
+          }
+        }
+      } catch (candidateErr) {
+        debugPrint('⚠️ [Nearby Technicians] Candidate $base warning: $candidateErr');
+      }
+    }
+
+    return null;
+  }
+
+  void clearNewServiceAnnouncement() {
+    state = state.copyWith(clearNewServiceAnnouncement: true);
+  }
+
+  /// Restore persisted authentication session from local storage & sync backend
+  Future<bool> restoreSession() async {
+    try {
+      final session = await ApiClient.getUserSession();
+      final token = session['accessToken'];
+      final name = session['name'];
+      final phone = session['phone'];
+      final email = session['email'];
+      final userId = session['userId'];
+      final profileJson = session['profileJson'];
+
+      final hasSession = (token != null && token.isNotEmpty) || (userId != null && userId.isNotEmpty) || (phone != null && phone.isNotEmpty) || (email != null && email.isNotEmpty);
+
+      if (hasSession) {
+        CustomerProfile restoredProfile;
+
+        if (profileJson != null && profileJson.isNotEmpty) {
+          try {
+            final Map<String, dynamic> decoded = jsonDecode(profileJson);
+            final List<CustomerAddress> addrs = [];
+            if (decoded['addresses'] is List) {
+              for (var a in (decoded['addresses'] as List)) {
+                try {
+                  addrs.add(CustomerAddress.fromJson(a as Map<String, dynamic>));
+                } catch (_) {}
+              }
+            }
+            restoredProfile = CustomerProfile.createWithCalculation(
+              customerId: decoded['customerId'] ?? userId ?? 'user',
+              userId: decoded['userId'] ?? userId ?? 'user',
+              fullName: decoded['fullName'] ?? name ?? 'Customer',
+              phone: decoded['phone'] ?? phone ?? '',
+              isPhoneVerified: decoded['isPhoneVerified'] ?? (phone != null && phone.isNotEmpty),
+              email: decoded['email'] ?? email ?? '',
+              isEmailVerified: decoded['isEmailVerified'] ?? (email != null && email.isNotEmpty),
+              profilePhotoUrl: decoded['profilePhotoUrl'],
+              dateOfBirth: decoded['dateOfBirth'] != null ? DateTime.tryParse(decoded['dateOfBirth']) : null,
+              anniversary: decoded['anniversary'] != null ? DateTime.tryParse(decoded['anniversary']) : null,
+              gender: decoded['gender'],
+              addresses: addrs,
+            );
+          } catch (e) {
+            restoredProfile = CustomerProfile.createWithCalculation(
+              customerId: userId ?? 'user',
+              userId: userId ?? 'user',
+              fullName: name ?? 'Customer',
+              phone: phone ?? '',
+              isPhoneVerified: phone != null && phone.isNotEmpty,
+              email: email ?? '',
+              isEmailVerified: email != null && email.isNotEmpty,
+              addresses: const [],
+            );
+          }
+        } else {
+          restoredProfile = CustomerProfile.createWithCalculation(
+            customerId: userId ?? 'user',
+            userId: userId ?? 'user',
+            fullName: name ?? 'Customer',
+            phone: phone ?? '',
+            isPhoneVerified: phone != null && phone.isNotEmpty,
+            email: email ?? '',
+            isEmailVerified: email != null && email.isNotEmpty,
+            addresses: const [],
+          );
+        }
+
+        state = state.copyWith(
+          isGuest: false,
+          profile: restoredProfile,
+        );
+
+        final primary = restoredProfile.primaryAddress;
+        if (primary != null) {
+          state = state.copyWith(
+            address: primary.formattedAddress,
+            selectedAddressTitle: primary.area.isNotEmpty ? primary.area : primary.city,
+            selectedLatitude: primary.latitude,
+            selectedLongitude: primary.longitude,
+          );
+        }
+
+        // Asynchronously sync latest profile & saved addresses from backend
+        _syncProfileAndAddresses();
+        loadBookingHistory();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Session restore warning: $e');
+    }
+    return false;
+  }
+
+  Future<void> _syncProfileAndAddresses() async {
+    try {
+      final profileRes = await ApiClient.get('/customer/profile');
+      final addressesRes = await ApiClient.get('/customer/addresses');
+
+      Map<String, dynamic>? user;
+      Map<String, dynamic>? profileData;
+      if (profileRes.statusCode == 200) {
+        final decoded = jsonDecode(profileRes.body);
+        profileData = decoded['data'];
+        user = profileData?['user'];
+      }
+
+      final List<CustomerAddress> parsedAddrs = [];
+      if (addressesRes.statusCode == 200) {
+        final decoded = jsonDecode(addressesRes.body);
+        final addrList = decoded['data'] as List? ?? [];
+        for (var a in addrList) {
+          try {
+            double lat = 12.9716;
+            double lng = 77.5946;
+            if (a['coordinates'] != null && a['coordinates'] is Map) {
+              lat = (a['coordinates']['y'] as num?)?.toDouble() ?? 12.9716;
+              lng = (a['coordinates']['x'] as num?)?.toDouble() ?? 77.5946;
+            } else {
+              lat = (a['latitude'] as num?)?.toDouble() ?? 12.9716;
+              lng = (a['longitude'] as num?)?.toDouble() ?? 77.5946;
+            }
+
+            parsedAddrs.add(CustomerAddress(
+              id: a['id']?.toString() ?? '',
+              customerId: a['customerId']?.toString() ?? (user?['id']?.toString() ?? state.profile.customerId),
+              addressType: (a['addressType']?.toString().toUpperCase() == 'WORK') ? AddressType.work : AddressType.home,
+              houseFlat: a['houseFlat'] ?? '',
+              street: a['street'] ?? '',
+              area: a['area'] ?? '',
+              city: a['city'] ?? '',
+              state: a['state'] ?? 'Karnataka',
+              postalCode: a['postalCode'] ?? '',
+              latitude: lat,
+              longitude: lng,
+              isPrimary: a['primary'] == true || a['isPrimary'] == true,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ));
+          } catch (_) {}
+        }
+      }
+
+      final updatedName = user?['fullName'] ?? state.profile.fullName;
+      final updatedPhone = user?['phone'] ?? state.profile.phone;
+      final updatedEmail = user?['email'] ?? state.profile.email;
+      final updatedUserId = user?['id']?.toString() ?? state.profile.userId;
+      final dobStr = profileData?['dateOfBirth']?.toString();
+      final annivStr = profileData?['anniversaryDate']?.toString();
+      final gender = profileData?['gender']?.toString() ?? state.profile.gender;
+
+      final syncedProfile = CustomerProfile.createWithCalculation(
+        customerId: updatedUserId,
+        userId: updatedUserId,
+        fullName: updatedName,
+        phone: updatedPhone,
+        isPhoneVerified: true,
+        email: updatedEmail,
+        isEmailVerified: true,
+        gender: gender,
+        dateOfBirth: dobStr != null ? DateTime.tryParse(dobStr) : state.profile.dateOfBirth,
+        anniversary: annivStr != null ? DateTime.tryParse(annivStr) : state.profile.anniversary,
+        profilePhotoUrl: state.profile.profilePhotoUrl,
+        addresses: parsedAddrs.isNotEmpty ? parsedAddrs : state.profile.addresses,
+      );
+
+      state = state.copyWith(
+        isGuest: false,
+        profile: syncedProfile,
+      );
+
+      // Keep locally saved session in sync
+      final currentSession = await ApiClient.getUserSession();
+      final activeToken = currentSession['accessToken'] ?? 'sess_jwt_${DateTime.now().millisecondsSinceEpoch}';
+      await ApiClient.saveUserSession(
+        accessToken: activeToken,
+        refreshToken: currentSession['refreshToken'] ?? activeToken,
+        userId: updatedUserId,
+        name: updatedName,
+        phone: updatedPhone,
+        email: updatedEmail,
+        profileJson: {
+          'customerId': updatedUserId,
+          'userId': updatedUserId,
+          'fullName': updatedName,
+          'phone': updatedPhone,
+          'email': updatedEmail,
+          'gender': gender,
+          'dateOfBirth': syncedProfile.dateOfBirth?.toIso8601String(),
+          'anniversary': syncedProfile.anniversary?.toIso8601String(),
+          'profilePhotoUrl': syncedProfile.profilePhotoUrl,
+          'addresses': syncedProfile.addresses.map((a) => a.toJson()).toList(),
+        },
+      );
+
+      if (parsedAddrs.isNotEmpty) {
+        final primary = syncedProfile.primaryAddress;
+        if (primary != null) {
+          state = state.copyWith(
+            address: primary.formattedAddress,
+            selectedAddressTitle: primary.area.isNotEmpty ? primary.area : primary.city,
+            selectedLatitude: primary.latitude,
+            selectedLongitude: primary.longitude,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to sync backend profile: $e');
+    }
+  }
+
+  /// Automatically acquire device live GPS location on app launch
+  Future<void> autoAcquireGpsLocation() async {
+    state = state.copyWith(isAcquiringLocation: true);
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        state = state.copyWith(
+          isAcquiringLocation: false,
+          selectedAddressTitle: 'Enable GPS',
+          address: 'Please enable GPS location services',
+        );
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          state = state.copyWith(
+            isAcquiringLocation: false,
+            selectedAddressTitle: 'Location Permission',
+            address: 'Allow location access to find nearby technicians',
+          );
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        state = state.copyWith(
+          isAcquiringLocation: false,
+          selectedAddressTitle: 'GPS Denied',
+          address: 'Location permissions are permanently denied in settings',
+        );
+        return;
+      }
+
+      // Fetch real high accuracy GPS coordinates
+      Position pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      );
+
+      final lat = pos.latitude;
+      final lng = pos.longitude;
+
+      // Reverse geocode via OpenStreetMap Nominatim
+      try {
+        final url = Uri.parse(
+          'https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1',
+        );
+        final response = await http.get(url, headers: {
+          'User-Agent': 'BookUrTechnician/1.0 (contact@bookurtechnician.com)',
+        }).timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final displayName = data['display_name'] as String?;
+          final addressObj = data['address'] as Map<String, dynamic>?;
+
+          final houseNumber = addressObj?['house_number'] ?? '';
+          final road = addressObj?['road'] ?? addressObj?['street'] ?? '';
+          final suburb = addressObj?['suburb'] ?? addressObj?['neighbourhood'] ?? addressObj?['residential'] ?? addressObj?['subdistrict'] ?? '';
+          final city = addressObj?['city'] ?? addressObj?['town'] ?? addressObj?['county'] ?? 'Bengaluru';
+          final stateName = addressObj?['state'] ?? 'Karnataka';
+          final postcode = addressObj?['postcode'] ?? '560001';
+          final title = suburb.isNotEmpty ? suburb : city;
+          final formattedAddr = displayName ?? '$title, $city';
+
+          state = state.copyWith(
+            selectedLatitude: lat,
+            selectedLongitude: lng,
+            selectedAddressTitle: title,
+            address: formattedAddr,
+            isAcquiringLocation: false,
+          );
+
+          // If user is logged in and has no saved address, automatically save this live GPS location to their profile
+          if (!state.isGuest && state.profile.userId.isNotEmpty && state.profile.addresses.isEmpty) {
+            final autoAddress = CustomerAddress(
+              id: 'addr_${DateTime.now().millisecondsSinceEpoch}',
+              customerId: state.profile.customerId,
+              addressType: AddressType.home,
+              houseFlat: houseNumber.isNotEmpty ? houseNumber : 'Live Location',
+              street: road.isNotEmpty ? road : 'Current Location',
+              area: suburb.isNotEmpty ? suburb : city,
+              city: city,
+              state: stateName,
+              postalCode: postcode,
+              latitude: lat,
+              longitude: lng,
+              isPrimary: true,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+            addCustomerAddress(autoAddress);
+          }
+          fetchNearbyAvailability(lat: lat, lng: lng);
+          return;
+        }
+      } catch (e) {
+        debugPrint('Reverse geocoding lookup warning: $e');
+      }
+
+      state = state.copyWith(
+        selectedLatitude: lat,
+        selectedLongitude: lng,
+        selectedAddressTitle: 'Live GPS Location',
+        address: 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}',
+        isAcquiringLocation: false,
+      );
+      fetchNearbyAvailability(lat: lat, lng: lng);
+    } catch (e) {
+      debugPrint('Auto GPS error: $e');
+      state = state.copyWith(
+        isAcquiringLocation: false,
+        selectedAddressTitle: 'Select Location',
+        address: 'Tap to pick service location',
+      );
+    }
+  }
+
+  void setGuestMode(bool guest) {
+    state = state.copyWith(isGuest: guest);
+  }
+
+  /// Called after successful OTP login / verification
+  Future<void> loginUser({
+    required String name,
+    required String phone,
+    required String email,
+    String? userId,
+    String? accessToken,
+    String? refreshToken,
+  }) async {
+    final cleanPhone = phone.startsWith('+91') ? phone : '+91 $phone';
+    final uid = userId ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
+    final token = accessToken ?? 'bt_jwt_${DateTime.now().millisecondsSinceEpoch}';
+    final rToken = refreshToken ?? token;
+
+    // Persist credentials locally
+    await ApiClient.saveUserSession(
+      accessToken: token,
+      refreshToken: rToken,
+      userId: uid,
+      name: name.trim(),
+      phone: cleanPhone,
+      email: email.trim(),
+      profileJson: {
+        'customerId': uid,
+        'userId': uid,
+        'fullName': name.trim(),
+        'phone': cleanPhone,
+        'email': email.trim(),
+        'isPhoneVerified': true,
+        'isEmailVerified': true,
+      },
+    );
+
+    final userProfile = CustomerProfile.createWithCalculation(
+      customerId: uid,
+      userId: uid,
+      fullName: name.trim(),
+      phone: cleanPhone,
+      isPhoneVerified: true,
+      email: email.trim(),
+      isEmailVerified: true,
+      addresses: state.profile.addresses,
+    );
+
+    state = state.copyWith(
+      isGuest: false,
+      profile: userProfile,
+    );
+
+    // Sync with backend & load history
+    _syncProfileAndAddresses();
+    loadBookingHistory();
+  }
+
+  /// Complete Sign Out & Session Erasure
+  Future<void> logoutUser() async {
+    await ApiClient.clearTokens();
+    
+    state = state.copyWith(
+      isGuest: true,
+      profile: CustomerProfile.createWithCalculation(
+        customerId: '',
+        userId: '',
+        fullName: '',
+        phone: '',
+        isPhoneVerified: false,
+        email: '',
+        isEmailVerified: false,
+        addresses: const [],
+      ),
+      cartItems: [],
+      activeBooking: null,
+      clearActiveBooking: true,
+      bookingHistory: [],
+    );
+  }
+
+  /// Update profile details and sync to backend
+  Future<void> updateProfileDetails({
+    String? fullName,
+    String? email,
+    bool? isEmailVerified,
+    String? phone,
+    bool? isPhoneVerified,
+    String? profilePhotoUrl,
+    bool clearPhoto = false,
+    DateTime? dateOfBirth,
+    bool clearDob = false,
+    DateTime? anniversary,
+    bool clearAnniversary = false,
+    String? gender,
+  }) async {
+    final updated = state.profile.copyWith(
+      fullName: fullName,
+      email: email,
+      isEmailVerified: isEmailVerified,
+      phone: phone,
+      isPhoneVerified: isPhoneVerified,
+      profilePhotoUrl: profilePhotoUrl,
+      clearProfilePhoto: clearPhoto,
+      dateOfBirth: dateOfBirth,
+      clearDob: clearDob,
+      anniversary: anniversary,
+      clearAnniversary: clearAnniversary,
+      gender: gender,
+    );
+
+    state = state.copyWith(profile: updated);
+
+    // Persist to session locally
+    final session = await ApiClient.getUserSession();
+    final token = session['accessToken'] ?? 'sess_jwt_${DateTime.now().millisecondsSinceEpoch}';
+    await ApiClient.saveUserSession(
+      accessToken: token,
+      refreshToken: session['refreshToken'] ?? token,
+      userId: state.profile.userId,
+      name: updated.fullName,
+      phone: updated.phone,
+      email: updated.email,
+      profileJson: {
+        'customerId': state.profile.customerId,
+        'userId': state.profile.userId,
+        'fullName': updated.fullName,
+        'phone': updated.phone,
+        'email': updated.email,
+        'gender': updated.gender,
+        'dateOfBirth': updated.dateOfBirth?.toIso8601String(),
+        'anniversary': updated.anniversary?.toIso8601String(),
+        'profilePhotoUrl': updated.profilePhotoUrl,
+        'addresses': updated.addresses.map((a) => a.toJson()).toList(),
+      },
+    );
+
+    // Persist to backend database
+    try {
+      final payload = <String, dynamic>{};
+      if (fullName != null && fullName.trim().isNotEmpty) {
+        payload['fullName'] = fullName.trim();
+      }
+      if (gender != null) {
+        payload['gender'] = gender;
+      }
+      if (dateOfBirth != null) {
+        payload['dateOfBirth'] = "${dateOfBirth.year.toString().padLeft(4, '0')}-${dateOfBirth.month.toString().padLeft(2, '0')}-${dateOfBirth.day.toString().padLeft(2, '0')}";
+      }
+      if (anniversary != null) {
+        payload['anniversaryDate'] = "${anniversary.year.toString().padLeft(4, '0')}-${anniversary.month.toString().padLeft(2, '0')}-${anniversary.day.toString().padLeft(2, '0')}";
+      }
+
+      await ApiClient.put('/customer/profile', payload);
+    } catch (e) {
+      debugPrint('Profile update backend sync warning: $e');
+    }
+  }
+
+  /// Add a new service address and persist to backend
+  Future<void> addCustomerAddress(CustomerAddress address) async {
+    final currentList = [...state.profile.addresses];
+    final shouldBePrimary = address.isPrimary || currentList.isEmpty;
+    final updatedList = currentList.map((a) => shouldBePrimary ? a.copyWith(isPrimary: false) : a).toList();
+    
+    updatedList.add(address.copyWith(isPrimary: shouldBePrimary));
+
+    final updatedProfile = state.profile.copyWith(addresses: updatedList);
+    final primary = updatedProfile.primaryAddress;
+
+    state = state.copyWith(
+      profile: updatedProfile,
+      address: primary?.formattedAddress ?? state.address,
+      selectedAddressTitle: primary?.area.isNotEmpty == true ? primary!.area : (primary?.city ?? state.selectedAddressTitle),
+      selectedAddressType: primary?.typeLabel ?? state.selectedAddressType,
+      selectedLatitude: primary?.latitude ?? state.selectedLatitude,
+      selectedLongitude: primary?.longitude ?? state.selectedLongitude,
+    );
+
+    // Sync to backend database
+    try {
+      final payload = {
+        'houseFlat': address.houseFlat,
+        'street': address.street,
+        'area': address.area,
+        'city': address.city,
+        'state': address.state,
+        'postalCode': address.postalCode,
+        'landmark': address.landmark,
+        'addressType': address.typeLabel.toUpperCase(),
+        'latitude': address.latitude,
+        'longitude': address.longitude,
+        'primary': shouldBePrimary,
+      };
+
+      final res = await ApiClient.post('/customer/addresses', payload);
+      if (res.statusCode == 200) {
+        // Sync refreshed IDs from backend
+        _syncProfileAndAddresses();
+      }
+    } catch (e) {
+      debugPrint('Add address backend sync warning: $e');
+    }
+  }
+
+  /// Update an existing address and sync to backend
+  Future<void> updateCustomerAddress(CustomerAddress address) async {
+    final updatedList = state.profile.addresses.map((a) {
+      if (a.id == address.id) {
+        return address;
+      }
+      if (address.isPrimary) {
+        return a.copyWith(isPrimary: false);
+      }
+      return a;
+    }).toList();
+
+    final updatedProfile = state.profile.copyWith(addresses: updatedList);
+    final primary = updatedProfile.primaryAddress;
+
+    state = state.copyWith(
+      profile: updatedProfile,
+      address: primary?.formattedAddress ?? state.address,
+      selectedAddressTitle: primary?.area.isNotEmpty == true ? primary!.area : (primary?.city ?? state.selectedAddressTitle),
+      selectedAddressType: primary?.typeLabel ?? state.selectedAddressType,
+    );
+
+    try {
+      final payload = {
+        'houseFlat': address.houseFlat,
+        'street': address.street,
+        'area': address.area,
+        'city': address.city,
+        'state': address.state,
+        'postalCode': address.postalCode,
+        'landmark': address.landmark,
+        'addressType': address.typeLabel.toUpperCase(),
+        'latitude': address.latitude,
+        'longitude': address.longitude,
+        'primary': address.isPrimary,
+      };
+
+      await ApiClient.put('/customer/addresses/${address.id}', payload);
+    } catch (e) {
+      debugPrint('Update address backend sync warning: $e');
+    }
+  }
+
+  /// Delete a service address and sync to backend
+  Future<bool> deleteCustomerAddress(String addressId) async {
+    final currentList = [...state.profile.addresses];
+    final target = currentList.firstWhere((a) => a.id == addressId, orElse: () => currentList.first);
+    
+    currentList.removeWhere((a) => a.id == addressId);
+
+    if (target.isPrimary && currentList.isNotEmpty) {
+      currentList[0] = currentList[0].copyWith(isPrimary: true);
+    }
+
+    final updatedProfile = state.profile.copyWith(addresses: currentList);
+    final primary = updatedProfile.primaryAddress;
+
+    state = state.copyWith(
+      profile: updatedProfile,
+      address: primary?.formattedAddress ?? '',
+      selectedAddressTitle: primary?.area.isNotEmpty == true ? primary!.area : (primary?.city ?? 'Select Location'),
+      selectedAddressType: primary?.typeLabel ?? 'Home',
+    );
+
+    try {
+      await ApiClient.delete('/customer/addresses/$addressId');
+    } catch (e) {
+      debugPrint('Delete address backend sync warning: $e');
+    }
+
+    return true;
+  }
+
+  /// Set an address as primary
+  Future<void> setPrimaryAddress(String addressId) async {
+    final updatedList = state.profile.addresses.map((a) {
+      return a.copyWith(isPrimary: a.id == addressId);
+    }).toList();
+
+    final updatedProfile = state.profile.copyWith(addresses: updatedList);
+    final primary = updatedProfile.primaryAddress;
+
+    state = state.copyWith(
+      profile: updatedProfile,
+      address: primary?.formattedAddress ?? state.address,
+      selectedAddressTitle: primary?.area.isNotEmpty == true ? primary!.area : (primary?.city ?? state.selectedAddressTitle),
+      selectedAddressType: primary?.typeLabel ?? state.selectedAddressType,
+      selectedLatitude: primary?.latitude ?? state.selectedLatitude,
+      selectedLongitude: primary?.longitude ?? state.selectedLongitude,
+    );
+
+    if (primary != null) {
+      await updateCustomerAddress(primary);
+    }
+  }
+
+  /// Update selected service address with real GPS coordinates and auto-complete profile
+  void updateAddress(String address, {double? latitude, double? longitude}) {
+    final addr = CustomerAddress(
+      id: 'addr_live_${DateTime.now().millisecondsSinceEpoch}',
+      customerId: state.profile.customerId.isNotEmpty ? state.profile.customerId : 'cust_live',
+      addressType: AddressType.home,
+      houseFlat: '1st Floor',
+      street: address.isNotEmpty ? address : 'Main Road',
+      area: address.isNotEmpty ? address : 'Bengaluru',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      postalCode: '560001',
+      latitude: latitude ?? (state.selectedLatitude ?? 12.9716),
+      longitude: longitude ?? (state.selectedLongitude ?? 77.5946),
+      isPrimary: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final updatedProfile = state.profile.copyWith(
+      addresses: [addr],
+    );
+
+    final finalLat = latitude ?? state.selectedLatitude;
+    final finalLng = longitude ?? state.selectedLongitude;
+
+    state = state.copyWith(
+      address: address,
+      selectedAddressTitle: address,
+      selectedLatitude: finalLat,
+      selectedLongitude: finalLng,
+      profile: updatedProfile,
+    );
+
+    if (finalLat != null && finalLng != null) {
+      fetchNearbyAvailability(lat: finalLat, lng: finalLng);
+    }
+  }
+
+  Future<void> loadCatalog() async {
+    state = state.copyWith(isCatalogLoading: true);
+    try {
+      final res = await ApiClient.get('/catalog/categories');
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final dynamic rawList = decoded is Map
+            ? (decoded['data'] ?? decoded['categories'] ?? [])
+            : (decoded is List ? decoded : []);
+        final List list = rawList is List ? rawList : [];
+        final categories = list.map((c) => Category.fromJson(c as Map<String, dynamic>)).toList();
+        if (categories.isNotEmpty) {
+          state = state.copyWith(
+            categories: categories,
+            isCatalogLoading: false,
+          );
+          fetchNearbyAvailability();
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Catalog live load warning: $e');
+    }
+    state = state.copyWith(
+      isCatalogLoading: false,
+    );
+    fetchNearbyAvailability();
+  }
+
+  Future<void> refreshAllData() async {
+    await Future.wait([
+      loadCatalog(),
+      loadBanners(),
+      loadBookingHistory(),
+    ]);
+  }
+
+  Future<void> loadBanners() async {
+    state = state.copyWith(isBannersLoading: true);
+    try {
+      final heroRes = await ApiClient.get('/banners/hero');
+      final spotRes = await ApiClient.get('/banners/spotlight');
+
+      List<PromotionalBanner> heroes = [];
+      List<PromotionalBanner> spotlights = [];
+
+      if (heroRes.statusCode == 200) {
+        final decoded = jsonDecode(heroRes.body);
+        final List list = decoded['data'] ?? [];
+        heroes = list.map((b) => PromotionalBanner.fromJson(b as Map<String, dynamic>)).toList();
+      }
+
+      if (spotRes.statusCode == 200) {
+        final decoded = jsonDecode(spotRes.body);
+        final List list = decoded['data'] ?? [];
+        spotlights = list.map((b) => PromotionalBanner.fromJson(b as Map<String, dynamic>)).toList();
+      }
+
+      state = state.copyWith(
+        heroBanners: heroes.isNotEmpty ? heroes : state.heroBanners,
+        spotlightBanners: spotlights.isNotEmpty ? spotlights : state.spotlightBanners,
+        isBannersLoading: false,
+      );
+    } catch (e) {
+      debugPrint('Banners load warning: $e');
+      state = state.copyWith(isBannersLoading: false);
+    }
+  }
+
+  void toggleCartItem(ServiceItem service) {
+    final list = [...state.cartItems];
+    if (list.any((s) => s.id == service.id)) {
+      list.removeWhere((s) => s.id == service.id);
+    } else {
+      list.add(service);
+    }
+    state = state.copyWith(cartItems: list);
+    _recalculatePrices();
+  }
+
+  void addToCart(ServiceItem service) {
+    final list = [...state.cartItems];
+    if (!list.any((s) => s.id == service.id)) {
+      list.add(service);
+      state = state.copyWith(cartItems: list);
+      _recalculatePrices();
+    }
+  }
+
+  void removeFromCart(String serviceId) {
+    final list = [...state.cartItems];
+    list.removeWhere((s) => s.id == serviceId);
+    state = state.copyWith(cartItems: list);
+    _recalculatePrices();
+  }
+
+  void updateSchedule(String date, String slot) {
+    state = state.copyWith(selectedScheduleDate: date, selectedScheduleSlot: slot);
+  }
+
+  void updateAddressDetails(String address, String type) {
+    final addr = CustomerAddress(
+      id: 'addr_live_${DateTime.now().millisecondsSinceEpoch}',
+      customerId: state.profile.customerId.isNotEmpty ? state.profile.customerId : 'cust_live',
+      addressType: type.toLowerCase() == 'office' ? AddressType.work : (type.toLowerCase() == 'other' ? AddressType.other : AddressType.home),
+      houseFlat: '1st Floor',
+      street: address.isNotEmpty ? address : 'Main Road',
+      area: address.isNotEmpty ? address : 'Bengaluru',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      postalCode: '560001',
+      latitude: state.selectedLatitude ?? 12.9716,
+      longitude: state.selectedLongitude ?? 77.5946,
+      isPrimary: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final updatedProfile = state.profile.copyWith(
+      addresses: [addr],
+    );
+
+    state = state.copyWith(
+      address: address,
+      selectedAddressTitle: address,
+      selectedAddressType: type,
+      profile: updatedProfile,
+    );
+  }
+
+  Future<void> _recalculatePrices() async {
+    state = state.copyWith(isCalculatingPrice: true);
+    await Future.delayed(const Duration(milliseconds: 50));
+    final base = state.cartItems.fold(0.0, (sum, s) => sum + s.price);
+    final bookingCharge = state.cartItems.isNotEmpty
+        ? state.cartItems.map((s) => s.bookingCharge).reduce((a, b) => a > b ? a : b)
+        : 0.0;
+    final taxable = base + bookingCharge;
+    final gst = taxable * 0.18;
+    final total = taxable + gst;
+    state = state.copyWith(
+      baseCost: base,
+      visitFee: bookingCharge,
+      gstTax: gst,
+      grandTotal: total,
+      isCalculatingPrice: false,
+    );
+  }
+
+  Future<void> _saveBookingsLocally() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (state.activeBooking != null) {
+        await prefs.setString('bt_active_booking', jsonEncode(state.activeBooking!.toJson()));
+      } else {
+        await prefs.remove('bt_active_booking');
+      }
+      final historyJson = state.bookingHistory.map((b) => b.toJson()).toList();
+      await prefs.setString('bt_booking_history', jsonEncode(historyJson));
+    } catch (e) {
+      debugPrint('Error saving bookings locally: $e');
+    }
+  }
+
+  Future<void> _loadLocalBookings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      Booking? active;
+      final activeStr = prefs.getString('bt_active_booking');
+      if (activeStr != null && activeStr.isNotEmpty) {
+        try {
+          active = Booking.fromJson(jsonDecode(activeStr));
+        } catch (_) {}
+      }
+
+      final historyList = <Booking>[];
+      final historyStr = prefs.getString('bt_booking_history');
+      if (historyStr != null && historyStr.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(historyStr);
+          if (decoded is List) {
+            for (var item in decoded) {
+              if (item is Map<String, dynamic>) {
+                historyList.add(Booking.fromJson(item));
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (active != null || historyList.isNotEmpty) {
+        state = state.copyWith(
+          activeBooking: active ?? state.activeBooking,
+          bookingHistory: historyList.isNotEmpty ? historyList : state.bookingHistory,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error loading local bookings: $e');
+    }
+  }
+
+  String _resolveServiceCategory(String serviceId) {
+    for (final cat in state.categories) {
+      for (final sub in cat.subcategories) {
+        if (sub.services.any((s) => s.id == serviceId)) {
+          return cat.name;
+        }
+      }
+    }
+    return 'General Service';
+  }
+
+  Future<Booking?> confirmOrder(
+    String date,
+    String slot, {
+    String paymentMethod = 'ONLINE',
+    String? customBookingCode,
+    String? customBookingId,
+  }) async {
+    if (state.cartItems.isEmpty) return null;
+
+    final services = [...state.cartItems];
+    final firstService = services.first;
+    final serviceNames = services.map((s) => s.name).join(', ');
+    final totalBase = state.baseCost > 0 ? state.baseCost : services.fold(0.0, (sum, s) => sum + s.price);
+    final totalVisit = state.visitFee;
+    final totalGst = state.gstTax > 0 ? state.gstTax : (totalBase * 0.18);
+    final totalGrand = state.grandTotal > 0 ? state.grandTotal : (totalBase + totalVisit + totalGst);
+
+    final primaryAddr = state.profile.primaryAddress;
+    final fullAddr = state.address.isNotEmpty && state.address != 'Fetching live address...'
+        ? state.address
+        : (primaryAddr?.formattedAddress ?? '');
+    final lat = state.selectedLatitude ?? primaryAddr?.latitude;
+    final lng = state.selectedLongitude ?? primaryAddr?.longitude;
+    final code = customBookingCode ?? 'BT-${10000000 + (DateTime.now().millisecondsSinceEpoch % 90000000)}';
+    final bookingId = customBookingId ?? 'bkg_${DateTime.now().millisecondsSinceEpoch}';
+    final startOtp = (1000 + (DateTime.now().millisecondsSinceEpoch % 9000)).toString();
+    final scheduleDateStr = date == 'Tomorrow'
+        ? DateTime.now().add(const Duration(days: 1)).toIso8601String().split('T').first
+        : (date.isEmpty ? 'Today' : date);
+
+    // Initial local booking object
+    Booking liveBooking = Booking(
+      id: code,
+      services: services,
+      date: scheduleDateStr,
+      timeSlot: slot.isNotEmpty ? slot : '3:00 PM – 4:00 PM',
+      status: BookingStatus.confirmed,
+      baseCost: totalBase,
+      visitFee: totalVisit,
+      discount: state.discount,
+      gstTax: totalGst,
+      grandTotal: totalGrand,
+      address: fullAddr,
+      technicianName: 'Assigning Verified Expert...',
+      technicianPhone: '',
+      otpCode: startOtp,
+    );
+
+    try {
+      final payload = {
+        'id': bookingId,
+        'bookingCode': code,
+        'customerId': state.profile.customerId,
+        'customerName': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
+        'customer': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
+        'customerPhone': state.profile.phone,
+        'phone': state.profile.phone,
+        'serviceId': firstService.id,
+        'serviceName': serviceNames,
+        'category': _resolveServiceCategory(firstService.id),
+        'latitude': lat,
+        'longitude': lng,
+        'address': fullAddr,
+        'fullAddress': fullAddr,
+        'basePrice': totalBase,
+        'visitFee': totalVisit,
+        'gstTax': totalGst,
+        'grandTotal': totalGrand,
+        'totalAmount': totalGrand,
+        'scheduleDate': scheduleDateStr,
+        'scheduleSlot': slot,
+        'paymentMethod': paymentMethod,
+        'services': services.map((s) => {
+          'id': s.id,
+          'name': s.name,
+          'price': s.price,
+        }).toList(),
+      };
+
+      final res = await ApiClient.post('/bookings', payload);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final decoded = jsonDecode(res.body);
+        final data = decoded['data'] ?? decoded['booking'];
+        if (data != null && data is Map<String, dynamic>) {
+          liveBooking = Booking.fromJson(data);
+        }
+      }
+    } catch (e) {
+      debugPrint('Backend sync note (offline/local fallback saved): $e');
+    }
+
+    // Deduplicate and prepend to booking history
+    final updatedHistory = [
+      liveBooking,
+      ...state.bookingHistory.where((b) => b.id != liveBooking.id && b.id != code),
+    ];
+
+    state = state.copyWith(
+      activeBooking: liveBooking,
+      bookingHistory: updatedHistory,
+      cartItems: [],
+      baseCost: 0,
+      visitFee: 49,
+      discount: 0,
+      gstTax: 0,
+      grandTotal: 0,
+    );
+
+    await _saveBookingsLocally();
+    return liveBooking;
+  }
+
+  Future<Booking?> confirmDirectServiceBooking({
+    required ServiceItem service,
+    required String date,
+    required String slot,
+    String paymentMethod = 'ONLINE',
+    String? customBookingCode,
+    String? customBookingId,
+  }) async {
+    final services = [service];
+    final totalBase = service.price;
+    final totalVisit = 0.0;
+    final totalGst = (totalBase * 0.18);
+    final totalGrand = (totalBase + totalVisit + totalGst);
+
+    final primaryAddr = state.profile.primaryAddress;
+    final fullAddr = state.address.isNotEmpty && state.address != 'Fetching live address...'
+        ? state.address
+        : (primaryAddr?.formattedAddress ?? '');
+    final lat = state.selectedLatitude ?? primaryAddr?.latitude;
+    final lng = state.selectedLongitude ?? primaryAddr?.longitude;
+    final code = customBookingCode ?? 'BT-${10000000 + (DateTime.now().millisecondsSinceEpoch % 90000000)}';
+    final bookingId = customBookingId ?? 'bkg_${DateTime.now().millisecondsSinceEpoch}';
+    final startOtp = (1000 + (DateTime.now().millisecondsSinceEpoch % 9000)).toString();
+    final scheduleDateStr = date == 'Tomorrow'
+        ? DateTime.now().add(const Duration(days: 1)).toIso8601String().split('T').first
+        : (date.isEmpty ? 'Today' : date);
+
+    Booking liveBooking = Booking(
+      id: code,
+      services: services,
+      date: scheduleDateStr,
+      timeSlot: slot.isNotEmpty ? slot : '3:00 PM – 4:00 PM',
+      status: BookingStatus.confirmed,
+      baseCost: totalBase,
+      visitFee: totalVisit,
+      discount: 0.0,
+      gstTax: totalGst,
+      grandTotal: totalGrand,
+      address: fullAddr,
+      technicianName: 'Assigning Verified Expert...',
+      technicianPhone: '',
+      otpCode: startOtp,
+    );
+
+    try {
+      final payload = {
+        'id': bookingId,
+        'bookingCode': code,
+        'customerId': state.profile.customerId,
+        'customerName': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
+        'customer': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
+        'customerPhone': state.profile.phone,
+        'phone': state.profile.phone,
+        'serviceId': service.id,
+        'serviceName': service.name,
+        'category': _resolveServiceCategory(service.id),
+        'latitude': lat,
+        'longitude': lng,
+        'address': fullAddr,
+        'fullAddress': fullAddr,
+        'basePrice': totalBase,
+        'visitFee': totalVisit,
+        'gstTax': totalGst,
+        'grandTotal': totalGrand,
+        'totalAmount': totalGrand,
+        'scheduleDate': scheduleDateStr,
+        'scheduleSlot': slot,
+        'paymentMethod': paymentMethod,
+        'services': [
+          {
+            'id': service.id,
+            'name': service.name,
+            'price': service.price,
+          }
+        ],
+      };
+
+      final res = await ApiClient.post('/bookings', payload);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final decoded = jsonDecode(res.body);
+        final data = decoded['data'] ?? decoded['booking'];
+        if (data != null && data is Map<String, dynamic>) {
+          liveBooking = Booking.fromJson(data);
+        }
+      }
+    } catch (e) {
+      debugPrint('Direct booking backend error: $e');
+    }
+
+    state = state.copyWith(
+      activeBooking: liveBooking,
+      bookingHistory: [liveBooking, ...state.bookingHistory],
+    );
+
+    await _saveBookingsLocally();
+    return liveBooking;
+  }
+
+  Future<void> loadBookingHistory() async {
+    await _loadLocalBookings();
+    try {
+      final res = await ApiClient.get('/bookings/my-bookings');
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final List list = decoded['data'] ?? decoded['bookings'] ?? [];
+        final backendHistory = list.map((b) => Booking.fromJson(b as Map<String, dynamic>)).toList();
+
+        Booking? active;
+        for (var b in backendHistory) {
+          if (b.status != BookingStatus.completed && b.status != BookingStatus.cancelled) {
+            active = b;
+            break;
+          }
+        }
+
+        state = state.copyWith(
+          bookingHistory: backendHistory,
+          activeBooking: active,
+          clearActiveBooking: active == null,
+        );
+        await _saveBookingsLocally();
+      }
+    } catch (e) {
+      debugPrint('Error loading booking history from backend: $e');
+    }
+  }
+
+  void setBookingStatus(BookingStatus status) {
+    final b = state.activeBooking;
+    if (b != null) {
+      final updated = b.copyWith(status: status);
+      final updatedHistory = state.bookingHistory.map((item) => item.id == b.id ? updated : item).toList();
+      state = state.copyWith(activeBooking: updated, bookingHistory: updatedHistory);
+      _saveBookingsLocally();
+    }
+  }
+
+  void verifyOtp(String otp) {
+    final b = state.activeBooking;
+    if (b != null && b.otpCode.isNotEmpty && otp.trim() == b.otpCode.trim()) {
+      final updated = b.copyWith(status: BookingStatus.serviceStarted);
+      final updatedHistory = state.bookingHistory.map((item) => item.id == b.id ? updated : item).toList();
+      state = state.copyWith(
+        trackingOtpStatus: 'VERIFIED',
+        activeBooking: updated,
+        bookingHistory: updatedHistory,
+      );
+      _saveBookingsLocally();
+    }
+  }
+
+  void completeService() {
+    final b = state.activeBooking;
+    if (b != null) {
+      final completed = b.copyWith(status: BookingStatus.completed);
+      final updatedHistory = [
+        completed,
+        ...state.bookingHistory.where((item) => item.id != b.id),
+      ];
+      state = state.copyWith(
+        activeBooking: null,
+        clearActiveBooking: true,
+        bookingHistory: updatedHistory,
+        trackingOtpStatus: 'PENDING',
+      );
+      _saveBookingsLocally();
+    }
+  }
+
+  Future<void> deleteBooking(String bookingId) async {
+    try {
+      await ApiClient.delete('/bookings/$bookingId');
+    } catch (e) {
+      debugPrint('Delete booking backend note: $e');
+    }
+
+    final updated = state.bookingHistory.where((b) => b.id != bookingId).toList();
+    final isActiveMatch = state.activeBooking?.id == bookingId;
+
+    state = state.copyWith(
+      bookingHistory: updated,
+      activeBooking: isActiveMatch ? null : state.activeBooking,
+      clearActiveBooking: isActiveMatch,
+    );
+
+    await _saveBookingsLocally();
+  }
+
+  Future<void> cancelBooking(String bookingId, {String reason = 'Cancelled by Customer'}) async {
+    try {
+      await ApiClient.post('/bookings/$bookingId/cancel', {'reason': reason});
+    } catch (e) {
+      debugPrint('Cancel booking backend note: $e');
+    }
+
+    final updated = state.bookingHistory.map((b) {
+      if (b.id == bookingId) {
+        return b.copyWith(status: BookingStatus.cancelled);
+      }
+      return b;
+    }).toList();
+
+    final isActiveMatch = state.activeBooking?.id == bookingId;
+
+    state = state.copyWith(
+      bookingHistory: updated,
+      activeBooking: isActiveMatch ? null : state.activeBooking,
+      clearActiveBooking: isActiveMatch,
+    );
+
+    await _saveBookingsLocally();
+  }
+
+  Future<void> clearAllLocalBookings() async {
+    try {
+      await ApiClient.delete('/bookings/my-bookings');
+    } catch (e) {
+      debugPrint('Clear customer bookings note: $e');
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('bt_active_booking');
+    await prefs.remove('bt_booking_history');
+
+    state = state.copyWith(
+      bookingHistory: [],
+      activeBooking: null,
+      clearActiveBooking: true,
+    );
+  }
+
+  // ─── Payments ─────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>?> createPaymentOrder(String bookingId) async {
+    state = state.copyWith(paymentStatus: PaymentStatus.processing, clearPaymentError: true);
+    try {
+      final res = await ApiClient.post('/payments/create-order', {'bookingId': bookingId});
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        return decoded['data'];
+      }
+    } catch (e) {
+      state = state.copyWith(paymentStatus: PaymentStatus.errorNetwork, paymentError: e.toString());
+    }
+    return null;
+  }
+
+  Future<bool> verifyPaymentSignature({
+    required String bookingId,
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    try {
+      final res = await ApiClient.post('/payments/verify-signature', {
+        'bookingId': bookingId,
+        'razorpayOrderId': razorpayOrderId,
+        'razorpayPaymentId': razorpayPaymentId,
+        'razorpaySignature': razorpaySignature,
+      });
+      if (res.statusCode == 200) {
+        state = state.copyWith(paymentStatus: PaymentStatus.success, clearPaymentError: true);
+        return true;
+      }
+    } catch (e) {
+      state = state.copyWith(paymentStatus: PaymentStatus.errorNetwork, paymentError: e.toString());
+    }
+    return false;
+  }
+
+  Future<void> checkRestoration() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isPending = prefs.getBool('is_pending') ?? false;
+    if (isPending) {
+      final total = prefs.getDouble('grand_total') ?? 0.0;
+      state = state.copyWith(
+        paymentStatus: PaymentStatus.pendingRestoration,
+        restoredCartTotal: total,
+      );
+    }
+  }
+
+  Future<void> restoreCart() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    state = state.copyWith(paymentStatus: PaymentStatus.idle);
+  }
+
+  Future<void> discardRestoration() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    state = state.copyWith(paymentStatus: PaymentStatus.idle);
+  }
+
+  void clearPaymentStatus() {
+    state = state.copyWith(paymentStatus: PaymentStatus.idle, clearPaymentError: true);
+  }
+}
+
+final bookingProvider = StateNotifierProvider<BookingNotifier, AppState>((ref) {
+  return BookingNotifier();
+});

@@ -1,0 +1,48 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: bookurtechnician-compute-service
+  flyway:
+    enabled: ${FLYWAY_ENABLED:false}
+  datasource:
+    url: ${DATABASE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require}}
+    username: ${PG_USER:${SPRING_DATASOURCE_USERNAME:postgres.hgjvwddlwofzpdurvpzd}}
+    password: ${PG_PASSWORD:${SPRING_DATASOURCE_PASSWORD:Rahul@2005@#}}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.postgresql.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.spatial.dialect.postgis.PostgisDialect
+        jdbc:
+          lob:
+            non_contextual_creation: true
+  data:
+    redis:
+      url: ${REDIS_URL:${SPRING_DATA_REDIS_URL:rediss://default:gQAAAAAAAbxoAAIgcDFkZTE2YzRhODc3NGY0ZjBkYjlhODEwMTcyZjJhZjg1ZQ@deciding-panda-113768.upstash.io:6379}}
+      host: ${REDIS_HOST:deciding-panda-113768.upstash.io}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:gQAAAAAAAbxoAAIgcDFkZTE2YzRhODc3NGY0ZjBkYjlhODEwMTcyZjJhZjg1ZQ}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+jwt:
+  secret: ${JWT_SECRET:super_secret_jwt_key_bookurtechnician_2026_secure}
+
+technician:
+  search-radius-km: ${TECHNICIAN_SEARCH_RADIUS_KM:15}
+  location-stale-seconds: ${TECHNICIAN_LOCATION_STALE_SECONDS:1800}
+  location-update-interval-seconds: ${LOCATION_UPDATE_INTERVAL_SECONDS:10}
+  location-min-distance-meters: ${LOCATION_MIN_DISTANCE_METERS:50}
+  dispatch-response-timeout-seconds: ${DISPATCH_RESPONSE_TIMEOUT_SECONDS:30}

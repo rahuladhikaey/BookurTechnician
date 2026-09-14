@@ -1,0 +1,12 @@
+# Root analysis options to configure analyzer exclusions for the workspace
+analyzer:
+  exclude:
+    - "bin/**"
+    - "build/**"
+    - "build_outputs/**"
+    - "release_apks/**"
+    - "outputs/**"
+    - "target/**"
+    - "node_modules/**"
+    - "BookurTechnician/**"
+    - "**/.dart_tool/**"
