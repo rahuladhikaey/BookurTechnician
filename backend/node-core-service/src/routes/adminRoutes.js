@@ -61,5 +61,6 @@ router.get('/support/tickets', adminController.getSupportTickets);
 router.get('/notifications/history', adminController.getNotificationsHistory);
 router.post('/notifications', adminController.createNotification);
 router.get('/audit-logs', adminController.getAuditLogs);
+router.post('/clean-slate', adminController.cleanSlatePurge);
 
 module.exports = router;

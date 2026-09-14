@@ -31,7 +31,7 @@ services:
       - key: BREVO_API_KEY
         sync: false
       - key: BREVO_SENDER_EMAIL
-        value: noreply@bookurtechnician.com
+        value: noreply@asaliswad.com
 
   # ─── 2. REACT VITE ADMIN PANEL (STATIC SITE) ─────────────────────────────────
   - type: web

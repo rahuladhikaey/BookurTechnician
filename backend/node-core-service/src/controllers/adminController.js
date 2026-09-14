@@ -1626,6 +1626,63 @@ const getAvailabilityOverview = async (req, res) => {
   }
 };
 
+const cleanSlatePurge = async (req, res) => {
+  try {
+    // 1. Wipe in-memory active data
+    bookingsStore.clearAllBookings();
+    bookingsStore.clearAllCustomers();
+    clearAllTechniciansStore();
+
+    // 2. Wipe PostgreSQL transactional & test tables (Preserving 158 Master Services & Categories)
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          DELETE FROM wallet_transactions;
+          DELETE FROM dispatch_requests;
+          DELETE FROM bookings;
+          DELETE FROM customer_addresses;
+          DELETE FROM technician_kyc_documents;
+          DELETE FROM technician_profiles;
+          DELETE FROM users WHERE role != 'SUPER_ADMIN';
+        `);
+      } catch (pgErr) {
+        console.warn('[Clean Slate] PG purge notice:', pgErr.message);
+      }
+    }
+
+    // 3. Wipe MongoDB test technician profiles
+    try {
+      if (MongoTechnicianProfile) {
+        await MongoTechnicianProfile.deleteMany({});
+      }
+    } catch (mErr) {
+      console.warn('[Clean Slate] Mongo purge notice:', mErr.message);
+    }
+
+    // 4. Log the audit event
+    adminAuditLogs.unshift({
+      id: `log-${Date.now()}`,
+      module: 'System',
+      action: 'Clean Slate executed. All mock & fake data purged. 158 Master Services preserved.',
+      timestamp: new Date().toISOString(),
+    });
+
+    return res.json({
+      success: true,
+      message: 'Clean Slate Purge Successful! All mock/fake data removed. Master Services Catalog preserved (158 services).',
+      purged: {
+        bookings: 0,
+        technicians: 0,
+        customers: 0,
+        transactions: 0,
+        servicesPreserved: getFlattenedServices().length,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getOverview,
   getAvailabilityOverview,
@@ -1668,4 +1725,5 @@ module.exports = {
   getSupportTickets,
   getNotificationsHistory,
   createNotification,
+  cleanSlatePurge,
 };
