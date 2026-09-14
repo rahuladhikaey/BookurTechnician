@@ -1,63 +1,64 @@
 services:
-  # ─── UNIFIED SPRING BOOT 3 + EMBEDDED REACT ADMIN PANEL ─────────────────────
-  # Handles both API (api.bookurtechnician.online) and Admin UI (admin.bookurtechnician.online)
+  # ─── 1. NODE.JS CORE API GATEWAY & SOCKET.IO BACKEND ─────────────────────────
   - type: web
     name: bookurtechnician-backend
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    runtime: node
+    rootDir: backend/node-core-service
     plan: free
     region: singapore
     branch: main
     autoDeploy: true
-    healthCheckPath: /actuator/health
-    domains:
-      - api.bookurtechnician.online
-      - admin.bookurtechnician.online
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
     envVars:
-      - key: SPRING_PROFILES_ACTIVE
-        value: prod
+      - key: NODE_ENV
+        value: production
       - key: PORT
-        value: 8080
-      - key: SPRING_DATASOURCE_URL
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bookurtechnician-db
+          property: connectionString
+      - key: MONGO_URI
         sync: false
-      - key: SPRING_DATASOURCE_USERNAME
-        sync: false
-      - key: SPRING_DATASOURCE_PASSWORD
-        sync: false
-      - key: SPRING_DATA_REDIS_URL
-        sync: false
-      - key: BREVO_API_KEY
-        sync: false
-      - key: BREVO_SENDER_EMAIL
-        value: noreply@asaliswad.com
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
+      - key: JWT_SECRET
+        generateValue: true
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
-      - key: JWT_SECRET
+      - key: BREVO_API_KEY
         sync: false
+      - key: BREVO_SENDER_EMAIL
+        value: noreply@bookurtechnician.com
 
-  # ─── PYTHON FASTAPI AI & MATCHMAKING MICROSERVICE ───────────────────────────
+  # ─── 2. REACT VITE ADMIN PANEL (STATIC SITE) ─────────────────────────────────
   - type: web
-    name: bookurtechnician-python-ai
-    runtime: docker
-    dockerfilePath: ./backend/python-ai-service/Dockerfile
-    dockerContext: ./backend/python-ai-service
+    name: bookurtechnician-admin
+    runtime: static
+    rootDir: apps/admin_panel
     plan: free
     region: singapore
     branch: main
     autoDeploy: true
-    healthCheckPath: /health
-    domains:
-      - ai.bookurtechnician.online
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
-      - key: PORT
-        value: 8000
-      - key: PYTHONUNBUFFERED
-        value: "1"
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: bookurtechnician-backend
+          property: host
+
+databases:
+  # ─── 3. FREE MANAGED POSTGRESQL DATABASE ─────────────────────────────────────
+  - name: bookurtechnician-db
+    databaseName: bookurtechnician
+    user: postgres
+    plan: free
+    region: singapore
