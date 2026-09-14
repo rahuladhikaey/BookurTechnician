@@ -33,9 +33,10 @@ services:
       - key: BREVO_SENDER_EMAIL
         value: noreply@bookurtechnician.com
 
-  # ─── 2. REACT VITE ADMIN PANEL (GLOBAL CDN STATIC SITE) ─────────────────────
-  - type: static
+  # ─── 2. REACT VITE ADMIN PANEL (STATIC SITE) ─────────────────────────────────
+  - type: web
     name: bookurtechnician-admin
+    runtime: static
     rootDir: apps/admin_panel
     branch: main
     autoDeploy: true
