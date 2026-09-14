@@ -24,15 +24,27 @@ if "%JAVA_HOME%"=="" (
 )
 :found_java
 
-:: Auto-detect Flutter SDK if not in PATH
-where flutter >nul 2>nul
-if errorlevel 1 (
-    for %%P in ("D:\flutter\bin" "D:\Users\RAHUL\flutter\bin" "C:\flutter\bin" "C:\src\flutter\bin") do (
-        if exist "%%~P\flutter.bat" (
+:: Auto-detect healthy Flutter SDK
+set "FLUTTER_FOUND=0"
+for %%P in ("D:\flutter\bin" "C:\flutter\bin" "D:\src\flutter\bin" "C:\src\flutter\bin" "C:\Users\RAHUL\flutter\bin") do (
+    if exist "%%~P\flutter.bat" (
+        if exist "%%~P\..\packages\flutter_tools" (
             set "PATH=%%~P;!PATH!"
+            set "FLUTTER_FOUND=1"
             goto :found_flutter
         )
     )
+)
+
+where flutter >nul 2>nul
+if %errorlevel% equ 0 set "FLUTTER_FOUND=1"
+
+if "!FLUTTER_FOUND!"=="0" (
+    echo.
+    echo [!] Flutter SDK is not installed or installation is corrupted.
+    echo [*] Automatically downloading and installing fresh Flutter SDK...
+    powershell -ExecutionPolicy Bypass -File "%ROOT%install_flutter.ps1"
+    set "PATH=D:\flutter\bin;C:\flutter\bin;!PATH!"
 )
 :found_flutter
 

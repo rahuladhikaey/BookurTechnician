@@ -4,27 +4,30 @@
 
 $ErrorActionPreference = "Stop"
 
-# Detect if there's already an existing Flutter installation
+# Detect if there's already an existing HEALTHY Flutter installation
 $ExistingPaths = @(
-    "D:\Users\RAHUL\flutter",
-    "C:\Users\RAHUL\flutter",
-    "D:\flutter"
+    "D:\flutter",
+    "C:\flutter",
+    "D:\src\flutter",
+    "C:\src\flutter",
+    "C:\Users\RAHUL\flutter"
 )
 
 $ExistingPath = $null
 foreach ($path in $ExistingPaths) {
-    if (Test-Path (Join-Path $path "bin\flutter.bat")) {
+    if ((Test-Path (Join-Path $path "bin\flutter.bat")) -and (Test-Path (Join-Path $path "packages\flutter_tools"))) {
         $ExistingPath = $path
         break
     }
 }
 
 if ($null -ne $ExistingPath) {
-    Write-Host "Found existing Flutter SDK at $ExistingPath!" -ForegroundColor Green
+    Write-Host "Found healthy Flutter SDK at $ExistingPath!" -ForegroundColor Green
     $InstallDir = $ExistingPath
     $BinDir = Join-Path $InstallDir "bin"
     $SkipDownload = $true
 } else {
+    Write-Host "Existing Flutter installation is missing or corrupted. Fresh install will be set up at D:\flutter." -ForegroundColor Yellow
     $InstallDir = "D:\flutter"
     $BinDir = Join-Path $InstallDir "bin"
     $SkipDownload = $false
