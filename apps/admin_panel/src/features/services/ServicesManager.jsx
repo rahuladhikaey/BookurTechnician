@@ -730,7 +730,19 @@ export default function ServicesManager({ categories, setCategories, services, s
                     return (
                       <tr key={cat.id}>
                         <td>
-                          <img src={cat.imageUrl} alt={cat.name} className="table-img-thumb" />
+                          <div style={{ width: '44px', height: '44px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--royal-blue-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border-color)', flexShrink: 0 }}>
+                            {cat.imageUrl ? (
+                              <img
+                                src={cat.imageUrl}
+                                alt={cat.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            ) : null}
+                            <span style={{ fontSize: '20px' }}>🛠️</span>
+                          </div>
                         </td>
                         <td>
                           <strong style={{ color: 'var(--text-main)', fontSize: '14px' }}>{cat.name}</strong>
@@ -824,7 +836,19 @@ export default function ServicesManager({ categories, setCategories, services, s
                   filteredServices.map(srv => (
                     <tr key={srv.id}>
                       <td>
-                        <img src={srv.imageUrl} alt={srv.name} className="table-img-thumb" />
+                        <div style={{ width: '44px', height: '44px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--royal-blue-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border-color)', flexShrink: 0 }}>
+                          {srv.imageUrl ? (
+                            <img
+                              src={srv.imageUrl}
+                              alt={srv.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          ) : null}
+                          <span style={{ fontSize: '18px' }}>⚡</span>
+                        </div>
                       </td>
                     <td>
                       <strong style={{ color: 'var(--text-main)' }}>{srv.name}</strong>
