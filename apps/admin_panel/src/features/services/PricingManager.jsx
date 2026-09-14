@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/apiClient';
 
-export default function PricingManager({ auditLogAction }) {
-  const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function PricingManager({ services: propServices, setServices: setPropServices, auditLogAction, onReload, isSyncing = false }) {
+  const [services, setServices] = useState(propServices || []);
+  const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [gstRate, setGstRate] = useState(18.0);
   
+  const isSpinning = isSyncing || localRefreshing || loading;
+
   // Modal Edit State
   const [editingService, setEditingService] = useState(null);
   const [editForm, setEditForm] = useState({
@@ -32,22 +35,36 @@ export default function PricingManager({ auditLogAction }) {
   };
 
   const loadPricingData = useCallback(async () => {
+    setLocalRefreshing(true);
     setLoading(true);
     try {
+      if (onReload) {
+        await onReload();
+      }
       const res = await api.getServices();
       let list = res?.data || (Array.isArray(res) ? res : []);
       if (!Array.isArray(list)) list = [];
       setServices(list);
+      if (setPropServices) setPropServices(list);
       if (list.length > 0 && !simServiceId) {
         setSimServiceId(list[0].id);
       }
     } catch (err) {
       console.error('Failed to load pricing data:', err);
-      setServices([]);
+      if (propServices && propServices.length > 0) {
+        setServices(propServices);
+      }
     } finally {
       setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
     }
-  }, [simServiceId]);
+  }, [simServiceId, onReload, propServices, setPropServices]);
+
+  useEffect(() => {
+    if (propServices && propServices.length > 0 && services.length === 0) {
+      setServices(propServices);
+    }
+  }, [propServices, services.length]);
 
   useEffect(() => {
     loadPricingData();
@@ -189,8 +206,13 @@ export default function PricingManager({ auditLogAction }) {
           </div>
         </div>
 
-        <button onClick={loadPricingData} className="btn btn-outline btn-sm">
-          🔄 Refresh Rate Cards
+        <button 
+          onClick={loadPricingData} 
+          disabled={isSpinning}
+          className="btn btn-outline btn-sm"
+          title="Refresh and recalculate live service rate cards"
+        >
+          <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing Rates...' : 'Refresh Rate Cards'}
         </button>
       </div>
 

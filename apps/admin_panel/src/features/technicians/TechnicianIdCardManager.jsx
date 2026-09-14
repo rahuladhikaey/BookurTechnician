@@ -1,10 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 
-export default function TechnicianIdCardManager({ technicians = [], setTechnicians, auditLogAction }) {
+export default function TechnicianIdCardManager({ technicians = [], setTechnicians, auditLogAction, onReload, isSyncing = false }) {
   const safeTechs = Array.isArray(technicians) ? technicians : [];
   const [selectedTech, setSelectedTech] = useState(safeTechs[0] || null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const isSpinning = isSyncing || localRefreshing || loading;
+
+  const handleRefreshTechs = useCallback(async () => {
+    setLocalRefreshing(true);
+    setLoading(true);
+    try {
+      if (onReload) {
+        await onReload();
+      }
+    } catch (err) {
+      console.error('Error refreshing technician credentials:', err);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
+    }
+  }, [onReload]);
 
   const filteredTechs = safeTechs.filter(t => {
     const name = (t.name || t.fullName || '').toLowerCase();
@@ -39,12 +58,22 @@ export default function TechnicianIdCardManager({ technicians = [], setTechnicia
 
   return (
     <div className="id-card-manager-view" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Technician Digital Credential & ID Registry</h1>
           <p className="page-subtitle">
             Enterprise ID generator (BT-TECH-XXXXXX), cryptographic QR verification tokens, and compliance security badges.
           </p>
+        </div>
+        <div className="page-actions-group">
+          <button 
+            className="btn btn-outline btn-sm" 
+            onClick={handleRefreshTechs} 
+            disabled={isSpinning}
+            title="Refresh technician directory"
+          >
+            <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Credentials'}
+          </button>
         </div>
       </div>
 

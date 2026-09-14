@@ -1,14 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/apiClient';
 
-export default function ReviewsManager({ auditLogAction }) {
+export default function ReviewsManager({ auditLogAction, onReload, isSyncing = false }) {
   const [reviews, setReviews] = useState([]);
   const [filterRating, setFilterRating] = useState('ALL');
   const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const isSpinning = isSyncing || localRefreshing || loading;
 
   const fetchReviews = useCallback(async () => {
+    setLocalRefreshing(true);
     setLoading(true);
     try {
+      if (onReload) {
+        await onReload();
+      }
       const res = await api.getReviews();
       if (res?.data && Array.isArray(res.data)) {
         setReviews(res.data);
@@ -20,8 +27,9 @@ export default function ReviewsManager({ auditLogAction }) {
       setReviews([]);
     } finally {
       setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
     }
-  }, []);
+  }, [onReload]);
 
   useEffect(() => {
     fetchReviews();
@@ -77,8 +85,13 @@ export default function ReviewsManager({ auditLogAction }) {
               <option value="2">2 Stars (⭐⭐)</option>
               <option value="1">1 Star (⭐)</option>
             </select>
-            <button className="btn btn-outline btn-sm" onClick={fetchReviews} disabled={loading}>
-              {loading ? 'Refreshing...' : '🔄 Refresh'}
+            <button 
+              className="btn btn-outline btn-sm" 
+              onClick={fetchReviews} 
+              disabled={isSpinning}
+              title="Refresh customer reviews from database"
+            >
+              <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Reviews'}
             </button>
           </div>
         </div>

@@ -1,8 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 
-export default function ReportsManager({ auditLogAction, technicians = [] }) {
+export default function ReportsManager({ auditLogAction, technicians = [], onReload, isSyncing = false }) {
   const [reportType, setReportType] = useState('REVENUE');
   const [dateRange, setDateRange] = useState('MONTH');
+  const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const isSpinning = isSyncing || localRefreshing || loading;
+
+  const handleRefreshReports = useCallback(async () => {
+    setLocalRefreshing(true);
+    setLoading(true);
+    try {
+      if (onReload) {
+        await onReload();
+      }
+    } catch (err) {
+      console.error('Error refreshing BI reports:', err);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
+    }
+  }, [onReload]);
 
   const handleExportCsv = (title) => {
     auditLogAction?.('Reports', `Exported ${title} to CSV format`);
@@ -39,7 +58,15 @@ export default function ReportsManager({ auditLogAction, technicians = [] }) {
               <option value="MONTH">Current Month (August 2026)</option>
               <option value="YEAR">Financial Year 2026-27</option>
             </select>
-            <button className="btn btn-primary" onClick={() => handleExportCsv(`${reportType} Report`)}>
+            <button 
+              className="btn btn-outline btn-sm" 
+              onClick={handleRefreshReports} 
+              disabled={isSpinning}
+              title="Refresh all business analytics data"
+            >
+              <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Analytics'}
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => handleExportCsv(`${reportType} Report`)}>
               📥 Export CSV / Excel
             </button>
           </div>

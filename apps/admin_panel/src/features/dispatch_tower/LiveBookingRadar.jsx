@@ -13,14 +13,17 @@ const STAGES = [
   { key: 'CANCELLED', label: 'Cancelled / Refunded', bg: '#FEF2F2', border: '#FCA5A5', text: '#DC2626', dot: '#DC2626' },
 ];
 
-export default function LiveBookingRadar() {
+export default function LiveBookingRadar({ onReload, isSyncing = false }) {
   const [bookings, setBookings] = useState([]);
   const [summary, setSummary] = useState({ PENDING: 0, ACCEPTED: 0, ARRIVED: 0, IN_PROGRESS: 0, COMPLETED: 0, CANCELLED: 0, TOTAL: 0 });
   const [loading, setLoading] = useState(true);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'table'
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const isSpinning = isSyncing || localRefreshing || loading;
 
   // Modals state
   const [forceAssignTarget, setForceAssignTarget] = useState(null);
@@ -29,7 +32,11 @@ export default function LiveBookingRadar() {
   const [toastMessage, setToastMessage] = useState(null);
 
   const fetchLiveBookings = useCallback(async () => {
+    setLocalRefreshing(true);
     try {
+      if (onReload) {
+        await onReload();
+      }
       const res = await api.getBookings({ status: selectedStatus !== 'ALL' ? selectedStatus : undefined });
       const list = res?.data || (Array.isArray(res) ? res : []);
       
@@ -45,8 +52,9 @@ export default function LiveBookingRadar() {
       console.warn('Live booking radar notice:', err);
     } finally {
       setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
     }
-  }, [selectedStatus]);
+  }, [selectedStatus, onReload]);
 
   useEffect(() => {
     fetchLiveBookings();
@@ -152,8 +160,13 @@ export default function LiveBookingRadar() {
             <span>{autoRefresh ? '🔄 Auto-Sync: Active (8s)' : '⏸ Auto-Sync: Paused'}</span>
           </button>
 
-          <button onClick={fetchLiveBookings} className="btn btn-outline btn-sm" title="Refresh Live Data">
-            Refresh
+          <button 
+            onClick={fetchLiveBookings} 
+            disabled={isSpinning}
+            className="btn btn-outline btn-sm" 
+            title="Refresh Live Operations Radar"
+          >
+            <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Radar'}
           </button>
 
           <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '6px', padding: '2px', border: '1px solid #E2E8F0' }}>

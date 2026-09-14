@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/apiClient';
 
-export default function FinancialSettlementPortal() {
+export default function FinancialSettlementPortal({ onReload, isSyncing = false }) {
   const [transactions, setTransactions] = useState([]);
   const [technicians, setTechnicians] = useState([]);
   const [totalDisbursed, setTotalDisbursed] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const isSpinning = isSyncing || localRefreshing || loading;
 
   // Settlement Modal State
   const [showDisburseModal, setShowDisburseModal] = useState(false);
@@ -21,8 +24,12 @@ export default function FinancialSettlementPortal() {
   const [toastMessage, setToastMessage] = useState(null);
 
   const loadFinancialData = useCallback(async () => {
+    setLocalRefreshing(true);
     setLoading(true);
     try {
+      if (onReload) {
+        await onReload();
+      }
       const [payoutRes, techRes] = await Promise.all([
         api.getPayoutTransactions('all').catch(() => ({ transactions: [], totalDisbursedAmount: 0 })),
         api.getTechnicians().catch(() => ({ data: [] })),
@@ -45,8 +52,9 @@ export default function FinancialSettlementPortal() {
       console.warn('Failed to load financial data from API:', err);
     } finally {
       setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
     }
-  }, []);
+  }, [onReload]);
 
   useEffect(() => {
     loadFinancialData();
@@ -193,8 +201,13 @@ export default function FinancialSettlementPortal() {
           </div>
         </div>
 
-        <button onClick={loadFinancialData} className="btn btn-outline btn-sm">
-          🔄 Refresh Ledger
+        <button 
+          onClick={loadFinancialData} 
+          disabled={isSpinning}
+          className="btn btn-outline btn-sm"
+          title="Refresh partner wallet ledger and transactions"
+        >
+          <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Ledger'}
         </button>
       </div>
 

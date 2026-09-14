@@ -1,23 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import api from '../../api/apiClient';
 
-export default function PaymentsManager({ bookings = [], auditLogAction, subTab = 'transactions' }) {
+export default function PaymentsManager({ bookings = [], auditLogAction, subTab = 'transactions', onReload, isSyncing = false }) {
   const [activeTab, setActiveTab] = useState(subTab);
   const [filterMode, setFilterMode] = useState('ALL');
   const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const isSpinning = isSyncing || localRefreshing || loading;
+
+  const fetchPayments = useCallback(async () => {
+    setLocalRefreshing(true);
+    setLoading(true);
+    try {
+      if (onReload) {
+        await onReload();
+      }
+      const res = await api.getPayments().catch(() => null);
+      if (res?.data && Array.isArray(res.data)) {
+        setTransactions(res.data);
+      }
+    } catch (err) {
+      console.error('Error fetching payments:', err);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
+    }
+  }, [onReload]);
 
   useEffect(() => {
-    const token = localStorage.getItem('bt_admin_token');
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-
-    fetch('/api/v1/admin/payments', { headers })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data && Array.isArray(data.data)) {
-          setTransactions(data.data);
-        }
-      })
-      .catch(() => {});
-  }, []);
+    fetchPayments();
+  }, [fetchPayments]);
 
   const transactionsPaid = bookings.filter(b => b.paymentStatus === 'Paid' || b.paymentStatus === 'PAID');
   const totalPaidRevenue = transactionsPaid.reduce((sum, b) => sum + (b.price || 0), 0);
@@ -30,7 +44,7 @@ export default function PaymentsManager({ bookings = [], auditLogAction, subTab 
       {/* ─── FLAT TABS ─── */}
       <div className="flat-tabs">
         <div className={`flat-tab ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>
-          💳 Transactions Ledger
+          💳 Transactions Ledger ({transactions.length})
         </div>
         <div className={`flat-tab ${activeTab === 'summary' ? 'active' : ''}`} onClick={() => setActiveTab('summary')}>
           📊 Revenue & Tax Settlement
@@ -45,7 +59,15 @@ export default function PaymentsManager({ bookings = [], auditLogAction, subTab 
               <p className="page-subtitle">Real-time payment logs, webhook reconciliation, and transaction IDs</p>
             </div>
             <div className="page-actions-group">
-              <button className="btn btn-outline" onClick={() => alert('Exporting payment ledger CSV...')}>
+              <button 
+                className="btn btn-outline btn-sm" 
+                onClick={fetchPayments} 
+                disabled={isSpinning}
+                title="Refresh payment transactions from server"
+              >
+                <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Ledger'}
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={() => alert('Exporting payment ledger CSV...')}>
                 📥 Export Ledger
               </button>
             </div>

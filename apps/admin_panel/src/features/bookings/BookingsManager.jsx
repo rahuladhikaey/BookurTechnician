@@ -13,7 +13,7 @@ const STATUS_LIFECYCLE = [
   'COMPLETED'
 ];
 
-export default function BookingsManager({ bookings = [], setBookings, technicians = [], auditLogAction, subTab = 'all', onReload }) {
+export default function BookingsManager({ bookings = [], setBookings, technicians = [], auditLogAction, subTab = 'all', onReload, isSyncing = false }) {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [liveTransitBooking, setLiveTransitBooking] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,6 +23,24 @@ export default function BookingsManager({ bookings = [], setBookings, technician
   const [reassignTechModal, setReassignTechModal] = useState(false);
   const [selectedNewTech, setSelectedNewTech] = useState('');
   const [copiedField, setCopiedField] = useState('');
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const handleRefreshBookings = async () => {
+    setLocalRefreshing(true);
+    try {
+      const res = await api.getBookings();
+      if (res?.data && setBookings) {
+        setBookings(res.data);
+      }
+      if (onReload) await onReload();
+    } catch (err) {
+      console.warn('Refresh bookings error:', err);
+    } finally {
+      setTimeout(() => setLocalRefreshing(false), 400);
+    }
+  };
+
+  const isSpinning = isSyncing || localRefreshing;
 
   // Extract unique categories
   const categoriesList = ['ALL', ...new Set(bookings.map(b => b.category || b.serviceName || 'General').filter(Boolean))];
@@ -206,8 +224,14 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                 🗑️ Clear All Bookings
               </button>
             )}
-            <button className="btn btn-outline" onClick={() => onReload?.()}>
-              🔄 Refresh Bookings
+            <button
+              className="btn btn-outline"
+              onClick={handleRefreshBookings}
+              disabled={isSpinning}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <span className={isSpinning ? 'spin-icon' : ''}>🔄</span>
+              <span>{isSpinning ? 'Refreshing...' : 'Refresh Bookings'}</span>
             </button>
           </div>
         </div>

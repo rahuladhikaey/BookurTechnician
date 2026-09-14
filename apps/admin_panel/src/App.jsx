@@ -379,11 +379,17 @@ export default function App() {
         {/* ─── MAIN CONTENT VIEWPORT ─── */}
         <main className="content-body">
           {activeTab === 'live_radar' && (
-            <LiveBookingRadar />
+            <LiveBookingRadar
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
+            />
           )}
 
           {activeTab === 'settlements' && (
-            <FinancialSettlementPortal />
+            <FinancialSettlementPortal
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
+            />
           )}
 
           {activeTab === 'dashboard' && (
@@ -394,6 +400,8 @@ export default function App() {
               customers={customers}
               services={services}
               onNavigate={selectView}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -405,6 +413,7 @@ export default function App() {
               auditLogAction={auditLogAction}
               subTab={activeSubTab || 'all'}
               onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -413,6 +422,8 @@ export default function App() {
               customers={customers}
               setCustomers={setCustomers}
               auditLogAction={auditLogAction}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -424,6 +435,7 @@ export default function App() {
               subTab={activeSubTab}
               onNavigateToIdCard={handleNavigateToIdCard}
               onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -432,6 +444,8 @@ export default function App() {
               technician={selectedTechForIdCard || technicians[0]}
               onBack={() => selectView('technicians')}
               auditLogAction={auditLogAction}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -444,6 +458,7 @@ export default function App() {
               auditLogAction={auditLogAction}
               subTab={activeSubTab || 'categories'}
               onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -452,6 +467,8 @@ export default function App() {
               services={services}
               setServices={setServices}
               auditLogAction={auditLogAction}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -460,24 +477,32 @@ export default function App() {
               bookings={bookings}
               auditLogAction={auditLogAction}
               subTab={activeSubTab || 'transactions'}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
           {activeTab === 'refunds' && (
             <RefundsManager
               auditLogAction={auditLogAction}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
           {activeTab === 'banners' && (
             <BannersManager
               auditLogAction={auditLogAction}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
           {activeTab === 'reviews' && (
             <ReviewsManager
               auditLogAction={auditLogAction}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -487,6 +512,8 @@ export default function App() {
               technicians={technicians}
               customers={customers}
               auditLogAction={auditLogAction}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -496,12 +523,16 @@ export default function App() {
               setSupportTickets={setSupportTickets}
               auditLogAction={auditLogAction}
               subTab="tickets"
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
           {activeTab === 'ai_assistant' && (
             <AiAssistantCms
               auditLogAction={auditLogAction}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
 
@@ -513,6 +544,8 @@ export default function App() {
               auditLogAction={auditLogAction}
               subTab="audit"
               onResetDatabase={handleResetDatabase}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
             />
           )}
         </main>

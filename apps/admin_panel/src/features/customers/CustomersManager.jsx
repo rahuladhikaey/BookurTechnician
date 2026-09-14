@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/apiClient';
 
-export default function CustomersManager({ customers = [], setCustomers, auditLogAction }) {
+export default function CustomersManager({ customers = [], setCustomers, auditLogAction, onReload, isSyncing = false }) {
   const [localCustomers, setLocalCustomers] = useState(customers || []);
   const [searchTerm, setSearchTerm] = useState('');
   const [completionFilter, setCompletionFilter] = useState('ALL');
@@ -20,12 +20,15 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
           setCustomers(list);
         }
       }
+      if (onReload) await onReload();
     } catch (err) {
       console.warn('Auto-fetch customers warning:', err);
     } finally {
-      setIsRefreshing(false);
+      setTimeout(() => setIsRefreshing(false), 400);
     }
-  }, [setCustomers]);
+  }, [setCustomers, onReload]);
+
+  const isSpinning = isSyncing || isRefreshing;
 
   useEffect(() => {
     fetchLatestCustomers();
@@ -174,16 +177,12 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
             )}
             <button
               className="btn btn-outline"
-              onClick={async () => {
-                try {
-                  const res = await api.getCustomers();
-                  if (res?.data && setCustomers) setCustomers(res.data);
-                } catch (err) {
-                  console.warn('Customer refresh fallback:', err);
-                }
-              }}
+              onClick={fetchLatestCustomers}
+              disabled={isSpinning}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              🔄 Refresh Directory
+              <span className={isSpinning ? 'spin-icon' : ''}>🔄</span>
+              <span>{isSpinning ? 'Refreshing...' : 'Refresh Directory'}</span>
             </button>
             <button className="btn btn-outline" onClick={() => alert('Exporting customer compliance CSV...')}>
               📥 Export CSV

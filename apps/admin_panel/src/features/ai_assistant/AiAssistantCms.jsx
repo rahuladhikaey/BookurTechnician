@@ -1,15 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/apiClient';
 
-export default function AiAssistantCms({ auditLogAction }) {
+export default function AiAssistantCms({ auditLogAction, onReload, isSyncing = false }) {
   const [activeTab, setActiveTab] = useState('documents');
   const [documents, setDocuments] = useState([]);
   const [faqs, setFaqs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const isSpinning = isSyncing || localRefreshing || loading;
 
   const loadData = useCallback(async () => {
+    setLocalRefreshing(true);
     setLoading(true);
     try {
+      if (onReload) {
+        await onReload();
+      }
       const [docsRes, faqsRes] = await Promise.allSettled([
         api.getAiDocs(),
         api.getAiFaqs()
@@ -24,8 +31,9 @@ export default function AiAssistantCms({ auditLogAction }) {
       console.error('Error loading AI CMS data:', err);
     } finally {
       setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
     }
-  }, []);
+  }, [onReload]);
 
   useEffect(() => {
     loadData();
@@ -210,14 +218,24 @@ export default function AiAssistantCms({ auditLogAction }) {
         <div className="panel">
           <div className="page-header-row">
             <div>
-              <h2 className="page-title">AI Assistant Policy & Legal Repository</h2>
+              <h2 className="page-title">AI Assistant Policy & Legal Repository ({documents.length})</h2>
               <p className="page-subtitle">
                 Manage strictly verified source-of-truth documents. Chatbot uses only the latest published version.
               </p>
             </div>
-            <button className="btn btn-primary" onClick={openAddDoc}>
-              + New Knowledge Document
-            </button>
+            <div className="page-actions-group">
+              <button 
+                className="btn btn-outline btn-sm" 
+                onClick={loadData} 
+                disabled={isSpinning}
+                title="Refresh knowledge documents from database"
+              >
+                <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Knowledge'}
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={openAddDoc}>
+                + New Knowledge Document
+              </button>
+            </div>
           </div>
 
           <div className="table-responsive">
@@ -286,14 +304,24 @@ export default function AiAssistantCms({ auditLogAction }) {
         <div className="panel">
           <div className="page-header-row">
             <div>
-              <h2 className="page-title">FAQ Knowledge Base</h2>
+              <h2 className="page-title">FAQ Knowledge Base ({faqs.length})</h2>
               <p className="page-subtitle">
                 Controlled question-and-answer pairs served directly to Customer Mobile Chatbot
               </p>
             </div>
-            <button className="btn btn-primary" onClick={openAddFaq}>
-              + Add FAQ
-            </button>
+            <div className="page-actions-group">
+              <button 
+                className="btn btn-outline btn-sm" 
+                onClick={loadData} 
+                disabled={isSpinning}
+                title="Refresh FAQs from database"
+              >
+                <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh FAQs'}
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={openAddFaq}>
+                + Add FAQ
+              </button>
+            </div>
           </div>
 
           <div className="table-responsive">

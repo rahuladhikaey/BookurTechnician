@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 
 const ADMIN_ROLES = [
   { role: 'Super Admin', desc: 'Full unrestricted system, finance, dispatch and user access.', usersCount: 2, color: 'var(--primary)' },
@@ -8,8 +8,37 @@ const ADMIN_ROLES = [
   { role: 'Content Admin', desc: 'Promotional banners, services catalog, notification broadcasts.', usersCount: 2, color: '#7C3AED' }
 ];
 
-export default function SettingsManager({ settings, setSettings, auditLogs, auditLogAction, subTab = 'settings', onResetDatabase }) {
+export default function SettingsManager({ 
+  settings, 
+  setSettings, 
+  auditLogs = [], 
+  auditLogAction, 
+  subTab = 'settings', 
+  onResetDatabase,
+  onReload,
+  isSyncing = false
+}) {
   const [currentSubTab, setCurrentSubTab] = useState(subTab);
+  const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const isSpinning = isSyncing || localRefreshing || loading;
+
+  const handleRefreshSettingsOrLogs = useCallback(async () => {
+    setLocalRefreshing(true);
+    setLoading(true);
+    try {
+      if (onReload) {
+        await onReload();
+      }
+    } catch (err) {
+      console.error('Error refreshing settings/logs:', err);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
+    }
+  }, [onReload]);
+
   const [formData, setFormData] = useState({
     companyName: 'BookurTechnician Private Limited',
     supportPhone: '+91 99999-88888',
@@ -49,8 +78,17 @@ export default function SettingsManager({ settings, setSettings, auditLogs, audi
       {/* ─── TAB 1: GENERAL CONFIG ─── */}
       {currentSubTab === 'settings' && (
         <div className="panel" style={{ maxWidth: '840px' }}>
-          <div className="panel-header">
+          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 className="panel-title">🏢 Platform & Enterprise Parameters</h3>
+            <button 
+              type="button"
+              className="btn btn-outline btn-sm" 
+              onClick={handleRefreshSettingsOrLogs} 
+              disabled={isSpinning}
+              title="Synchronize configuration from database"
+            >
+              <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Syncing...' : 'Live Sync Config'}
+            </button>
           </div>
           <form onSubmit={handleSaveGeneral}>
             <div className="form-row">
@@ -164,8 +202,17 @@ export default function SettingsManager({ settings, setSettings, auditLogs, audi
       {/* ─── TAB 3: AUDIT LOGS ─── */}
       {currentSubTab === 'audit' && (
         <div className="panel">
-          <div className="panel-header">
-            <h3 className="panel-title">📜 Immutable System & Admin Audit Logs</h3>
+          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 className="panel-title">📜 Immutable System & Admin Audit Logs ({auditLogs.length})</h3>
+            <button 
+              type="button"
+              className="btn btn-outline btn-sm" 
+              onClick={handleRefreshSettingsOrLogs} 
+              disabled={isSpinning}
+              title="Refresh audit logs from database"
+            >
+              <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Audit Logs'}
+            </button>
           </div>
           <div className="table-responsive">
             <table className="flat-table">

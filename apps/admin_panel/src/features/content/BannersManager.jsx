@@ -1,21 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import api from '../../api/apiClient';
 
-export default function BannersManager({ auditLogAction }) {
+export default function BannersManager({ auditLogAction, onReload, isSyncing = false }) {
   const [banners, setBanners] = useState([]);
   const [activeTab, setActiveTab] = useState('Customer App');
   const [showModal, setShowModal] = useState(false);
   const [editingBanner, setEditingBanner] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const isSpinning = isSyncing || localRefreshing || loading;
+
+  const fetchBanners = useCallback(async () => {
+    setLocalRefreshing(true);
+    setLoading(true);
+    try {
+      if (onReload) {
+        await onReload();
+      }
+      const res = await api.getBanners().catch(() => null);
+      if (res?.data && Array.isArray(res.data)) {
+        setBanners(res.data);
+      } else {
+        const fallbackRes = await fetch('/api/v1/banners/running').then(r => r.ok ? r.json() : null).catch(() => null);
+        if (fallbackRes?.data && Array.isArray(fallbackRes.data)) {
+          setBanners(fallbackRes.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching banners:', err);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
+    }
+  }, [onReload]);
 
   useEffect(() => {
-    fetch('/api/v1/banners/running')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data && Array.isArray(data.data)) {
-          setBanners(data.data);
-        }
-      })
-      .catch(() => {});
-  }, []);
+    fetchBanners();
+  }, [fetchBanners]);
 
   const [formState, setFormState] = useState({
     title: '',
@@ -100,12 +122,22 @@ export default function BannersManager({ auditLogAction }) {
       <div className="panel">
         <div className="page-header-row">
           <div>
-            <h2 className="page-title">Running Banners</h2>
+            <h2 className="page-title">Running Banners ({filteredBanners.length})</h2>
             <p className="page-subtitle">Configure promo hero carousels with flat preview cards and order sequence</p>
           </div>
-          <button className="btn btn-primary" onClick={openAddModal}>
-            + Add Banner
-          </button>
+          <div className="page-actions-group">
+            <button 
+              className="btn btn-outline btn-sm" 
+              onClick={fetchBanners} 
+              disabled={isSpinning}
+              title="Refresh banner list from server"
+            >
+              <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Banners'}
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={openAddModal}>
+              + Add Banner
+            </button>
+          </div>
         </div>
 
         {/* ─── FLAT TABLE VIEW OF RUNNING BANNERS ─── */}

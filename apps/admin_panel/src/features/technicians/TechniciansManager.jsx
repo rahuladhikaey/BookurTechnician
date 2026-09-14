@@ -29,7 +29,8 @@ export default function TechniciansManager({
   auditLogAction,
   subTab = 'list',
   onNavigateToIdCard,
-  onReload
+  onReload,
+  isSyncing = false
 }) {
   const [filterTab, setFilterTab] = useState('ALL');
   const [selectedTech, setSelectedTech] = useState(null);
@@ -48,6 +49,8 @@ export default function TechniciansManager({
   const [creatingTech, setCreatingTech] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [rejectionReason, setRejectionReason] = useState('Incomplete or blurry identity documents');
+
+  const isSpinning = isSyncing || loadingTechs;
 
   const [newTechForm, setNewTechForm] = useState({
     name: '',
@@ -68,10 +71,11 @@ export default function TechniciansManager({
       if (Array.isArray(list) && setTechnicians) {
         setTechnicians(list);
       }
+      if (onReload) await onReload();
     } catch (err) {
       console.warn('Error fetching technicians:', err);
     } finally {
-      setLoadingTechs(false);
+      setTimeout(() => setLoadingTechs(false), 400);
     }
   };
 
@@ -411,11 +415,11 @@ export default function TechniciansManager({
           <button
             className="btn btn-outline"
             onClick={fetchTechs}
-            disabled={loadingTechs}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            disabled={isSpinning}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            <span style={{ display: 'inline-block', transform: loadingTechs ? 'rotate(180deg)' : 'none', transition: '0.4s' }}>🔄</span>
-            {loadingTechs ? 'Refreshing...' : 'Refresh Directory'}
+            <span className={isSpinning ? 'spin-icon' : ''}>🔄</span>
+            <span>{isSpinning ? 'Refreshing...' : 'Refresh Directory'}</span>
           </button>
           <button
             className="btn btn-primary"

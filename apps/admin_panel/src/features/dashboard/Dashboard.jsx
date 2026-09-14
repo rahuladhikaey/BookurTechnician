@@ -1,7 +1,19 @@
 import React, { useState } from 'react';
 
-export default function Dashboard({ stats, bookings = [], technicians = [], customers = [], onNavigate }) {
+export default function Dashboard({ stats, bookings = [], technicians = [], customers = [], onNavigate, onReload, isSyncing = false }) {
   const [timeRange, setTimeRange] = useState('today');
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setLocalRefreshing(true);
+    try {
+      if (onReload) await onReload();
+    } finally {
+      setTimeout(() => setLocalRefreshing(false), 400);
+    }
+  };
+
+  const isSpinning = isSyncing || localRefreshing;
 
   // Real-time dynamic KPI Calculations from live bookings & database
   const totalBookingsCount = stats?.totalBookings !== undefined ? stats.totalBookings : bookings.length;
@@ -44,7 +56,18 @@ export default function Dashboard({ stats, bookings = [], technicians = [], cust
           <h1 className="page-title">Operations Command Dashboard</h1>
           <p className="page-subtitle">Real-time overview of live bookings, customer transactions, revenue, and fleet dispatches</p>
         </div>
-        <div className="page-actions">
+        <div className="page-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={handleRefresh}
+            disabled={isSpinning}
+            title="Refresh live metrics, bookings, revenue, and fleet stats"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <span className={isSpinning ? 'spin-icon' : ''}>🔄</span>
+            <span>{isSpinning ? 'Refreshing...' : 'Refresh Dashboard'}</span>
+          </button>
           {['today', '7days', '30days'].map(range => (
             <button
               key={range}

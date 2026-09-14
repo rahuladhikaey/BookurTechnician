@@ -1,11 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import api from '../../api/apiClient';
 
 export default function SupportManager({
   supportTickets = [],
   setSupportTickets,
-  auditLogAction
+  auditLogAction,
+  onReload,
+  isSyncing = false
 }) {
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const isSpinning = isSyncing || localRefreshing || loading;
+
+  const fetchTickets = useCallback(async () => {
+    setLocalRefreshing(true);
+    setLoading(true);
+    try {
+      if (onReload) {
+        await onReload();
+      }
+      const res = await api.getSupportTickets().catch(() => null);
+      if (res?.data && Array.isArray(res.data) && setSupportTickets) {
+        setSupportTickets(res.data);
+      }
+    } catch (err) {
+      console.error('Error fetching support tickets:', err);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
+    }
+  }, [onReload, setSupportTickets]);
   
   const handleUpdateTicketStatus = (ticketId, nextStatus) => {
     setSupportTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: nextStatus } : t));
@@ -21,10 +47,20 @@ export default function SupportManager({
       <div className="panel">
         <div className="page-header-row">
           <div>
-            <h2 className="page-title">Support Helpdesk & Complaints</h2>
+            <h2 className="page-title">Support Helpdesk & Complaints ({supportTickets.length})</h2>
             <p className="page-subtitle">
               Resolve customer grievances, assignment escalations, and technician disputes
             </p>
+          </div>
+          <div className="page-actions-group">
+            <button 
+              className="btn btn-outline btn-sm" 
+              onClick={fetchTickets} 
+              disabled={isSpinning}
+              title="Refresh support tickets from database"
+            >
+              <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Tickets'}
+            </button>
           </div>
         </div>
 

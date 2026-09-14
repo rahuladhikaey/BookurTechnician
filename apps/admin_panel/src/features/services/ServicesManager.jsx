@@ -1,8 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/apiClient';
 
-export default function ServicesManager({ categories, setCategories, services, setServices, auditLogAction, subTab = 'categories', onReload }) {
+export default function ServicesManager({ categories, setCategories, services, setServices, auditLogAction, subTab = 'categories', onReload, isSyncing = false }) {
   const [activeTab, setActiveTab] = useState(subTab);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const handleRefreshCatalog = async () => {
+    setLocalRefreshing(true);
+    try {
+      if (onReload) await onReload();
+      await loadSkills();
+      await loadMatchingRules();
+    } catch (err) {
+      console.warn('Catalog refresh notice:', err);
+    } finally {
+      setTimeout(() => setLocalRefreshing(false), 400);
+    }
+  };
+
+  const isSpinning = isSyncing || localRefreshing;
   
   // Reusable File / Gallery Upload Handler with Instant Canvas Compression
   const handleFileUpload = (e, callback) => {
@@ -697,8 +713,14 @@ export default function ServicesManager({ categories, setCategories, services, s
               <p className="page-subtitle">Configure root service verticals for mobile customer apps</p>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-outline" onClick={() => onReload?.()}>
-                🔄 Refresh Categories
+              <button
+                className="btn btn-outline"
+                onClick={handleRefreshCatalog}
+                disabled={isSpinning}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span className={isSpinning ? 'spin-icon' : ''}>🔄</span>
+                <span>{isSpinning ? 'Refreshing...' : 'Refresh Categories'}</span>
               </button>
               <button className="btn btn-primary" onClick={() => openCategoryModal()}>
                 + Add Category
@@ -780,8 +802,14 @@ export default function ServicesManager({ categories, setCategories, services, s
               <p className="page-subtitle">Configure individual service rates, inclusions, and durations</p>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-outline" onClick={() => onReload?.()}>
-                🔄 Refresh Services
+              <button
+                className="btn btn-outline"
+                onClick={handleRefreshCatalog}
+                disabled={isSpinning}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span className={isSpinning ? 'spin-icon' : ''}>🔄</span>
+                <span>{isSpinning ? 'Refreshing...' : 'Refresh Services'}</span>
               </button>
               <button className="btn btn-primary" onClick={() => openServiceModal()}>
                 + Add Service
@@ -801,7 +829,7 @@ export default function ServicesManager({ categories, setCategories, services, s
               </div>
               <select className="filter-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
                 <option value="ALL">All Categories</option>
-                {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="toolbar-right">
@@ -815,12 +843,13 @@ export default function ServicesManager({ categories, setCategories, services, s
             <table className="flat-table">
               <thead>
                 <tr>
-                  <th style={{ width: '70px' }}>Image</th>
-                  <th>Service Name</th>
+                  <th style={{ width: '70px' }}>Thumbnail</th>
+                  <th>Service Details</th>
                   <th>Category</th>
-                  <th>Customer Price</th>
-                  <th>Original Price</th>
-                  <th>Duration</th>
+                  <th>Selling (₹)</th>
+                  <th>Booking Fee</th>
+                  <th>Adv %</th>
+                  <th>Payout</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -828,58 +857,78 @@ export default function ServicesManager({ categories, setCategories, services, s
               <tbody>
                 {filteredServices.length === 0 ? (
                   <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
-                      🛠️ No services found. Click "+ Add Service" to create a new service in the database.
+                    <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                      🛠️ No services found for this filter
                     </td>
                   </tr>
                 ) : (
-                  filteredServices.map(srv => (
-                    <tr key={srv.id}>
-                      <td>
-                        <div style={{ width: '44px', height: '44px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--royal-blue-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border-color)', flexShrink: 0 }}>
-                          {srv.imageUrl ? (
-                            <img
-                              src={srv.imageUrl}
-                              alt={srv.name}
-                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                              }}
-                            />
-                          ) : null}
-                          <span style={{ fontSize: '18px' }}>⚡</span>
-                        </div>
-                      </td>
-                    <td>
-                      <strong style={{ color: 'var(--text-main)' }}>{srv.name}</strong>
-                      <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        ⭐ {srv.rating || 4.8} ({srv.reviewsCount || 40} reviews)
-                      </div>
-                    </td>
-                    <td>
-                      <span className="badge badge-info">{getCategoryName(srv)}</span>
-                    </td>
-                    <td>
-                      <strong style={{ color: 'var(--primary)' }}>₹{srv.price}</strong>
-                    </td>
-                    <td>
-                      <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>₹{srv.originalPrice || srv.price}</span>
-                    </td>
-                    <td>{srv.durationMinutes || 45} mins</td>
-                    <td>
-                      <span className={`badge ${srv.isActive !== false ? 'badge-completed' : 'badge-cancelled'}`}>
-                        {srv.isActive !== false ? 'Active' : 'Disabled'}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div className="page-actions-group" style={{ justifyContent: 'flex-end' }}>
-                        <button className="btn btn-outline btn-sm" onClick={() => openServiceModal(srv)}>Edit</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDeleteService(srv.id, srv.name)}>Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+                  filteredServices.map(srv => {
+                    const activeP = srv.price || srv.basePrice || 499;
+                    const regularP = srv.basePrice || srv.originalPrice || activeP;
+                    const offerP = srv.offerPrice !== undefined ? srv.offerPrice : activeP;
+                    const hasDiscount = offerP > 0 && offerP < regularP;
+                    const fee = srv.bookingCharge || (activeP >= 1000 ? 99 : 49);
+                    const advPct = srv.advancePrepaymentPct || 30;
+                    const payout = srv.technicianPayoutAmount || Math.round(activeP * 0.8);
+
+                    return (
+                      <tr key={srv.id}>
+                        <td>
+                          <div style={{ width: '44px', height: '44px', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'var(--royal-blue-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border-color)', flexShrink: 0 }}>
+                            {srv.imageUrl ? (
+                              <img
+                                src={srv.imageUrl}
+                                alt={srv.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            ) : null}
+                            <span style={{ fontSize: '18px' }}>⚡</span>
+                          </div>
+                        </td>
+                        <td>
+                          <strong style={{ color: 'var(--text-main)', fontSize: '13.5px' }}>{srv.name}</strong>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {srv.description || 'Professional doorstep service'}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="badge badge-info">{getCategoryName(srv)}</span>
+                        </td>
+                        <td>
+                          <strong style={{ color: 'var(--text-main)', fontFamily: 'monospace', fontSize: '13px' }}>₹{activeP}</strong>
+                          {hasDiscount && (
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
+                              ₹{regularP}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-secondary)' }}>₹{fee}</span>
+                        </td>
+                        <td>
+                          <span className="badge" style={{ fontSize: '11px', background: '#EFF6FF', color: '#1E40AF', border: '1px solid #BFDBFE' }}>{advPct}%</span>
+                        </td>
+                        <td>
+                          <span style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: '700', color: '#16A34A' }}>₹{payout}</span>
+                        </td>
+                        <td>
+                          <span className={`badge ${(srv.active !== false && srv.isActive !== false) ? 'badge-completed' : 'badge-cancelled'}`}>
+                            {(srv.active !== false && srv.isActive !== false) ? 'Active' : 'Disabled'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div className="page-actions-group" style={{ justifyContent: 'flex-end' }}>
+                            <button className="btn btn-outline btn-sm" onClick={() => openServiceModal(srv)}>Edit</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDeleteService(srv.id, srv.name)}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -896,9 +945,28 @@ export default function ServicesManager({ categories, setCategories, services, s
               <h2 className="page-title">Technician Skills Directory</h2>
               <p className="page-subtitle">Configure granular skills hierarchy (Category → Service → Skill) for onboarding & dispatch matching</p>
             </div>
-            <button className="btn btn-primary" onClick={() => openSkillModal()}>
-              + Add Skill
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn btn-outline"
+                onClick={async () => {
+                  setLoadingSkills(true);
+                  try {
+                    await loadSkills();
+                    if (onReload) await onReload();
+                  } finally {
+                    setLoadingSkills(false);
+                  }
+                }}
+                disabled={loadingSkills}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span className={loadingSkills ? 'spin-icon' : ''}>🔄</span>
+                <span>{loadingSkills ? 'Refreshing...' : 'Refresh Skills'}</span>
+              </button>
+              <button className="btn btn-primary" onClick={() => openSkillModal()}>
+                + Add Skill
+              </button>
+            </div>
           </div>
 
           <div className="toolbar-row">
@@ -1003,6 +1071,18 @@ export default function ServicesManager({ categories, setCategories, services, s
             <div>
               <h2 className="page-title">⚙️ Intelligent Dispatch & Skill Matching Engine Rules</h2>
               <p className="page-subtitle">Configure search radius, skill matching strictness, candidate score weights, proposal timeouts, and escalation triggers</p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={loadMatchingRules}
+                disabled={loadingRules}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span className={loadingRules ? 'spin-icon' : ''}>🔄</span>
+                <span>{loadingRules ? 'Refreshing...' : 'Refresh Rules'}</span>
+              </button>
             </div>
           </div>
 
@@ -1115,15 +1195,15 @@ export default function ServicesManager({ categories, setCategories, services, s
               </div>
             </div>
 
-            {/* 3. Notification Timeouts & Escalation Triggers */}
+            {/* 3. Proposal Timeouts & Candidate Failover Escalation */}
             <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #E2E8F0)', borderRadius: '12px', padding: '20px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '14px', color: 'var(--text-main)' }}>
-                ⏱️ 3. Notification Countdown & Admin Escalation Triggers
+                ⏱️ 3. Proposal Timeouts & Dispatch Candidate Failover Escalation
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                 <div className="form-group">
                   <label className="form-label">
-                    Proposal Countdown Timeout: <strong style={{ color: 'var(--primary)' }}>{matchingRules.notificationTimeoutSeconds} seconds</strong>
+                    Notification Response Window: <strong>{matchingRules.notificationTimeoutSeconds} seconds</strong>
                   </label>
                   <input
                     type="range"
@@ -1134,7 +1214,7 @@ export default function ServicesManager({ categories, setCategories, services, s
                     onChange={e => setMatchingRules({ ...matchingRules, notificationTimeoutSeconds: Number(e.target.value) })}
                     style={{ width: '100%', accentColor: 'var(--primary)' }}
                   />
-                  <small style={{ color: 'var(--text-secondary)' }}>Seconds technician has to accept before cascading to next candidate</small>
+                  <small style={{ color: 'var(--text-secondary)' }}>Countdown before automatically failing over to the next best candidate (Default: 30s)</small>
                 </div>
 
                 <div className="form-group">
@@ -1187,9 +1267,20 @@ export default function ServicesManager({ categories, setCategories, services, s
               <h2 className="page-title">Popular Services Management</h2>
               <p className="page-subtitle">Feature top performing services on mobile home page highlight carousels</p>
             </div>
-            <button className="btn btn-primary" onClick={() => openPopularModal()}>
-              + Add Popular Service
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn btn-outline"
+                onClick={handleRefreshCatalog}
+                disabled={isSpinning}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span className={isSpinning ? 'spin-icon' : ''}>🔄</span>
+                <span>{isSpinning ? 'Refreshing...' : 'Refresh Popular'}</span>
+              </button>
+              <button className="btn btn-primary" onClick={() => openPopularModal()}>
+                + Add Popular Service
+              </button>
+            </div>
           </div>
 
           <div className="table-responsive">
@@ -1259,9 +1350,20 @@ export default function ServicesManager({ categories, setCategories, services, s
               <h2 className="page-title">Service Image Asset Repository</h2>
               <p className="page-subtitle">Central flat gallery for high-resolution app and category icons</p>
             </div>
-            <button className="btn btn-primary" onClick={() => alert('Flat file upload simulation: Image uploaded to CDN asset bucket!')}>
-              + Upload Image
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn btn-outline"
+                onClick={handleRefreshCatalog}
+                disabled={isSpinning}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span className={isSpinning ? 'spin-icon' : ''}>🔄</span>
+                <span>{isSpinning ? 'Refreshing...' : 'Refresh Gallery'}</span>
+              </button>
+              <button className="btn btn-primary" onClick={() => alert('Flat file upload simulation: Image uploaded to CDN asset bucket!')}>
+                + Upload Image
+              </button>
+            </div>
           </div>
 
           <div className="table-responsive">
@@ -1323,9 +1425,20 @@ export default function ServicesManager({ categories, setCategories, services, s
               <h2 className="page-title">Authorized Brand Management</h2>
               <p className="page-subtitle">Manage supported appliance manufacturers and display orders</p>
             </div>
-            <button className="btn btn-primary" onClick={() => openBrandModal()}>
-              + Add Brand
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                className="btn btn-outline"
+                onClick={handleRefreshCatalog}
+                disabled={isSpinning}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span className={isSpinning ? 'spin-icon' : ''}>🔄</span>
+                <span>{isSpinning ? 'Refreshing...' : 'Refresh Brands'}</span>
+              </button>
+              <button className="btn btn-primary" onClick={() => openBrandModal()}>
+                + Add Brand
+              </button>
+            </div>
           </div>
 
           <div className="table-responsive">

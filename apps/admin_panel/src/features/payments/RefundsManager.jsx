@@ -1,22 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import api from '../../api/apiClient';
 
-export default function RefundsManager({ auditLogAction }) {
+export default function RefundsManager({ auditLogAction, onReload, isSyncing = false }) {
   const [refunds, setRefunds] = useState([]);
   const [activeTab, setActiveTab] = useState('ALL');
+  const [loading, setLoading] = useState(false);
+  const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  const isSpinning = isSyncing || localRefreshing || loading;
+
+  const fetchRefunds = useCallback(async () => {
+    setLocalRefreshing(true);
+    setLoading(true);
+    try {
+      if (onReload) {
+        await onReload();
+      }
+      const res = await api.getRefunds().catch(() => null);
+      if (res?.data && Array.isArray(res.data)) {
+        setRefunds(res.data);
+      }
+    } catch (err) {
+      console.error('Error fetching refunds:', err);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setLocalRefreshing(false), 300);
+    }
+  }, [onReload]);
 
   useEffect(() => {
-    const token = localStorage.getItem('bt_admin_token');
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-
-    fetch('/api/v1/admin/refunds', { headers })
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.data && Array.isArray(data.data)) {
-          setRefunds(data.data);
-        }
-      })
-      .catch(() => {});
-  }, []);
+    fetchRefunds();
+  }, [fetchRefunds]);
 
   const filteredRefunds = refunds.filter(r => {
     if (activeTab === 'ALL') return true;
@@ -57,6 +71,16 @@ export default function RefundsManager({ auditLogAction }) {
             <p className="page-subtitle">
               Statutory Policy: Booking Charge (₹99) and GST (18%) are retained. Only eligible base service fee is refunded.
             </p>
+          </div>
+          <div className="page-actions-group">
+            <button 
+              className="btn btn-outline btn-sm" 
+              onClick={fetchRefunds} 
+              disabled={isSpinning}
+              title="Refresh refund claims from server"
+            >
+              <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Refunds'}
+            </button>
           </div>
         </div>
 
