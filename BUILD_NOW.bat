@@ -24,29 +24,36 @@ if "%JAVA_HOME%"=="" (
 )
 :found_java
 
-:: Auto-detect healthy Flutter SDK
-set "FLUTTER_FOUND=0"
+:: Auto-detect healthy Flutter SDK (Strict check for flutter_tools)
+set "FLUTTER_CMD="
 for %%P in ("D:\flutter\bin" "C:\flutter\bin" "D:\src\flutter\bin" "C:\src\flutter\bin" "C:\Users\RAHUL\flutter\bin") do (
     if exist "%%~P\flutter.bat" (
         if exist "%%~P\..\packages\flutter_tools" (
             set "PATH=%%~P;!PATH!"
-            set "FLUTTER_FOUND=1"
+            set "FLUTTER_CMD=%%~P\flutter.bat"
             goto :found_flutter
         )
     )
 )
 
-where flutter >nul 2>nul
-if %errorlevel% equ 0 set "FLUTTER_FOUND=1"
-
-if "!FLUTTER_FOUND!"=="0" (
+if "%FLUTTER_CMD%"=="" (
     echo.
-    echo [!] Flutter SDK is not installed or installation is corrupted.
-    echo [*] Automatically downloading and installing fresh Flutter SDK...
+    echo ==================================================
+    echo [!] Healthy Flutter SDK not found.
+    echo [*] Starting automatic Flutter SDK download & setup...
+    echo ==================================================
     powershell -ExecutionPolicy Bypass -File "%ROOT%install_flutter.ps1"
-    set "PATH=D:\flutter\bin;C:\flutter\bin;!PATH!"
+    if exist "D:\flutter\bin\flutter.bat" (
+        set "PATH=D:\flutter\bin;!PATH!"
+        set "FLUTTER_CMD=D:\flutter\bin\flutter.bat"
+    ) else if exist "C:\flutter\bin\flutter.bat" (
+        set "PATH=C:\flutter\bin;!PATH!"
+        set "FLUTTER_CMD=C:\flutter\bin\flutter.bat"
+    )
 )
+
 :found_flutter
+if "%FLUTTER_CMD%"=="" set "FLUTTER_CMD=flutter"
 
 :: ─── 1. Technician App ───────────────────────────────────────
 echo.
@@ -54,9 +61,9 @@ echo [1/2] Technician App (Flutter)
 echo --------------------------------------------------
 if exist "%ROOT%apps\technician_app" (
     cd /d "%ROOT%apps\technician_app"
-    call flutter pub get
+    call "%FLUTTER_CMD%" pub get
     if errorlevel 1 goto :err1
-    call flutter build apk --debug
+    call "%FLUTTER_CMD%" build apk --debug
     if errorlevel 1 goto :err1
     if exist "build\app\outputs\flutter-apk\app-debug.apk" (
         copy /y "build\app\outputs\flutter-apk\app-debug.apk" "%OUT%\technician_app-debug.apk" >nul
@@ -75,9 +82,9 @@ echo [2/2] Customer App (Flutter)
 echo --------------------------------------------------
 if exist "%ROOT%apps\customer_app_flutter" (
     cd /d "%ROOT%apps\customer_app_flutter"
-    call flutter pub get
+    call "%FLUTTER_CMD%" pub get
     if errorlevel 1 goto :err2
-    call flutter build apk --debug
+    call "%FLUTTER_CMD%" build apk --debug
     if errorlevel 1 goto :err2
     if exist "build\app\outputs\flutter-apk\app-debug.apk" (
         copy /y "build\app\outputs\flutter-apk\app-debug.apk" "%OUT%\customer_app-debug.apk" >nul
