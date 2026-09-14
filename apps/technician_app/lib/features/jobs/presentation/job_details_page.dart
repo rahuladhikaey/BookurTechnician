@@ -1,7 +1,7 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -27,10 +27,12 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
   final _formKey = GlobalKey<FormState>();
   String? _otpError;
   bool _resetSwipeButton = false;
+  GoogleMapController? _mapController;
 
   @override
   void dispose() {
     _otpController.dispose();
+    _mapController?.dispose();
     super.dispose();
   }
 
@@ -58,6 +60,36 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
         ),
       );
     }
+  }
+
+  void _fitMapBounds(TechJob activeJob) {
+    if (_mapController == null) return;
+
+    final custLat = activeJob.customerLatitude ?? 12.971598;
+    final custLng = activeJob.customerLongitude ?? 77.594566;
+    final techLat = activeJob.techLatitude;
+    final techLng = activeJob.techLongitude;
+
+    if (techLat == null || techLng == null) {
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(custLat, custLng), 14.5),
+      );
+      return;
+    }
+
+    final double southWestLat = min(custLat, techLat);
+    final double southWestLng = min(custLng, techLng);
+    final double northEastLat = max(custLat, techLat);
+    final double northEastLng = max(custLng, techLng);
+
+    final LatLngBounds bounds = LatLngBounds(
+      southwest: LatLng(southWestLat, southWestLng),
+      northeast: LatLng(northEastLat, northEastLng),
+    );
+
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, 70),
+    );
   }
 
   void _showStartOtpModal(BuildContext context, JobState jobState, JobStateNotifier notifier) {
@@ -385,7 +417,7 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
                         ),
                         const SizedBox(height: AppSpacing.m),
 
-                        // OpenStreetMap Map View for Job Details
+                        // ─── NATIVE GOOGLE MAP SDK EMBEDDED NAVIGATION VIEW ───
                         Card(
                           clipBehavior: Clip.antiAlias,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.m)),
@@ -394,74 +426,99 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
                               SizedBox(
                                 height: 260,
                                 width: double.infinity,
-                                child: FlutterMap(
-                                  options: MapOptions(
-                                    initialCenter: LatLng(
+                                child: GoogleMap(
+                                  initialCameraPosition: CameraPosition(
+                                    target: LatLng(
                                       activeJob.customerLatitude ?? 12.971598,
                                       activeJob.customerLongitude ?? 77.594566,
                                     ),
-                                    initialZoom: 14.5,
+                                    zoom: 14.5,
                                   ),
-                                  children: [
-                                    TileLayer(
-                                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                      userAgentPackageName: 'com.bookurtechnician.technician',
+                                  markers: {
+                                    // Customer Premise Destination Marker (Red Hue)
+                                    Marker(
+                                      markerId: const MarkerId('customer_dest_pin'),
+                                      position: LatLng(
+                                        activeJob.customerLatitude ?? 12.971598,
+                                        activeJob.customerLongitude ?? 77.594566,
+                                      ),
+                                      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                                      infoWindow: InfoWindow(
+                                        title: 'Customer: ${activeJob.customerName}',
+                                        snippet: activeJob.customerAddress,
+                                      ),
                                     ),
-                                    PolylineLayer(
-                                      polylines: [
-                                        if (activeJob.techLatitude != null && activeJob.customerLatitude != null)
-                                          Polyline(
-                                            points: [
-                                              LatLng(activeJob.techLatitude!, activeJob.techLongitude!),
-                                              LatLng(activeJob.customerLatitude!, activeJob.customerLongitude!),
-                                            ],
-                                            color: AppColors.primary,
-                                            strokeWidth: 4,
-                                          ),
-                                      ],
-                                    ),
-                                    MarkerLayer(
-                                      markers: [
-                                        Marker(
-                                          point: LatLng(
-                                            activeJob.customerLatitude ?? 12.971598,
-                                            activeJob.customerLongitude ?? 77.594566,
-                                          ),
-                                          width: 40,
-                                          height: 40,
-                                          child: const Icon(Icons.location_pin, color: Colors.red, size: 32),
+                                    // Technician Live GPS Marker (Cyan Hue)
+                                    if (activeJob.techLatitude != null && activeJob.techLongitude != null)
+                                      Marker(
+                                        markerId: const MarkerId('technician_gps_pin'),
+                                        position: LatLng(activeJob.techLatitude!, activeJob.techLongitude!),
+                                        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
+                                        infoWindow: const InfoWindow(
+                                          title: 'Your Live GPS Location',
+                                          snippet: 'Broadcasting live coordinates',
                                         ),
-                                        if (activeJob.techLatitude != null && activeJob.techLongitude != null)
-                                          Marker(
-                                            point: LatLng(
-                                              activeJob.techLatitude!,
-                                              activeJob.techLongitude!,
-                                            ),
-                                            width: 40,
-                                            height: 40,
-                                            child: const Icon(Icons.navigation, color: AppColors.primary, size: 28),
-                                          ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                  },
+                                  polylines: {
+                                    if (activeJob.techLatitude != null &&
+                                        activeJob.techLongitude != null &&
+                                        activeJob.customerLatitude != null &&
+                                        activeJob.customerLongitude != null)
+                                      Polyline(
+                                        polylineId: const PolylineId('technician_to_customer_route'),
+                                        points: [
+                                          LatLng(activeJob.techLatitude!, activeJob.techLongitude!),
+                                          LatLng(activeJob.customerLatitude!, activeJob.customerLongitude!),
+                                        ],
+                                        color: const Color(0xFF2563EB),
+                                        width: 5,
+                                        jointType: JointType.round,
+                                      ),
+                                  },
+                                  myLocationEnabled: true,
+                                  myLocationButtonEnabled: false,
+                                  zoomControlsEnabled: false,
+                                  mapToolbarEnabled: false,
+                                  onMapCreated: (controller) {
+                                    _mapController = controller;
+                                    Future.delayed(const Duration(milliseconds: 300), () => _fitMapBounds(activeJob));
+                                  },
                                 ),
                               ),
-                              // Directions Floating action button
+
+                              // Map Floating Controls: Turn-by-Turn Navigation & Recenter
                               Positioned(
                                 top: 12,
                                 right: 12,
-                                child: FloatingActionButton.extended(
-                                  key: const Key('btn_navigate'),
-                                  onPressed: () => _openMapDirections(
-                                    activeJob.customerLatitude,
-                                    activeJob.customerLongitude,
-                                    activeJob.customerAddress,
-                                  ),
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: AppColors.primary,
-                                  elevation: 4,
-                                  icon: const Icon(Icons.navigation, size: 18),
-                                  label: const Text('Directions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    FloatingActionButton.small(
+                                      heroTag: 'btn_tech_recenter',
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: AppColors.primary,
+                                      elevation: 3,
+                                      tooltip: 'Fit Route Bounds',
+                                      onPressed: () => _fitMapBounds(activeJob),
+                                      child: const Icon(Icons.crop_free_rounded, size: 18),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    FloatingActionButton.extended(
+                                      heroTag: 'btn_tech_navigate',
+                                      key: const Key('btn_navigate'),
+                                      onPressed: () => _openMapDirections(
+                                        activeJob.customerLatitude,
+                                        activeJob.customerLongitude,
+                                        activeJob.customerAddress,
+                                      ),
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: Colors.white,
+                                      elevation: 4,
+                                      icon: const Icon(Icons.navigation_rounded, size: 18),
+                                      label: const Text('Start Navigation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -557,7 +614,7 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
                               '${jobState.jobAlertCountdown}',
                               style: TextStyle(
                                 fontSize: 18, 
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.bold, 
                                 color: jobState.jobAlertCountdown > 10 ? AppColors.textPrimary : SemanticColors.error
                               ),
                             ),

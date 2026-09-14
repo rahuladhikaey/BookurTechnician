@@ -245,6 +245,29 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
         ),
     };
 
+    // ─── GOOGLE MAP POLYLINES & CIRCLES ───
+    final Set<Polyline> polylines = {
+      if (_techPos != null)
+        Polyline(
+          polylineId: const PolylineId('route_to_customer'),
+          points: [_techPos!, _userPos],
+          color: const Color(0xFF2146A8),
+          width: 4,
+          jointType: JointType.round,
+        ),
+    };
+
+    final Set<Circle> circles = {
+      Circle(
+        circleId: const CircleId('user_discovery_zone'),
+        center: _userPos,
+        radius: 1500,
+        fillColor: const Color(0x152146A8),
+        strokeColor: const Color(0x552146A8),
+        strokeWidth: 1,
+      ),
+    };
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -285,13 +308,14 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
       ),
       body: Stack(
         children: [
-          // ─── 1. LIGHTWEIGHT STATIC TWO-POINT GOOGLE MAP ───
+          // ─── 1. NATIVE GOOGLE MAP SDK ───
           Positioned.fill(
             bottom: 310,
             child: GoogleMap(
               initialCameraPosition: CameraPosition(target: _userPos, zoom: 14),
               markers: markers,
-              polylines: const {}, // STRICTLY EMPTY - NO POLYLINES OR TURN-BY-TURN ROUTING OVERHEAD
+              polylines: polylines,
+              circles: circles,
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,

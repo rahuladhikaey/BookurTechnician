@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/socket_service.dart';
 import '../dispatch/presentation/incoming_job_alert_dialog.dart';
@@ -27,11 +29,15 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
   final int _completedJobs = 4;
   final double _rating = 4.9;
   Timer? _gpsStreamTimer;
+  GoogleMapController? _radarMapController;
+  LatLng _currentLocation = const LatLng(12.971598, 77.594566);
+  double _currentSpeedKmh = 0.0;
 
   @override
   void initState() {
     super.initState();
     _setupIncomingJobListener();
+    _fetchCurrentLocation();
   }
 
   void _setupIncomingJobListener() {
@@ -40,14 +46,33 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
     );
   }
 
+  Future<void> _fetchCurrentLocation() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 5),
+      );
+      if (mounted) {
+        setState(() {
+          _currentLocation = LatLng(pos.latitude, pos.longitude);
+          _currentSpeedKmh = (pos.speed * 3.6).clamp(0, 140);
+        });
+        _radarMapController?.animateCamera(
+          CameraUpdate.newLatLng(_currentLocation),
+        );
+      }
+    } catch (_) {}
+  }
+
   void _toggleDuty() {
     final newStatus = !_isOnline;
     setState(() => _isOnline = newStatus);
 
     if (newStatus) {
+      _fetchCurrentLocation();
       // Start streaming GPS coordinates
       _gpsStreamTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        // Location stream pulse
+        _fetchCurrentLocation();
       });
     } else {
       _gpsStreamTimer?.cancel();
@@ -57,6 +82,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
   @override
   void dispose() {
     _gpsStreamTimer?.cancel();
+    _radarMapController?.dispose();
     super.dispose();
   }
 
@@ -98,7 +124,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            _isOnline ? 'Online (Accepting Jobs)' : 'Offline',
+                            _isOnline ? 'Online (Streaming GPS Radar)' : 'Offline',
                             style: TextStyle(
                               color: _isOnline
                                   ? TechColors.onlineGreen
@@ -173,6 +199,94 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
               ),
             ),
 
+            const SizedBox(height: 16),
+
+            // ─── GOOGLE MAP RADAR (SHOWN WHEN ONLINE) ───
+            if (_isOnline)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  height: 180,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: TechColors.electricCyan.withValues(alpha: 0.4), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: TechColors.electricCyan.withValues(alpha: 0.15),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    children: [
+                      GoogleMap(
+                        initialCameraPosition: CameraPosition(
+                          target: _currentLocation,
+                          zoom: 14.5,
+                        ),
+                        markers: {
+                          Marker(
+                            markerId: const MarkerId('my_tech_radar_pos'),
+                            position: _currentLocation,
+                            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
+                            infoWindow: InfoWindow(
+                              title: widget.electricianName,
+                              snippet: 'Speed: ${_currentSpeedKmh.toStringAsFixed(1)} km/h',
+                            ),
+                          ),
+                        },
+                        circles: {
+                          Circle(
+                            circleId: const CircleId('radar_coverage_circle'),
+                            center: _currentLocation,
+                            radius: 1500,
+                            fillColor: const Color(0x2200E5FF),
+                            strokeColor: const Color(0x8800E5FF),
+                            strokeWidth: 2,
+                          ),
+                        },
+                        myLocationEnabled: true,
+                        myLocationButtonEnabled: false,
+                        zoomControlsEnabled: false,
+                        mapToolbarEnabled: false,
+                        onMapCreated: (ctrl) {
+                          _radarMapController = ctrl;
+                        },
+                      ),
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xDD0C1322),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: TechColors.electricCyan, width: 0.8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.radar_rounded, color: TechColors.electricCyan, size: 14),
+                              SizedBox(width: 6),
+                              Text(
+                                '15km Hyperlocal Radar Active',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             const Spacer(),
 
             // Big Power / Go Online Button
@@ -184,8 +298,8 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                   onTap: _toggleDuty,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    width: 200,
-                    height: 200,
+                    width: _isOnline ? 130 : 180,
+                    height: _isOnline ? 130 : 180,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: _isOnline
@@ -216,9 +330,9 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                           color: _isOnline
                               ? TechColors.onlineGreen
                               : TechColors.offlineGray,
-                          size: 64,
+                          size: _isOnline ? 44 : 58,
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         Text(
                           _isOnline ? 'GO OFFLINE' : 'GO ONLINE',
                           style: TextStyle(
@@ -226,8 +340,8 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                                 ? TechColors.onlineGreen
                                 : TechColors.platinumSilver,
                             fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                            letterSpacing: 1.5,
+                            fontSize: _isOnline ? 12 : 15,
+                            letterSpacing: 1.2,
                           ),
                         ),
                       ],
@@ -287,7 +401,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                   Expanded(
                     child: Text(
                       _isOnline
-                          ? 'Searching for nearby emergency & repair requests in 10km radius...'
+                          ? 'Streaming live GPS to customer & admin dispatch radar in 15km radius...'
                           : 'You are currently offline. Tap the power button to receive job dispatches.',
                       style: const TextStyle(
                         color: TechColors.platinumSilver,

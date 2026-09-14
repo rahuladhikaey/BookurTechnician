@@ -62,9 +62,13 @@
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>BookUrTechnician needs access to your location to find nearby technicians and track service arrivals in real-time.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>BookUrTechnician needs access to your location to track your booking and technician delivery in real-time.</string>
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
 </dict>
 </plist>

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -320,41 +319,39 @@ class _ServiceExecutionPageState extends ConsumerState<ServiceExecutionPage> {
                 ),
                 const SizedBox(height: AppSpacing.m),
 
-                // OSM Location Pinning Map View at top of Service Execution Page
+                // ─── GOOGLE MAP SDK LOCATION PIN AT PREMISE ───
                 Card(
                   clipBehavior: Clip.antiAlias,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.m)),
                   child: SizedBox(
                     height: 180,
                     width: double.infinity,
-                    child: FlutterMap(
-                      options: MapOptions(
-                        initialCenter: LatLng(
+                    child: GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: LatLng(
                           activeJob.customerLatitude ?? 12.971598,
                           activeJob.customerLongitude ?? 77.594566,
                         ),
-                        initialZoom: 15.0,
-                        interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+                        zoom: 15.0,
                       ),
-                      children: [
-                        TileLayer(
-                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.bookurtechnician.technician',
+                      markers: {
+                        Marker(
+                          markerId: const MarkerId('active_service_premise'),
+                          position: LatLng(
+                            activeJob.customerLatitude ?? 12.971598,
+                            activeJob.customerLongitude ?? 77.594566,
+                          ),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
+                          infoWindow: InfoWindow(
+                            title: 'Customer: ${activeJob.customerName}',
+                            snippet: activeJob.customerAddress,
+                          ),
                         ),
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: LatLng(
-                                activeJob.customerLatitude ?? 12.971598,
-                                activeJob.customerLongitude ?? 77.594566,
-                              ),
-                              width: 34,
-                              height: 34,
-                              child: const Icon(Icons.location_pin, color: Colors.red, size: 28),
-                            ),
-                          ],
-                        ),
-                      ],
+                      },
+                      myLocationEnabled: true,
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
                     ),
                   ),
                 ),

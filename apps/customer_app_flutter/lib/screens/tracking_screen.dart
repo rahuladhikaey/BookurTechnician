@@ -2,10 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'package:latlong2/latlong.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../booking_provider.dart';
 import '../config/app_config.dart';
@@ -33,7 +32,7 @@ class BookingTrackingScreen extends ConsumerStatefulWidget {
 }
 
 class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> with SingleTickerProviderStateMixin {
-  final MapController _mapController = MapController();
+  GoogleMapController? _googleMapController;
 
   // Dynamic real GPS locations
   LatLng _customerLocation = const LatLng(12.971598, 77.594566);
@@ -118,6 +117,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     _interpolationController.dispose();
     _socket?.disconnect();
     _socket?.dispose();
+    _googleMapController?.dispose();
     super.dispose();
   }
 
@@ -376,8 +376,12 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
   }
 
   void _fitRouteBounds() {
+    if (_googleMapController == null) return;
+
     if (_technicianLocation == null) {
-      _mapController.move(_customerLocation, 14.5);
+      _googleMapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(_customerLocation, 15.0),
+      );
       return;
     }
     final techPos = _technicianLocation!;
@@ -386,20 +390,30 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     final northEastLat = max(_customerLocation.latitude, techPos.latitude);
     final northEastLng = max(_customerLocation.longitude, techPos.longitude);
 
-    final midLat = (southWestLat + northEastLat) / 2;
-    final midLng = (southWestLng + northEastLng) / 2;
+    final LatLngBounds bounds = LatLngBounds(
+      southwest: LatLng(southWestLat, southWestLng),
+      northeast: LatLng(northEastLat, northEastLng),
+    );
 
-    _mapController.move(LatLng(midLat, midLng), 14.0);
+    _googleMapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(bounds, 90),
+    );
   }
 
   void _focusTechnician() {
-    if (_technicianLocation != null) {
-      _mapController.move(_technicianLocation!, 16.0);
+    if (_technicianLocation != null && _googleMapController != null) {
+      _googleMapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(_technicianLocation!, 16.5),
+      );
     }
   }
 
   void _focusCustomer() {
-    _mapController.move(_customerLocation, 16.0);
+    if (_googleMapController != null) {
+      _googleMapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(_customerLocation, 16.5),
+      );
+    }
   }
 
   double _haversineDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -519,150 +533,80 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     final effectiveTechPos = _technicianLocation;
     final hasTechPos = effectiveTechPos != null;
 
-    final routePoints = <LatLng>[
-      if (hasTechPos) effectiveTechPos,
-      _customerLocation,
-    ];
+    // ─── GOOGLE MAP MARKERS ───
+    final Set<Marker> markers = {
+      // 1. Customer Premise Pin (Cyan/Azure Hue)
+      Marker(
+        markerId: const MarkerId('customer_premise_marker'),
+        position: _customerLocation,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
+        infoWindow: InfoWindow(
+          title: 'Your Service Location',
+          snippet: booking.address.isNotEmpty ? booking.address : 'Destination Address',
+        ),
+      ),
+      // 2. Live Moving Technician Marker (Green Hue with Heading Rotation)
+      if (hasTechPos)
+        Marker(
+          markerId: const MarkerId('technician_live_marker'),
+          position: effectiveTechPos,
+          rotation: _technicianHeading,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          infoWindow: InfoWindow(
+            title: booking.technicianName.isNotEmpty ? booking.technicianName : 'Technician',
+            snippet: _calculateEta(),
+          ),
+        ),
+    };
+
+    // ─── GOOGLE MAP POLYLINES ───
+    final Set<Polyline> polylines = {
+      if (hasTechPos)
+        Polyline(
+          polylineId: const PolylineId('technician_route_polyline'),
+          points: [effectiveTechPos, _customerLocation],
+          color: const Color(0xFF2563EB),
+          width: 5,
+          jointType: JointType.round,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+        ),
+    };
+
+    // ─── GOOGLE MAP 15KM DISCOVERY RADIUS CIRCLE ───
+    final Set<Circle> circles = {
+      Circle(
+        circleId: const CircleId('service_discovery_circle'),
+        center: _customerLocation,
+        radius: 1500, // 1.5km visual discovery zone
+        fillColor: const Color(0x182563EB),
+        strokeColor: const Color(0x662563EB),
+        strokeWidth: 2,
+      ),
+    };
 
     return Scaffold(
       body: Stack(
         children: [
-          // ─── 1. INTERACTIVE OPENSTREETMAP (RAPIDO/ZOMATO/UBER STYLE) ───
+          // ─── 1. NATIVE GOOGLE MAP SDK CANVAS (VECTOR MAPS WITH LIVE TRACKING) ───
           Positioned.fill(
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: effectiveTechPos ?? _customerLocation,
-                initialZoom: 14.5,
-                maxZoom: 18,
-                minZoom: 10,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: effectiveTechPos ?? _customerLocation,
+                zoom: 14.5,
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.bookurtechnician.customer',
-                ),
-
-                // 15 km Discovery Geo-Scan Circle around Customer Location
-                CircleLayer(
-                  circles: [
-                    CircleMarker(
-                      point: _customerLocation,
-                      radius: 1200,
-                      useRadiusInMeter: true,
-                      color: const Color(0x150284C7),
-                      borderColor: const Color(0x660284C7),
-                      borderStrokeWidth: 1.5,
-                    ),
-                  ],
-                ),
-                
-                // Real-time Dynamic Polyline between Tech & Customer (Only when tech is live)
-                if (hasTechPos)
-                  PolylineLayer(
-                    polylines: [
-                      Polyline(
-                        points: routePoints,
-                        color: kBrandPrimary,
-                        strokeWidth: 4.5,
-                        borderColor: const Color(0xFF93C5FD),
-                        borderStrokeWidth: 2.0,
-                      ),
-                    ],
-                  ),
-
-                // Markers layer for OSM
-                MarkerLayer(
-                  markers: [
-                    // 1. Customer Location Marker with Beacon
-                    Marker(
-                      point: _customerLocation,
-                      width: 140,
-                      height: 80,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A),
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                            ),
-                            child: const Text(
-                              'Your Location',
-                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: const Color(0xFF0284C7), width: 3),
-                              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
-                            ),
-                            child: const Center(
-                              child: Icon(Icons.person, color: Color(0xFF0284C7), size: 16),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // 2. Live Moving Technician Marker (Shown only when real GPS is streaming)
-                    if (hasTechPos)
-                      Marker(
-                        point: effectiveTechPos,
-                        width: 140,
-                        height: 80,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF16A34A),
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.two_wheeler_rounded, color: Colors.white, size: 12),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    booking.technicianName.isNotEmpty ? booking.technicianName.split(' ').first : 'Technician',
-                                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Transform.rotate(
-                              angle: (_technicianHeading * pi / 180),
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 8)],
-                                  border: Border.all(color: const Color(0xFF16A34A), width: 2.5),
-                                ),
-                                child: const Center(
-                                  child: Icon(Icons.navigation_rounded, color: Color(0xFF16A34A), size: 20),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ],
+              markers: markers,
+              polylines: polylines,
+              circles: circles,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              mapToolbarEnabled: false,
+              compassEnabled: true,
+              onMapCreated: (controller) {
+                _googleMapController = controller;
+                Future.delayed(const Duration(milliseconds: 400), _fitRouteBounds);
+              },
             ),
           ),
 
@@ -710,9 +654,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
+                                      const Text(
                                         '15 km Geo-Scan Active',
-                                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: Color(0xFF0F172A)),
+                                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: Color(0xFF0F172A)),
                                       ),
                                       Text(
                                         '#${booking.id} • $serviceTitle',
