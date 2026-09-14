@@ -33,13 +33,10 @@ services:
       - key: BREVO_SENDER_EMAIL
         value: noreply@bookurtechnician.com
 
-  # ─── 2. REACT VITE ADMIN PANEL (STATIC SITE) ─────────────────────────────────
-  - type: web
+  # ─── 2. REACT VITE ADMIN PANEL (GLOBAL CDN STATIC SITE) ─────────────────────
+  - type: static
     name: bookurtechnician-admin
-    runtime: static
     rootDir: apps/admin_panel
-    plan: free
-    region: singapore
     branch: main
     autoDeploy: true
     buildCommand: npm install && npm run build
@@ -59,6 +56,6 @@ databases:
   # ─── 3. FREE MANAGED POSTGRESQL DATABASE ─────────────────────────────────────
   - name: bookurtechnician-db
     databaseName: bookurtechnician
-    user: postgres
+    user: bookurtechnician
     plan: free
     region: singapore
