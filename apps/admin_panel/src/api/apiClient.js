@@ -20,9 +20,12 @@ const getInitialBaseUrl = () => {
   }
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    // If running in production (Render, Vercel, Netlify, Custom Domain), point directly to live backend
+    // If running in production (admin.bookurtechnician.online, Render, Vercel, etc.)
+    if (host.includes('bookurtechnician.online')) {
+      return PRIMARY_API_BASE_URL;
+    }
     if (host !== 'localhost' && host !== '127.0.0.1') {
-      return FALLBACK_API_BASE_URL;
+      return PRIMARY_API_BASE_URL;
     }
   }
   return '/api/v1';
