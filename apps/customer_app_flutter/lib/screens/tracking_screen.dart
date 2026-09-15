@@ -177,8 +177,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
   void _initSocket() {
     try {
       _socket = io.io(AppConfig.socketUrl, io.OptionBuilder()
-        .setTransports(['websocket'])
+        .setTransports(['websocket', 'polling'])
         .enableAutoConnect()
+        .enableReconnection()
         .build());
 
       _socket!.onConnect((_) {

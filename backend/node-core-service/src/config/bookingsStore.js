@@ -378,6 +378,17 @@ function clearAllCustomers() {
   return true;
 }
 
+/**
+ * Find active assigned booking for a technician
+ */
+function findActiveBookingForTechnician(techId) {
+  if (!techId) return null;
+  return LIVE_BOOKINGS.find(
+    b => (b.technicianId === techId || b.technicianPhone === techId) &&
+         ['ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ARRIVED', 'IN_PROGRESS', 'STARTED'].includes(b.status)
+  );
+}
+
 module.exports = {
   getAllBookings,
   getBookingById,
@@ -394,5 +405,6 @@ module.exports = {
   clearAllCustomers,
   updateTechnicianLocation,
   getBookingLiveTracking,
+  findActiveBookingForTechnician,
 };
 

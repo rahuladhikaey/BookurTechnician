@@ -27,16 +27,17 @@ const calculateHaversineKm = (lat1, lon1, lat2, lon2) => {
  * Standardize category keys across queries
  */
 const normalizeCategoryKey = (cat) => {
-  if (!cat) return '';
+  if (!cat) return 'electrician';
   const lower = String(cat).trim().toLowerCase();
-  if (lower.includes('elect')) return 'electrician';
-  if (lower.includes('plumb')) return 'plumber';
-  if (lower.includes('carp')) return 'carpenter';
-  if (lower.includes('paint')) return 'painter';
-  if (lower.includes('clean')) return 'cleaning';
-  if (lower.includes('appliance') || lower.includes('repair')) return 'appliance_repair';
-  if (lower.includes('ac') || lower.includes('air')) return 'ac_repair';
-  return lower;
+  if (lower.includes('ac') || lower.includes('air') || lower.includes('cool')) return 'ac';
+  if (lower.includes('elect') || lower.includes('wire') || lower.includes('fan') || lower.includes('light')) return 'electrician';
+  if (lower.includes('plumb') || lower.includes('pipe') || lower.includes('leak') || lower.includes('tap')) return 'plumbing';
+  if (lower.includes('carp') || lower.includes('wood') || lower.includes('door')) return 'carpenter';
+  if (lower.includes('paint') || lower.includes('wall')) return 'painter';
+  if (lower.includes('clean') || lower.includes('house') || lower.includes('sofa') || lower.includes('pest')) return 'cleaning';
+  if (lower.includes('appliance') || lower.includes('wash') || lower.includes('fridge') || lower.includes('refrig') || lower.includes('ro_')) return 'appliance';
+  if (lower.includes('cctv') || lower.includes('cam')) return 'cctv';
+  return lower.replace(/^cat_/, '').replace(/^category_/, '');
 };
 
 /**
@@ -504,6 +505,64 @@ const scanNearbyTechnicians = async ({
           });
         }
       }
+    }
+  }
+
+  // ─── 5. TIER 5: ONLINE TECHNICIANS FALLBACK ──────────────────────────────
+  if (matchedMap.size === 0) {
+    for (const [tId, p] of inMemoryTechProfiles.entries()) {
+      if (p && (p.isOnline === true || p.is_online === true)) {
+        const tLat = p.currentLatitude || custLat;
+        const tLng = p.currentLongitude || custLng;
+        const dist = calculateHaversineKm(custLat, custLng, tLat, tLng);
+        matchedMap.set(tId, {
+          technicianId: tId,
+          technicianCode: p.technicianCode || `BT-TECH-${tId.slice(-4).toUpperCase()}`,
+          name: p.fullName || 'Verified Partner',
+          phone: p.phone || '',
+          category: p.category || normCat || 'General',
+          rating: 4.9,
+          distanceKm: parseFloat(dist.toFixed(2)),
+          etaMinutes: Math.max(5, Math.round(dist * 3.5 + 5)),
+          latitude: tLat,
+          longitude: tLng,
+          isOnline: true,
+          source: 'IN_MEMORY_FALLBACK',
+        });
+      }
+    }
+
+    if (postgres.isPgHealthy()) {
+      try {
+        const fallbackRes = await postgres.query(`
+          SELECT id, technician_id, technician_code, full_name, phone, category, rating, current_latitude, current_longitude
+          FROM technician_profiles
+          WHERE is_online = true
+          LIMIT 10;
+        `);
+        for (const row of fallbackRes.rows) {
+          const techId = row.technician_id || row.id;
+          if (!matchedMap.has(techId)) {
+            const tLat = row.current_latitude ? parseFloat(row.current_latitude) : custLat;
+            const tLng = row.current_longitude ? parseFloat(row.current_longitude) : custLng;
+            const dist = calculateHaversineKm(custLat, custLng, tLat, tLng);
+            matchedMap.set(techId, {
+              technicianId: techId,
+              technicianCode: row.technician_code || `BT-TECH-${techId.slice(-4).toUpperCase()}`,
+              name: row.full_name || 'Verified Partner',
+              phone: row.phone || '',
+              category: row.category || normCat || 'General',
+              rating: parseFloat(row.rating) || 4.9,
+              distanceKm: parseFloat(dist.toFixed(2)),
+              etaMinutes: Math.max(5, Math.round(dist * 3.5 + 5)),
+              latitude: tLat,
+              longitude: tLng,
+              isOnline: true,
+              source: 'POSTGRES_ONLINE_FALLBACK',
+            });
+          }
+        }
+      } catch (_) {}
     }
   }
 

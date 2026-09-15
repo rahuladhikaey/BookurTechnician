@@ -178,13 +178,21 @@ io.on('connection', (socket) => {
       }
 
       // Update in centralized live bookings store
+      let activeBookingId = bookingId || null;
+      let customerId = null;
+
       try {
         bookingsStore.updateTechnicianLocation(techId, parsedLat, parsedLng, parsedSpeed, parsedHeading);
+        const activeBooking = bookingsStore.findActiveBookingForTechnician(techId);
+        if (activeBooking) {
+          if (!activeBookingId) activeBookingId = activeBooking.id;
+          customerId = activeBooking.customerId;
+        }
       } catch (_) {}
 
       const locationPayload = {
         technicianId: techId,
-        bookingId: bookingId || null,
+        bookingId: activeBookingId,
         longitude: parsedLng,
         latitude: parsedLat,
         speed: parsedSpeed,
@@ -204,8 +212,13 @@ io.on('connection', (socket) => {
         timestamp: Date.now(),
       });
 
-      if (bookingId) {
-        io.to(`booking_${bookingId}`).emit('job:partner_location', locationPayload);
+      if (activeBookingId) {
+        io.to(`booking_${activeBookingId}`).emit('job:partner_location', locationPayload);
+        io.to(`booking_${activeBookingId}`).emit('telemetry', locationPayload);
+      }
+      if (customerId) {
+        io.to(`cust_${customerId}`).emit('job:partner_location', locationPayload);
+        io.to(`cust_${customerId}`).emit('telemetry', locationPayload);
       }
     }
   };

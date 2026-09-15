@@ -260,14 +260,17 @@ class TechnicianSocketService {
     double? speed,
     double? heading,
     String? category,
+    String? bookingId,
   }) {
     if (_socket != null && _socket!.connected) {
       _socket!.emit('technician:location:update', {
+        'technicianId': _currentTechnicianId ?? '',
         'latitude': latitude,
         'longitude': longitude,
         'speed': speed,
         'heading': heading,
         'category': category ?? _currentCategory,
+        if (bookingId != null && bookingId.isNotEmpty) 'bookingId': bookingId,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
     }

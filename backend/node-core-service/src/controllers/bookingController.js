@@ -354,6 +354,8 @@ const createBooking = async (req, res) => {
       global.io.emit('booking:dispatch_ringing', dispatchRingingPayload);
       global.io.emit('TECHNICIAN_BOOKING_REQUEST', dispatchRingingPayload);
       global.io.emit('booking:new_available', bookingRecord);
+      global.io.to('global_dispatch').emit('booking:dispatch_ringing', dispatchRingingPayload);
+      global.io.to('global_dispatch').emit('TECHNICIAN_BOOKING_REQUEST', dispatchRingingPayload);
       global.io.to(`category_${normCatKey}`).emit('booking:dispatch_ringing', dispatchRingingPayload);
       global.io.to(`category_${normCatKey}`).emit('TECHNICIAN_BOOKING_REQUEST', dispatchRingingPayload);
       global.io.to(`category_${(category || '').toLowerCase()}`).emit('booking:dispatch_ringing', dispatchRingingPayload);
