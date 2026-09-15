@@ -153,6 +153,7 @@ const createCoreTables = async () => {
         skills JSONB DEFAULT '[]'::jsonb,
         experience_years INT DEFAULT 2,
         kyc_status VARCHAR(30) DEFAULT 'PENDING',
+        account_status VARCHAR(30) DEFAULT 'Active',
         is_online BOOLEAN DEFAULT false,
         current_latitude DOUBLE PRECISION,
         current_longitude DOUBLE PRECISION,
@@ -168,6 +169,8 @@ const createCoreTables = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
+
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS account_status VARCHAR(30) DEFAULT 'Active';
 
       CREATE INDEX IF NOT EXISTS idx_technician_profiles_location ON technician_profiles USING GIST(location);
       CREATE INDEX IF NOT EXISTS idx_technician_profiles_status_perf ON technician_profiles(is_online, availability_status, kyc_status, last_location_update);

@@ -241,11 +241,10 @@ const verifyOtp = async (req, res) => {
               id, technician_id, technician_code, full_name, phone, category,
               experience_years, kyc_status, is_online, rating, total_jobs_completed,
               wallet_balance, created_at, updated_at
-            ) VALUES ($1, $1, $2, $3, $4, 'Electrician', 2, 'PENDING', true, 5.0, 0, 0.00, NOW(), NOW())
+            ) VALUES ($1, $1, $2, $3, $4, 'Electrician', 2, 'PENDING', false, 5.0, 0, 0.00, NOW(), NOW())
             ON CONFLICT (technician_id) DO UPDATE 
             SET full_name = EXCLUDED.full_name,
                 phone = EXCLUDED.phone,
-                is_online = true,
                 updated_at = NOW();
           `, [userId, techCode, userName, techPhone]);
         } catch (tpErr) {
@@ -262,7 +261,7 @@ const verifyOtp = async (req, res) => {
             fullName: userName,
             phone: techPhone,
             email: techEmail,
-            isOnline: true,
+            isOnline: false,
             fcmToken: fcmToken || null,
           },
           { upsert: true, new: true }
@@ -281,7 +280,7 @@ const verifyOtp = async (req, res) => {
           phone: techPhone,
           email: techEmail,
           category: 'Electrician',
-          isOnline: true,
+          isOnline: false,
           kycStatus: 'PENDING',
           rating: 5.0,
           joinedAt: new Date().toISOString(),
@@ -295,7 +294,7 @@ const verifyOtp = async (req, res) => {
           fullName: userName,
           phone: techPhone,
           email: techEmail,
-          isOnline: true,
+          isOnline: false,
           joinedAt: new Date().toISOString(),
         });
         global.io.emit('technicians:updated', { action: 'REGISTERED', technicianId: userId });

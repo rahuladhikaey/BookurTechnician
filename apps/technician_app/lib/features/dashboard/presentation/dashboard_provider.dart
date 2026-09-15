@@ -249,7 +249,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
   DashboardNotifier()
       : super(
           DashboardState(
-            isOnline: true,
+            isOnline: false,
             banners: TechnicianBanner.getDefaultBanners(),
             currentProposal: null,
             proposalCountdown: 0,

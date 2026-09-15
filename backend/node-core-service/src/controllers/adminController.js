@@ -648,6 +648,7 @@ const getTechnicians = async (req, res) => {
             COALESCE(tp.category, 'Electrician') as category,
             tp.skills,
             tp.kyc_status as "kycStatus",
+            COALESCE(tp.account_status, 'Active') as status,
             tp.rating,
             tp.total_jobs_completed as "totalJobsCompleted",
             tp.is_online as "isOnline",
@@ -689,6 +690,7 @@ const getTechnicians = async (req, res) => {
             category: row.category || existing.category || 'Electrician',
             skills: Array.isArray(row.skills) ? row.skills : (existing.skills || []),
             kycStatus: row.kycStatus || existing.kycStatus || 'PENDING',
+            status: row.status || existing.status || 'Active',
             rating: parseFloat(row.rating || existing.rating || 5.0),
             totalJobsCompleted: parseInt(row.totalJobsCompleted || existing.totalJobsCompleted || 0, 10),
             isOnline: Boolean(row.isOnline !== undefined ? row.isOnline : existing.isOnline),
@@ -956,20 +958,35 @@ const getTechnicians = async (req, res) => {
 
 const updateTechnicianStatus = async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status } = req.body; // 'Active' or 'Suspended'
   try {
+    const nextStatus = status === 'Suspended' ? 'Suspended' : 'Active';
+
     if (inMemoryTechProfiles.has(id)) {
-      inMemoryTechProfiles.get(id).isOnline = status === 'ONLINE' || status === true;
+      const tech = inMemoryTechProfiles.get(id);
+      tech.status = nextStatus;
+      if (nextStatus === 'Suspended') {
+        tech.isOnline = false;
+      }
     }
+
     if (postgres.isPgHealthy()) {
       await postgres.query(`
         UPDATE technician_profiles
-        SET kyc_status = $1, updated_at = NOW()
+        SET account_status = $1,
+            is_online = CASE WHEN $1 = 'Suspended' THEN false ELSE is_online END,
+            updated_at = NOW()
         WHERE technician_id = $2 OR id = $2;
-      `, [status, id]);
+      `, [nextStatus, id]);
     }
-  } catch (e) {}
-  return res.json({ success: true, message: `Technician status updated to ${status}`, id, status });
+
+    if (global.io) {
+      global.io.emit('technicians:updated', { action: 'STATUS_CHANGED', technicianId: id, status: nextStatus });
+    }
+  } catch (e) {
+    console.warn('⚠️ updateTechnicianStatus warning:', e.message);
+  }
+  return res.json({ success: true, message: `Technician status updated to ${status}`, id, status: status === 'Suspended' ? 'Suspended' : 'Active' });
 };
 
 const createTechnician = async (req, res) => {
