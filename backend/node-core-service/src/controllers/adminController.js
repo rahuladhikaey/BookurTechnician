@@ -556,21 +556,35 @@ const getCustomers = async (req, res) => {
             u.phone,
             u.email,
             u.created_at as "createdAt",
-            u.updated_at as "updatedAt"
+            u.updated_at as "updatedAt",
+            ca.house_flat as "houseFlat",
+            ca.street,
+            ca.area,
+            ca.city,
+            ca.state,
+            ca.postal_code as "postalCode"
           FROM users u
+          LEFT JOIN customer_addresses ca ON ca.user_id = u.id AND (ca.is_primary = true OR ca.id = (
+            SELECT id FROM customer_addresses WHERE user_id = u.id ORDER BY is_primary DESC, created_at DESC LIMIT 1
+          ))
           WHERE u.role = 'CUSTOMER' OR u.role IS NULL
           ORDER BY u.created_at DESC;
         `);
 
         for (const row of dbRes.rows) {
+          const addrParts = [row.houseFlat, row.street, row.area, row.city, row.state, row.postalCode].filter(Boolean);
+          const addrStr = addrParts.join(', ');
+
           customerMap.set(row.id, {
             id: row.id,
             customerId: row.id,
             name: row.name || 'Customer',
             fullName: row.name || 'Customer',
             phone: row.phone || '',
-            email: row.email || '',
-            address: '',
+            email: row.email || (row.phone ? `${row.phone}@user.bookurtechnician.com` : ''),
+            emailVerified: true,
+            phoneVerified: true,
+            address: addrStr,
             totalBookings: 0,
             totalSpent: 0,
             status: 'ACTIVE',
@@ -590,6 +604,8 @@ const getCustomers = async (req, res) => {
       customerMap.set(sc.id || sc.customerId, {
         ...existing,
         ...sc,
+        email: sc.email || existing.email || (sc.phone ? `${sc.phone}@user.bookurtechnician.com` : ''),
+        address: sc.address || existing.address || '',
         totalBookings: Math.max(existing.totalBookings || 0, sc.totalBookings || 0),
         totalSpent: Math.max(existing.totalSpent || 0, sc.totalSpent || 0),
       });

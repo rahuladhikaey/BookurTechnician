@@ -338,14 +338,19 @@ function registerCustomer(data) {
   const custId = data.id || data.customerId || (data.phone ? `cust-${data.phone.replace(/\D/g, '')}` : `cust-${Date.now().toString(36)}`);
   const existing = LIVE_CUSTOMERS.get(custId) || {};
   
+  const phone = data.phone || data.phoneNumber || existing.phone || '';
+  const email = data.email || existing.email || (phone ? `${phone}@user.bookurtechnician.com` : '');
+
   const updated = {
     id: custId,
     customerId: custId,
     fullName: data.fullName || data.name || existing.fullName || 'Customer',
     name: data.fullName || data.name || existing.name || 'Customer',
-    phone: data.phone || data.phoneNumber || existing.phone || '',
-    phoneNumber: data.phone || data.phoneNumber || existing.phoneNumber || '',
-    email: data.email || existing.email || '',
+    phone: phone,
+    phoneNumber: phone,
+    email: email,
+    emailVerified: true,
+    phoneVerified: true,
     address: data.address || existing.address || '',
     totalBookings: existing.totalBookings || 0,
     totalSpent: existing.totalSpent || 0,

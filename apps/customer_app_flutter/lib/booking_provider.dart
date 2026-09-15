@@ -1173,6 +1173,8 @@ class BookingNotifier extends StateNotifier<AppState> {
       profile: updatedProfile,
     );
 
+    addCustomerAddress(addr);
+
     if (finalLat != null && finalLng != null) {
       fetchNearbyAvailability(lat: finalLat, lng: finalLng);
     }

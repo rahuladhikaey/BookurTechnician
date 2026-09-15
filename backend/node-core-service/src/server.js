@@ -23,6 +23,7 @@ const catalogRoutes = require('./routes/catalogRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const dispatchRoutes = require('./routes/dispatchRoutes');
+const customerRoutes = require('./routes/customerRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -68,6 +69,7 @@ if (resolvedAdminPath) {
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/customer', customerRoutes);
 app.use('/api/v1/bookings', bookingRoutes);
 app.use('/api/v1/technicians', technicianRoutes);
 app.use('/api/v1/technician', technicianRoutes);
@@ -79,6 +81,7 @@ app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/dispatch', dispatchRoutes);
 
 // Fallback compatible route alias
+app.use('/api/customer', customerRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/catalog', catalogRoutes);

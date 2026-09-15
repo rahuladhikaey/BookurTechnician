@@ -43,7 +43,8 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
     let score = 0;
     const missing = [];
 
-    if (c.name && c.name.trim().length >= 2 && !/^\d+$/.test(c.name.trim())) {
+    const custName = c.fullName || c.name || '';
+    if (custName && custName.trim().length >= 2 && !/^\d+$/.test(custName.trim())) {
       score += 25;
     } else {
       missing.push('FULL_NAME');
@@ -55,13 +56,15 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
       missing.push('VERIFIED_PHONE');
     }
 
-    if (c.email && c.emailVerified !== false) {
+    const hasEmail = Boolean((c.email && c.email.trim().length > 0) || c.emailVerified !== false || c.phone);
+    if (hasEmail) {
       score += 25;
     } else {
       missing.push('VERIFIED_EMAIL');
     }
 
-    if (c.address && c.address.trim().length > 0) {
+    const hasAddr = Boolean(c.address && c.address.trim().length > 0);
+    if (hasAddr) {
       score += 25;
     } else {
       missing.push('SERVICE_ADDRESS');
@@ -75,7 +78,7 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
       missingFields: c.missingFields || missing,
       isEmailVerified: c.emailVerified !== false,
       isPhoneVerified: c.phoneVerified !== false,
-      hasAddress: Boolean(c.address && c.address.trim().length > 0),
+      hasAddress: hasAddr,
       regDate: c.createdAt || 'Just now',
       updatedDate: c.updatedAt || 'Just now'
     };
