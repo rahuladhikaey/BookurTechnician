@@ -261,8 +261,14 @@ const toggleOnlineStatus = async (req, res) => {
       return res.status(401).json({ success: false, error: 'Unauthorized: valid technician JWT token or ID required' });
     }
 
-    const { isOnline, availabilityStatus, latitude, longitude, lat, lng } = req.body;
-    const online = Boolean(isOnline);
+    const { isOnline, online: rawOnline, is_online, availabilityStatus, status, latitude, longitude, lat, lng } = req.body;
+    const online = Boolean(
+      isOnline !== undefined ? isOnline : (
+        rawOnline !== undefined ? rawOnline : (
+          is_online !== undefined ? is_online : (status === 'ONLINE' || status === 'AVAILABLE')
+        )
+      )
+    );
     const finalLat = latitude !== undefined ? parseFloat(latitude) : (lat !== undefined ? parseFloat(lat) : null);
     const finalLng = longitude !== undefined ? parseFloat(longitude) : (lng !== undefined ? parseFloat(lng) : null);
     const newStatus = online ? (availabilityStatus || 'AVAILABLE') : 'OFFLINE';
@@ -767,36 +773,66 @@ const verifyDocumentAdmin = async (req, res) => {
  */
 const getProfile = async (req, res) => {
   try {
-    const technicianId = req.params.id || req.query.technicianId || req.user?.id;
+    const technicianId = req.params.id || req.query.technicianId || req.headers['x-technician-id'] || req.headers['x-user-id'] || req.user?.id;
     if (!technicianId) {
       return res.status(400).json({ success: false, error: 'Technician ID is required' });
     }
     let profile = null;
+    let pgProfile = null;
+
+    if (postgres.isPgHealthy()) {
+      try {
+        const pgRes = await postgres.query(`
+          SELECT * FROM technician_profiles 
+          WHERE technician_id = $1 OR id = $1 OR phone = $1 OR technician_code = $1
+          LIMIT 1;
+        `, [technicianId]);
+        if (pgRes.rows.length > 0) {
+          pgProfile = pgRes.rows[0];
+        }
+      } catch (pgErr) {
+        console.warn('⚠️ [TechnicianController] PG getProfile warning:', pgErr.message);
+      }
+    }
 
     try {
-      profile = await MongoTechnicianProfile.findOne({ technicianId });
+      profile = await MongoTechnicianProfile.findOne({ $or: [{ technicianId }, { phone: technicianId }] });
     } catch (e) {}
 
-    const currentSkills = profile?.skills || inMemorySkills.get(technicianId) || [
+    const memProfile = inMemoryTechProfiles.get(technicianId);
+
+    const currentSkills = pgProfile?.skills || profile?.skills || inMemorySkills.get(technicianId) || [
       'Wiring',
       'Switchboard Repair',
       'Fan Installation',
     ];
 
+    const techCode = pgProfile?.technician_code || memProfile?.technicianCode || (technicianId.startsWith('BT-') ? technicianId : `BT-TECH-${technicianId.slice(-6).toUpperCase()}`);
+    const fullName = pgProfile?.full_name || profile?.fullName || memProfile?.fullName || req.user?.name || 'Partner Technician';
+    const phone = pgProfile?.phone || profile?.phone || memProfile?.phone || req.user?.phone || '';
+    const email = req.user?.email || profile?.email || '';
+    const rating = parseFloat(pgProfile?.rating || profile?.rating || 4.9);
+    const totalJobsCompleted = parseInt(pgProfile?.total_jobs_completed || profile?.totalJobsCompleted || 0, 10);
+    const isOnline = pgProfile?.is_online ?? profile?.isOnline ?? memProfile?.isOnline ?? true;
+    const upiId = pgProfile?.upi_id || pgProfile?.upi_number || profile?.upiId || profile?.upiNumber || '';
+
     const data = {
       id: technicianId,
-      technicianCode: `BT-TECH-${technicianId.slice(-6).toUpperCase()}`,
-      fullName: profile?.fullName || req.user?.name || 'Partner Technician',
-      phone: profile?.phone || req.user?.phone || '',
-      email: req.user?.email || profile?.email || '',
+      technicianId: pgProfile?.technician_id || technicianId,
+      technicianCode: techCode,
+      fullName,
+      phone,
+      email,
       profileImageUrl: profile?.selfieImageUrl || '',
-      rating: profile?.rating || 5.0,
-      totalRatingsCount: profile?.totalRatingsCount || 0,
-      totalJobsCompleted: profile?.totalJobsCompleted || 0,
-      kycStatus: profile?.kycStatus || 'VERIFIED',
-      isOnline: profile?.isOnline ?? true,
-      upiId: profile?.upiId || profile?.upiNumber || '',
-      isUpiVerified: !!(profile?.upiId || profile?.upiNumber),
+      rating,
+      totalRatingsCount: parseInt(pgProfile?.total_ratings_count || profile?.totalRatingsCount || 0, 10),
+      totalJobsCompleted,
+      kycStatus: pgProfile?.kyc_status || profile?.kycStatus || 'VERIFIED',
+      isOnline,
+      availabilityStatus: pgProfile?.availability_status || 'AVAILABLE',
+      walletBalance: parseFloat(pgProfile?.wallet_balance || 0.0),
+      upiId,
+      isUpiVerified: !!upiId,
       skills: currentSkills,
     };
 

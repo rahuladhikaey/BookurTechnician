@@ -19,8 +19,8 @@ const SERVICE_SKILL_SYNONYMS = {
     'ceiling_fan_installation', 'fan installation', 'ceiling fan installation', 'exhaust fan'
   ],
   fan_ceiling_install: [
-    'fan_ceiling_install', 'sk_ceiling_fan_installation', 'ceiling_fan_installation',
-    'ceiling fan installation', 'fan installation'
+    'fan_ceiling_install', 'sk_ceiling_fan_installation', 'sk_ceiling_fan_repair', 'ceiling_fan_installation',
+    'ceiling_fan_repair', 'ceiling fan installation', 'ceiling fan repair', 'fan installation', 'fan repair'
   ],
   fan_exhaust_install: [
     'fan_exhaust_install', 'sk_exhaust_fan', 'exhaust_fan', 'exhaust fan', 'exhaust fan installation'

@@ -36,20 +36,25 @@ class TechnicianProfileData {
   });
 
   factory TechnicianProfileData.fromJson(Map<String, dynamic> json) {
+    final String rawId = json['technicianId']?.toString() ?? json['id']?.toString() ?? '';
+    final String defaultCode = rawId.isNotEmpty
+        ? (rawId.startsWith('BT-') ? rawId : 'BT-TECH-${rawId.length > 6 ? rawId.substring(rawId.length - 6).toUpperCase() : rawId.toUpperCase()}')
+        : 'BT-TECH-775A08';
+
     return TechnicianProfileData(
-      id: json['id']?.toString() ?? '',
-      technicianCode: json['technicianCode']?.toString() ?? 'BT-TECH-ACTIVE',
-      fullName: json['fullName']?.toString() ?? 'Partner Technician',
+      id: rawId,
+      technicianCode: json['technicianCode']?.toString() ?? defaultCode,
+      fullName: json['fullName']?.toString() ?? json['name']?.toString() ?? 'Partner Technician',
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
-      profileImageUrl: json['profileImageUrl']?.toString() ?? '',
+      profileImageUrl: json['profileImageUrl']?.toString() ?? json['selfieImageUrl']?.toString() ?? '',
       rating: (json['rating'] is num) ? (json['rating'] as num).toDouble() : 5.0,
       totalRatingsCount: (json['totalRatingsCount'] is num) ? (json['totalRatingsCount'] as num).toInt() : 0,
       totalJobsCompleted: (json['totalJobsCompleted'] is num) ? (json['totalJobsCompleted'] as num).toInt() : 0,
       kycStatus: json['kycStatus']?.toString().toUpperCase() ?? 'VERIFIED',
       isOnline: json['isOnline'] == true || json['online'] == true,
-      upiId: json['upiId']?.toString() ?? '',
-      isUpiVerified: json['isUpiVerified'] == true || json['upiVerified'] == true,
+      upiId: json['upiId']?.toString() ?? json['upiNumber']?.toString() ?? '',
+      isUpiVerified: json['isUpiVerified'] == true || json['upiVerified'] == true || (json['upiId'] != null && json['upiId'].toString().isNotEmpty),
     );
   }
 

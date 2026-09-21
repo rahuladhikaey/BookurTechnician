@@ -120,7 +120,8 @@ class JobStateNotifier extends StateNotifier<JobState> {
   Future<void> fetchAssignedJobs() async {
     try {
       final response = await _dioClient.dio.get('/technician/jobs');
-      final list = response.data['data'] as List?;
+      final dynamic rawData = response.data['data'] ?? response.data['bookings'] ?? response.data;
+      final list = rawData is List ? rawData : null;
       if (list != null) {
         final List<TechJob> mapped = [];
         final now = DateTime.now();
@@ -131,32 +132,80 @@ class JobStateNotifier extends StateNotifier<JobState> {
         final nextDayStr = "${nextDay.year}-${nextDay.month.toString().padLeft(2, '0')}-${nextDay.day.toString().padLeft(2, '0')}";
 
         for (final item in list) {
-          final m = item as Map<String, dynamic>;
-          final id = m['id']?.toString() ?? '';
-          final service = m['service'] as Map<String, dynamic>?;
-          final title = service?['name'] ?? 'Home Appliance Service';
-          final categoryName = service?['category']?['name'] ?? 'Appliance Repair';
-          final price = (m['technicianPayoutAmount'] as num?)?.toDouble() ?? (m['basePrice'] as num?)?.toDouble() ?? 450.0;
-          final customer = m['customer'] as Map<String, dynamic>?;
-          final customerName = customer?['fullName'] ?? 'Customer';
-          final customerPhone = customer?['phone'] ?? '';
-          final address = m['address'] as Map<String, dynamic>?;
-          final area = address != null
-              ? '${address['houseFlat'] ?? ''} ${address['street'] ?? ''} ${address['area'] ?? ''}, ${address['city'] ?? ''}'.trim()
-              : 'Customer Premise';
-          final lat = (address?['latitude'] as num?)?.toDouble();
-          final lng = (address?['longitude'] as num?)?.toDouble();
-          final rawStatus = m['status']?.toString() ?? 'ASSIGNED';
-          final scheduleDate = m['scheduleDate']?.toString() ?? todayStr;
-          final scheduleSlot = m['scheduleSlot']?.toString() ?? '10:00 AM - 11:00 AM';
+          if (item is! Map) continue;
+          final m = Map<String, dynamic>.from(item);
+          final id = m['id']?.toString() ?? m['bookingId']?.toString() ?? '';
+          
+          // Flexible service resolution
+          String title = 'Home Service Repair';
+          String categoryName = 'Electrician';
+          if (m['service'] is Map) {
+            final sMap = Map<String, dynamic>.from(m['service']);
+            title = sMap['name']?.toString() ?? title;
+            if (sMap['category'] is Map) {
+              categoryName = sMap['category']['name']?.toString() ?? categoryName;
+            } else if (sMap['category'] is String) {
+              categoryName = sMap['category'].toString();
+            }
+          } else if (m['service'] is String && (m['service'] as String).isNotEmpty) {
+            title = m['service'].toString();
+          } else if (m['serviceName'] != null) {
+            title = m['serviceName'].toString();
+          }
+          if (m['category'] != null) {
+            categoryName = m['category'].toString();
+          }
+
+          // Price & Payout calculation
+          final price = (m['technicianPayoutAmount'] as num?)?.toDouble() ?? 
+                        (m['price'] as num?)?.toDouble() ?? 
+                        (m['totalAmount'] as num?)?.toDouble() ?? 
+                        (m['basePrice'] as num?)?.toDouble() ?? 450.0;
+
+          // Flexible customer resolution
+          String customerName = 'Customer';
+          String customerPhone = '';
+          if (m['customer'] is Map) {
+            final cMap = Map<String, dynamic>.from(m['customer']);
+            customerName = cMap['fullName']?.toString() ?? cMap['name']?.toString() ?? customerName;
+            customerPhone = cMap['phone']?.toString() ?? customerPhone;
+          } else if (m['customer'] is String && (m['customer'] as String).isNotEmpty) {
+            customerName = m['customer'].toString();
+          }
+          if (m['customerName'] != null) customerName = m['customerName'].toString();
+          if (m['customerPhone'] != null) customerPhone = m['customerPhone'].toString();
+          if (customerPhone.isEmpty && m['phone'] != null) customerPhone = m['phone'].toString();
+
+          // Flexible address resolution
+          String area = 'Customer Premise';
+          double? lat;
+          double? lng;
+          if (m['address'] is Map) {
+            final aMap = Map<String, dynamic>.from(m['address']);
+            area = '${aMap['houseFlat'] ?? ''} ${aMap['street'] ?? ''} ${aMap['area'] ?? ''}, ${aMap['city'] ?? ''}'.trim();
+            if (area.isEmpty) area = aMap['fullAddress']?.toString() ?? 'Customer Premise';
+            lat = (aMap['latitude'] as num?)?.toDouble();
+            lng = (aMap['longitude'] as num?)?.toDouble();
+          } else if (m['address'] is String && (m['address'] as String).isNotEmpty) {
+            area = m['address'].toString();
+          } else if (m['fullAddress'] != null) {
+            area = m['fullAddress'].toString();
+          }
+          lat ??= (m['latitude'] as num?)?.toDouble();
+          lng ??= (m['longitude'] as num?)?.toDouble();
+
+          final rawStatus = (m['status']?.toString() ?? 'ASSIGNED').toUpperCase();
+          final scheduleDate = m['scheduleDate']?.toString() ?? 
+                               (m['scheduledTime'] != null ? m['scheduledTime'].toString().split('T').first : todayStr);
+          final scheduleSlot = m['scheduleSlot']?.toString() ?? '3:00 PM – 4:00 PM';
           final bookingCode = m['bookingCode']?.toString() ?? 'BT-${id.length > 6 ? id.substring(0, 6) : id}';
 
           TechJobStatus status = TechJobStatus.accepted;
-          if (rawStatus == 'ON_THE_WAY' || rawStatus == 'EN_ROUTE') {
+          if (rawStatus == 'ON_THE_WAY' || rawStatus == 'EN_ROUTE' || rawStatus == 'TECHONTHEWAY') {
             status = TechJobStatus.onTheWay;
-          } else if (rawStatus == 'ARRIVED') {
+          } else if (rawStatus == 'ARRIVED' || rawStatus == 'TECHARRIVED') {
             status = TechJobStatus.arrived;
-          } else if (rawStatus == 'WORK_STARTED' || rawStatus == 'IN_PROGRESS') {
+          } else if (rawStatus == 'WORK_STARTED' || rawStatus == 'IN_PROGRESS' || rawStatus == 'SERVICE_STARTED') {
             status = TechJobStatus.serviceStarted;
           } else if (rawStatus == 'COMPLETED') {
             status = TechJobStatus.completed;
@@ -181,20 +230,20 @@ class JobStateNotifier extends StateNotifier<JobState> {
 
         final todayList = mapped.where((j) {
           if (j.status == TechJobStatus.completed) return false;
-          final d = j.scheduleDate ?? '';
-          return d.contains(todayStr) || d.toLowerCase().contains('today') || d.isEmpty;
+          final d = (j.scheduleDate ?? '').toLowerCase();
+          return d.contains(todayStr) || d.contains('today') || d.isEmpty;
         }).toList();
 
         final tomorrowList = mapped.where((j) {
           if (j.status == TechJobStatus.completed) return false;
-          final d = j.scheduleDate ?? '';
-          return d.contains(tomorrowStr) || d.toLowerCase().contains('tomorrow');
+          final d = (j.scheduleDate ?? '').toLowerCase();
+          return d.contains(tomorrowStr) || d.contains('tomorrow');
         }).toList();
 
         final nextDayList = mapped.where((j) {
           if (j.status == TechJobStatus.completed) return false;
-          final d = j.scheduleDate ?? '';
-          return d.contains(nextDayStr) || d.toLowerCase().contains('day after') || (!todayList.contains(j) && !tomorrowList.contains(j));
+          final d = (j.scheduleDate ?? '').toLowerCase();
+          return d.contains(nextDayStr) || d.contains('day after') || (!todayList.contains(j) && !tomorrowList.contains(j));
         }).toList();
 
         final completedList = mapped.where((j) => j.status == TechJobStatus.completed).toList();
@@ -243,7 +292,9 @@ class JobStateNotifier extends StateNotifier<JobState> {
 
         // Notify backend of online status + real GPS fix
         await _dioClient.dio.post('/technician/online-status', data: {
+          'isOnline': true,
           'online': true,
+          'availabilityStatus': 'AVAILABLE',
           'latitude': position.latitude,
           'longitude': position.longitude,
         });

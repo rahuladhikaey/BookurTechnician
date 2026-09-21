@@ -13,13 +13,23 @@ router.get('/:id/live-tracking', bookingController.getBookingLiveTracking);
 router.get('/:id', bookingController.getBookingById);
 
 // Lifecycle actions & OTP Operations
+router.patch('/:id/status', bookingController.updateBookingStatus);
+router.patch('/:id', bookingController.updateBookingStatus);
+router.post('/:id/status', bookingController.updateBookingStatus);
 router.post('/:id/accept', bookingController.acceptBooking);
+router.post('/:id/cancel', (req, res) => {
+  req.body.status = 'CANCELLED';
+  return bookingController.updateBookingStatus(req, res);
+});
 router.post('/:id/resend-start-otp', bookingController.resendStartOtp);
 router.post('/:id/verify-start-otp', bookingController.verifyStartOtp);
+router.post('/:id/start', bookingController.verifyStartOtp);
 router.post('/:id/resend-end-otp', bookingController.resendEndOtp);
 router.post('/:id/generate-end-otp', bookingController.resendEndOtp);
 router.post('/:id/add-bill', bookingController.addBillCharges);
 router.post('/:id/verify-end-otp', bookingController.verifyEndOtp);
+router.post('/:id/complete', bookingController.verifyEndOtp);
+
 // Deletion & Cancellation
 router.delete('/my-bookings', bookingController.clearCustomerBookings);
 router.delete('/:id', bookingController.deleteBooking);

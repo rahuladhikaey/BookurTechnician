@@ -244,10 +244,16 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
             setState(() => _liveStartOtp = data['startOtp'].toString());
           }
           final tech = data['technician'];
-          if (tech != null && tech['location'] != null) {
+          if (tech != null && tech is Map && tech['location'] != null) {
             final lat = (tech['location']['latitude'] as num?)?.toDouble();
             final lng = (tech['location']['longitude'] as num?)?.toDouble();
             if (lat != null && lng != null) {
+              _onTechnicianLocationReceived(LatLng(lat, lng), 0.0, 5.0);
+            }
+          } else if (data['technicianLatitude'] != null && data['technicianLongitude'] != null) {
+            final lat = (data['technicianLatitude'] as num).toDouble();
+            final lng = (data['technicianLongitude'] as num).toDouble();
+            if (lat != 0.0 && lng != 0.0) {
               _onTechnicianLocationReceived(LatLng(lat, lng), 0.0, 5.0);
             }
           }
