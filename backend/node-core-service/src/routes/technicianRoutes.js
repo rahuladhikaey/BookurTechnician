@@ -13,6 +13,12 @@ router.post('/location-sync', optionalAuth, technicianController.syncLocation);
 router.post('/online-status', optionalAuth, technicianController.toggleOnlineStatus);
 router.post('/toggle-status', optionalAuth, technicianController.toggleOnlineStatus);
 
+// Tier Membership & Analytics
+router.get('/tier-status', optionalAuth, technicianController.getTierStatus);
+router.get('/analytics/overview', optionalAuth, technicianController.getAnalyticsOverview);
+router.get('/analytics/work-hours', optionalAuth, technicianController.getAnalyticsOverview);
+router.post('/shift/heartbeat', optionalAuth, technicianController.logWorkHeartbeat);
+
 // Jobs & Lifecycle for Technician App
 router.get('/jobs', optionalAuth, bookingController.getTechnicianBookings);
 router.patch('/jobs/:id/status', optionalAuth, bookingController.updateBookingStatus);

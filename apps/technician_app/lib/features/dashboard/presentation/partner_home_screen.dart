@@ -13,6 +13,9 @@ import 'job_execution_screen.dart';
 import '../../jobs/presentation/states/job_state.dart';
 import '../../jobs/presentation/job_details_page.dart';
 import '../../jobs/domain/job.dart';
+import '../../analytics/presentation/technician_analytics_screen.dart';
+import '../../analytics/presentation/technician_analytics_provider.dart';
+import '../../analytics/domain/technician_analytics_models.dart';
 
 class PartnerHomeScreen extends ConsumerStatefulWidget {
   final ValueChanged<int>? onNavigateTab;
@@ -137,6 +140,10 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
 
                 // ─── 2. METRICS & PERFORMANCE SNAPSHOT (2-Column Card Row) ───
                 _buildMetricsSnapshotRow(dashState),
+                const SizedBox(height: 14),
+
+                // ─── 2b. PARTNER TIER STATUS & DAILY ANALYTICS BANNER ────────
+                _buildTierMembershipBanner(context),
                 const SizedBox(height: 18),
 
                 // ─── 3. IN-PROGRESS / ACTIVE JOB CARD ────────────────────────
@@ -316,6 +323,152 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  // ─── 2b. Partner Tier Membership & Daily Analytics Banner ─────────────────
+  Widget _buildTierMembershipBanner(BuildContext context) {
+    final analyticsState = ref.watch(technicianAnalyticsProvider);
+    final tierInfo = analyticsState.tierInfo;
+    final currentTier = tierInfo?.tier ?? TechnicianTier.copper;
+
+    List<Color> gradientColors;
+    Color accentColor;
+    String badgeTitle;
+    String badgeEmoji;
+
+    switch (currentTier) {
+      case TechnicianTier.gold:
+        gradientColors = const [Color(0xFF78350F), Color(0xFFB45309), Color(0xFFD97706)];
+        accentColor = const Color(0xFFFDE68A);
+        badgeTitle = 'GOLD VIP ELITE';
+        badgeEmoji = '🥇';
+        break;
+      case TechnicianTier.silver:
+        gradientColors = const [Color(0xFF334155), Color(0xFF475569), Color(0xFF64748B)];
+        accentColor = const Color(0xFFE2E8F0);
+        badgeTitle = 'SILVER PRO PARTNER';
+        badgeEmoji = '🥈';
+        break;
+      case TechnicianTier.copper:
+        gradientColors = const [Color(0xFF5C2C16), Color(0xFF804A26), Color(0xFFB87333)];
+        accentColor = const Color(0xFFFFEDD5);
+        badgeTitle = 'COPPER STARTER PASS';
+        badgeEmoji = '🥉';
+        break;
+    }
+
+    final onlineHours = tierInfo?.todayHours ?? 0.0;
+    final nextThreshold = tierInfo?.nextTierHoursRequired ?? 5.0;
+    final progress = (tierInfo?.progressToNextTier ?? 0.0).clamp(0.0, 1.0);
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const TechnicianAnalyticsScreen()),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: gradientColors[1].withAlpha(80),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(40),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(badgeEmoji, style: const TextStyle(fontSize: 20)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            badgeTitle,
+                            style: TextStyle(
+                              color: accentColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withAlpha(45),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${tierInfo?.discountCommissionPercent.toStringAsFixed(0) ?? "10"}% Fee',
+                              style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${onlineHours.toStringAsFixed(1)}h worked today • Target ${nextThreshold.toStringAsFixed(0)}h',
+                        style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 14),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 5,
+                backgroundColor: Colors.black.withAlpha(40),
+                valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  tierInfo?.isMaxTier == true
+                      ? '✨ Maximum VIP Status Unlocked!'
+                      : '${tierInfo?.hoursRemaining.toStringAsFixed(1) ?? "0.0"}h more to unlock ${tierInfo?.nextTierName ?? "Silver"}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 10.5, fontWeight: FontWeight.w500),
+                ),
+                const Text(
+                  'Daily Graphs 📊',
+                  style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 

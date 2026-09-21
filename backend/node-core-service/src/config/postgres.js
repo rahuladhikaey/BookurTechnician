@@ -236,6 +236,22 @@ const createCoreTables = async () => {
       CREATE INDEX IF NOT EXISTS idx_dispatch_requests_tech_status ON dispatch_requests(technician_id, status);
       CREATE INDEX IF NOT EXISTS idx_dispatch_requests_booking ON dispatch_requests(booking_id);
       CREATE INDEX IF NOT EXISTS idx_dispatch_requests_expires ON dispatch_requests(expires_at, status);
+
+      CREATE TABLE IF NOT EXISTS technician_work_logs (
+        id VARCHAR(64) PRIMARY KEY,
+        technician_id VARCHAR(64) NOT NULL,
+        work_date DATE NOT NULL,
+        online_minutes INT DEFAULT 0,
+        completed_jobs INT DEFAULT 0,
+        total_earnings NUMERIC(10, 2) DEFAULT 0,
+        tier VARCHAR(20) DEFAULT 'COPPER',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        CONSTRAINT uq_tech_work_date UNIQUE(technician_id, work_date)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_tech_work_logs_date ON technician_work_logs(technician_id, work_date DESC);
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS tier VARCHAR(20) DEFAULT 'COPPER';
     `);
 
     // Auto-backfill PostGIS geography point if coordinates exist but location is null
