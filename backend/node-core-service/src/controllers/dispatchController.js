@@ -205,11 +205,15 @@ const getPendingDispatchRequests = async (req, res) => {
 
     // 1. Check in-memory store
     for (const [id, proposal] of activeDispatchStore.entries()) {
-      if (
-        (proposal.technicianId === technicianId || proposal.phone === technicianId) &&
-        proposal.status === 'PENDING' &&
-        new Date(proposal.expiresAt) > now
-      ) {
+      const isMatch = (
+        proposal.technicianId === technicianId ||
+        proposal.technicianId === 'ALL' ||
+        !proposal.technicianId ||
+        proposal.phone === technicianId ||
+        (Array.isArray(proposal.candidatesQueue) && proposal.candidatesQueue.some(c => (c.technicianId || c.id) === technicianId))
+      );
+
+      if (isMatch && proposal.status === 'PENDING' && new Date(proposal.expiresAt) > now) {
         const remainingSeconds = Math.max(0, Math.round((new Date(proposal.expiresAt).getTime() - now.getTime()) / 1000));
         return res.json({
           success: true,
@@ -230,7 +234,7 @@ const getPendingDispatchRequests = async (req, res) => {
     if (postgres.isPgHealthy()) {
       const pgRes = await postgres.query(
         `SELECT * FROM dispatch_requests 
-         WHERE (technician_id = $1) 
+         WHERE (technician_id = $1 OR technician_id = 'ALL') 
            AND status = 'PENDING' 
            AND expires_at > NOW() 
          ORDER BY created_at DESC LIMIT 1`,
@@ -354,7 +358,7 @@ const acceptDispatchRequest = async (req, res) => {
 
     if (postgres.isPgHealthy()) {
       const tpRes = await postgres.query(
-        `SELECT * FROM technician_profiles WHERE technician_id = $1 OR phone = $1`,
+        `SELECT * FROM technician_profiles WHERE id::text = $1 OR technician_id = $1 OR phone = $1`,
         [technicianId]
       );
       if (tpRes.rows.length > 0) {
@@ -404,7 +408,7 @@ const acceptDispatchRequest = async (req, res) => {
 
       // Mark technician as BUSY
       await postgres.query(
-        `UPDATE technician_profiles SET availability_status = 'BUSY', updated_at = NOW() WHERE technician_id = $1 OR phone = $1`,
+        `UPDATE technician_profiles SET availability_status = 'BUSY', updated_at = NOW() WHERE id::text = $1 OR technician_id = $1 OR phone = $1`,
         [technicianId]
       );
 

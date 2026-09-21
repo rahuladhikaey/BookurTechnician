@@ -8,7 +8,6 @@ import '../../onboarding/domain/skill_models.dart';
 import 'dashboard_provider.dart';
 import 'notifications_tab.dart';
 import 'my_skills_page.dart';
-import 'job_execution_screen.dart';
 
 import '../../jobs/presentation/states/job_state.dart';
 import '../../jobs/presentation/job_details_page.dart';
@@ -733,26 +732,22 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
               ),
               const SizedBox(width: 8),
 
-              // Start Job button
+              // Accept Button
               Expanded(
                 flex: 1,
                 child: ElevatedButton(
                   onPressed: () {
+                    ref.read(jobStateProvider.notifier).acceptJob(
+                      activeJob.id,
+                      title,
+                      activeJob.price,
+                      customerName,
+                      customerAddress,
+                    );
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => JobExecutionScreen(
-                          job: {
-                            'id': activeJob.id,
-                            'title': title,
-                            'customerName': customerName,
-                            'address': customerAddress,
-                            'customerPhone': customerPhone,
-                            'payout': payout,
-                            'timeSlot': '1 Hour Service Window',
-                            'status': 'ACCEPTED',
-                          },
-                        ),
+                        builder: (_) => JobDetailsPage(bookingId: activeJob.id),
                       ),
                     );
                   },
@@ -764,9 +759,9 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   child: const Text(
-                    'Start Job',
+                    'Accept',
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -974,7 +969,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
-                              'Start →',
+                              'Accept →',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,

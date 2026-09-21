@@ -630,29 +630,22 @@ class JobStateNotifier extends StateNotifier<JobState> {
     );
     state = state.copyWith(
       activeJob: state.activeJob!.copyWith(
-        status: TechJobStatus.forwardRequest,
+        status: TechJobStatus.forwardApproved,
+        scheduleDate: date,
         forwardDetails: details,
       ),
     );
-  }
 
-  void simulateCustomerForwardDecision(bool approve) {
-    if (state.activeJob == null || state.activeJob!.forwardDetails == null) return;
-    
-    if (approve) {
-      state = state.copyWith(
-        activeJob: state.activeJob!.copyWith(
-          status: TechJobStatus.forwardApproved,
-        ),
-      );
-    } else {
-      state = state.copyWith(
-        activeJob: state.activeJob!.copyWith(
-          status: TechJobStatus.serviceStarted,
-          forwardDetails: null,
-        ),
-      );
-    }
+    // Persist automatic reschedule approval to backend
+    unawaited(() async {
+      try {
+        await _dioClient.dio.patch('/bookings/${state.activeJob!.id}/reschedule', data: {
+          'scheduleDate': date,
+          'reason': reason,
+          'explanation': explanation,
+        });
+      } catch (_) {}
+    }());
   }
 
   void resumeForwardedService() {

@@ -377,61 +377,7 @@ class _ServiceExecutionPageState extends ConsumerState<ServiceExecutionPage> {
                 ),
                 const SizedBox(height: AppSpacing.m),
 
-                if (activeJob.status == TechJobStatus.forwardRequest) ...[
-                  Card(
-                    color: SemanticColors.warning.withValues(alpha: 0.08),
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: AppRadius.medium,
-                      side: BorderSide(color: SemanticColors.warning, width: 1),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.m),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Next-Day Reschedule Requested',
-                            style: TextStyle(color: SemanticColors.warning, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            'Reason: ${activeJob.forwardDetails?.reason}\nProposed Date: ${activeJob.forwardDetails?.requestedDate}',
-                            style: AppTypography.bodyMedium,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: AppSpacing.m),
-                          const Text(
-                            '⚙️ Mock Customer Decision Simulator:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                          ),
-                          const SizedBox(height: AppSpacing.s),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () {
-                                    notifier.simulateCustomerForwardDecision(false);
-                                  },
-                                  child: const Text('Decline Request', style: TextStyle(color: SemanticColors.error)),
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.s),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    notifier.simulateCustomerForwardDecision(true);
-                                  },
-                                  style: ElevatedButton.styleFrom(backgroundColor: SemanticColors.success),
-                                  child: const Text('Approve Reschedule', style: TextStyle(color: Colors.white)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.m),
-                ] else if (activeJob.status == TechJobStatus.forwardApproved) ...[
+                if (activeJob.status == TechJobStatus.forwardApproved || activeJob.status == TechJobStatus.forwardRequest) ...[
                   Card(
                     color: SemanticColors.success.withValues(alpha: 0.08),
                     shape: const RoundedRectangleBorder(
@@ -442,19 +388,26 @@ class _ServiceExecutionPageState extends ConsumerState<ServiceExecutionPage> {
                       padding: const EdgeInsets.all(AppSpacing.m),
                       child: Column(
                         children: [
-                          const Text(
-                            'Reschedule Request Approved',
-                            style: TextStyle(color: SemanticColors.success, fontWeight: FontWeight.bold),
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.check_circle, color: SemanticColors.success, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Reschedule Automatically Approved',
+                                style: TextStyle(color: SemanticColors.success, fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            'Next service scheduled for ${activeJob.forwardDetails?.requestedDate}. You can resume next-day.',
+                            'Reason: ${activeJob.forwardDetails?.reason ?? "Technician requested"}\nNext service scheduled for: ${activeJob.forwardDetails?.requestedDate ?? "Tomorrow"}.',
                             style: AppTypography.bodyMedium,
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: AppSpacing.m),
                           PrimaryButton(
-                            text: 'Resume Next-Day Work',
+                            text: 'Resume Service',
                             onPressed: () {
                               notifier.resumeForwardedService();
                             },
