@@ -35,10 +35,10 @@ class ActiveJobModel {
     required this.title,
     required this.customerName,
     required this.customerAddress,
-    this.customerPhone = '+91 98765 43210',
-    this.distanceKm = 2.4,
-    this.travelMinutes = 8,
-    this.price = 399.0,
+    this.customerPhone = '',
+    this.distanceKm = 0.0,
+    this.travelMinutes = 0,
+    this.price = 0.0,
     this.step = ActiveJobStep.onTheWay,
   });
 

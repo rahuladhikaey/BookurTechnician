@@ -39,11 +39,11 @@ class TechnicianProfileData {
     final String rawId = json['technicianId']?.toString() ?? json['id']?.toString() ?? '';
     final String defaultCode = rawId.isNotEmpty
         ? (rawId.startsWith('BT-') ? rawId : 'BT-TECH-${rawId.length > 6 ? rawId.substring(rawId.length - 6).toUpperCase() : rawId.toUpperCase()}')
-        : 'BT-TECH-775A08';
+        : '';
 
     return TechnicianProfileData(
       id: rawId,
-      technicianCode: json['technicianCode']?.toString() ?? defaultCode,
+      technicianCode: json['technicianCode']?.toString() ?? (defaultCode.isNotEmpty ? defaultCode : 'BT-TECH'),
       fullName: json['fullName']?.toString() ?? json['name']?.toString() ?? 'Partner Technician',
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString() ?? '',

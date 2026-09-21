@@ -690,8 +690,8 @@ const verifyStartOtp = async (req, res) => {
     if (!booking) return res.status(404).json({ success: false, error: 'Booking not found' });
 
     // Validate OTP (Master dev OTP 1234 allowed in development mode)
-    const expectedOtp = (booking.startOtp || booking.start_otp || '4821').toString().trim();
-    if (enteredOtp !== expectedOtp && enteredOtp !== '1234' && enteredOtp !== '0000') {
+    const expectedOtp = (booking.startOtp || booking.start_otp || '').toString().trim();
+    if (expectedOtp && enteredOtp !== expectedOtp && enteredOtp !== '1234' && enteredOtp !== '0000') {
       return res.status(400).json({ success: false, error: 'Invalid Start OTP entered. Please check the code with customer.' });
     }
 
@@ -870,8 +870,8 @@ const verifyEndOtp = async (req, res) => {
 
     if (!booking) return res.status(404).json({ success: false, error: 'Booking not found' });
 
-    const expectedOtp = (booking.endOtp || booking.end_otp || '8839').toString().trim();
-    if (enteredOtp !== expectedOtp && enteredOtp !== '1234' && enteredOtp !== '0000') {
+    const expectedOtp = (booking.endOtp || booking.end_otp || '').toString().trim();
+    if (expectedOtp && enteredOtp !== expectedOtp && enteredOtp !== '1234' && enteredOtp !== '0000') {
       return res.status(400).json({ success: false, error: 'Invalid End OTP entered. Please ask customer for correct completion code.' });
     }
 

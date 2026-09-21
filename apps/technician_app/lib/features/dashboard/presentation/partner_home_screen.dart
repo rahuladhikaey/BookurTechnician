@@ -12,6 +12,7 @@ import 'job_execution_screen.dart';
 
 import '../../jobs/presentation/states/job_state.dart';
 import '../../jobs/presentation/job_details_page.dart';
+import '../../jobs/domain/job.dart';
 
 class PartnerHomeScreen extends ConsumerStatefulWidget {
   final ValueChanged<int>? onNavigateTab;
@@ -320,7 +321,26 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
 
   // ─── 4. In-Progress / Active Job Card ──────────────────────────────────────
   Widget _buildActiveJobCard(BuildContext context, DashboardState state, DashboardNotifier notifier) {
-    final activeJob = state.activeJob;
+    final jobState = ref.watch(jobStateProvider);
+    final activeJob = state.activeJob ?? (jobState.activeJob != null ? ActiveJobModel(
+      id: jobState.activeJob!.id,
+      title: jobState.activeJob!.title,
+      customerName: jobState.activeJob!.customerName,
+      customerAddress: jobState.activeJob!.customerAddress,
+      customerPhone: jobState.activeJob!.customerPhone ?? '',
+      price: jobState.activeJob!.price,
+      distanceKm: 2.4,
+      step: jobState.activeJob!.status == TechJobStatus.serviceStarted ? ActiveJobStep.serviceStarted : ActiveJobStep.onTheWay,
+    ) : (jobState.todayJobs.isNotEmpty ? ActiveJobModel(
+      id: jobState.todayJobs.first.id,
+      title: jobState.todayJobs.first.title,
+      customerName: jobState.todayJobs.first.customerName,
+      customerAddress: jobState.todayJobs.first.customerAddress,
+      customerPhone: jobState.todayJobs.first.customerPhone ?? '',
+      price: jobState.todayJobs.first.price,
+      distanceKm: 2.4,
+      step: ActiveJobStep.onTheWay,
+    ) : null));
 
     if (activeJob == null) {
       return Container(

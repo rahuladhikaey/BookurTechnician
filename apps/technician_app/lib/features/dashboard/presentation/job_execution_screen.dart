@@ -1,8 +1,11 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
+import 'dashboard_provider.dart';
 
 class JobExecutionScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> job;
@@ -17,11 +20,32 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
   late String _status;
   bool _isLoading = false;
   int _failedAttempts = 0;
+  GoogleMapController? _mapController;
 
   @override
   void initState() {
     super.initState();
     _status = widget.job['status'] ?? 'ACCEPTED';
+  }
+
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    super.dispose();
+  }
+
+  void _fitMapBounds(LatLng custPos, LatLng techPos) {
+    if (_mapController == null) return;
+    final double southWestLat = min(custPos.latitude, techPos.latitude);
+    final double southWestLng = min(custPos.longitude, techPos.longitude);
+    final double northEastLat = max(custPos.latitude, techPos.latitude);
+    final double northEastLng = max(custPos.longitude, techPos.longitude);
+
+    final bounds = LatLngBounds(
+      southwest: LatLng(southWestLat, southWestLng),
+      northeast: LatLng(northEastLat, northEastLng),
+    );
+    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
   }
 
   Future<void> _callCustomer(String phone) async {
@@ -38,12 +62,23 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
     }
   }
 
-  Future<void> _launchNavigation(String address) async {
-    final query = Uri.encodeComponent(address);
-    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+  Future<void> _launchNavigation(String address, {double? lat, double? lng}) async {
+    Uri targetUrl;
+    if (lat != null && lng != null && (lat != 0.0 || lng != 0.0)) {
+      targetUrl = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
+    } else {
+      final query = Uri.encodeComponent(address);
+      targetUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
     }
+    try {
+      if (await canLaunchUrl(targetUrl)) {
+        await launchUrl(targetUrl, mode: LaunchMode.externalApplication);
+      } else {
+        final query = Uri.encodeComponent(address);
+        final webUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+        await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
   }
 
   void _showStartOtpDialog() {
@@ -359,13 +394,16 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final dashState = ref.watch(dashboardProvider);
     final title = widget.job['title'] ?? 'Service Job';
     final customerName = widget.job['customerName'] ?? 'Customer';
     final address = widget.job['address'] ?? 'Customer Premise';
-    final phone = widget.job['customerPhone'] ?? widget.job['phone'] ?? '+91 98765 43210';
-    final payout = widget.job['payout'] != null ? '₹${widget.job['payout']}' : '₹650';
-    final timeSlot = widget.job['timeSlot'] ?? '1 Hour Window';
-    final distance = widget.job['distance'] ?? '2.4 km';
+    final phone = widget.job['customerPhone'] ?? widget.job['phone'] ?? '';
+    final payout = widget.job['payout'] != null ? '₹${widget.job['payout']}' : (widget.job['price'] != null ? '₹${widget.job['price']}' : '₹0');
+    final timeSlot = widget.job['timeSlot'] ?? 'Scheduled Slot';
+    final distance = widget.job['distance'] ?? '';
+    final custLat = (widget.job['customerLatitude'] as num?)?.toDouble();
+    final custLng = (widget.job['customerLongitude'] as num?)?.toDouble();
 
     final isInProgress = _status == 'IN_PROGRESS';
     final isCompleted = _status == 'COMPLETED';
@@ -445,6 +483,134 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                             color: isCompleted
                                 ? const Color(0xFF047857)
                                 : (isInProgress ? const Color(0xFFB45309) : const Color(0xFF1D4ED8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // ─── INTERACTIVE GOOGLE MAP ROUTE TO CUSTOMER ───
+            Card(
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 2,
+              child: Stack(
+                children: [
+                  SizedBox(
+                    height: 200,
+                    width: double.infinity,
+                    child: GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: LatLng(
+                          custLat ?? 12.971598,
+                          custLng ?? 77.594566,
+                        ),
+                        zoom: 14.5,
+                      ),
+                      markers: {
+                        // Customer destination marker
+                        Marker(
+                          markerId: const MarkerId('dest_customer_pin'),
+                          position: LatLng(
+                            custLat ?? 12.971598,
+                            custLng ?? 77.594566,
+                          ),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                          infoWindow: InfoWindow(
+                            title: 'Customer: $customerName',
+                            snippet: address,
+                          ),
+                        ),
+                        // Technician live location marker
+                        Marker(
+                          markerId: const MarkerId('tech_curr_pin'),
+                          position: LatLng(
+                            dashState.currentLatitude ?? 12.9716,
+                            dashState.currentLongitude ?? 77.5946,
+                          ),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
+                          infoWindow: const InfoWindow(
+                            title: 'Your Location',
+                            snippet: 'Assigned Partner GPS',
+                          ),
+                        ),
+                      },
+                      polylines: {
+                        Polyline(
+                          polylineId: const PolylineId('tech_cust_route'),
+                          points: [
+                            LatLng(dashState.currentLatitude ?? 12.9716, dashState.currentLongitude ?? 77.5946),
+                            LatLng(
+                              custLat ?? 12.971598,
+                              custLng ?? 77.594566,
+                            ),
+                          ],
+                          color: const Color(0xFF1E3A8A),
+                          width: 5,
+                          jointType: JointType.round,
+                        ),
+                      },
+                      myLocationEnabled: true,
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
+                      onMapCreated: (controller) {
+                        _mapController = controller;
+                        final custPos = LatLng(
+                          custLat ?? 12.971598,
+                          custLng ?? 77.594566,
+                        );
+                        final techPos = LatLng(
+                          dashState.currentLatitude ?? 12.9716,
+                          dashState.currentLongitude ?? 77.5946,
+                        );
+                        Future.delayed(const Duration(milliseconds: 300), () => _fitMapBounds(custPos, techPos));
+                      },
+                    ),
+                  ),
+
+                  // Floating Map Actions
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FloatingActionButton.small(
+                          heroTag: 'btn_fit_${widget.job['id']}',
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF1E3A8A),
+                          elevation: 3,
+                          onPressed: () {
+                            final custPos = LatLng(
+                              custLat ?? 12.971598,
+                              custLng ?? 77.594566,
+                            );
+                            final techPos = LatLng(
+                              dashState.currentLatitude ?? 12.9716,
+                              dashState.currentLongitude ?? 77.5946,
+                            );
+                            _fitMapBounds(custPos, techPos);
+                          },
+                          child: const Icon(Icons.crop_free_rounded, size: 18),
+                        ),
+                        const SizedBox(width: 8),
+                        FloatingActionButton.extended(
+                          heroTag: 'btn_nav_${widget.job['id']}',
+                          backgroundColor: const Color(0xFF1E3A8A),
+                          foregroundColor: Colors.white,
+                          elevation: 4,
+                          icon: const Icon(Icons.navigation_rounded, size: 16),
+                          label: const Text('Open Map', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          onPressed: () => _launchNavigation(
+                            address,
+                            lat: custLat,
+                            lng: custLng,
                           ),
                         ),
                       ],
@@ -546,7 +712,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => _launchNavigation(address),
+                          onPressed: () => _launchNavigation(address, lat: custLat, lng: custLng),
                           icon: const Icon(Icons.navigation_rounded, size: 16, color: Color(0xFF1E3A8A)),
                           label: const Text('Navigate', style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.w800)),
                           style: OutlinedButton.styleFrom(

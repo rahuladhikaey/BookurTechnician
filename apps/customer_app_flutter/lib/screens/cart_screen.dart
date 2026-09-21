@@ -7,7 +7,9 @@ import '../theme.dart';
 import '../booking_provider.dart';
 import '../models.dart';
 import '../services/api_client.dart';
+import '../models/customer_profile_models.dart';
 import 'tracking_screen.dart';
+import 'address_picker_screen.dart';
 import 'profile_completion_wizard_screen.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
@@ -48,11 +50,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 
   void _showAddressPicker(BuildContext context, AppState state) {
-    final addresses = [
-      {'title': 'Bellary Road, Bengaluru', 'type': 'Home'},
-      {'title': '14th Cross, Hebbal, Bengaluru', 'type': 'Office'},
-      {'title': '4th Block, Koramangala, Bengaluru', 'type': 'Other'},
-    ];
+    final savedAddresses = state.profile.addresses;
 
     showModalBottomSheet(
       context: context,
@@ -72,23 +70,66 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            ...addresses.map((a) {
-              final isSelected = state.selectedAddressTitle == a['title'];
-              return ListTile(
+            if (savedAddresses.isNotEmpty)
+              ...savedAddresses.map((a) {
+                final formatted = a.formattedAddress;
+                final isSelected = state.selectedAddressTitle == formatted;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    a.addressType == AddressType.home
+                        ? Icons.home_outlined
+                        : a.addressType == AddressType.work
+                            ? Icons.work_outline
+                            : Icons.location_on_outlined,
+                    color: isSelected ? kBrandPrimary : kSecondaryText,
+                  ),
+                  title: Text(formatted, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 13.5)),
+                  subtitle: Text(a.typeLabel, style: const TextStyle(fontSize: 11, color: kSecondaryText)),
+                  trailing: isSelected ? const Icon(Icons.check_circle, color: kSuccessGreen, size: 20) : null,
+                  onTap: () {
+                    ref.read(bookingProvider.notifier).updateAddressDetails(formatted, a.typeLabel);
+                    Navigator.pop(ctx);
+                  },
+                );
+              })
+            else if (state.address.isNotEmpty)
+              ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  a['type'] == 'Home' ? Icons.home_outlined : a['type'] == 'Office' ? Icons.work_outline : Icons.location_on_outlined,
-                  color: isSelected ? kBrandPrimary : kSecondaryText,
+                leading: const Icon(Icons.my_location_rounded, color: kBrandPrimary),
+                title: Text(state.address, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                subtitle: const Text('Current Selected Location', style: TextStyle(fontSize: 11, color: kSecondaryText)),
+                trailing: const Icon(Icons.check_circle, color: kSuccessGreen, size: 20),
+                onTap: () => Navigator.pop(ctx),
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'No saved addresses yet. Choose exact location on map below.',
+                  style: TextStyle(fontSize: 13, color: kSecondaryText),
                 ),
-                title: Text(a['title']!, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, fontSize: 13.5)),
-                subtitle: Text(a['type']!, style: const TextStyle(fontSize: 11, color: kSecondaryText)),
-                trailing: isSelected ? const Icon(Icons.check_circle, color: kSuccessGreen, size: 20) : null,
-                onTap: () {
-                  ref.read(bookingProvider.notifier).updateAddressDetails(a['title']!, a['type']!);
+              ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  side: const BorderSide(color: kBrandPrimary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.map_outlined, color: kBrandPrimary, size: 20),
+                label: const Text('Pick Exact Location on Map', style: TextStyle(color: kBrandPrimary, fontWeight: FontWeight.bold)),
+                onPressed: () async {
                   Navigator.pop(ctx);
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddressPickerScreen()),
+                  );
                 },
-              );
-            }),
+              ),
+            ),
           ],
         ),
       ),

@@ -851,7 +851,7 @@ const updateProfile = async (req, res) => {
     if (!technicianId) {
       return res.status(401).json({ success: false, error: 'Unauthorized: valid technician token required' });
     }
-    const { fullName, upiId, phone } = req.body;
+    const { fullName, upiId, phone, email, avatar, photo, experienceYears, category } = req.body;
 
     const updates = {};
     if (fullName) updates.fullName = fullName;
@@ -860,7 +860,61 @@ const updateProfile = async (req, res) => {
       updates.upiNumber = upiId;
     }
     if (phone) updates.phone = phone;
+    if (email) updates.email = email;
+    if (avatar || photo) {
+      updates.avatar = avatar || photo;
+      updates.selfieImageUrl = avatar || photo;
+      updates.livePicUrl = avatar || photo;
+    }
+    if (experienceYears) updates.experienceYears = parseInt(experienceYears, 10);
+    if (category) updates.category = category;
 
+    // 1. Persist to PostgreSQL technician_profiles & users
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          UPDATE technician_profiles
+          SET full_name = COALESCE(NULLIF($1, ''), full_name),
+              phone = COALESCE(NULLIF($2, ''), phone),
+              upi_id = COALESCE(NULLIF($3, ''), upi_id),
+              upi_number = COALESCE(NULLIF($3, ''), upi_number),
+              avatar = COALESCE(NULLIF($4, ''), avatar),
+              live_pic_url = COALESCE(NULLIF($4, ''), live_pic_url),
+              experience_years = COALESCE($5, experience_years),
+              category = COALESCE(NULLIF($6, ''), category),
+              updated_at = NOW()
+          WHERE technician_id = $7 OR id = $7;
+        `, [
+          fullName || null,
+          phone || null,
+          upiId || null,
+          avatar || photo || null,
+          experienceYears ? parseInt(experienceYears, 10) : null,
+          category || null,
+          technicianId
+        ]);
+
+        await postgres.query(`
+          UPDATE users
+          SET full_name = COALESCE(NULLIF($1, ''), full_name),
+              phone = COALESCE(NULLIF($2, ''), phone),
+              email = COALESCE(NULLIF($3, ''), email),
+              profile_image_url = COALESCE(NULLIF($4, ''), profile_image_url),
+              updated_at = NOW()
+          WHERE id = $5;
+        `, [
+          fullName || null,
+          phone || null,
+          email || null,
+          avatar || photo || null,
+          technicianId
+        ]);
+      } catch (pgErr) {
+        console.warn('⚠️ [TechnicianController] PG profile update warning:', pgErr.message);
+      }
+    }
+
+    // 2. Persist to MongoDB
     try {
       await MongoTechnicianProfile.findOneAndUpdate(
         { technicianId },
@@ -868,6 +922,41 @@ const updateProfile = async (req, res) => {
         { upsert: true, new: true }
       );
     } catch (e) {}
+
+    // 3. Update in-memory store
+    const existing = inMemoryTechProfiles.get(technicianId) || {};
+    inMemoryTechProfiles.set(technicianId, {
+      ...existing,
+      ...updates,
+      id: technicianId,
+      technicianId,
+      fullName: fullName || existing.fullName || 'Technician',
+      name: fullName || existing.fullName || 'Technician',
+      phone: phone || existing.phone || '',
+      email: email || existing.email || '',
+      upiId: upiId || existing.upiId || '',
+      avatar: avatar || photo || existing.avatar || '',
+      livePicUrl: avatar || photo || existing.livePicUrl || '',
+      photo: avatar || photo || existing.photo || '',
+      updatedAt: new Date().toISOString(),
+    });
+
+    // 4. Real-time broadcast to Admin Panel
+    if (global.io) {
+      global.io.emit('admin:technician_updated', {
+        id: technicianId,
+        technicianId,
+        fullName: fullName || existing.fullName,
+        name: fullName || existing.fullName,
+        phone: phone || existing.phone,
+        email: email || existing.email,
+        upiId: upiId || existing.upiId,
+        avatar: avatar || photo || existing.avatar,
+        photo: avatar || photo || existing.photo,
+        updatedAt: new Date().toISOString(),
+      });
+      global.io.emit('technicians:updated', { technicianId, action: 'PROFILE_UPDATED' });
+    }
 
     return getProfile(req, res);
   } catch (error) {

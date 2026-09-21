@@ -145,6 +145,9 @@ class Booking {
   final String address;
   final String technicianName;
   final String technicianPhone;
+  final String technicianCode;
+  final double technicianRating;
+  final String technicianAvatar;
   final String otpCode;
   final List<AddOnItem> addOns;
 
@@ -162,6 +165,9 @@ class Booking {
     this.address = '',
     this.technicianName = '',
     this.technicianPhone = '',
+    this.technicianCode = '',
+    this.technicianRating = 4.9,
+    this.technicianAvatar = '',
     this.otpCode = '',
     this.addOns = const [],
   });
@@ -220,6 +226,13 @@ class Booking {
       servicesList.add(ServiceItem(id: sId, name: sName, price: rawBaseCost));
     }
 
+    final rawTech = json['technician'] is Map ? Map<String, dynamic>.from(json['technician']) : null;
+    final tName = json['technicianName']?.toString() ?? rawTech?['technicianName']?.toString() ?? rawTech?['name']?.toString() ?? '';
+    final tPhone = json['technicianPhone']?.toString() ?? rawTech?['technicianPhone']?.toString() ?? rawTech?['phone']?.toString() ?? '';
+    final tCode = json['technicianCode']?.toString() ?? rawTech?['technicianCode']?.toString() ?? rawTech?['code']?.toString() ?? (rawTech?['id'] != null ? 'BT-TECH-${rawTech!['id'].toString().toUpperCase().padLeft(6, '0')}' : '');
+    final tRating = (json['technicianRating'] as num?)?.toDouble() ?? (rawTech?['technicianRating'] as num?)?.toDouble() ?? (rawTech?['rating'] as num?)?.toDouble() ?? 4.9;
+    final tAvatar = json['technicianAvatar']?.toString() ?? rawTech?['avatar']?.toString() ?? '';
+
     return Booking(
       id: json['bookingCode']?.toString() ?? json['id']?.toString() ?? 'BK-${DateTime.now().millisecondsSinceEpoch}',
       services: servicesList,
@@ -232,8 +245,11 @@ class Booking {
       gstTax: rawGst,
       grandTotal: rawGrandTotal,
       address: json['fullAddress']?.toString() ?? json['address']?.toString() ?? '',
-      technicianName: json['technicianName']?.toString() ?? '',
-      technicianPhone: json['technicianPhone']?.toString() ?? '',
+      technicianName: tName,
+      technicianPhone: tPhone,
+      technicianCode: tCode,
+      technicianRating: tRating,
+      technicianAvatar: tAvatar,
       otpCode: json['startServiceOtp']?.toString() ?? json['startOtp']?.toString() ?? json['otpCode']?.toString() ?? '',
     );
   }
@@ -265,6 +281,9 @@ class Booking {
       'fullAddress': address,
       'technicianName': technicianName,
       'technicianPhone': technicianPhone,
+      'technicianCode': technicianCode,
+      'technicianRating': technicianRating,
+      'technicianAvatar': technicianAvatar,
       'startOtp': otpCode,
       'startServiceOtp': otpCode,
       'otpCode': otpCode,
@@ -285,6 +304,9 @@ class Booking {
     String? address,
     String? technicianName,
     String? technicianPhone,
+    String? technicianCode,
+    double? technicianRating,
+    String? technicianAvatar,
     String? otpCode,
     List<AddOnItem>? addOns,
   }) {
@@ -302,6 +324,9 @@ class Booking {
       address: address ?? this.address,
       technicianName: technicianName ?? this.technicianName,
       technicianPhone: technicianPhone ?? this.technicianPhone,
+      technicianCode: technicianCode ?? this.technicianCode,
+      technicianRating: technicianRating ?? this.technicianRating,
+      technicianAvatar: technicianAvatar ?? this.technicianAvatar,
       otpCode: otpCode ?? this.otpCode,
       addOns: addOns ?? this.addOns,
     );

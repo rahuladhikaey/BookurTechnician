@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../booking_provider.dart';
 import '../config/app_config.dart';
 import '../models.dart';
@@ -238,17 +240,34 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
 
       // 2. Technician Assignment & Confirmed
       _socket!.on('booking:technician_assigned', (data) {
-        if (data != null) {
+        if (data != null && data is Map) {
           ref.read(bookingProvider.notifier).setBookingStatus(BookingStatus.techAssigned);
-          if (data['startOtp'] != null) {
-            setState(() => _liveStartOtp = data['startOtp'].toString());
-          }
+          setState(() {
+            _remoteBookingData = Map<String, dynamic>.from(data);
+            if (data['startOtp'] != null) {
+              _liveStartOtp = data['startOtp'].toString();
+            }
+          });
           final tech = data['technician'];
-          if (tech != null && tech is Map && tech['location'] != null) {
-            final lat = (tech['location']['latitude'] as num?)?.toDouble();
-            final lng = (tech['location']['longitude'] as num?)?.toDouble();
-            if (lat != null && lng != null) {
-              _onTechnicianLocationReceived(LatLng(lat, lng), 0.0, 5.0);
+          if (tech != null && tech is Map) {
+            if (tech['location'] != null) {
+              final lat = (tech['location']['latitude'] as num?)?.toDouble();
+              final lng = (tech['location']['longitude'] as num?)?.toDouble();
+              if (lat != null && lng != null) {
+                _onTechnicianLocationReceived(LatLng(lat, lng), 0.0, 5.0);
+              }
+            } else if (tech['technicianLatitude'] != null && tech['technicianLongitude'] != null) {
+              final lat = (tech['technicianLatitude'] as num).toDouble();
+              final lng = (tech['technicianLongitude'] as num).toDouble();
+              if (lat != 0.0 && lng != 0.0) {
+                _onTechnicianLocationReceived(LatLng(lat, lng), 0.0, 5.0);
+              }
+            } else if (tech['latitude'] != null && tech['longitude'] != null) {
+              final lat = (tech['latitude'] as num).toDouble();
+              final lng = (tech['longitude'] as num).toDouble();
+              if (lat != 0.0 && lng != 0.0) {
+                _onTechnicianLocationReceived(LatLng(lat, lng), 0.0, 5.0);
+              }
             }
           } else if (data['technicianLatitude'] != null && data['technicianLongitude'] != null) {
             final lat = (data['technicianLatitude'] as num).toDouble();
@@ -458,54 +477,43 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     return "$minutes mins ($km km away)";
   }
 
-  void _callTechnician(String phone) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Row(
-          children: [
-            Icon(Icons.phone_locked, color: kBrandPrimary),
-            SizedBox(width: 8),
-            Text("Privacy Masked Call"),
-          ],
+  Future<void> _callTechnician(String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'\s+'), '');
+    if (cleanPhone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Technician phone number will be displayed as soon as partner accepts.'),
+          backgroundColor: Color(0xFF1E40AF),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "BookUrTechnician masks telephone numbers to protect the privacy of both clients and service partners.",
-              style: TextStyle(fontSize: 13, color: kTextGray),
+      );
+      return;
+    }
+    final uri = Uri.parse('tel:$cleanPhone');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        await Clipboard.setData(ClipboardData(text: cleanPhone));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Phone number $cleanPhone copied to clipboard!'),
+              backgroundColor: const Color(0xFF16A34A),
             ),
-            const SizedBox(height: 16),
-            Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  phone.isNotEmpty ? "Calling $phone" : "Calling Service Partner",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: kTextNavy),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+          );
+        }
+      }
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: cleanPhone));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Phone number $cleanPhone copied to clipboard!'),
+            backgroundColor: const Color(0xFF16A34A),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Call Now"),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+    }
   }
 
   @override
@@ -858,53 +866,145 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                     const Divider(height: 1, color: Color(0xFFF1F5F9)),
                     const SizedBox(height: 12),
 
-                    // Technician Profile Card
-                    Row(
-                      children: [
-                        Container(
-                          width: 46,
-                          height: 46,
+                    // Real Technician Profile Card
+                    Builder(
+                      builder: (context) {
+                        final rawTech = _remoteBookingData?['technician'] is Map
+                            ? Map<String, dynamic>.from(_remoteBookingData!['technician'])
+                            : null;
+                        final String techName = (booking.technicianName.isNotEmpty && booking.technicianName != 'Assigning Verified Specialist...')
+                            ? booking.technicianName
+                            : (rawTech?['technicianName'] ?? rawTech?['name'] ?? rawTech?['full_name'] ?? _remoteBookingData?['technicianName'] ?? 'Assigned Technician');
+                        final String techPhone = booking.technicianPhone.isNotEmpty
+                            ? booking.technicianPhone
+                            : (rawTech?['technicianPhone'] ?? rawTech?['phone'] ?? _remoteBookingData?['technicianPhone'] ?? '');
+                        final String techCode = (booking.technicianCode.isNotEmpty)
+                            ? booking.technicianCode
+                            : (rawTech?['technicianCode'] ?? rawTech?['code'] ?? _remoteBookingData?['technicianCode'] ?? (rawTech?['id'] != null ? 'BT-TECH-${rawTech!['id'].toString().toUpperCase().padLeft(6, '0')}' : ''));
+                        final double techRating = booking.technicianRating > 0
+                            ? booking.technicianRating
+                            : ((rawTech?['rating'] as num?)?.toDouble() ?? 5.0);
+
+                        return Container(
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFFEFF6FF),
-                            border: Border.all(color: const Color(0xFF2563EB), width: 1.5),
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
-                          child: const Center(
-                            child: Icon(Icons.engineering_rounded, color: Color(0xFF2563EB), size: 26),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                booking.technicianName.isNotEmpty ? booking.technicianName : 'Verified Domain Specialist',
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF0F172A)),
-                              ),
-                              const SizedBox(height: 2),
-                              const Row(
+                              Row(
                                 children: [
-                                  Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 14),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    '15km Verified • Background Checked',
-                                    style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600),
+                                  // Avatar
+                                  Stack(
+                                    children: [
+                                      Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: const Color(0xFFEFF6FF),
+                                          border: Border.all(color: const Color(0xFF2563EB), width: 1.5),
+                                        ),
+                                        child: const Center(
+                                          child: Icon(Icons.engineering_rounded, color: Color(0xFF2563EB), size: 28),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        bottom: 0,
+                                        right: 0,
+                                        child: Container(
+                                          width: 13,
+                                          height: 13,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF16A34A),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.white, width: 2),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                techName,
+                                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A)),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            const Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 16),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFEFF6FF),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(color: const Color(0xFFBFDBFE)),
+                                              ),
+                                              child: Text(
+                                                techCode,
+                                                style: const TextStyle(
+                                                  color: Color(0xFF1E40AF),
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 10.5,
+                                                  letterSpacing: 0.4,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 15),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              techRating.toStringAsFixed(1),
+                                              style: const TextStyle(color: Color(0xFF0F172A), fontSize: 11.5, fontWeight: FontWeight.w800),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Text(
+                                              '• 15km Verified',
+                                              style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Call Button
+                                  Container(
+                                    width: 42,
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDCFCE7),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+                                    ),
+                                    child: IconButton(
+                                      icon: const Icon(Icons.phone_rounded, size: 20, color: Color(0xFF16A34A)),
+                                      onPressed: () => _callTechnician(techPhone),
+                                      tooltip: 'Call Technician',
+                                    ),
                                   ),
                                 ],
                               ),
                             ],
                           ),
-                        ),
-                        CircleAvatar(
-                          backgroundColor: const Color(0xFFDCFCE7),
-                          radius: 19,
-                          child: IconButton(
-                            icon: const Icon(Icons.phone_rounded, size: 18, color: Color(0xFF16A34A)),
-                            onPressed: () => _callTechnician(booking.technicianPhone),
-                          ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
 
                     // ─── START OTP PANEL (SHOWN BEFORE SERVICE START) ───
@@ -912,44 +1012,86 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                       const SizedBox(height: 14),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEEF2FF),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFC7D2FE), width: 1.2),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFEEF2FF), Color(0xFFE0E7FF)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFFC7D2FE), width: 1.5),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x144338CA), blurRadius: 10, offset: Offset(0, 3)),
+                          ],
                         ),
                         child: Column(
                           children: [
-                            const Text(
-                              'Service Start OTP Code',
-                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: Color(0xFF3730A3)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF4338CA).withValues(alpha: 0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.key_rounded, size: 16, color: Color(0xFF3730A3)),
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'SERVICE START OTP',
+                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF3730A3), letterSpacing: 0.8),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 4),
                             const Text(
-                              'Share this 4-digit code with your technician upon arrival to start work:',
-                              style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                              'Share this 4-digit verification code with your technician upon arrival to start work:',
+                              style: TextStyle(fontSize: 11.5, color: Color(0xFF4B5563), fontWeight: FontWeight.w500),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFF818CF8)),
-                                boxShadow: const [
-                                  BoxShadow(color: Color(0x1A4F46E5), blurRadius: 6, offset: Offset(0, 2)),
-                                ],
-                              ),
-                              child: Text(
-                                _liveStartOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '••••'),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 24,
-                                  color: Color(0xFF3730A3),
-                                  letterSpacing: 6,
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 24),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: const Color(0xFF818CF8), width: 1.5),
+                                    boxShadow: const [
+                                      BoxShadow(color: Color(0x1F4F46E5), blurRadius: 8, offset: Offset(0, 3)),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    _liveStartOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '4821'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 28,
+                                      color: Color(0xFF3730A3),
+                                      letterSpacing: 8,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 10),
+                                IconButton(
+                                  icon: const Icon(Icons.copy_rounded, color: Color(0xFF4338CA), size: 22),
+                                  tooltip: 'Copy OTP',
+                                  onPressed: () {
+                                    final code = _liveStartOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '4821');
+                                    Clipboard.setData(ClipboardData(text: code));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Start OTP copied to clipboard!'),
+                                        backgroundColor: Color(0xFF4338CA),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 6),
                             TextButton.icon(
@@ -1011,7 +1153,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                 ],
                               ),
                               child: Text(
-                                _liveEndOtp ?? '8839',
+                                _liveEndOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '----'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 24,

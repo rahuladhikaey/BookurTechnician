@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/services/audio_alert_service.dart';
+import '../../dashboard/presentation/job_execution_screen.dart';
 
 class IncomingJobAlertOverlay extends StatefulWidget {
   final String proposalId;
@@ -11,6 +12,7 @@ class IncomingJobAlertOverlay extends StatefulWidget {
   final String serviceType;
   final String customerName;
   final String customerAddress;
+  final String customerPhone;
   final String distanceKm;
   final String payout;
   final int timeoutSeconds;
@@ -22,6 +24,7 @@ class IncomingJobAlertOverlay extends StatefulWidget {
     required this.serviceType,
     required this.customerName,
     required this.customerAddress,
+    this.customerPhone = '',
     required this.distanceKm,
     required this.payout,
     this.timeoutSeconds = 45,
@@ -34,6 +37,7 @@ class IncomingJobAlertOverlay extends StatefulWidget {
     required String serviceType,
     required String customerName,
     required String customerAddress,
+    String customerPhone = '',
     required String distanceKm,
     required String payout,
     int timeoutSeconds = 45,
@@ -51,6 +55,7 @@ class IncomingJobAlertOverlay extends StatefulWidget {
           serviceType: serviceType,
           customerName: customerName,
           customerAddress: customerAddress,
+          customerPhone: customerPhone,
           distanceKm: distanceKm,
           payout: payout,
           timeoutSeconds: timeoutSeconds,
@@ -180,17 +185,54 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
 
       if (mounted) {
         Navigator.of(context).pop();
+
+        final dynamic rawResp = response.data;
+        final dynamic respData = rawResp is Map ? (rawResp['data'] ?? rawResp['booking'] ?? rawResp) : null;
+        String custPhone = widget.customerPhone;
+        double? custLat;
+        double? custLng;
+
+        if (respData is Map) {
+          custPhone = respData['customerPhone']?.toString() ??
+              respData['phone']?.toString() ??
+              respData['customer']?['phone']?.toString() ??
+              custPhone;
+          custLat = (respData['latitude'] ?? respData['customerLatitude'] ?? respData['customer']?['latitude']) as double?;
+          custLng = (respData['longitude'] ?? respData['customerLongitude'] ?? respData['customer']?['longitude']) as double?;
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Row(
               children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 8),
-                Expanded(child: Text('Job Accepted! Navigating to customer location...')),
+                Expanded(child: Text('Job Accepted! Opening Map and Execution details...')),
               ],
             ),
             backgroundColor: Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        // Immediate direct transition to Today Booking / Job Execution Screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => JobExecutionScreen(
+              job: {
+                'id': widget.bookingId,
+                'title': widget.serviceType,
+                'customerName': widget.customerName,
+                'address': widget.customerAddress,
+                'customerPhone': custPhone,
+                'payout': widget.payout,
+                'distance': '${widget.distanceKm} km',
+                'customerLatitude': custLat,
+                'customerLongitude': custLng,
+                'status': 'ACCEPTED',
+              },
+            ),
           ),
         );
       }

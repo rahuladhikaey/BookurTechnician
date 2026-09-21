@@ -355,9 +355,9 @@ const assignBooking = async (req, res) => {
       id,
       technicianId,
       technicianName,
-      technicianPhone || '+91 98765 43210',
+      technicianPhone || '',
       technicianCategory || 'Certified Partner',
-      technicianRating || 4.85,
+      technicianRating || 4.9,
       technicianAvatar || ''
     );
     
@@ -837,7 +837,7 @@ const getTechnicians = async (req, res) => {
           id,
           technicianId: id,
           fullName: t.fullName || existing.fullName || 'Technician',
-          phone: t.phone || existing.phone || '+91 98765 43210',
+          phone: t.phone || existing.phone || '',
           email: t.email || existing.email || `${id}@bookurtechnician.com`,
           avatar: livePicUrl,
           photo: livePicUrl,

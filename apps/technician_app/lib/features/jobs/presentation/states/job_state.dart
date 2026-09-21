@@ -40,7 +40,7 @@ class JobState {
     this.isGpsGranted = true,
     this.socketStatus = 'DISCONNECTED',
     this.isEndOtpVerified = false,
-    this.endOtp = '8839',
+    this.endOtp = '',
     this.isShiftOnline = false,
     this.showJobAlert = false,
     this.jobAlertCountdown = 30,
