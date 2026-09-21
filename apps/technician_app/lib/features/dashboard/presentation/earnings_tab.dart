@@ -358,22 +358,36 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                       style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: AppSpacing.m),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Weekly Progress (12 / 20 Jobs)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
-                        Text('8 jobs remaining', style: TextStyle(fontSize: 11.5, color: AppColors.primary, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: const LinearProgressIndicator(
-                        value: 12 / 20,
-                        minHeight: 8,
-                        backgroundColor: Color(0xFFF1F5F9),
-                        valueColor: AlwaysStoppedAnimation<Color>(SemanticColors.success),
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final weeklyJobs = dashState.weeklyCompletedJobs;
+                        const targetJobs = 20;
+                        final remainingJobs = (targetJobs - weeklyJobs).clamp(0, targetJobs);
+                        final progressVal = (weeklyJobs / targetJobs).clamp(0.0, 1.0);
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Weekly Progress ($weeklyJobs / $targetJobs Jobs)', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                                Text(remainingJobs == 0 ? 'Goal Reached! 🎉' : '$remainingJobs jobs remaining', style: const TextStyle(fontSize: 11.5, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: progressVal,
+                                minHeight: 8,
+                                backgroundColor: const Color(0xFFF1F5F9),
+                                valueColor: const AlwaysStoppedAnimation<Color>(SemanticColors.success),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -547,31 +561,53 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
             const Text('Settled UPI Payout Logs', style: AppTypography.titleMedium),
             const SizedBox(height: AppSpacing.s),
             Card(
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: dashState.payoutHistory.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final item = dashState.payoutHistory[index];
-                  return ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFDCFCE7),
-                        shape: BoxShape.circle,
+              child: dashState.payoutHistory.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.receipt_long_rounded, color: Color(0xFFCBD5E1), size: 36),
+                            SizedBox(height: 8),
+                            Text(
+                              'No UPI Payouts Recorded Yet',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF334155)),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'When you withdraw from your wallet, settled transactions will appear here.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: const Icon(Icons.arrow_downward_rounded, color: Color(0xFF15803D), size: 18),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: dashState.payoutHistory.length,
+                      separatorBuilder: (context, index) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final item = dashState.payoutHistory[index];
+                        return ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFDCFCE7),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.arrow_downward_rounded, color: Color(0xFF15803D), size: 18),
+                          ),
+                          title: Text('Txn Ref: ${item.id}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          subtitle: Text('Released: ${item.date} • ${item.status}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                          trailing: Text(
+                            '₹${item.amount.toStringAsFixed(0)}',
+                            style: const TextStyle(fontWeight: FontWeight.w900, color: SemanticColors.success, fontSize: 14),
+                          ),
+                        );
+                      },
                     ),
-                    title: Text('Txn Ref: ${item.id}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    subtitle: Text('Released: ${item.date} • ${item.status}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                    trailing: Text(
-                      '₹${item.amount.toStringAsFixed(0)}',
-                      style: const TextStyle(fontWeight: FontWeight.w900, color: SemanticColors.success, fontSize: 14),
-                    ),
-                  );
-                },
-              ),
             ),
           ],
         ),

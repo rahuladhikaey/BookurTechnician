@@ -1429,14 +1429,6 @@ const getTierStatus = async (req, res) => {
       }
     }
 
-    // Baseline fallback if not logged yet: default to realistic initial active session (e.g. 330 mins = 5.5 hrs for active test)
-    if (todayMinutes === 0 && completedJobsToday > 0) {
-      todayMinutes = completedJobsToday * 75; // ~75 mins per job
-    }
-    if (todayMinutes === 0) {
-      todayMinutes = 120; // 2 hrs initial baseline
-    }
-
     const todayHours = parseFloat((todayMinutes / 60).toFixed(1));
 
     // Determine Tier: Copper (0-5h), Silver (5-9h), Gold (9h+)
@@ -1510,7 +1502,7 @@ const getTierStatus = async (req, res) => {
         hoursRemaining: parseFloat(hoursRemaining.toFixed(1)),
         completedJobsToday,
         todayEarnings,
-        weeklyStreakDays: 5,
+        weeklyStreakDays: completedJobsToday > 0 ? 1 : 0,
         perks: perks[tier],
         allTiersPerks: perks,
         card: {
@@ -1535,7 +1527,7 @@ const getTierStatus = async (req, res) => {
  */
 const getAnalyticsOverview = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.query.technicianId || req.headers['x-user-id'];
+    const technicianId = req.user?.id || req.query.technicianId || req.headers['x-technician-id'] || req.headers['x-user-id'];
     const filter = (req.query.filter || 'today').toLowerCase(); // today | yesterday | tomorrow | week | month | custom
     const startDate = req.query.startDate;
     const endDate = req.query.endDate;
@@ -1547,97 +1539,273 @@ const getAnalyticsOverview = async (req, res) => {
     let totalEarnings = 0;
     let totalMinutes = 0;
     let completedJobsCount = 0;
+    let workLogs = [];
 
-    if (filter === 'today') {
+    if (postgres.isPgHealthy()) {
+      try {
+        if (filter === 'today') {
+          // 2-hour slots for today
+          const slots = [
+            { label: '8 AM', start: '08:00:00', end: '10:00:00' },
+            { label: '10 AM', start: '10:00:00', end: '12:00:00' },
+            { label: '12 PM', start: '12:00:00', end: '14:00:00' },
+            { label: '2 PM', start: '14:00:00', end: '16:00:00' },
+            { label: '4 PM', start: '16:00:00', end: '18:00:00' },
+            { label: '6 PM', start: '18:00:00', end: '20:00:00' },
+            { label: '8 PM', start: '20:00:00', end: '22:00:00' },
+          ];
+
+          for (const s of slots) {
+            const slotRes = await postgres.query(`
+              SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as earnings
+              FROM bookings
+              WHERE technician_id = $1 AND status IN ('COMPLETED', 'PAID')
+                AND DATE(created_at) = $2
+                AND created_at::time >= $3::time AND created_at::time < $4::time;
+            `, [technicianId, todayStr, s.start, s.end]);
+
+            const cnt = parseInt(slotRes.rows[0]?.count || 0, 10);
+            const earn = parseFloat(slotRes.rows[0]?.earnings || 0);
+
+            chartData.push({
+              label: s.label,
+              time: s.start.slice(0, 5),
+              earnings: earn,
+              workHours: cnt > 0 ? parseFloat((cnt * 1.2).toFixed(1)) : 0.0,
+              jobs: cnt,
+            });
+            totalEarnings += earn;
+            completedJobsCount += cnt;
+          }
+
+          const logRes = await postgres.query(`
+            SELECT online_minutes FROM technician_work_logs WHERE technician_id = $1 AND work_date = $2;
+          `, [technicianId, todayStr]);
+          if (logRes.rows.length > 0) {
+            totalMinutes = parseInt(logRes.rows[0].online_minutes || 0, 10);
+          } else {
+            totalMinutes = completedJobsCount * 60;
+          }
+
+          if (completedJobsCount > 0 || totalMinutes > 0) {
+            const hrs = (totalMinutes / 60).toFixed(1);
+            workLogs.push({
+              date: 'Today',
+              hoursText: `${hrs} hrs`,
+              jobsCount: completedJobsCount,
+              earnings: `₹${totalEarnings}`,
+              tier: parseFloat(hrs) >= 9 ? 'GOLD' : (parseFloat(hrs) >= 5 ? 'SILVER' : 'COPPER'),
+              status: 'ACTIVE',
+            });
+          }
+        } else if (filter === 'yesterday') {
+          const yestDate = new Date();
+          yestDate.setDate(yestDate.getDate() - 1);
+          const yestStr = yestDate.toISOString().split('T')[0];
+
+          const slots = [
+            { label: '8 AM', start: '08:00:00', end: '10:00:00' },
+            { label: '10 AM', start: '10:00:00', end: '12:00:00' },
+            { label: '12 PM', start: '12:00:00', end: '14:00:00' },
+            { label: '2 PM', start: '14:00:00', end: '16:00:00' },
+            { label: '4 PM', start: '16:00:00', end: '18:00:00' },
+            { label: '6 PM', start: '18:00:00', end: '20:00:00' },
+            { label: '8 PM', start: '20:00:00', end: '22:00:00' },
+          ];
+
+          for (const s of slots) {
+            const slotRes = await postgres.query(`
+              SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as earnings
+              FROM bookings
+              WHERE technician_id = $1 AND status IN ('COMPLETED', 'PAID')
+                AND DATE(created_at) = $2
+                AND created_at::time >= $3::time AND created_at::time < $4::time;
+            `, [technicianId, yestStr, s.start, s.end]);
+
+            const cnt = parseInt(slotRes.rows[0]?.count || 0, 10);
+            const earn = parseFloat(slotRes.rows[0]?.earnings || 0);
+
+            chartData.push({
+              label: s.label,
+              time: s.start.slice(0, 5),
+              earnings: earn,
+              workHours: cnt > 0 ? parseFloat((cnt * 1.2).toFixed(1)) : 0.0,
+              jobs: cnt,
+            });
+            totalEarnings += earn;
+            completedJobsCount += cnt;
+          }
+
+          const logRes = await postgres.query(`
+            SELECT online_minutes FROM technician_work_logs WHERE technician_id = $1 AND work_date = $2;
+          `, [technicianId, yestStr]);
+          if (logRes.rows.length > 0) {
+            totalMinutes = parseInt(logRes.rows[0].online_minutes || 0, 10);
+          } else {
+            totalMinutes = completedJobsCount * 60;
+          }
+
+          if (completedJobsCount > 0 || totalMinutes > 0) {
+            const hrs = (totalMinutes / 60).toFixed(1);
+            workLogs.push({
+              date: 'Yesterday',
+              hoursText: `${hrs} hrs`,
+              jobsCount: completedJobsCount,
+              earnings: `₹${totalEarnings}`,
+              tier: parseFloat(hrs) >= 9 ? 'GOLD' : (parseFloat(hrs) >= 5 ? 'SILVER' : 'COPPER'),
+              status: 'COMPLETED',
+            });
+          }
+        } else if (filter === 'tomorrow') {
+          const tomDate = new Date();
+          tomDate.setDate(tomDate.getDate() + 1);
+          const tomStr = tomDate.toISOString().split('T')[0];
+
+          const bkgRes = await postgres.query(`
+            SELECT id, service_name, total_amount, scheduled_time, status
+            FROM bookings
+            WHERE technician_id = $1 AND DATE(scheduled_date) = $2
+            ORDER BY scheduled_time ASC;
+          `, [technicianId, tomStr]);
+
+          if (bkgRes.rows.length > 0) {
+            for (const b of bkgRes.rows) {
+              const earn = parseFloat(b.total_amount || 0);
+              chartData.push({
+                label: b.scheduled_time || 'Scheduled',
+                time: b.scheduled_time || '09:00',
+                earnings: earn,
+                workHours: 1.5,
+                jobs: 1,
+                type: b.status || 'CONFIRMED',
+              });
+              totalEarnings += earn;
+              completedJobsCount += 1;
+              totalMinutes += 90;
+            }
+          } else {
+            chartData = [
+              { label: '9 AM – 11 AM', time: '09:00', earnings: 0, workHours: 0, jobs: 0, type: 'OPEN' },
+              { label: '12 PM – 2 PM', time: '12:00', earnings: 0, workHours: 0, jobs: 0, type: 'OPEN' },
+              { label: '3 PM – 5 PM', time: '15:00', earnings: 0, workHours: 0, jobs: 0, type: 'OPEN' },
+              { label: '6 PM – 8 PM', time: '18:00', earnings: 0, workHours: 0, jobs: 0, type: 'OPEN' },
+            ];
+          }
+        } else if (filter === 'week') {
+          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dStr = d.toISOString().split('T')[0];
+            const dName = dayNames[d.getDay()];
+
+            const dayRes = await postgres.query(`
+              SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as earnings
+              FROM bookings
+              WHERE technician_id = $1 AND status IN ('COMPLETED', 'PAID') AND DATE(created_at) = $2;
+            `, [technicianId, dStr]);
+
+            const cnt = parseInt(dayRes.rows[0]?.count || 0, 10);
+            const earn = parseFloat(dayRes.rows[0]?.earnings || 0);
+
+            const logRes = await postgres.query(`
+              SELECT online_minutes FROM technician_work_logs WHERE technician_id = $1 AND work_date = $2;
+            `, [technicianId, dStr]);
+            const dayMins = logRes.rows.length > 0 ? parseInt(logRes.rows[0].online_minutes || 0, 10) : cnt * 60;
+            const dayHrs = parseFloat((dayMins / 60).toFixed(1));
+
+            chartData.push({
+              label: dName,
+              date: dStr,
+              earnings: earn,
+              workHours: dayHrs,
+              jobs: cnt,
+            });
+
+            totalEarnings += earn;
+            totalMinutes += dayMins;
+            completedJobsCount += cnt;
+
+            if (cnt > 0 || dayMins > 0) {
+              workLogs.push({
+                date: i === 0 ? 'Today' : (i === 1 ? 'Yesterday' : `${d.getDate()} ${_getMonthShort(d.getMonth())}`),
+                hoursText: `${dayHrs} hrs`,
+                jobsCount: cnt,
+                earnings: `₹${earn}`,
+                tier: dayHrs >= 9 ? 'GOLD' : (dayHrs >= 5 ? 'SILVER' : 'COPPER'),
+                status: i === 0 ? 'ACTIVE' : 'COMPLETED',
+              });
+            }
+          }
+        } else {
+          // Month / Custom date range
+          const numDays = 14;
+          for (let i = numDays - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dStr = d.toISOString().split('T')[0];
+            const dayLabel = `${d.getDate()} ${_getMonthShort(d.getMonth())}`;
+
+            const dayRes = await postgres.query(`
+              SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as earnings
+              FROM bookings
+              WHERE technician_id = $1 AND status IN ('COMPLETED', 'PAID') AND DATE(created_at) = $2;
+            `, [technicianId, dStr]);
+
+            const cnt = parseInt(dayRes.rows[0]?.count || 0, 10);
+            const earn = parseFloat(dayRes.rows[0]?.earnings || 0);
+
+            const logRes = await postgres.query(`
+              SELECT online_minutes FROM technician_work_logs WHERE technician_id = $1 AND work_date = $2;
+            `, [technicianId, dStr]);
+            const dayMins = logRes.rows.length > 0 ? parseInt(logRes.rows[0].online_minutes || 0, 10) : cnt * 60;
+            const dayHrs = parseFloat((dayMins / 60).toFixed(1));
+
+            chartData.push({
+              label: dayLabel,
+              date: dStr,
+              earnings: earn,
+              workHours: dayHrs,
+              jobs: cnt,
+            });
+
+            totalEarnings += earn;
+            totalMinutes += dayMins;
+            completedJobsCount += cnt;
+
+            if (cnt > 0 || dayMins > 0) {
+              workLogs.push({
+                date: `${d.getDate()} ${_getMonthShort(d.getMonth())} ${d.getFullYear()}`,
+                hoursText: `${dayHrs} hrs`,
+                jobsCount: cnt,
+                earnings: `₹${earn}`,
+                tier: dayHrs >= 9 ? 'GOLD' : (dayHrs >= 5 ? 'SILVER' : 'COPPER'),
+                status: i === 0 ? 'ACTIVE' : 'COMPLETED',
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('PG query error in getAnalyticsOverview:', err.message);
+      }
+    }
+
+    // Default slots if DB was unreachable or empty for today
+    if (chartData.length === 0) {
       chartData = [
         { label: '8 AM', time: '08:00', earnings: 0, workHours: 0.0, jobs: 0 },
-        { label: '10 AM', time: '10:00', earnings: 350, workHours: 1.5, jobs: 1 },
-        { label: '12 PM', time: '12:00', earnings: 450, workHours: 1.2, jobs: 1 },
-        { label: '2 PM', time: '14:00', earnings: 0, workHours: 0.8, jobs: 0 },
-        { label: '4 PM', time: '16:00', earnings: 650, workHours: 1.8, jobs: 2 },
-        { label: '6 PM', time: '18:00', earnings: 400, workHours: 1.2, jobs: 1 },
+        { label: '10 AM', time: '10:00', earnings: 0, workHours: 0.0, jobs: 0 },
+        { label: '12 PM', time: '12:00', earnings: 0, workHours: 0.0, jobs: 0 },
+        { label: '2 PM', time: '14:00', earnings: 0, workHours: 0.0, jobs: 0 },
+        { label: '4 PM', time: '16:00', earnings: 0, workHours: 0.0, jobs: 0 },
+        { label: '6 PM', time: '18:00', earnings: 0, workHours: 0.0, jobs: 0 },
         { label: '8 PM', time: '20:00', earnings: 0, workHours: 0.0, jobs: 0 },
       ];
-      totalEarnings = 1850;
-      totalMinutes = 390; // 6.5 hrs
-      completedJobsCount = 5;
-    } else if (filter === 'yesterday') {
-      chartData = [
-        { label: '8 AM', time: '08:00', earnings: 250, workHours: 1.0, jobs: 1 },
-        { label: '10 AM', time: '10:00', earnings: 600, workHours: 2.0, jobs: 2 },
-        { label: '12 PM', time: '12:00', earnings: 300, workHours: 1.0, jobs: 1 },
-        { label: '2 PM', time: '14:00', earnings: 450, workHours: 1.5, jobs: 1 },
-        { label: '4 PM', time: '16:00', earnings: 500, workHours: 1.5, jobs: 1 },
-        { label: '6 PM', time: '18:00', earnings: 300, workHours: 1.0, jobs: 1 },
-        { label: '8 PM', time: '20:00', earnings: 0, workHours: 0.2, jobs: 0 },
-      ];
-      totalEarnings = 2400;
-      totalMinutes = 492; // 8.2 hrs
-      completedJobsCount = 7;
-    } else if (filter === 'tomorrow') {
-      // Projected slots & booked appointments
-      chartData = [
-        { label: '9 AM – 11 AM', time: '09:00', earnings: 450, workHours: 2.0, jobs: 1, type: 'CONFIRMED' },
-        { label: '12 PM – 2 PM', time: '12:00', earnings: 600, workHours: 2.0, jobs: 2, type: 'CONFIRMED' },
-        { label: '3 PM – 5 PM', time: '15:00', earnings: 850, workHours: 2.0, jobs: 2, type: 'ESTIMATED' },
-        { label: '6 PM – 8 PM', time: '18:00', earnings: 700, workHours: 2.0, jobs: 2, type: 'ESTIMATED' },
-      ];
-      totalEarnings = 2600; // Projected earnings
-      totalMinutes = 480; // 8.0 hrs
-      completedJobsCount = 7;
-    } else if (filter === 'week') {
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      const earningsPreset = [1650, 1900, 2200, 1750, 2400, 1850, 2100];
-      const hoursPreset = [6.0, 7.2, 8.5, 6.5, 9.2, 6.5, 8.0];
-      const jobsPreset = [4, 5, 6, 4, 7, 5, 6];
-
-      chartData = days.map((d, i) => ({
-        label: d,
-        date: `Day ${i + 1}`,
-        earnings: earningsPreset[i],
-        workHours: hoursPreset[i],
-        jobs: jobsPreset[i],
-      }));
-      totalEarnings = earningsPreset.reduce((a, b) => a + b, 0);
-      totalMinutes = Math.round(hoursPreset.reduce((a, b) => a + b, 0) * 60);
-      completedJobsCount = jobsPreset.reduce((a, b) => a + b, 0);
-    } else {
-      // Month / Custom 14-day history
-      const count = 14;
-      chartData = [];
-      for (let i = count - 1; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dayLabel = `${d.getDate()} ${_getMonthShort(d.getMonth())}`;
-        const earn = 1400 + Math.floor((i * 137) % 1500);
-        const hrs = parseFloat((5.2 + ((i * 3.7) % 4.5)).toFixed(1));
-        const jobs = 3 + Math.floor(hrs / 1.6);
-        chartData.push({
-          label: dayLabel,
-          date: d.toISOString().split('T')[0],
-          earnings: earn,
-          workHours: hrs,
-          jobs,
-        });
-        totalEarnings += earn;
-        totalMinutes += Math.round(hrs * 60);
-        completedJobsCount += jobs;
-      }
     }
 
     const totalHours = parseFloat((totalMinutes / 60).toFixed(1));
     const avgHourlyRate = totalHours > 0 ? Math.round(totalEarnings / totalHours) : 0;
-    const netEarnings = Math.round(totalEarnings * 0.9); // 10% platform deduction baseline
-
-    // Work logs list
-    const workLogs = [
-      { date: 'Today', hoursText: `${(totalMinutes / 60).toFixed(1)} hrs`, jobsCount: completedJobsCount, earnings: `₹${totalEarnings}`, tier: totalHours >= 9 ? 'GOLD' : (totalHours >= 5 ? 'SILVER' : 'COPPER'), status: 'ACTIVE' },
-      { date: 'Yesterday', hoursText: '8.2 hrs', jobsCount: 7, earnings: '₹2,400', tier: 'SILVER', status: 'COMPLETED' },
-      { date: '20 Sep 2026', hoursText: '9.4 hrs', jobsCount: 8, earnings: '₹2,850', tier: 'GOLD', status: 'COMPLETED' },
-      { date: '19 Sep 2026', hoursText: '7.5 hrs', jobsCount: 6, earnings: '₹2,100', tier: 'SILVER', status: 'COMPLETED' },
-      { date: '18 Sep 2026', hoursText: '5.2 hrs', jobsCount: 4, earnings: '₹1,650', tier: 'SILVER', status: 'COMPLETED' },
-      { date: '17 Sep 2026', hoursText: '4.0 hrs', jobsCount: 3, earnings: '₹1,200', tier: 'COPPER', status: 'COMPLETED' },
-    ];
+    const netEarnings = Math.round(totalEarnings * 0.9);
 
     return res.json({
       success: true,

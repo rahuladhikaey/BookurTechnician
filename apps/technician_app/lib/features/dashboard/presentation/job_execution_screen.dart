@@ -392,18 +392,53 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
     }
   }
 
+  String _formatCleanAddress(String raw) {
+    if (raw.isEmpty) return 'Customer Premise';
+    final parts = raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final seen = <String>{};
+    final cleanParts = <String>[];
+    for (final p in parts) {
+      final lower = p.toLowerCase();
+      if (!seen.contains(lower)) {
+        seen.add(lower);
+        cleanParts.add(p);
+      }
+    }
+    return cleanParts.join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final dashState = ref.watch(dashboardProvider);
-    final title = widget.job['title'] ?? 'Service Job';
+    final title = widget.job['title'] ?? widget.job['serviceName'] ?? 'Service Job';
     final customerName = widget.job['customerName'] ?? 'Customer';
-    final address = widget.job['address'] ?? 'Customer Premise';
+    final rawAddress = widget.job['address'] ?? widget.job['customerAddress'] ?? 'Customer Premise';
+    final address = _formatCleanAddress(rawAddress);
     final phone = widget.job['customerPhone'] ?? widget.job['phone'] ?? '';
-    final payout = widget.job['payout'] != null ? '₹${widget.job['payout']}' : (widget.job['price'] != null ? '₹${widget.job['price']}' : '₹0');
-    final timeSlot = widget.job['timeSlot'] ?? 'Scheduled Slot';
+    final timeSlot = widget.job['timeSlot'] ?? widget.job['scheduledTime'] ?? 'Scheduled Slot';
     final distance = widget.job['distance'] ?? '';
-    final custLat = (widget.job['customerLatitude'] as num?)?.toDouble();
-    final custLng = (widget.job['customerLongitude'] as num?)?.toDouble();
+    final custLat = (widget.job['customerLatitude'] as num?)?.toDouble() ?? (widget.job['customer_latitude'] as num?)?.toDouble();
+    final custLng = (widget.job['customerLongitude'] as num?)?.toDouble() ?? (widget.job['customer_longitude'] as num?)?.toDouble();
+
+    final rawPrice = (widget.job['price'] as num?)?.toDouble() ?? 
+                     (widget.job['payout'] as num?)?.toDouble() ?? 
+                     double.tryParse(widget.job['price']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '') ?? 
+                     double.tryParse(widget.job['payout']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '') ?? 149.0;
+
+    const bookingFee = 49;
+    final advanceService = (rawPrice * 0.30).round();
+    final totalAdvancePaid = bookingFee + advanceService;
+    final balanceToCollect = (rawPrice * 0.70).round();
+    final payout = '₹${rawPrice.toStringAsFixed(0)}';
+
+    // Resolve realistic coordinates
+    final defaultCenterLat = custLat ?? dashState.currentLatitude ?? 23.24;
+    final defaultCenterLng = custLng ?? dashState.currentLongitude ?? 88.55;
+
+    final actualTechLat = dashState.currentLatitude ?? defaultCenterLat;
+    final actualTechLng = dashState.currentLongitude ?? defaultCenterLng;
+    final actualCustLat = custLat ?? defaultCenterLat;
+    final actualCustLng = custLng ?? defaultCenterLng;
 
     final isInProgress = _status == 'IN_PROGRESS';
     final isCompleted = _status == 'COMPLETED';
@@ -451,39 +486,33 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                     color: isCompleted
                         ? const Color(0xFF16A34A)
                         : (isInProgress ? const Color(0xFFD97706) : const Color(0xFF1E3A8A)),
-                    size: 24,
+                    size: 20,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           isCompleted
-                              ? 'JOB COMPLETED'
+                              ? 'JOB COMPLETED • SETTLED'
                               : (isInProgress ? 'SERVICE IN PROGRESS' : 'JOB ACCEPTED • ON DUTY'),
                           style: TextStyle(
-                            fontSize: 12,
                             fontWeight: FontWeight.w900,
+                            fontSize: 12.5,
                             color: isCompleted
-                                ? const Color(0xFF065F46)
+                                ? const Color(0xFF166534)
                                 : (isInProgress ? const Color(0xFF92400E) : const Color(0xFF1E3A8A)),
                             letterSpacing: 0.5,
                           ),
                         ),
                         Text(
                           isCompleted
-                              ? 'Payout released to your partner wallet'
+                              ? 'Payment verified and credited to partner wallet.'
                               : (isInProgress
-                                  ? 'Work is ongoing. Collect End OTP to finalize.'
+                                  ? 'Work underway. Collect Ending OTP upon finishing.'
                                   : 'Head to customer location & collect Start OTP.'),
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: isCompleted
-                                ? const Color(0xFF047857)
-                                : (isInProgress ? const Color(0xFFB45309) : const Color(0xFF1D4ED8)),
-                          ),
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -506,20 +535,14 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                     width: double.infinity,
                     child: GoogleMap(
                       initialCameraPosition: CameraPosition(
-                        target: LatLng(
-                          custLat ?? 12.971598,
-                          custLng ?? 77.594566,
-                        ),
+                        target: LatLng(actualCustLat, actualCustLng),
                         zoom: 14.5,
                       ),
                       markers: {
                         // Customer destination marker
                         Marker(
                           markerId: const MarkerId('dest_customer_pin'),
-                          position: LatLng(
-                            custLat ?? 12.971598,
-                            custLng ?? 77.594566,
-                          ),
+                          position: LatLng(actualCustLat, actualCustLng),
                           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
                           infoWindow: InfoWindow(
                             title: 'Customer: $customerName',
@@ -529,10 +552,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                         // Technician live location marker
                         Marker(
                           markerId: const MarkerId('tech_curr_pin'),
-                          position: LatLng(
-                            dashState.currentLatitude ?? 12.9716,
-                            dashState.currentLongitude ?? 77.5946,
-                          ),
+                          position: LatLng(actualTechLat, actualTechLng),
                           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan),
                           infoWindow: const InfoWindow(
                             title: 'Your Location',
@@ -544,11 +564,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                         Polyline(
                           polylineId: const PolylineId('tech_cust_route'),
                           points: [
-                            LatLng(dashState.currentLatitude ?? 12.9716, dashState.currentLongitude ?? 77.5946),
-                            LatLng(
-                              custLat ?? 12.971598,
-                              custLng ?? 77.594566,
-                            ),
+                            LatLng(actualTechLat, actualTechLng),
+                            LatLng(actualCustLat, actualCustLng),
                           ],
                           color: const Color(0xFF1E3A8A),
                           width: 5,
@@ -561,14 +578,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       mapToolbarEnabled: false,
                       onMapCreated: (controller) {
                         _mapController = controller;
-                        final custPos = LatLng(
-                          custLat ?? 12.971598,
-                          custLng ?? 77.594566,
-                        );
-                        final techPos = LatLng(
-                          dashState.currentLatitude ?? 12.9716,
-                          dashState.currentLongitude ?? 77.5946,
-                        );
+                        final custPos = LatLng(actualCustLat, actualCustLng);
+                        final techPos = LatLng(actualTechLat, actualTechLng);
                         Future.delayed(const Duration(milliseconds: 300), () => _fitMapBounds(custPos, techPos));
                       },
                     ),
@@ -587,14 +598,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                           foregroundColor: const Color(0xFF1E3A8A),
                           elevation: 3,
                           onPressed: () {
-                            final custPos = LatLng(
-                              custLat ?? 12.971598,
-                              custLng ?? 77.594566,
-                            );
-                            final techPos = LatLng(
-                              dashState.currentLatitude ?? 12.9716,
-                              dashState.currentLongitude ?? 77.5946,
-                            );
+                            final custPos = LatLng(actualCustLat, actualCustLng);
+                            final techPos = LatLng(actualTechLat, actualTechLng);
                             _fitMapBounds(custPos, techPos);
                           },
                           child: const Icon(Icons.crop_free_rounded, size: 18),
@@ -609,8 +614,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                           label: const Text('Open Map', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           onPressed: () => _launchNavigation(
                             address,
-                            lat: custLat,
-                            lng: custLng,
+                            lat: actualCustLat,
+                            lng: actualCustLng,
                           ),
                         ),
                       ],
@@ -665,8 +670,10 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       const Icon(Icons.schedule_rounded, size: 16, color: Color(0xFF64748B)),
                       const SizedBox(width: 6),
                       Text(timeSlot, style: const TextStyle(fontSize: 13, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 10),
-                      Text('• $distance', style: const TextStyle(fontSize: 13, color: Color(0xFF059669), fontWeight: FontWeight.w800)),
+                      if (distance.isNotEmpty) ...[
+                        const SizedBox(width: 10),
+                        Text('• $distance', style: const TextStyle(fontSize: 13, color: Color(0xFF059669), fontWeight: FontWeight.w800)),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -712,7 +719,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => _launchNavigation(address, lat: custLat, lng: custLng),
+                          onPressed: () => _launchNavigation(address, lat: actualCustLat, lng: actualCustLng),
                           icon: const Icon(Icons.navigation_rounded, size: 16, color: Color(0xFF1E3A8A)),
                           label: const Text('Navigate', style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.w800)),
                           style: OutlinedButton.styleFrom(
@@ -774,8 +781,18 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Online Advance Prepayment', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
-                          Text('Booking Fee (₹49) + 30% Service Advance', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                          Text(
+                            'Online Advance Prepayment',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF334155),
+                            ),
+                          ),
+                          Text(
+                            'Booking Fee (₹49) + 30% Service Advance',
+                            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          ),
                         ],
                       ),
                       Container(
@@ -785,9 +802,9 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: const Color(0xFFA7F3D0)),
                         ),
-                        child: const Text(
-                          '₹244 (🟢 Paid Online)',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF15803D)),
+                        child: Text(
+                          '₹$totalAdvancePaid (🟢 Paid Online)',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF15803D)),
                         ),
                       ),
                     ],
@@ -802,10 +819,10 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: const Color(0xFFFDE68A)),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
+                        const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
@@ -819,8 +836,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                           ],
                         ),
                         Text(
-                          '₹455',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFFB45309)),
+                          '₹$balanceToCollect',
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFFB45309)),
                         ),
                       ],
                     ),

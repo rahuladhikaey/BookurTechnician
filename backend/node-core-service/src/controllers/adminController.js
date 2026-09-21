@@ -369,6 +369,23 @@ const assignBooking = async (req, res) => {
     });
 
     if (global.io && updated) {
+      const { registerDispatchRequest } = require('./dispatchController');
+      try {
+        await registerDispatchRequest({
+          bookingId: id,
+          technicianId: technicianId,
+          serviceId: updated.serviceId || 'srv-default',
+          serviceName: updated.serviceName || updated.service || 'Assigned Service Job',
+          customerName: updated.customerName || updated.customer || 'Customer',
+          customerAddress: updated.address || updated.fullAddress || 'Customer Address',
+          distanceKm: 1.5,
+          estimatedPayout: (parseFloat(updated.totalAmount || 350) * 0.8).toFixed(0),
+          totalAmount: updated.totalAmount || 350,
+          timeoutSeconds: 45,
+          candidatesQueue: [],
+        });
+      } catch (_) {}
+
       const ringingPayload = {
         proposalId: `prop-${id.slice(0, 8)}`,
         bookingId: id,
@@ -391,6 +408,15 @@ const assignBooking = async (req, res) => {
       };
 
       global.io.to(`tech_${technicianId}`).emit('booking:dispatch_ringing', ringingPayload);
+      global.io.to(`tech_${technicianId}`).emit('TECHNICIAN_BOOKING_REQUEST', ringingPayload);
+      if (technicianPhone) {
+        global.io.to(`tech_${technicianPhone}`).emit('booking:dispatch_ringing', ringingPayload);
+        global.io.to(`tech_${technicianPhone}`).emit('TECHNICIAN_BOOKING_REQUEST', ringingPayload);
+      }
+      global.io.to('global_dispatch').emit('booking:dispatch_ringing', ringingPayload);
+      global.io.to('global_dispatch').emit('TECHNICIAN_BOOKING_REQUEST', ringingPayload);
+      global.io.emit('booking:dispatch_ringing', ringingPayload);
+      global.io.emit('TECHNICIAN_BOOKING_REQUEST', ringingPayload);
       global.io.to(`tech_${technicianId}`).emit('booking:assigned', updated);
       global.io.emit('booking:assigned', updated);
       console.log(`🚨 [Admin Assign Dispatch] Emitted ringing alert directly to technician ${technicianId} for booking #${id}.`);

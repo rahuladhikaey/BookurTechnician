@@ -16,6 +16,8 @@ import '../../jobs/domain/job.dart';
 import '../../analytics/presentation/technician_analytics_screen.dart';
 import '../../analytics/presentation/technician_analytics_provider.dart';
 import '../../analytics/domain/technician_analytics_models.dart';
+import '../../../core/security/secure_storage.dart';
+import '../../../core/services/socket_service.dart';
 
 class PartnerHomeScreen extends ConsumerStatefulWidget {
   final ValueChanged<int>? onNavigateTab;
@@ -34,7 +36,20 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
   void initState() {
     super.initState();
     _fetchSkillProfile();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        final auth = ref.read(authProvider);
+        final userId = await SecureStorage().getUserId();
+        if (userId != null && userId.isNotEmpty) {
+          TechnicianSocketService().connect(
+            technicianId: userId,
+            phone: auth.phone,
+            category: 'electrician',
+          );
+        }
+      } catch (_) {}
+
+      if (!mounted) return;
       ref.read(dashboardProvider.notifier).fetchAndUpdateLocation(context: context, showPromptDialogs: false);
       ref.read(jobStateProvider.notifier).fetchAssignedJobs();
     });
@@ -69,6 +84,21 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
         );
       }
     }
+  }
+
+  static String formatCleanAddress(String raw) {
+    if (raw.isEmpty) return 'Customer Premise';
+    final parts = raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final seen = <String>{};
+    final cleanParts = <String>[];
+    for (final p in parts) {
+      final lower = p.toLowerCase();
+      if (!seen.contains(lower)) {
+        seen.add(lower);
+        cleanParts.add(p);
+      }
+    }
+    return cleanParts.join(', ');
   }
 
   Future<void> _callCustomer(String phone, String name) async {
@@ -212,9 +242,9 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                         color: const Color(0xFFECFDF5),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
-                        '+18%',
-                        style: TextStyle(
+                      child: Text(
+                        state.todayEarnings > 0 ? 'Live' : '₹0',
+                        style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
                           color: Color(0xFF059669),
@@ -248,7 +278,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
         ),
         const SizedBox(width: 12),
 
-        // Card 2: "Jobs Done" with completion check icon and value "3 / 5"
+        // Card 2: "Jobs Done" with completion check icon and value
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -288,9 +318,9 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                         color: const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
-                        'Target 5',
-                        style: TextStyle(
+                      child: Text(
+                        state.completedJobsCount > 0 ? '${state.completedJobsCount} Done' : 'Today',
+                        style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
                           color: Color(0xFF1E3A8A),
@@ -482,7 +512,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
       customerAddress: jobState.activeJob!.customerAddress,
       customerPhone: jobState.activeJob!.customerPhone ?? '',
       price: jobState.activeJob!.price,
-      distanceKm: 2.4,
+      distanceKm: 0.0,
       step: jobState.activeJob!.status == TechJobStatus.serviceStarted ? ActiveJobStep.serviceStarted : ActiveJobStep.onTheWay,
     ) : (jobState.todayJobs.isNotEmpty ? ActiveJobModel(
       id: jobState.todayJobs.first.id,
@@ -491,7 +521,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
       customerAddress: jobState.todayJobs.first.customerAddress,
       customerPhone: jobState.todayJobs.first.customerPhone ?? '',
       price: jobState.todayJobs.first.price,
-      distanceKm: 2.4,
+      distanceKm: 0.0,
       step: ActiveJobStep.onTheWay,
     ) : null));
 
@@ -556,7 +586,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
 
     final title = activeJob.title;
     final customerName = activeJob.customerName;
-    final customerAddress = activeJob.customerAddress;
+    final customerAddress = formatCleanAddress(activeJob.customerAddress);
     final payout = '₹${activeJob.price.toStringAsFixed(0)}';
     final customerPhone = activeJob.customerPhone;
 
@@ -911,7 +941,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              job.customerAddress,
+                              formatCleanAddress(job.customerAddress),
                               style: const TextStyle(
                                 fontSize: 11.5,
                                 color: Color(0xFF64748B),
@@ -1026,8 +1056,8 @@ class _PartnerHeroAutoScrollBannerState extends State<_PartnerHeroAutoScrollBann
   Widget build(BuildContext context) {
     final state = widget.dashState;
     final addressText = state.currentLocationAddress.isNotEmpty
-        ? state.currentLocationAddress
-        : 'Bengaluru Central, Karnataka';
+        ? _PartnerHomeScreenState.formatCleanAddress(state.currentLocationAddress)
+        : (state.isFetchingLocation ? 'Locating partner GPS...' : 'Location Available');
 
     return Container(
       width: double.infinity,

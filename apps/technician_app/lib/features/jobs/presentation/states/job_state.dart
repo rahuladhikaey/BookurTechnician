@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/security/secure_storage.dart';
 import '../../../../core/services/gps_permission_helper.dart';
+import '../../../../core/services/booking_request_manager.dart';
 import '../../domain/job.dart';
 
 class JobState {
@@ -348,18 +349,20 @@ class JobStateNotifier extends StateNotifier<JobState> {
 
     try {
       final response = await _dioClient.dio.get('/dispatch/proposals/pending');
-      final data = response.data['data'] as List?;
+      final dynamic raw = response.data;
+      final data = raw is Map
+          ? (raw['data'] as List? ?? (raw['hasPending'] == true && raw['proposal'] != null ? [raw['proposal']] : null))
+          : (raw is List ? raw : null);
 
       if (data != null && data.isNotEmpty) {
-        final first = data.first as Map<String, dynamic>;
-        final String proposalId = first['id'];
+        final first = Map<String, dynamic>.from(data.first as Map);
+        final remainingSeconds = int.tryParse(first['remainingSeconds']?.toString() ?? '30') ?? 30;
 
-        // Auto-assign directly (Delete accept/reject countdown concept)
-        try {
-          await _dioClient.dio.post('/dispatch/proposals/$proposalId/accept');
-        } catch (_) {}
-
-        await fetchAssignedJobs();
+        if (remainingSeconds > 2) {
+          first['timeoutSeconds'] = remainingSeconds;
+          // Trigger loud ringing audio & show incoming job overlay with Accept / Decline button
+          BookingRequestManager().handleIncomingRequest(first);
+        }
       } else {
         // Periodic sync of assigned jobs
         await fetchAssignedJobs();
