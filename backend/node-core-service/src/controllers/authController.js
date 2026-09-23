@@ -6,7 +6,8 @@ const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
 const { sendOtpEmail, deriveNameFromEmail } = require('../services/brevoService');
 const { sendOtpSms } = require('../services/smsService');
 const bookingsStore = require('../config/bookingsStore');
-const { setTechnicianProfile } = require('../config/techniciansStore');
+const { setTechnicianProfile } = require('../config/inMemoryTechStore');
+
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_bookurtechnician_2026_secure';
 const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET || 'super_refresh_jwt_key_bookurtechnician_2026';
