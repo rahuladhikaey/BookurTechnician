@@ -129,6 +129,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
       email: widget.emailAddress,
       fullName: widget.fullName,
       age: widget.age,
+      isResend: true,
     );
     setState(() => _isResending = false);
 
@@ -151,6 +152,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

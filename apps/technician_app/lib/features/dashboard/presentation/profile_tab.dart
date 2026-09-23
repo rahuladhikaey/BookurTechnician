@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_radius.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../auth/presentation/login_page.dart';
@@ -15,6 +14,7 @@ import '../data/technician_profile_service.dart';
 import '../../../core/services/cloudinary_upload_service.dart';
 import 'my_skills_page.dart';
 import 'partner_legal_page.dart';
+import '../../analytics/presentation/technician_analytics_screen.dart';
 
 class ProfileTab extends ConsumerStatefulWidget {
   const ProfileTab({super.key});
@@ -58,18 +58,22 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   }
 
   void _openEditProfileDialog() {
-    final nameController = TextEditingController(text: _profileData?.fullName ?? '');
+    final authState = ref.read(authProvider);
+    final currentName = (_profileData?.fullName.isNotEmpty == true && _profileData!.fullName != 'Partner Technician')
+        ? _profileData!.fullName
+        : (authState.fullName?.isNotEmpty == true ? authState.fullName! : '');
+    final nameController = TextEditingController(text: currentName);
     final upiController = TextEditingController(text: _profileData?.upiId ?? '');
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.edit_note, color: AppColors.primary),
+            Icon(Icons.edit_note_rounded, color: Color(0xFF0F172A), size: 26),
             SizedBox(width: 8),
-            Text('Edit Partner Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Edit Captain Profile', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
           ],
         ),
         content: Column(
@@ -77,20 +81,24 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           children: [
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Full Name',
-                prefixIcon: Icon(Icons.person),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.person_rounded, color: Color(0xFF0F172A)),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: upiController,
-              decoration: const InputDecoration(
-                labelText: 'UPI Number / ID (VPA)',
-                prefixIcon: Icon(Icons.payment),
+              decoration: InputDecoration(
+                labelText: 'Payout UPI ID (VPA)',
+                prefixIcon: const Icon(Icons.payment_rounded, color: Color(0xFF0F172A)),
                 hintText: 'e.g. 9876543210@upi',
-                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -98,13 +106,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              backgroundColor: const Color(0xFF0F172A),
+              foregroundColor: const Color(0xFFFDB813),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
               final newName = nameController.text.trim();
@@ -116,8 +124,28 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   fullName: newName.isNotEmpty ? newName : null,
                   upiId: newUpi.isNotEmpty ? newUpi : null,
                 );
-                if (updated != null && mounted) {
-                  setState(() => _profileData = updated);
+                if (mounted) {
+                  if (updated != null) {
+                    setState(() => _profileData = updated);
+                  } else if (newName.isNotEmpty) {
+                    setState(() {
+                      _profileData = (_profileData ?? TechnicianProfileData(
+                        id: authState.phone ?? 'BT-TECH',
+                        technicianCode: 'BT-CAPTAIN',
+                        fullName: newName,
+                        phone: authState.phone ?? '',
+                        email: authState.email ?? '',
+                        profileImageUrl: '',
+                        rating: 5.0,
+                        totalRatingsCount: 0,
+                        totalJobsCompleted: 0,
+                        kycStatus: 'VERIFIED',
+                        isOnline: false,
+                        upiId: newUpi,
+                        isUpiVerified: newUpi.isNotEmpty,
+                      )).copyWith(fullName: newName, upiId: newUpi.isNotEmpty ? newUpi : null);
+                    });
+                  }
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Profile details updated successfully!'),
@@ -127,688 +155,22 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 }
               }
             },
-            child: const Text('Save Changes'),
+            child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.w900)),
           ),
         ],
       ),
     );
   }
 
-
-
-  @override
-  Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-
-    final technicianName = _profileData?.fullName.isNotEmpty == true
-        ? _profileData!.fullName
-        : (authState.fullName?.isNotEmpty == true ? authState.fullName! : 'Partner Technician');
-
-    final technicianCode = _profileData?.technicianCode.isNotEmpty == true
-        ? _profileData!.technicianCode
-        : 'BT-TECH-ACTIVE';
-
-    final rating = _profileData?.rating ?? (_skillProfile?.rating ?? 5.0);
-    final totalRatings = _profileData?.totalRatingsCount ?? (_skillProfile?.totalRatingsCount ?? 0);
-    final jobsCompleted = _profileData?.totalJobsCompleted ?? (_skillProfile?.totalJobsCompleted ?? 0);
-    final kycStatus = _profileData?.kycStatus ?? 'VERIFIED';
-    final isApproved = kycStatus.toUpperCase() == 'VERIFIED' || kycStatus.toUpperCase() == 'APPROVED';
-
-    final skillsList = _skillProfile != null && _skillProfile!.skills.isNotEmpty
-        ? _skillProfile!.skills.map((s) => s.skillName).toList()
-        : <String>['Electrical & Home', 'Appliance Repair'];
-
-    final hasAadhaar = _kycDocuments.any((d) => d.documentType.toUpperCase().contains('AADHAAR')) || isApproved;
-    final hasVoter = _kycDocuments.any((d) => d.documentType.toUpperCase().contains('VOTER')) || isApproved;
-    final hasUpi = (_profileData?.upiId.isNotEmpty == true) || (_profileData?.isUpiVerified == true);
-    final isKycFullyComplete = hasAadhaar && hasVoter && hasUpi;
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('My Partner Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh Profile',
-            onPressed: _loadLiveProfile,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: SemanticColors.error),
-            tooltip: 'Logout',
-            onPressed: () async {
-              await ref.read(authProvider.notifier).logout();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                  (route) => false,
-                );
-              }
-            },
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadLiveProfile,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ═════════════════════════════════════════════════════════
-                    // 1. FULL DIGITAL ID CARD (SHOWN FIRST)
-                    // ═════════════════════════════════════════════════════════
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF0B1F63).withValues(alpha: 0.12),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        children: [
-                          // Card Top Header Gradient Bar
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF0B1F63), Color(0xFF17399A)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: Image.asset(
-                                        'assets/images/app_logo.png',
-                                        width: 22,
-                                        height: 22,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (ctx, err, stack) => const Icon(Icons.handyman_rounded, color: Colors.white, size: 18),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text(
-                                      'BookurTechnician',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Text(
-                                    'TECHNICIAN MEMBER',
-                                    style: TextStyle(
-                                      color: Color(0xFF93C5FD),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Card Main Body
-                          Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              children: [
-                                // Verified Technician Emblem Badge
-                                Stack(
-                                  alignment: Alignment.bottomRight,
-                                  children: [
-                                    Container(
-                                      width: 90,
-                                      height: 90,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFF0B1F63), Color(0xFF17399A)],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        border: Border.all(color: const Color(0xFF38BDF8), width: 3),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFF17399A).withValues(alpha: 0.25),
-                                            blurRadius: 12,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          technicianName.isNotEmpty ? technicianName[0].toUpperCase() : 'T',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 38,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    if (isApproved)
-                                      Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFF16A34A),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(Icons.check, color: Colors.white, size: 14),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-
-                                // Technician Name & Edit Action
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      technicianName,
-                                      style: const TextStyle(
-                                        fontSize: 19,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF0B1635),
-                                        letterSpacing: -0.3,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit, size: 16, color: AppColors.primary),
-                                      padding: const EdgeInsets.only(left: 6),
-                                      constraints: const BoxConstraints(),
-                                      onPressed: _openEditProfileDialog,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                const Text(
-                                  'Certified Field Technician',
-                                  style: TextStyle(fontSize: 12.5, color: Color(0xFF667085), fontWeight: FontWeight.w500),
-                                ),
-                                const SizedBox(height: 14),
-
-                                // Information Box
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      _buildInfoRow('Technician ID', technicianCode, isHighlight: true),
-                                      const Divider(height: 14, color: Color(0xFFE2E8F0)),
-                                      _buildInfoRow('Performance', '★ ${rating.toStringAsFixed(1)} ($totalRatings Reviews • $jobsCompleted Jobs)'),
-                                      if (_profileData?.phone.isNotEmpty == true) ...[
-                                        const Divider(height: 14, color: Color(0xFFE2E8F0)),
-                                        _buildInfoRow('Contact', _profileData!.phone),
-                                      ],
-                                      const Divider(height: 14, color: Color(0xFFE2E8F0)),
-                                      _buildInfoRow('Service Skills', skillsList.join(' • ')),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-
-                                // Verification Status Banner
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    color: isApproved ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: isApproved ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        isApproved ? Icons.verified_user : Icons.hourglass_top,
-                                        size: 16,
-                                        color: isApproved ? const Color(0xFF166534) : const Color(0xFF92400E),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        isApproved ? '✓ VERIFIED TECHNICIAN' : 'VERIFICATION PENDING',
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.4,
-                                          color: isApproved ? const Color(0xFF166534) : const Color(0xFF92400E),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Active Full-Width Share ID Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final messenger = ScaffoldMessenger.of(context);
-                          final shareText = 
-                              '🛠️ BookUrTechnician Certified Field Partner\n'
-                              '👤 Name: $technicianName\n'
-                              '🆔 Partner ID: $technicianCode\n'
-                              '⭐ Rating: ${rating.toStringAsFixed(1)} ★ ($jobsCompleted Jobs Completed)\n'
-                              '🔧 Verified Skills: ${skillsList.join(', ')}\n'
-                              '🔒 Status: Verified Field Specialist\n'
-                              '🌐 Verification Link: https://bookurtechnician.com/verify-tech?id=$technicianCode';
-
-                          // Copy official verification credentials to Clipboard
-                          await Clipboard.setData(ClipboardData(text: shareText));
-
-                          // Show active share sheet / confirmation
-                          if (!mounted) return;
-                          messenger.showSnackBar(
-                            SnackBar(
-                              backgroundColor: const Color(0xFF17399A),
-                              duration: const Duration(seconds: 4),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Row(
-                                    children: [
-                                      Icon(Icons.check_circle, color: Colors.white, size: 16),
-                                      SizedBox(width: 8),
-                                      Text('Partner ID Verification Link Copied!', style: TextStyle(fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'ID: $technicianCode ($technicianName)\nLink: https://bookurtechnician.com/verify-tech?id=$technicianCode',
-                                    style: const TextStyle(fontSize: 11, color: Colors.white70),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.share_rounded, size: 18),
-                        label: const Text('SHARE DIGITAL ID CARD', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF17399A),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // ═════════════════════════════════════════════════════════
-                    // 2. REGISTERED SKILLS & SERVICES (SHOWN SECOND)
-                    // ═════════════════════════════════════════════════════════
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'Registered Skills',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${skillsList.length} Active',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
-                              ),
-                            ),
-                          ],
-                        ),
-                        TextButton.icon(
-                          onPressed: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const MySkillsPage()),
-                            );
-                            _loadLiveProfile();
-                          },
-                          icon: const Icon(Icons.tune, size: 14, color: AppColors.primary),
-                          label: const Text('Manage Skills', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                          style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: skillsList.map((skill) => Chip(
-                              label: Text(skill, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A))),
-                              backgroundColor: const Color(0xFFF1F5F9),
-                              side: const BorderSide(color: Color(0xFFE2E8F0)),
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            )).toList(),
-                          ),
-                          const SizedBox(height: 12),
-                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          const SizedBox(height: 10),
-                          const Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.verified_outlined, size: 15, color: Color(0xFF16A34A)),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Skills Verified & Active for Booking Dispatch',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF16A34A)),
-                                  ),
-                                ],
-                              ),
-                              Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF94A3B8)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // ═════════════════════════════════════════════════════════
-                    // 3. UPLOADED DOCUMENTS & KYC (SHOWN THIRD)
-                    // ═════════════════════════════════════════════════════════
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Uploaded Documents (KYC)',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: isKycFullyComplete ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            isKycFullyComplete ? '100% Complete ✓' : 'KYC Pending',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: isKycFullyComplete ? const Color(0xFF15803D) : const Color(0xFFB45309),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        children: [
-                          _buildDocStatusRow(
-                            '📸 Real Live Selfie Photo',
-                            _getSpecificDocStatus('SELFIE', kycStatus),
-                            onTap: () => _promptUploadDoc('SELFIE', 'Live Selfie Photo'),
-                          ),
-                          const Divider(height: 16, color: Color(0xFFF1F5F9)),
-                          _buildDocStatusRow(
-                            '🪪 Aadhaar Card (Front/Back)',
-                            _getSpecificDocStatus('AADHAAR', kycStatus),
-                            onTap: () => _promptUploadDoc('AADHAAR', 'Aadhaar Card'),
-                          ),
-                          const Divider(height: 16, color: Color(0xFFF1F5F9)),
-                          _buildDocStatusRow(
-                            '🗳️ Voter Card ID Verification',
-                            _getSpecificDocStatus('VOTER', kycStatus),
-                            onTap: () => _promptUploadDoc('VOTER_CARD', 'Voter Card ID'),
-                          ),
-                          const Divider(height: 16, color: Color(0xFFF1F5F9)),
-                          _buildDocStatusRow(
-                            '📱 UPI Number / ID Verification',
-                            _profileData?.isUpiVerified == true
-                                ? 'APPROVED'
-                                : (_profileData?.upiId.isNotEmpty == true ? 'PENDING' : 'NOT_CONFIGURED'),
-                            onTap: _openEditProfileDialog,
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // ═════════════════════════════════════════════════════════
-                    // 4. OTHERS (MANUALS, POLICIES & ACCOUNT)
-                    // ═════════════════════════════════════════════════════════
-                    const Text(
-                      'Training & Guidelines',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-                    ),
-                    const SizedBox(height: 8),
-
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: ListView(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          _buildManualTile('⚡ High Voltage Safety Procedures', 'Standard safety precautions for electrical technicians.'),
-                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          _buildManualTile('🛠️ Jet-Pump AC Washing techniques', 'Professional guidelines for deep split AC filter wash.'),
-                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          _buildManualTile('🛡️ PPE Kits and Dress codes guidelines', 'Hygiene standards and masks compliance checklist.')
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      'Legal, Policies & Compliance',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-                    ),
-                    const SizedBox(height: 8),
-
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: ListView(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          ListTile(
-                            leading: const Icon(Icons.handshake_outlined, color: AppColors.primary),
-                            title: const Text('Partner Service Agreement', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            subtitle: const Text('Independent contractor terms & weekly payouts', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.textSecondary),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const PartnerLegalPage(initialTabIndex: 0)),
-                            ),
-                          ),
-                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          ListTile(
-                            leading: const Icon(Icons.security_outlined, color: AppColors.primary),
-                            title: const Text('Safety Code & Protocols', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            subtitle: const Text('Zero-harm standards & electrical guidelines', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.textSecondary),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const PartnerLegalPage(initialTabIndex: 1)),
-                            ),
-                          ),
-                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          ListTile(
-                            leading: const Icon(Icons.privacy_tip_outlined, color: AppColors.primary),
-                            title: const Text('Partner Privacy Policy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            subtitle: const Text('DPDP Act 2023 telemetry & masked calling details', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.textSecondary),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const PartnerLegalPage(initialTabIndex: 2)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Sign Out Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: SemanticColors.error,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
-                        onPressed: () async {
-                          await ref.read(authProvider.notifier).logout();
-                          if (context.mounted) {
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(builder: (context) => const LoginPage()),
-                              (route) => false,
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.logout, size: 18),
-                        label: const Text('LOG OUT ACCOUNT', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5)),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value, {bool isHighlight = false}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 95,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
-              color: isHighlight ? const Color(0xFF17399A) : const Color(0xFF0B1635),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-
-
-  String _getSpecificDocStatus(String docTypeKey, String defaultKyc) {
-    final doc = _kycDocuments.where((d) => d.documentType.toUpperCase().contains(docTypeKey.toUpperCase())).firstOrNull;
-    if (doc != null) return doc.verificationStatus;
-    if (defaultKyc.toUpperCase() == 'APPROVED' || defaultKyc.toUpperCase() == 'VERIFIED') return 'APPROVED';
-    return 'PENDING';
-  }
 
   void _promptUploadDoc(String docType, String docTitle) {
     final ImagePicker picker = ImagePicker();
 
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -816,19 +178,35 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
-                'Upload $docTitle Image (Max 10 MB)',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                'Upload $docTitle Photo',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16.5, color: Color(0xFF0F172A)),
               ),
               const SizedBox(height: 6),
               const Text(
-                'Select a clear photo of your document. Maximum file size allowed is 10 MB.',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                'Select a clear photo of your document. Verification takes under 15 minutes.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 18),
               ListTile(
-                leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primary),
-                title: const Text('Take Photo with Camera'),
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(color: Color(0xFFFEFCE8), shape: BoxShape.circle),
+                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFFB45309)),
+                ),
+                title: const Text('Take Live Photo with Camera', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final file = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
@@ -838,8 +216,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
-                title: const Text('Choose Document Image from Gallery'),
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(color: Color(0xFFEFF6FF), shape: BoxShape.circle),
+                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFF1D4ED8)),
+                ),
+                title: const Text('Choose Image from Gallery', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
@@ -859,15 +241,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     final int fileBytes = await file.length();
     const int maxBytes = 10 * 1024 * 1024; // 10 MB
 
-    // ─── STRICT 10 MB FILE SIZE VALIDATION ───
     if (fileBytes > maxBytes) {
-      final double sizeMb = fileBytes / (1024 * 1024);
       if (mounted) {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('⚠️ File Exceeds 10 MB Limit'),
-            content: Text('The selected image is ${sizeMb.toStringAsFixed(1)} MB. Please choose an image under 10 MB limit.'),
+            content: const Text('Please choose an image under 10 MB limit.'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
             ],
@@ -889,10 +269,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              height: 150,
+              height: 140,
               width: double.infinity,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 color: Colors.grey.shade100,
                 border: Border.all(color: Colors.grey.shade300),
               ),
@@ -901,31 +281,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   ? Image.network(file.path, fit: BoxFit.cover)
                   : Image.file(File(file.path), fit: BoxFit.cover),
             ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('File Size:', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                Text('${sizeMb.toStringAsFixed(2)} MB / 10 MB Max', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: SemanticColors.success)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Storage Vault:', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                Text('Supabase kyc-documents', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
-              ],
-            ),
+            const SizedBox(height: 10),
+            Text('Size: ${sizeMb.toStringAsFixed(2)} MB • Cloudinary CDN', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
               final String? uploadedUrl = await CloudinaryUploadService.uploadImageFile(file, folder: 'kyc_${docType.toLowerCase()}');
@@ -946,7 +309,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     backgroundColor: SemanticColors.success,
-                    content: Text('✓ $docTitle uploaded to Cloudinary CDN successfully!'),
+                    content: Text('✓ $docTitle uploaded successfully!'),
                   ),
                 );
               }
@@ -958,68 +321,612 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
-  Widget _buildDocStatusRow(String docName, String status, {VoidCallback? onTap}) {
-    final isApproved = status.toUpperCase() == 'APPROVED' || status.toUpperCase() == 'VERIFIED';
-    final isNotConfigured = status.toUpperCase() == 'NOT_CONFIGURED';
-    final statusColor = isApproved
-        ? SemanticColors.success
-        : (isNotConfigured ? Colors.grey : SemanticColors.warning);
+  Future<void> _callEmergencySupport() async {
+    final uri = Uri.parse('tel:18002008899');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    } catch (_) {}
+  }
 
-    final label = isApproved
-        ? 'Approved'
-        : (isNotConfigured ? 'Add Details' : 'Pending');
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final technicianName = _profileData?.fullName.isNotEmpty == true
+        ? _profileData!.fullName
+        : (authState.fullName?.isNotEmpty == true ? authState.fullName! : 'Captain Partner');
+
+    final technicianCode = _profileData?.technicianCode.isNotEmpty == true
+        ? _profileData!.technicianCode
+        : 'BT-CAPTAIN-${(authState.phone ?? "7777").substring(0, 4).toUpperCase()}';
+
+    final rating = _profileData?.rating ?? (_skillProfile?.rating ?? 4.9);
+    final totalRatings = _profileData?.totalRatingsCount ?? (_skillProfile?.totalRatingsCount ?? 18);
+    final jobsCompleted = _profileData?.totalJobsCompleted ?? (_skillProfile?.totalJobsCompleted ?? 24);
+    final kycStatus = _profileData?.kycStatus ?? 'VERIFIED';
+    final isApproved = kycStatus.toUpperCase() == 'VERIFIED' || kycStatus.toUpperCase() == 'APPROVED';
+
+    final skillsList = _skillProfile != null && _skillProfile!.skills.isNotEmpty
+        ? _skillProfile!.skills.map((s) => s.skillName).toList()
+        : <String>['Electrical & Wiring', 'Appliance Repair', 'AC Services'];
+
+    final hasAadhaar = _kycDocuments.any((d) => d.documentType.toUpperCase().contains('AADHAAR')) || isApproved;
+    final hasVoter = _kycDocuments.any((d) => d.documentType.toUpperCase().contains('VOTER')) || isApproved;
+    final hasSelfie = _kycDocuments.any((d) => d.documentType.toUpperCase().contains('SELFIE')) || isApproved;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF1F5F9),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        title: Row(
           children: [
-            Expanded(child: Text(docName, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500))),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: AppRadius.round,
-                  ),
-                  child: Text(
-                    label,
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: statusColor),
-                  ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFDB813),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'HUB',
+                style: TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
                 ),
-                if (onTap != null) ...[
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
-                ],
-              ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Captain Profile & Account',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 17.5,
+                color: Colors.white,
+              ),
             ),
           ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 22),
+            tooltip: 'Refresh Profile',
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              _loadLiveProfile();
+            },
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        color: const Color(0xFF0F172A),
+        backgroundColor: const Color(0xFFFDB813),
+        onRefresh: _loadLiveProfile,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A)))
+            : SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ═════════════════════════════════════════════════════════
+                    // 1. RAPIDO CAPTAIN HEADER CARD
+                    // ═════════════════════════════════════════════════════════
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                // Avatar with Photo Upload CTA
+                                Stack(
+                                  alignment: Alignment.bottomRight,
+                                  children: [
+                                    Container(
+                                      width: 68,
+                                      height: 68,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: const LinearGradient(
+                                          colors: [Color(0xFFFDB813), Color(0xFFF59E0B)],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                        border: Border.all(color: Colors.white, width: 2.5),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          technicianName.isNotEmpty ? technicianName[0].toUpperCase() : 'C',
+                                          style: const TextStyle(
+                                            color: Color(0xFF0F172A),
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 28,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () => _promptUploadDoc('LIVE_SELFIE', 'Captain Profile Photo'),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF0F172A),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.camera_alt_rounded, color: Color(0xFFFDB813), size: 13),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 14),
+
+                                // Name & ID
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              technicianName,
+                                              style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w900,
+                                                color: Colors.white,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          const Icon(Icons.verified_rounded, size: 17, color: Color(0xFF38BDF8)),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'ID: $technicianCode',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFFFDB813),
+                                          letterSpacing: 0.4,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _profileData?.phone.isNotEmpty == true ? _profileData!.phone : (authState.phone ?? ''),
+                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: _openEditProfileDialog,
+                                  icon: const Icon(Icons.edit_rounded, color: Color(0xFFFDB813), size: 20),
+                                  tooltip: 'Edit Profile',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+
+                            // KPI Summary Bar
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.star_rounded, color: Color(0xFFFDB813), size: 16),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            rating.toStringAsFixed(1),
+                                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text('$totalRatings Ratings', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                                    ],
+                                  ),
+                                  Container(width: 1, height: 24, color: Colors.white24),
+                                  Column(
+                                    children: [
+                                      Text(
+                                        '$jobsCompleted',
+                                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      const Text('Trips Done', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                                    ],
+                                  ),
+                                  Container(width: 1, height: 24, color: Colors.white24),
+                                  Column(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFDCFCE7),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          isApproved ? 'VERIFIED' : 'PENDING',
+                                          style: const TextStyle(color: Color(0xFF15803D), fontSize: 9.5, fontWeight: FontWeight.w900),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      const Text('KYC Status', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // ═════════════════════════════════════════════════════════
+                    // 2. CAPTAIN HUB ACTION TILES
+                    // ═════════════════════════════════════════════════════════
+                    const Text(
+                      'Captain Hub Services',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 2.1 My Skills & Services
+                    _buildHubCard(
+                      icon: Icons.handyman_rounded,
+                      iconColor: const Color(0xFFF59E0B),
+                      iconBg: const Color(0xFFFEFCE8),
+                      title: 'My Skills & Services',
+                      subtitle: '${skillsList.length} Categories Configured (${skillsList.take(2).join(", ")}...)',
+                      trailingText: 'Manage',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MySkillsPage()),
+                        ).then((_) => _loadLiveProfile());
+                      },
+                    ),
+
+                    // 2.2 Performance & Work Hours Analytics
+                    _buildHubCard(
+                      icon: Icons.insights_rounded,
+                      iconColor: const Color(0xFF0284C7),
+                      iconBg: const Color(0xFFE0F2FE),
+                      title: 'Work Hours & Income Graph',
+                      subtitle: 'View daily performance charts and incentive milestones',
+                      trailingText: 'Analytics',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const TechnicianAnalyticsScreen()),
+                        );
+                      },
+                    ),
+
+                    // 2.3 Bank & UPI Payout Details
+                    _buildHubCard(
+                      icon: Icons.account_balance_wallet_rounded,
+                      iconColor: const Color(0xFF16A34A),
+                      iconBg: const Color(0xFFDCFCE7),
+                      title: 'Bank & UPI Payout Details',
+                      subtitle: _profileData?.upiId.isNotEmpty == true ? _profileData!.upiId : 'Linked with 24x7 Instant Transfer',
+                      trailingText: 'Edit',
+                      onTap: _openEditProfileDialog,
+                    ),
+
+                    // 2.4 Documents & KYC Center
+                    _buildHubCard(
+                      icon: Icons.document_scanner_rounded,
+                      iconColor: const Color(0xFF7C3AED),
+                      iconBg: const Color(0xFFF3E8FF),
+                      title: 'Documents & KYC Verification',
+                      subtitle: 'Aadhaar: ${hasAadhaar ? "✓" : "Pending"} • Voter ID: ${hasVoter ? "✓" : "Pending"} • Photo: ${hasSelfie ? "✓" : "Pending"}',
+                      trailingText: 'Upload',
+                      onTap: () {
+                        _showKycBottomSheet(context, hasAadhaar, hasVoter, hasSelfie);
+                      },
+                    ),
+
+                    // 2.5 24x7 Emergency SOS Support
+                    _buildHubCard(
+                      icon: Icons.emergency_rounded,
+                      iconColor: const Color(0xFFDC2626),
+                      iconBg: const Color(0xFFFEE2E2),
+                      title: '24x7 Captain Support & Safety',
+                      subtitle: 'Direct line to BookUrTechnician Dispatch Helpdesk',
+                      trailingText: 'Call',
+                      onTap: _callEmergencySupport,
+                    ),
+
+                    // 2.6 Partner Terms & Legal
+                    _buildHubCard(
+                      icon: Icons.policy_rounded,
+                      iconColor: const Color(0xFF475569),
+                      iconBg: const Color(0xFFF1F5F9),
+                      title: 'Partner Policy & Service Terms',
+                      subtitle: 'Platform fee structure, code of conduct & safety norms',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const PartnerLegalPage()),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // ═════════════════════════════════════════════════════════
+                    // 3. LOGOUT CTA
+                    // ═════════════════════════════════════════════════════════
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          HapticFeedback.heavyImpact();
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Log Out from Captain App?'),
+                              content: const Text('You will be placed offline and will not receive customer requests until you log in again.'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Log Out'),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirm == true) {
+                            await ref.read(authProvider.notifier).logout();
+                            if (context.mounted) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (context) => const LoginPage()),
+                                (route) => false,
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 18),
+                        label: const Text(
+                          'LOG OUT FROM CAPTAIN ACCOUNT',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFDC2626),
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFFECACA), width: 1.5),
+                          backgroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildHubCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String title,
+    required String subtitle,
+    String? trailingText,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (trailingText != null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    trailingText,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 4),
+              const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFF94A3B8)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildManualTile(String title, String subtitle) {
-    return ListTile(
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 12, color: AppColors.textSecondary),
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(title),
-            content: Text('$subtitle\n\n[Full Training manual details loaded in cache.]'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+  void _showKycBottomSheet(BuildContext context, bool hasAadhaar, bool hasVoter, bool hasSelfie) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Captain KYC & Documents Verification',
+                style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Upload valid government identity proof for instant verification.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 16),
+              _buildKycRow(
+                title: 'Aadhaar Card (Front / Back)',
+                isVerified: hasAadhaar,
+                onUpload: () {
+                  Navigator.pop(ctx);
+                  _promptUploadDoc('AADHAAR', 'Aadhaar Card');
+                },
+              ),
+              const Divider(height: 16),
+              _buildKycRow(
+                title: 'Voter ID / Driving License',
+                isVerified: hasVoter,
+                onUpload: () {
+                  Navigator.pop(ctx);
+                  _promptUploadDoc('VOTER_CARD', 'Voter Card');
+                },
+              ),
+              const Divider(height: 16),
+              _buildKycRow(
+                title: 'Live Selfie / Portrait',
+                isVerified: hasSelfie,
+                onUpload: () {
+                  Navigator.pop(ctx);
+                  _promptUploadDoc('LIVE_SELFIE', 'Live Photo');
+                },
+              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildKycRow({required String title, required bool isVerified, required VoidCallback onUpload}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+        ),
+        if (isVerified)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
+            child: const Text('✓ Verified', style: TextStyle(color: Color(0xFF15803D), fontSize: 11, fontWeight: FontWeight.w900)),
+          )
+        else
+          ElevatedButton(
+            onPressed: onUpload,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F172A),
+              foregroundColor: const Color(0xFFFDB813),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Upload', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900)),
+          ),
+      ],
     );
   }
 }

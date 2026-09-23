@@ -102,11 +102,28 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
   }
 
   @override
+  String _deriveNameFromEmail(String email) {
+    if (email.isEmpty || !email.contains('@')) return 'Partner Technician';
+    try {
+      final prefix = email.split('@').first;
+      final cleaned = prefix.replaceAll(RegExp(r'\d+$'), '').replaceAll(RegExp(r'[._\-+]'), ' ').trim();
+      if (cleaned.isEmpty) return prefix;
+      return cleaned.split(RegExp(r'\s+')).map((w) {
+        if (w.isEmpty) return '';
+        return w[0].toUpperCase() + (w.length > 1 ? w.substring(1).toLowerCase() : '');
+      }).join(' ');
+    } catch (_) {
+      return 'Partner Technician';
+    }
+  }
+
+  @override
   Future<ApiResult<bool>> requestOtp(
     String? phone, {
     required String email,
     String? fullName,
     int? age,
+    bool isResend = false,
   }) async {
     state = state.copyWith(status: AuthStatus.authenticating);
     
@@ -121,15 +138,18 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
     final isRegister = normalizedPhone.isNotEmpty;
     final purpose = isRegister ? 'REGISTER' : 'LOGIN';
+    final candidateName = (fullName != null && fullName.trim().isNotEmpty)
+        ? fullName.trim()
+        : _deriveNameFromEmail(normalizedEmail);
 
     final payload = <String, dynamic>{
       'email': normalizedEmail,
       'purpose': purpose,
       'role': 'TECHNICIAN',
+      'isResend': isResend,
+      'name': candidateName,
+      'fullName': candidateName,
     };
-    if (fullName != null && fullName.trim().isNotEmpty) {
-      payload['name'] = fullName.trim();
-    }
     if (isRegister) {
       payload['phone'] = normalizedPhone;
     }
@@ -143,13 +163,18 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
     for (final baseUrl in AppConfig.candidateBaseUrls) {
       try {
-        final response = await dio.post('$baseUrl/auth/request-otp', data: payload);
+        final endpoint = isResend ? '$baseUrl/auth/resend-otp' : '$baseUrl/auth/request-otp';
+        var response = await dio.post(endpoint, data: payload);
+        if (response.statusCode != 200 && isResend) {
+          response = await dio.post('$baseUrl/auth/request-otp', data: payload);
+        }
+
         if (response.statusCode == 200) {
           state = state.copyWith(
             status: AuthStatus.otpSent, 
             phone: normalizedPhone.isNotEmpty ? normalizedPhone : null, 
             email: normalizedEmail,
-            fullName: fullName?.trim(),
+            fullName: candidateName,
             age: age,
           );
           return const ApiSuccess(true);
@@ -159,7 +184,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
           final statusCode = e.response?.statusCode;
           final backendMsg = e.response?.data?['error']?.toString() ?? e.response?.data?['message']?.toString();
           
-          if (statusCode == 404 || statusCode == 409) {
+          if (!isResend && (statusCode == 404 || statusCode == 409)) {
             final userMsg = backendMsg ?? (statusCode == 404 ? 'No account found with this email. Please register.' : 'An account with this email already exists. Please log in.');
             state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: userMsg);
             return ApiFailure(userMsg);
@@ -175,6 +200,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         email: normalizedEmail,
         otp: '123456',
         role: 'Technician',
+        name: candidateName,
       );
     } catch (brevoErr) {
       debugPrint('Brevo direct email warning: $brevoErr');
@@ -184,7 +210,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       status: AuthStatus.otpSent,
       phone: normalizedPhone.isNotEmpty ? normalizedPhone : null,
       email: normalizedEmail,
-      fullName: fullName?.trim(),
+      fullName: candidateName,
       age: age,
     );
     return const ApiSuccess(true);
@@ -205,8 +231,9 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     final targetEmail = (email ?? state.email ?? '').trim().toLowerCase();
     final targetPhone = (phone ?? state.phone ?? '').trim();
     final targetOtp = code.trim();
-    final targetName = (fullName ?? state.fullName ?? (targetEmail.isNotEmpty ? targetEmail.split('@').first : 'Technician')).trim();
+    final targetName = (fullName ?? state.fullName ?? _deriveNameFromEmail(targetEmail)).trim();
     final targetAge = age ?? state.age;
+
 
     // Capture location if not provided
     double? currentLat = latitude ?? state.latitude;

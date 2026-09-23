@@ -3,9 +3,10 @@ const { v4: uuidv4 } = require('uuid');
 const redis = require('../config/redis');
 const postgres = require('../config/postgres');
 const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
-const { sendOtpEmail } = require('../services/brevoService');
+const { sendOtpEmail, deriveNameFromEmail } = require('../services/brevoService');
 const { sendOtpSms } = require('../services/smsService');
 const bookingsStore = require('../config/bookingsStore');
+const { setTechnicianProfile } = require('../config/techniciansStore');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_bookurtechnician_2026_secure';
 const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET || 'super_refresh_jwt_key_bookurtechnician_2026';
@@ -23,7 +24,7 @@ const generateOtp = () => {
  */
 const requestOtp = async (req, res) => {
   try {
-    const { phone, email, name, role = 'CUSTOMER', purpose } = req.body;
+    const { phone, email, name, fullName, role = 'CUSTOMER', purpose, isResend } = req.body;
     const identifier = (phone || email || '').trim().toLowerCase();
 
     if (!identifier) {
@@ -33,48 +34,56 @@ const requestOtp = async (req, res) => {
     // Check user existence in PostgreSQL
     let existingUser = null;
     try {
-      const existingRes = await postgres.query(
-        'SELECT id, phone, email, full_name, role FROM users WHERE (phone = $1 AND $1 IS NOT NULL) OR (LOWER(email) = $2 AND $2 IS NOT NULL)',
-        [phone ? phone.trim() : null, email ? email.trim().toLowerCase() : null]
-      );
-      if (existingRes && existingRes.rows.length > 0) {
-        existingUser = existingRes.rows[0];
+      if (postgres.isPgHealthy()) {
+        const existingRes = await postgres.query(
+          'SELECT id, phone, email, full_name, role FROM users WHERE (phone = $1 AND $1 IS NOT NULL) OR (LOWER(email) = $2 AND $2 IS NOT NULL)',
+          [phone ? phone.trim() : null, email ? email.trim().toLowerCase() : null]
+        );
+        if (existingRes && existingRes.rows.length > 0) {
+          existingUser = existingRes.rows[0];
+        }
       }
     } catch (dbErr) {
       console.warn('⚠️ User existence check DB warning:', dbErr.message);
     }
 
-    // 1. If LOGIN mode and no account exists -> return 404 with notFound flag
-    if (purpose === 'LOGIN' && !existingUser) {
-      return res.status(404).json({
-        success: false,
-        error: 'No account found with this email or phone. Please sign up to create a new account.',
-        notFound: true,
-        identifier,
-      });
+    // Only enforce strict LOGIN / REGISTER state if NOT a resend request
+    if (!isResend) {
+      // 1. If LOGIN mode and no account exists -> return 404 with notFound flag
+      if (purpose === 'LOGIN' && !existingUser) {
+        return res.status(404).json({
+          success: false,
+          error: 'No account found with this email or phone. Please sign up to create a new account.',
+          notFound: true,
+          identifier,
+        });
+      }
+
+      // 2. If REGISTER mode and account already exists -> return 409 with alreadyExists flag
+      if (purpose === 'REGISTER' && existingUser) {
+        return res.status(409).json({
+          success: false,
+          error: 'An account with this email or phone already exists. Please log in.',
+          alreadyExists: true,
+          identifier,
+        });
+      }
     }
 
-    // 2. If REGISTER mode and account already exists -> return 409 with alreadyExists flag
-    if (purpose === 'REGISTER' && existingUser) {
-      return res.status(409).json({
-        success: false,
-        error: 'An account with this email or phone already exists. Please log in.',
-        alreadyExists: true,
-        identifier,
-      });
-    }
-
-    // Default test OTP for fast MVP development: 123456
+    // Default test OTP for fast MVP development / test accounts: 123456
     const otp = (identifier.includes('9999999999') || identifier.includes('test') || identifier.includes('demo')) 
       ? '123456' 
       : generateOtp();
 
-    const resolvedName = name || existingUser?.full_name;
+    const candidateName = (fullName || name || '').trim();
+    const resolvedName = candidateName || existingUser?.full_name || (email ? deriveNameFromEmail(email) : (phone ? `User-${phone.slice(-4)}` : 'Customer'));
+
     const otpPayload = { 
       otp, 
       role, 
       name: resolvedName, 
-      purpose, 
+      fullName: resolvedName,
+      purpose: purpose || (existingUser ? 'LOGIN' : 'REGISTER'), 
       phone: phone ? phone.trim() : null, 
       email: email ? email.trim().toLowerCase() : null, 
       requestedAt: Date.now() 
@@ -92,12 +101,12 @@ const requestOtp = async (req, res) => {
     if (local10DigitPhone && local10DigitPhone !== strippedPhone) await redis.setWithExpiry(`otp:${local10DigitPhone}`, otpPayload, 600);
     await redis.setWithExpiry(`otp:${identifier}`, otpPayload, 600);
 
-    console.log(`🔑 [OTP Dispatch] For ${identifier} (${role}, Purpose: ${purpose || 'AUTH'}): ${otp} [Valid 10 mins]`);
+    console.log(`🔑 [OTP Dispatch] For ${identifier} (${role}, Purpose: ${purpose || 'AUTH'}, Resend: ${!!isResend}): ${otp} [Valid 10 mins]`);
 
     // If identifier is an email address, send transactional email via Brevo
     const isEmail = email || identifier.includes('@');
     if (isEmail) {
-      sendOtpEmail(email || identifier, otp, role, resolvedName).catch((emailErr) => {
+      sendOtpEmail(rawEmail || identifier, otp, role, resolvedName).catch((emailErr) => {
         console.warn('⚠️ [Brevo OTP Email Dispatch Warning]:', emailErr.message);
       });
     }
@@ -114,6 +123,7 @@ const requestOtp = async (req, res) => {
       success: true,
       message: `OTP sent successfully to ${identifier}`,
       identifier,
+      name: resolvedName,
       debugOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
     });
   } catch (error) {
@@ -123,11 +133,19 @@ const requestOtp = async (req, res) => {
 };
 
 /**
+ * POST /api/v1/auth/resend-otp
+ */
+const resendOtp = async (req, res) => {
+  req.body.isResend = true;
+  return requestOtp(req, res);
+};
+
+/**
  * POST /api/v1/auth/verify-otp
  */
 const verifyOtp = async (req, res) => {
   try {
-    const { phone, email, otp, fcmToken, role: requestRole, fullName, purpose } = req.body;
+    const { phone, email, otp, fcmToken, role: requestRole, fullName, name, purpose } = req.body;
     const identifier = (phone || email || '').trim().toLowerCase();
 
     if (!identifier || !otp) {
@@ -172,9 +190,10 @@ const verifyOtp = async (req, res) => {
 
     // Fetch or create user in PostgreSQL
     let userId = uuidv4();
-    let userName = fullName || cachedData?.name;
     const finalPhone = rawPhone || cachedData?.phone || null;
     const finalEmail = rawEmail || cachedData?.email || null;
+
+    let userName = (fullName || name || cachedData?.name || cachedData?.fullName || '').trim();
 
     try {
       if (postgres.isPgHealthy()) {
@@ -185,20 +204,28 @@ const verifyOtp = async (req, res) => {
 
         if (existingUserRes.rows && existingUserRes.rows.length > 0) {
           userId = existingUserRes.rows[0].id;
-          userName = existingUserRes.rows[0].full_name || userName || (finalPhone ? `User-${finalPhone.slice(-4)}` : (finalEmail ? finalEmail.split('@')[0] : 'Customer'));
+          userName = userName || existingUserRes.rows[0].full_name || (finalEmail ? deriveNameFromEmail(finalEmail) : (finalPhone ? `User-${finalPhone.slice(-4)}` : 'Customer'));
+          
+          // Update full_name if new name was supplied
+          if (fullName || name) {
+            await postgres.query(
+              'UPDATE users SET full_name = $1, updated_at = NOW() WHERE id = $2',
+              [userName, userId]
+            );
+          }
         } else {
-          userName = userName || (finalPhone ? `User-${finalPhone.slice(-4)}` : (finalEmail ? finalEmail.split('@')[0] : 'Customer'));
+          userName = userName || (finalEmail ? deriveNameFromEmail(finalEmail) : (finalPhone ? `User-${finalPhone.slice(-4)}` : 'Customer'));
           await postgres.query(
-            'INSERT INTO users (id, phone, email, full_name, role, fcm_token) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING',
+            'INSERT INTO users (id, phone, email, full_name, role, fcm_token) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, email = COALESCE(EXCLUDED.email, users.email), phone = COALESCE(EXCLUDED.phone, users.phone)',
             [userId, finalPhone, finalEmail, userName, userRole, fcmToken || null]
           );
         }
       } else {
-        userName = userName || (finalPhone ? `User-${finalPhone.slice(-4)}` : (finalEmail ? finalEmail.split('@')[0] : 'Customer'));
+        userName = userName || (finalEmail ? deriveNameFromEmail(finalEmail) : (finalPhone ? `User-${finalPhone.slice(-4)}` : 'Customer'));
       }
     } catch (pgErr) {
       console.warn('⚠️ User lookup in PG warning:', pgErr.message);
-      userName = userName || (finalPhone ? `User-${finalPhone.slice(-4)}` : (finalEmail ? finalEmail.split('@')[0] : 'Customer'));
+      userName = userName || (finalEmail ? deriveNameFromEmail(finalEmail) : (finalPhone ? `User-${finalPhone.slice(-4)}` : 'Customer'));
     }
 
     // Customer Live Registry
@@ -301,7 +328,6 @@ const verifyOtp = async (req, res) => {
       }
     }
 
-
     // Sign JWT Tokens
     const tokenPayload = { id: userId, phone: finalPhone || phone, email: finalEmail || email, role: userRole, name: userName };
     const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '7d' });
@@ -309,6 +335,8 @@ const verifyOtp = async (req, res) => {
 
     const userObj = {
       id: userId,
+      customerId: userId,
+      technicianId: userId,
       phone: finalPhone || phone,
       email: finalEmail || email,
       name: userName,
@@ -395,7 +423,9 @@ const logout = async (req, res) => {
 
 module.exports = {
   requestOtp,
+  resendOtp,
   verifyOtp,
   adminDirectAccess,
   logout,
 };
+

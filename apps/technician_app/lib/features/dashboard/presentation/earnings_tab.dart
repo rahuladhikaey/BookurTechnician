@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/semantic_colors.dart';
 import 'dashboard_provider.dart';
 import '../../analytics/presentation/technician_analytics_screen.dart';
@@ -94,7 +92,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (modalCtx) {
         return StatefulBuilder(
@@ -106,59 +104,75 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Instant UPI Withdrawal',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                        'Instant Payout Transfer',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(modalCtx),
-                        icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                        icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFD9E2F2)),
+                      color: const Color(0xFFFEFCE8),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFDE047)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.account_balance_wallet_rounded, color: AppColors.primary, size: 20),
+                        const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFFB45309), size: 22),
                         const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Payout Destination (UPI)', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                            Text(currentUpi, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primaryDark)),
-                          ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Payout Destination (UPI)', style: TextStyle(fontSize: 11, color: Color(0xFF78350F), fontWeight: FontWeight.w600)),
+                              Text(currentUpi, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                            ],
+                          ),
                         ),
-                        const Spacer(),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(4)),
-                          child: const Text('✓ Verified', style: TextStyle(color: Color(0xFF15803D), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
+                          child: const Text('✓ Instant 24x7', style: TextStyle(color: Color(0xFF15803D), fontSize: 10.5, fontWeight: FontWeight.w800)),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  const Text('Enter Withdrawal Amount (₹)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 16),
+                  const Text('Enter Withdrawal Amount (₹)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF334155))),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _amountController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                     decoration: InputDecoration(
                       prefixText: '₹ ',
-                      prefixStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                      prefixStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                       hintText: '0',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFFDB813), width: 2)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
                   ),
@@ -169,9 +183,9 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: ActionChip(
-                          label: Text('₹$preset', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          backgroundColor: AppColors.primaryLight,
-                          side: const BorderSide(color: Color(0xFFD9E2F2)),
+                          label: Text('₹$preset', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                          backgroundColor: const Color(0xFFF1F5F9),
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
                           onPressed: () {
                             if (preset <= availableBalance) {
                               setModalState(() {
@@ -186,9 +200,9 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         Padding(
                           padding: const EdgeInsets.only(right: 0),
                           child: ActionChip(
-                            label: const Text('All Balance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.primary)),
-                            backgroundColor: Colors.white,
-                            side: const BorderSide(color: AppColors.primary, width: 1.2),
+                            label: const Text('Full Balance', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF0F172A))),
+                            backgroundColor: const Color(0xFFFDB813),
+                            side: const BorderSide(color: Color(0xFFFDB813)),
                             onPressed: () {
                               setModalState(() {
                                 _amountController.text = availableBalance.toStringAsFixed(0);
@@ -198,10 +212,10 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         ),
                       ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   SizedBox(
                     width: double.infinity,
-                    height: 50,
+                    height: 48,
                     child: ElevatedButton(
                       onPressed: () async {
                         final amt = double.tryParse(_amountController.text.trim()) ?? 0;
@@ -229,11 +243,19 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.black,
+                        backgroundColor: const Color(0xFF0F172A),
                         foregroundColor: Colors.white,
+                        elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: const Text('Confirm Instant UPI Transfer', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.bolt_rounded, color: Color(0xFFFDB813), size: 20),
+                          SizedBox(width: 8),
+                          Text('TRANSFER TO BANK NOW', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -252,33 +274,201 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
     final savedUpi = dashState.savedUpiId;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        title: const Text('Partner Wallet & Instant UPI Payouts'),
+        backgroundColor: const Color(0xFF0F172A),
+        elevation: 0,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFDB813),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'WALLET',
+                style: TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Earnings & Payouts',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.m),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ─── 1. WALLET BALANCE CARD WITH INSTANT WITHDRAWAL CTA ─────────
+            // ─── 1. RAPIDO CAPTAIN WALLET BALANCE CARD ───────────────────────
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryDark],
+                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: const [
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x332146A8),
+                    color: Colors.black.withValues(alpha: 0.15),
                     blurRadius: 16,
-                    offset: Offset(0, 8),
+                    offset: const Offset(0, 6),
                   ),
                 ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'TOTAL WITHDRAWABLE BALANCE',
+                        style: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFDB813).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFFDB813).withValues(alpha: 0.4)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.bolt_rounded, color: Color(0xFFFDB813), size: 14),
+                            SizedBox(width: 3),
+                            Text(
+                              'Instant 24x7',
+                              style: TextStyle(color: Color(0xFFFDB813), fontSize: 10.5, fontWeight: FontWeight.w900),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '₹${netEarnings.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 3 KPI Sub-metrics
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Today Net', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text('₹${(netEarnings * 0.4).toStringAsFixed(0)}', style: const TextStyle(color: Color(0xFF86EFAC), fontSize: 13, fontWeight: FontWeight.w900)),
+                          ],
+                        ),
+                        Container(width: 1, height: 24, color: Colors.white24),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Cash in Hand', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            SizedBox(height: 2),
+                            Text('₹0', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900)),
+                          ],
+                        ),
+                        Container(width: 1, height: 24, color: Colors.white24),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Fee Tier', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            SizedBox(height: 2),
+                            Text('10% Flat', style: TextStyle(color: Color(0xFFFDE047), fontSize: 13, fontWeight: FontWeight.w900)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Withdraw CTA
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton(
+                      onPressed: netEarnings > 0
+                          ? () {
+                              HapticFeedback.mediumImpact();
+                              _openWithdrawModal(context, netEarnings, savedUpi);
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFDB813),
+                        foregroundColor: const Color(0xFF0F172A),
+                        disabledBackgroundColor: Colors.white24,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.arrow_downward_rounded, size: 18),
+                          SizedBox(width: 6),
+                          Text(
+                            'WITHDRAW TO BANK NOW',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ─── 2. TIER BADGE & ANALYTICS BANNER ────────────────────────────
+            _buildTierAnalyticsBanner(context),
+
+            const SizedBox(height: 16),
+
+            // ─── 3. REGISTERED UPI & PAYOUT SETTINGS ─────────────────────────
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,280 +477,123 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'TOTAL WITHDRAWABLE BALANCE',
-                        style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                        'Registered Payout UPI ID',
+                        style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                       ),
-                      Text(
-                        '⚡ Instant UPI',
-                        style: TextStyle(color: Color(0xFF93C5FD), fontSize: 11, fontWeight: FontWeight.w800),
-                      ),
+                      Icon(Icons.verified_user_rounded, size: 18, color: Color(0xFF16A34A)),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '₹${netEarnings.toStringAsFixed(0)}',
-                    style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: ElevatedButton.icon(
-                      onPressed: netEarnings > 0 ? () => _openWithdrawModal(context, netEarnings, savedUpi) : null,
-                      icon: const Icon(Icons.flash_on_rounded, size: 18, color: AppColors.primary),
-                      label: const Text('Withdraw Money via UPI', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 14)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primary,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  const SizedBox(height: 8),
+                  if (_isVerifyingPin) ...[
+                    const Text('Enter your 4-digit Security PIN to confirm:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _pinController,
+                      keyboardType: TextInputType.number,
+                      obscureText: true,
+                      maxLength: 4,
+                      decoration: const InputDecoration(
+                        labelText: '4-Digit PIN',
+                        border: OutlineInputBorder(),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Platform Commission: 10% applied', style: TextStyle(color: Colors.white60, fontSize: 10.5)),
-                      Text('Zero Bank Transfer Delays', style: TextStyle(color: Colors.white60, fontSize: 10.5)),
-                    ],
-                  ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => setState(() => _isVerifyingPin = false),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _submitPinAndUpdateUpi,
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+                            child: const Text('Confirm PIN'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else if (!_isEditingUpi) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.payment_rounded, color: Color(0xFF0F172A), size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              savedUpi,
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () {
+                              _upiController.text = savedUpi;
+                              setState(() => _isEditingUpi = true);
+                            },
+                            child: const Text(
+                              'Edit',
+                              style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w800, fontSize: 12.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    TextField(
+                      controller: _upiController,
+                      decoration: const InputDecoration(
+                        labelText: 'New UPI ID / Mobile Number',
+                        hintText: 'e.g. name@upi',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => setState(() => _isEditingUpi = false),
+                            child: const Text('Cancel'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: _handleSaveUpi,
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+                            child: const Text('Save UPI'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
 
-            const SizedBox(height: AppSpacing.m),
+            const SizedBox(height: 16),
 
-            // ─── 1b. PARTNER TIER CARD & DAILY ANALYTICS ─────────────────────
-            _buildTierAnalyticsBanner(context),
-
-            const SizedBox(height: AppSpacing.m),
-
-            // ─── 2. ACTIVE PARTNER INCENTIVES ────────────────────────────────
-            const Text('Active Partner Incentives', style: AppTypography.titleMedium),
-            const SizedBox(height: AppSpacing.s),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.m),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Weekly Target Bonus', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        Text('Reward: ₹1,000', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.s),
-                    const Text(
-                      'Complete 20 jobs this week and maintain a rating of 4.5★ or above.',
-                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: AppSpacing.m),
-                    Builder(
-                      builder: (context) {
-                        final weeklyJobs = dashState.weeklyCompletedJobs;
-                        const targetJobs = 20;
-                        final remainingJobs = (targetJobs - weeklyJobs).clamp(0, targetJobs);
-                        final progressVal = (weeklyJobs / targetJobs).clamp(0.0, 1.0);
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Weekly Progress ($weeklyJobs / $targetJobs Jobs)', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
-                                Text(remainingJobs == 0 ? 'Goal Reached! 🎉' : '$remainingJobs jobs remaining', style: const TextStyle(fontSize: 11.5, color: AppColors.primary, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: progressVal,
-                                minHeight: 8,
-                                backgroundColor: const Color(0xFFF1F5F9),
-                                valueColor: const AlwaysStoppedAnimation<Color>(SemanticColors.success),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.m),
-
-            // ─── 3. UPI PAYOUT ROUTING (REPLACES BANK DETAILS) ───────────────
-            const Text('UPI Payout Routing & Wallet Destination', style: AppTypography.titleMedium),
-            const SizedBox(height: 4),
+            // ─── 4. SETTLED TRANSACTIONS ─────────────────────────────────────
             const Text(
-              'No bank account details required. Earnings are directly credited to your UPI ID or mobile number.',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              'Settled Payout Transactions',
+              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
             ),
-            const SizedBox(height: AppSpacing.s),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.m),
-                child: _isVerifyingPin
-                    ? Column(
-                        children: [
-                          const Icon(Icons.lock_outline, color: SemanticColors.warning, size: 36),
-                          const SizedBox(height: AppSpacing.s),
-                          const Text('Security Check: Verification Required', style: TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: AppSpacing.xs),
-                          const Text(
-                            'Enter your technician wallet passcode PIN to update UPI details:',
-                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: AppSpacing.m),
-                          TextField(
-                            controller: _pinController,
-                            obscureText: true,
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            maxLength: 4,
-                            decoration: const InputDecoration(
-                              hintText: 'Enter 4-digit PIN',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.s),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _submitPinAndUpdateUpi,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.black,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              child: const Text('Verify & Confirm UPI Update'),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (!_isEditingUpi) ...[
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.primaryLight,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.account_balance_wallet_rounded, color: AppColors.primary, size: 20),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('Active UPI Payout ID / Number', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-                                        const SizedBox(height: 2),
-                                        Text(savedUpi, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.textPrimary)),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFDCFCE7),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.check_circle_rounded, color: Color(0xFF15803D), size: 12),
-                                        SizedBox(width: 4),
-                                        Text('Verified', style: TextStyle(color: Color(0xFF15803D), fontSize: 11, fontWeight: FontWeight.bold)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.m),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  _upiController.text = savedUpi;
-                                  setState(() => _isEditingUpi = true);
-                                },
-                                icon: const Icon(Icons.edit_rounded, size: 16, color: AppColors.primary),
-                                label: const Text('Change UPI ID / Mobile Number'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.primary,
-                                  side: const BorderSide(color: AppColors.primary, width: 1.2),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                              ),
-                            ),
-                          ] else ...[
-                            TextField(
-                              controller: _upiController,
-                              decoration: const InputDecoration(
-                                labelText: 'UPI ID or UPI-Linked Mobile Number',
-                                hintText: 'e.g. name@upi or 9876543210',
-                                prefixIcon: Icon(Icons.payment_rounded, color: AppColors.primary),
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.m),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () => setState(() => _isEditingUpi = false),
-                                    style: OutlinedButton.styleFrom(
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    child: const Text('Cancel'),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: _handleSaveUpi,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.black,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    child: const Text('Save & Verify'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-            ),
-
-            const SizedBox(height: AppSpacing.m),
-
-            // ─── 4. SETTLED PAYOUT TRANSACTION LOGS ─────────────────────────
-            const Text('Settled UPI Payout Logs', style: AppTypography.titleMedium),
-            const SizedBox(height: AppSpacing.s),
-            Card(
               child: dashState.payoutHistory.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -570,14 +603,14 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                             Icon(Icons.receipt_long_rounded, color: Color(0xFFCBD5E1), size: 36),
                             SizedBox(height: 8),
                             Text(
-                              'No UPI Payouts Recorded Yet',
+                              'No Payouts Recorded Yet',
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF334155)),
                             ),
                             SizedBox(height: 4),
                             Text(
-                              'When you withdraw from your wallet, settled transactions will appear here.',
+                              'Transferred amounts to your UPI ID will show in this log with settlement receipts.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                              style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                             ),
                           ],
                         ),
@@ -600,10 +633,10 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                             child: const Icon(Icons.arrow_downward_rounded, color: Color(0xFF15803D), size: 18),
                           ),
                           title: Text('Txn Ref: ${item.id}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          subtitle: Text('Released: ${item.date} • ${item.status}', style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                          subtitle: Text('Released: ${item.date} • ${item.status}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                           trailing: Text(
                             '₹${item.amount.toStringAsFixed(0)}',
-                            style: const TextStyle(fontWeight: FontWeight.w900, color: SemanticColors.success, fontSize: 14),
+                            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF15803D), fontSize: 14),
                           ),
                         );
                       },
@@ -720,10 +753,10 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
+                    color: const Color(0xFFFEFCE8),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.insights_rounded, color: Color(0xFF1E3A8A), size: 22),
+                  child: const Icon(Icons.insights_rounded, color: Color(0xFFB45309), size: 22),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -744,18 +777,19 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                 ),
                 ElevatedButton(
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const TechnicianAnalyticsScreen()),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A8A),
-                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFF0F172A),
+                    foregroundColor: const Color(0xFFFDB813),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: const Text('View Graph', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: const Text('View Graph', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
                 ),
               ],
             ),

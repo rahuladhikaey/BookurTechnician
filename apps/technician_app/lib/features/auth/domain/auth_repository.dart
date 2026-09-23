@@ -6,7 +6,9 @@ abstract class AuthRepository {
     required String email,
     String? fullName,
     int? age,
+    bool isResend = false,
   });
+
 
   Future<ApiResult<String>> verifyOtp(
     String? phone,

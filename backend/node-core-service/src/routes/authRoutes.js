@@ -3,8 +3,10 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 
 router.post('/request-otp', authController.requestOtp);
+router.post('/resend-otp', authController.resendOtp);
 router.post('/verify-otp', authController.verifyOtp);
 router.post('/admin/direct-access', authController.adminDirectAccess);
 router.post('/logout', authController.logout);
 
 module.exports = router;
+

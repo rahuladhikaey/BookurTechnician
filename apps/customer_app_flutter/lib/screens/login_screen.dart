@@ -81,13 +81,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final payload = <String, dynamic>{
         'email': email,
         'purpose': purpose,
+        'role': 'CUSTOMER',
       };
       if (isRegister) {
         if (phone.isNotEmpty) payload['phone'] = phone;
-        if (name.isNotEmpty) payload['fullName'] = name;
+        if (name.isNotEmpty) {
+          payload['name'] = name;
+          payload['fullName'] = name;
+        }
       }
 
       final response = await ApiClient.post('/auth/request-otp', payload);
+
 
       setState(() {
         _isLoading = false;
@@ -819,6 +824,21 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   String get _enteredOtp => _digitControllers.map((c) => c.text).join();
 
+  String _formatNameFromEmail(String email) {
+    if (email.isEmpty || !email.contains('@')) return 'Customer';
+    try {
+      final prefix = email.split('@').first;
+      final cleaned = prefix.replaceAll(RegExp(r'\d+$'), '').replaceAll(RegExp(r'[._\-+]'), ' ').trim();
+      if (cleaned.isEmpty) return prefix;
+      return cleaned.split(RegExp(r'\s+')).map((w) {
+        if (w.isEmpty) return '';
+        return w[0].toUpperCase() + (w.length > 1 ? w.substring(1).toLowerCase() : '');
+      }).join(' ');
+    } catch (_) {
+      return 'Customer';
+    }
+  }
+
   void _verifyOtp() async {
     final otp = _enteredOtp;
     if (otp.length != 6) {
@@ -835,13 +855,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         'email': widget.emailAddress.trim().toLowerCase(),
         'otp': otp.trim(),
         'role': 'CUSTOMER',
-        'purpose': 'LOGIN',
+        'purpose': widget.fullName.trim().isNotEmpty ? 'REGISTER' : 'LOGIN',
       };
       if (widget.phoneNumber.trim().isNotEmpty) {
         payload['phone'] = widget.phoneNumber.trim();
       }
       if (widget.fullName.trim().isNotEmpty) {
         payload['fullName'] = widget.fullName.trim();
+        payload['name'] = widget.fullName.trim();
       }
 
       final response = await ApiClient.post('/auth/verify-otp', payload);
@@ -864,7 +885,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             await ApiClient.saveTokens(accessToken: accessToken.toString(), refreshToken: refreshToken.toString());
           }
 
-          final resolvedName = user['fullName'] ?? user['name'] ?? (widget.fullName.isNotEmpty ? widget.fullName : (widget.emailAddress.isNotEmpty ? widget.emailAddress.split('@').first : 'Customer'));
+          final resolvedName = user['fullName'] ?? user['name'] ?? (widget.fullName.trim().isNotEmpty ? widget.fullName.trim() : _formatNameFromEmail(widget.emailAddress));
 
           ref.read(bookingProvider.notifier).loginUser(
             name: resolvedName.toString(),
@@ -913,11 +934,22 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     if (_resendCountdown > 0 || _isResending) return;
 
     setState(() => _isResending = true);
+    final resendPayload = <String, dynamic>{
+      'email': widget.emailAddress.trim().toLowerCase(),
+      'phone': widget.phoneNumber.trim(),
+      'fullName': widget.fullName.trim(),
+      'name': widget.fullName.trim(),
+      'role': 'CUSTOMER',
+      'isResend': true,
+      'purpose': widget.fullName.trim().isNotEmpty ? 'REGISTER' : 'LOGIN',
+    };
+
     try {
-      final res = await ApiClient.post('/auth/request-otp', {
-        'email': widget.emailAddress,
-        'purpose': 'LOGIN',
-      });
+      var res = await ApiClient.post('/auth/resend-otp', resendPayload);
+      if (res.statusCode != 200) {
+        res = await ApiClient.post('/auth/request-otp', resendPayload);
+      }
+
       setState(() => _isResending = false);
       if (mounted) {
         if (res.statusCode == 200) {
@@ -925,7 +957,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: const Color(0xFF166534),
-              content: Text('New 6-digit code sent to ${widget.emailAddress}!'),
+              content: Text('New 6-digit verification code sent to ${widget.emailAddress}!'),
             ),
           );
           return;
@@ -939,6 +971,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         email: widget.emailAddress,
         otp: '123456',
         role: 'Customer',
+        name: widget.fullName.isNotEmpty ? widget.fullName : _formatNameFromEmail(widget.emailAddress),
       );
     } catch (_) {}
 
@@ -948,11 +981,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: const Color(0xFF166534),
-          content: Text('New 6-digit code sent to ${widget.emailAddress}!'),
+          content: Text('New 6-digit verification code sent to ${widget.emailAddress}!'),
         ),
       );
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

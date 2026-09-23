@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/services/booking_request_manager.dart';
 import 'partner_home_screen.dart';
 import 'earnings_tab.dart';
@@ -25,9 +26,12 @@ class _MainShellPageState extends State<MainShellPage> {
   }
 
   void _onTabChange(int index) {
-    setState(() {
-      _currentIndex = index.clamp(0, 3);
-    });
+    if (_currentIndex != index) {
+      HapticFeedback.lightImpact();
+      setState(() {
+        _currentIndex = index.clamp(0, 3);
+      });
+    }
   }
 
   @override
@@ -42,8 +46,8 @@ class _MainShellPageState extends State<MainShellPage> {
 
     final navItems = [
       const _ShellNavItem(
-        icon: Icons.dashboard_outlined,
-        activeIcon: Icons.dashboard_rounded,
+        icon: Icons.radar_rounded,
+        activeIcon: Icons.radar_rounded,
         label: 'Duty',
       ),
       const _ShellNavItem(
@@ -59,7 +63,7 @@ class _MainShellPageState extends State<MainShellPage> {
       const _ShellNavItem(
         icon: Icons.person_outline_rounded,
         activeIcon: Icons.person_rounded,
-        label: 'Profile',
+        label: 'Captain Hub',
       ),
     ];
 
@@ -70,17 +74,17 @@ class _MainShellPageState extends State<MainShellPage> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: const Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+          color: const Color(0xFF0F172A),
+          border: const Border(top: BorderSide(color: Color(0xFF1E293B), width: 1)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 12,
-              offset: const Offset(0, -3),
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: SafeArea(
           top: false,
           child: Row(
@@ -91,34 +95,47 @@ class _MainShellPageState extends State<MainShellPage> {
 
               return InkWell(
                 onTap: () => _onTabChange(index),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOut,
                   padding: EdgeInsets.symmetric(
                     horizontal: isSelected ? 16 : 10,
-                    vertical: 6,
+                    vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFEFF6FF) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
+                    color: isSelected ? const Color(0xFFFDB813) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFFFDB813).withValues(alpha: 0.35),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
                   ),
-                  child: Column(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         isSelected ? item.activeIcon : item.icon,
-                        color: isSelected ? const Color(0xFF1E3A8A) : const Color(0xFF64748B),
-                        size: 24,
+                        color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                        size: 22,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                          color: isSelected ? const Color(0xFF1E3A8A) : const Color(0xFF64748B),
+                      if (isSelected) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          item.label,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                            letterSpacing: 0.2,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -142,4 +159,5 @@ class _ShellNavItem {
     required this.label,
   });
 }
+
 

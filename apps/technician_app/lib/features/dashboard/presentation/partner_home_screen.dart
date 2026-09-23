@@ -144,46 +144,52 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
 
     final technicianName = (authState.fullName != null && authState.fullName!.isNotEmpty)
         ? authState.fullName!
-        : 'Rahul';
+        : 'Rahul Partner';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       body: SafeArea(
         child: RefreshIndicator(
-          color: const Color(0xFF1E3A8A),
+          color: const Color(0xFF0F172A),
+          backgroundColor: const Color(0xFFFDB813),
           onRefresh: () async {
             await dashNotifier.fetchAndUpdateLocation();
             await ref.read(jobStateProvider.notifier).fetchAssignedJobs();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // ─── 1. RAPIDO CAPTAIN TOP APP BAR ───────────────────────────
                 _buildCaptainHeader(technicianName, dashState, dashNotifier),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
 
                 // ─── 2. MASTER DUTY ONLINE/OFFLINE RADAR CARD ────────────────
                 _buildMasterDutyCard(dashState, dashNotifier),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
                 // ─── 3. ACTIVE RUNNING JOB CARD (FLOATING RAPIDO BANNER) ─────
                 _buildActiveRunningJobCard(context, dashState, jobState),
-                const SizedBox(height: 16),
+                if (jobState.activeJob != null && jobState.activeJob!.status != TechJobStatus.completed)
+                  const SizedBox(height: 14),
 
-                // ─── 4. PERFORMANCE & EARNINGS 4-GRID (RAPIDO STYLE) ─────────
+                // ─── 4. DAILY INCENTIVE / TARGET PROGRESS METER ──────────────
+                _buildDailyIncentiveGoalCard(jobState),
+                const SizedBox(height: 14),
+
+                // ─── 5. PERFORMANCE & EARNINGS 4-GRID (RAPIDO STYLE) ─────────
                 _buildPerformanceMetricsGrid(dashState, jobState),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-                // ─── 5. PARTNER TIER STATUS BANNER ───────────────────────────
+                // ─── 6. PARTNER TIER STATUS BANNER ───────────────────────────
                 _buildTierMembershipBanner(context),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
 
-                // ─── 6. TODAY'S SCHEDULED BOOKINGS (REAL DATA ONLY) ──────────
+                // ─── 7. TODAY'S SCHEDULED BOOKINGS (REAL DATA ONLY) ──────────
                 _buildTodayScheduleSection(context, jobState),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
               ],
             ),
           ),
@@ -229,7 +235,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                         ),
                         child: const CircleAvatar(
                           backgroundColor: Color(0xFF1E293B),
-                          child: Icon(Icons.engineering_rounded, color: Colors.amber, size: 24),
+                          child: Icon(Icons.engineering_rounded, color: Color(0xFFFDB813), size: 24),
                         ),
                       ),
                       Positioned(
@@ -274,8 +280,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                       const SizedBox(height: 2),
                       Text(
                         state.isOnline
-                            ? '🟢 Online • ${_skillProfile?.primaryCategory ?? "Partner"} Dispatch Active'
-                            : '⚪ Offline • ${_skillProfile?.primaryCategory ?? "Partner"} (Tap to go on duty)',
+                            ? '🟢 Online • ${_skillProfile?.primaryCategory ?? "Partner"} Radar'
+                            : '⚪ Offline • ${_skillProfile?.primaryCategory ?? "Partner"} (Tap switch)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -310,7 +316,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 tooltip: _skillProfile != null
                     ? '${_skillProfile!.primaryCategory} (${_skillProfile!.totalSelectedSkills} Skills)'
                     : 'My Skills',
-                icon: const Icon(Icons.badge_outlined, color: Colors.amber, size: 22),
+                icon: const Icon(Icons.badge_outlined, color: Color(0xFFFDB813), size: 22),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -437,7 +443,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
           // Live GPS Location bar
           Row(
             children: [
-              const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF1E3A8A)),
+              const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF0F172A)),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -456,17 +462,17 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
+                    color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.refresh_rounded, size: 12, color: Color(0xFF1E3A8A)),
+                      Icon(Icons.refresh_rounded, size: 12, color: Color(0xFF0F172A)),
                       SizedBox(width: 4),
                       Text(
                         'Refresh GPS',
-                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A)),
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
                       ),
                     ],
                   ),
@@ -493,21 +499,21 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     final customerPhone = activeJob.customerPhone ?? '';
 
     String stepBadge = 'JOB IN PROGRESS';
-    Color badgeColor = const Color(0xFF1E3A8A);
-    Color badgeBg = const Color(0xFFEFF6FF);
+    Color badgeColor = const Color(0xFF0F172A);
+    Color badgeBg = const Color(0xFFFEFCE8);
 
     if (activeJob.status == TechJobStatus.accepted) {
       stepBadge = 'READY TO DISPATCH';
-      badgeColor = const Color(0xFFD97706);
+      badgeColor = const Color(0xFFB45309);
       badgeBg = const Color(0xFFFEF3C7);
     } else if (activeJob.status == TechJobStatus.onTheWay) {
-      stepBadge = 'ON THE WAY TO PICKUP';
-      badgeColor = const Color(0xFF2563EB);
-      badgeBg = const Color(0xFFDBEAFE);
+      stepBadge = 'ON THE WAY TO LOCATION';
+      badgeColor = const Color(0xFF0284C7);
+      badgeBg = const Color(0xFFE0F2FE);
     } else if (activeJob.status == TechJobStatus.arrived) {
-      stepBadge = 'ARRIVED • ENTER OTP';
-      badgeColor = const Color(0xFF059669);
-      badgeBg = const Color(0xFFECFDF5);
+      stepBadge = 'ARRIVED • ENTER START OTP';
+      badgeColor = const Color(0xFF15803D);
+      badgeBg = const Color(0xFFDCFCE7);
     } else if (activeJob.status == TechJobStatus.serviceStarted) {
       stepBadge = 'SERVICE WORK UNDERWAY';
       badgeColor = const Color(0xFF16A34A);
@@ -520,10 +526,10 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF38BDF8), width: 1.8),
+        border: Border.all(color: const Color(0xFFFDB813), width: 1.8),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+            color: const Color(0xFFFDB813).withValues(alpha: 0.15),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -595,8 +601,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                   icon: const Icon(Icons.navigation_outlined, size: 16),
                   label: const Text('Navigate'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1E3A8A),
-                    side: const BorderSide(color: Color(0xFFBFDBFE), width: 1.4),
+                    foregroundColor: const Color(0xFF0F172A),
+                    side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.4),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -608,13 +614,13 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF5),
+                    color: const Color(0xFFDCFCE7),
                     shape: BoxShape.circle,
                     border: Border.all(color: const Color(0xFF86EFAC)),
                   ),
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.call, color: Color(0xFF059669), size: 20),
+                    icon: const Icon(Icons.call, color: Color(0xFF16A34A), size: 20),
                     onPressed: () => _callCustomer(customerPhone, customerName),
                   ),
                 ),
@@ -624,6 +630,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 flex: 1,
                 child: ElevatedButton(
                   onPressed: () {
+                    HapticFeedback.mediumImpact();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -632,8 +639,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A8A),
-                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFF0F172A),
+                    foregroundColor: const Color(0xFFFDB813),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -648,7 +655,77 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     );
   }
 
-  // ─── 4. Performance & Earnings 4-Grid (Rapido Style) ─────────────────────────
+  // ─── 4. Daily Incentive Goal Progress Meter ──────────────────────────────────
+  Widget _buildDailyIncentiveGoalCard(JobState jobState) {
+    final completed = jobState.completedJobs.length;
+    const target = 5;
+    final progress = (completed / target).clamp(0.0, 1.0);
+    final remaining = (target - completed).clamp(0, target);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEFCE8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFDE047)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text('🎯', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  Text(
+                    remaining > 0 ? 'Daily Milestone: Complete $remaining more' : '🎉 Daily Target Achieved!',
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF78350F),
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFDB813),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  '+₹150 Bonus',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: const Color(0xFFFEF08A),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('$completed / $target Trips Completed', style: const TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w600)),
+              Text('${(progress * 100).toInt()}% Done', style: const TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 5. Performance & Earnings 4-Grid (Rapido Style) ─────────────────────────
   Widget _buildPerformanceMetricsGrid(DashboardState state, JobState jobState) {
     final earningsText = '₹${state.todayEarnings.toStringAsFixed(0)}';
     final completedCount = jobState.completedJobs.isNotEmpty
@@ -662,7 +739,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
         const Text(
           "Today's Shift Insights",
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 15.5,
             fontWeight: FontWeight.w900,
             color: Color(0xFF0F172A),
             letterSpacing: -0.3,
@@ -779,7 +856,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     );
   }
 
-  // ─── 5. Tier Membership Banner ──────────────────────────────────────────────
+  // ─── 6. Tier Membership Banner ──────────────────────────────────────────────
   Widget _buildTierMembershipBanner(BuildContext context) {
     final analyticsState = ref.watch(technicianAnalyticsProvider);
     final tierInfo = analyticsState.tierInfo;
@@ -813,6 +890,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
 
     return InkWell(
       onTap: () {
+        HapticFeedback.lightImpact();
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const TechnicianAnalyticsScreen()),
@@ -839,7 +917,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 children: [
                   Text(badgeTitle, style: TextStyle(color: accentColor, fontWeight: FontWeight.w900, fontSize: 12)),
                   const SizedBox(height: 2),
-                  const Text('Reduced commission fee & daily bonuses', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                  const Text('Reduced commission fee & daily bonus tier active', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -850,7 +928,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     );
   }
 
-  // ─── 6. Today's Scheduled Bookings (Real Data Only) ──────────────────────────
+  // ─── 7. Today's Scheduled Bookings (Real Data Only) ──────────────────────────
   Widget _buildTodayScheduleSection(BuildContext context, JobState jobState) {
     final todayJobs = jobState.todayJobs;
 
@@ -863,7 +941,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
             Text(
               "Today's Assigned Bookings (${todayJobs.length})",
               style: const TextStyle(
-                fontSize: 16,
+                fontSize: 15.5,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF0F172A),
                 letterSpacing: -0.3,
@@ -873,7 +951,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
               onTap: () => widget.onNavigateTab?.call(1),
               child: const Text(
                 'View All →',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
               ),
             ),
           ],
@@ -917,6 +995,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
               final job = todayJobs[index];
               return InkWell(
                 onTap: () {
+                  HapticFeedback.mediumImpact();
                   ref.read(jobStateProvider.notifier).acceptJob(
                         job.id,
                         job.title,
@@ -937,7 +1016,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFBFDBFE), width: 1.2),
+                    border: Border.all(color: const Color(0xFFFDB813), width: 1.2),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.02),
@@ -952,10 +1031,10 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: const Color(0xFFFEFCE8),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.build_circle_outlined, color: Color(0xFF1E3A8A), size: 26),
+                        child: const Icon(Icons.handyman_rounded, color: Color(0xFFB45309), size: 24),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -971,11 +1050,11 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                             const SizedBox(height: 3),
                             Row(
                               children: [
-                                const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF1E3A8A)),
+                                const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF0F172A)),
                                 const SizedBox(width: 4),
                                 Text(
                                   job.scheduleSlot ?? 'Standard Slot',
-                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF1E3A8A)),
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
                                 ),
                               ],
                             ),
@@ -1001,12 +1080,12 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
+                              color: const Color(0xFF0F172A),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
                               'Open →',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A)),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFDB813)),
                             ),
                           ),
                         ],

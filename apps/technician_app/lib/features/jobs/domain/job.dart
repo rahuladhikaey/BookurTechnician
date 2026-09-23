@@ -30,6 +30,7 @@ class TechJob {
   final String? customerPhone;
   final String? bookingCode;
   final String? categoryName;
+  final double? distanceKm;
 
   TechJob({
     required this.id,
@@ -51,6 +52,7 @@ class TechJob {
     this.customerPhone,
     this.bookingCode,
     this.categoryName,
+    this.distanceKm,
   });
 
   TechJob copyWith({
@@ -73,6 +75,7 @@ class TechJob {
     String? customerPhone,
     String? bookingCode,
     String? categoryName,
+    double? distanceKm,
   }) {
     return TechJob(
       id: id ?? this.id,
@@ -94,6 +97,7 @@ class TechJob {
       customerPhone: customerPhone ?? this.customerPhone,
       bookingCode: bookingCode ?? this.bookingCode,
       categoryName: categoryName ?? this.categoryName,
+      distanceKm: distanceKm ?? this.distanceKm,
     );
   }
 }
