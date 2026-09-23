@@ -33,9 +33,9 @@ services:
       - key: RAZORPAY_KEY_SECRET
         sync: false
       - key: EMAILJS_PUBLIC_KEY
-        value: _hkUOyWnZBwWwoP4j
+        value: hn2znBkgIi2lY8faY
       - key: EMAILJS_PRIVATE_KEY
-        value: rJKCiZvYUQEGeKCTZHcpa
+        value: DLj-DDHXaRY55ww2xu6Jg
       - key: EMAILJS_SERVICE_ID
         value: service_u5wyepn
       - key: EMAILJS_TEMPLATE_ID

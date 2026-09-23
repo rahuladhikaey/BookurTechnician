@@ -40,8 +40,8 @@ function deriveNameFromEmail(email) {
  * @param {string} [params.htmlContent] - Optional HTML Content
  */
 async function sendEmailJsEmail({ to, name, subject, otp, role = 'CUSTOMER', htmlContent }) {
-  const publicKey = process.env.EMAILJS_PUBLIC_KEY || '_hkUOyWnZBwWwoP4j';
-  const privateKey = process.env.EMAILJS_PRIVATE_KEY || 'rJKCiZvYUQEGeKCTZHcpa';
+  const publicKey = process.env.EMAILJS_PUBLIC_KEY || 'hn2znBkgIi2lY8faY';
+  const privateKey = process.env.EMAILJS_PRIVATE_KEY || 'DLj-DDHXaRY55ww2xu6Jg';
   const serviceId = process.env.EMAILJS_SERVICE_ID || 'service_u5wyepn';
   const templateId = process.env.EMAILJS_TEMPLATE_ID || 'template_gl8uwjj';
 
@@ -106,6 +106,8 @@ async function sendEmailJsEmail({ to, name, subject, otp, role = 'CUSTOMER', htm
         const response = await axios.post(EMAILJS_API_URL, payload, {
           headers: {
             'Content-Type': 'application/json',
+            'Origin': 'https://bookurtechnician.online',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
           },
           timeout: 10000,
         });

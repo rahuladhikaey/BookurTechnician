@@ -2,8 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 class EmailService {
-  static const String publicKey = '_hkUOyWnZBwWwoP4j';
-  static const String privateKey = 'rJKCiZvYUQEGeKCTZHcpa';
+  static const String publicKey = 'hn2znBkgIi2lY8faY';
+  static const String privateKey = 'DLj-DDHXaRY55ww2xu6Jg';
   static const String serviceId = 'service_u5wyepn';
   static const String templateId = 'template_gl8uwjj';
 
@@ -26,6 +26,8 @@ class EmailService {
         options: Options(
           headers: {
             'Content-Type': 'application/json',
+            'Origin': 'https://bookurtechnician.online',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
           },
         ),
         data: {
