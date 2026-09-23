@@ -4,10 +4,14 @@
 // ============================================================================
 
 const API_CANDIDATE_HOSTS = [
-  'https://bookurtechnician-backend.onrender.com/api/v1',
+  import.meta.env?.VITE_API_BASE_URL,
+  import.meta.env?.VITE_API_URL,
   'https://api.bookurtechnician.online/api/v1',
+  'https://bookurtechnician-backend.onrender.com/api/v1',
+  'https://bookurtechnician.onrender.com/api/v1',
+  'http://localhost:4000/api/v1',
   '/api/v1'
-];
+].filter(Boolean);
 
 class ApiClient {
   constructor() {

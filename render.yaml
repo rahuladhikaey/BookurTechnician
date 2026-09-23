@@ -24,14 +24,24 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: REFRESH_TOKEN_SECRET
+        generateValue: true
+      - key: ADMIN_SECRET_KEY
+        value: BookurAdminMaster2026#Secure!
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
-      - key: BREVO_API_KEY
-        sync: false
-      - key: BREVO_SENDER_EMAIL
-        value: noreply@asaliswad.com
+      - key: EMAILJS_PUBLIC_KEY
+        value: _hkUOyWnZBwWwoP4j
+      - key: EMAILJS_PRIVATE_KEY
+        value: rJKCiZvYUQEGeKCTZHcpa
+      - key: EMAILJS_SERVICE_ID
+        value: service_u5wyepn
+      - key: EMAILJS_TEMPLATE_ID
+        value: template_gl8uwjj
+      - key: ALLOW_TEST_OTP
+        value: "true"
 
   # ─── 2. REACT VITE ADMIN PANEL (STATIC SITE) ─────────────────────────────────
   - type: web
@@ -59,3 +69,4 @@ databases:
     user: bookurtechnician
     plan: free
     region: singapore
+

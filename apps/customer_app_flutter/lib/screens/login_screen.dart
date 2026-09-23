@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_client.dart';
-import '../services/brevo_service.dart';
+import '../services/email_service.dart';
 import '../booking_provider.dart';
 import '../theme.dart';
 
@@ -965,9 +965,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       }
     } catch (_) {}
 
-    // Direct Brevo fallback if backend unreachable
+    // Direct EmailJS fallback if backend unreachable
     try {
-      await BrevoService.sendOtpEmail(
+      await EmailService.sendOtpEmail(
         email: widget.emailAddress,
         otp: '123456',
         role: 'Customer',

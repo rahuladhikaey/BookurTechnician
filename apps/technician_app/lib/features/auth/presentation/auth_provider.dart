@@ -5,7 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
 import '../../../core/config/app_config.dart';
-import '../../../core/network/brevo_service.dart';
+import '../../../core/network/email_service.dart';
 import '../domain/auth_repository.dart';
 import '../../../core/network/api_result.dart';
 import '../../../core/services/socket_service.dart';
@@ -193,17 +193,17 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       }
     }
 
-    // Direct Brevo Email fallback guarantee
+    // Direct EmailJS fallback guarantee
     try {
-      debugPrint('📧 [AuthNotifier] Backend unreachable. Triggering direct Brevo OTP email delivery...');
-      await BrevoService.sendOtpEmail(
+      debugPrint('📧 [AuthNotifier] Backend unreachable. Triggering direct EmailJS OTP email delivery...');
+      await EmailService.sendOtpEmail(
         email: normalizedEmail,
         otp: '123456',
         role: 'Technician',
         name: candidateName,
       );
-    } catch (brevoErr) {
-      debugPrint('Brevo direct email warning: $brevoErr');
+    } catch (emailErr) {
+      debugPrint('EmailJS direct email warning: $emailErr');
     }
 
     state = state.copyWith(
