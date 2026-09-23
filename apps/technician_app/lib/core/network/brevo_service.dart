@@ -9,10 +9,13 @@ class BrevoService {
     required String email,
     required String otp,
     required String role,
+    String? name,
   }) async {
+    final displayName = (name != null && name.trim().isNotEmpty) ? name.trim() : '$role Partner';
+
     if (apiKey.isEmpty) {
       debugPrint('=====================================================');
-      debugPrint('[BREVO SMTP MOCK] Sending OTP $otp to $email for $role');
+      debugPrint('[BREVO SMTP MOCK] Sending OTP $otp to $email for $role ($displayName)');
       debugPrint('To send real emails, set apiKey in brevo_service.dart.');
       debugPrint('=====================================================');
       return true;
@@ -37,9 +40,10 @@ class BrevoService {
           'to': [
             {
               'email': email,
-              'name': '$role User'
+              'name': displayName
             }
           ],
+
           'subject': '[$role] BookUrTechnician Verification OTP',
           'htmlContent': '''
             <html>

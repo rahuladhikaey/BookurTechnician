@@ -101,8 +101,8 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     }
   }
 
-  @override
   String _deriveNameFromEmail(String email) {
+
     if (email.isEmpty || !email.contains('@')) return 'Partner Technician';
     try {
       final prefix = email.split('@').first;
