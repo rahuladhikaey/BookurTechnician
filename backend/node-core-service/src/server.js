@@ -28,12 +28,18 @@ const customerRoutes = require('./routes/customerRoutes');
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io initialization with CORS
+// Socket.io initialization with CORS & production resilience
 const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
+    credentials: true,
   },
+  pingInterval: 25000,
+  pingTimeout: 20000,
+  connectTimeout: 45000,
+  allowEIO3: true,
+  transports: ['websocket', 'polling'],
 });
 
 global.io = io;

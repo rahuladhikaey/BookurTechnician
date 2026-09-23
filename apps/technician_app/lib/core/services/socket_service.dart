@@ -27,6 +27,8 @@ class TechnicianSocketService {
     BookingRequestManager().setNavigatorKey(key);
   }
 
+  bool _isConnecting = false;
+
   /// Initialize and connect to Node.js Core Service Dispatch Engine
   void connect({
     required String technicianId,
@@ -37,9 +39,11 @@ class TechnicianSocketService {
     if (phone != null && phone.isNotEmpty) _currentPhone = phone;
     if (category.isNotEmpty) _currentCategory = category;
 
-    if (_socket != null && _socket!.connected) {
-      _joinRooms();
-      BookingRequestManager().syncPendingRequests();
+    if (_socket != null && (_socket!.connected || _isConnecting)) {
+      if (_socket!.connected) {
+        _joinRooms();
+        BookingRequestManager().syncPendingRequests();
+      }
       return;
     }
 
@@ -47,28 +51,41 @@ class TechnicianSocketService {
   }
 
   void _attemptConnect() {
-    const candidateUrls = AppConfig.candidateSocketUrls;
+    const candidateUrls = [
+      AppConfig.socketUrl,
+      AppConfig.prodSocketUrl,
+      'https://bookurtechnician.onrender.com',
+      'https://bookurtechnician-backend.onrender.com',
+    ];
     if (candidateUrls.isEmpty) return;
 
     final url = candidateUrls[_candidateUrlIndex % candidateUrls.length];
     debugPrint('🔌 [TechnicianSocket] Connecting to dispatch socket: $url (index: $_candidateUrlIndex)');
+    _isConnecting = true;
 
     try {
-      _socket?.dispose();
+      if (_socket != null) {
+        _socket!.disconnect();
+        _socket!.dispose();
+        _socket = null;
+      }
+
       _socket = io.io(
         url,
         io.OptionBuilder()
             .setTransports(['websocket', 'polling'])
             .enableAutoConnect()
             .enableReconnection()
-            .setReconnectionAttempts(10)
-            .setReconnectionDelay(2000)
-            .setTimeout(6000)
+            .setReconnectionAttempts(999999)
+            .setReconnectionDelay(1500)
+            .setReconnectionDelayMax(5000)
+            .setTimeout(20000)
             .build(),
       );
 
       _socket!.onConnect((_) {
         _isConnected = true;
+        _isConnecting = false;
         debugPrint('✅ [TechnicianSocket] Connected to Dispatch Socket: ${_socket!.id} on $url');
         _joinRooms();
         // Resync any active pending booking proposals upon connection
@@ -77,23 +94,26 @@ class TechnicianSocketService {
 
       _socket!.onConnectError((err) {
         _isConnected = false;
-        debugPrint('⚠️ [TechnicianSocket] Socket connection error ($url): $err');
-        _rotateCandidateUrl();
+        _isConnecting = false;
+        debugPrint('⚠️ [TechnicianSocket] Socket connection notice ($url): $err');
       });
 
       _socket!.onConnectTimeout((_) {
         _isConnected = false;
+        _isConnecting = false;
         debugPrint('⚠️ [TechnicianSocket] Socket connection timeout ($url)');
         _rotateCandidateUrl();
       });
 
       _socket!.onDisconnect((_) {
         _isConnected = false;
-        debugPrint('⚠️ [TechnicianSocket] Disconnected from dispatch socket');
+        _isConnecting = false;
+        debugPrint('⚠️ [TechnicianSocket] Disconnected from dispatch socket (auto-reconnecting...)');
       });
 
       _socket!.onReconnect((_) {
         _isConnected = true;
+        _isConnecting = false;
         debugPrint('🔄 [TechnicianSocket] Reconnected to dispatch socket. Re-joining rooms and syncing...');
         _joinRooms();
         BookingRequestManager().syncPendingRequests();

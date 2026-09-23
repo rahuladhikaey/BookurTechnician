@@ -178,11 +178,18 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
 
   void _initSocket() {
     try {
-      _socket = io.io(AppConfig.socketUrl, io.OptionBuilder()
-        .setTransports(['websocket', 'polling'])
-        .enableAutoConnect()
-        .enableReconnection()
-        .build());
+      _socket = io.io(
+        AppConfig.socketUrl,
+        io.OptionBuilder()
+            .setTransports(['websocket', 'polling'])
+            .enableAutoConnect()
+            .enableReconnection()
+            .setReconnectionAttempts(999999)
+            .setReconnectionDelay(1500)
+            .setReconnectionDelayMax(5000)
+            .setTimeout(20000)
+            .build(),
+      );
 
       _socket!.onConnect((_) {
         debugPrint('Socket connected to backend tracking server!');
@@ -204,11 +211,18 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
       });
 
       _socket!.onDisconnect((_) {
-        if (mounted) setState(() => _socketStatus = 'DISCONNECTED');
+        if (mounted) setState(() => _socketStatus = 'RECONNECTING');
       });
 
-      _socket!.onConnectError((_) {
+      _socket!.onConnectError((err) {
+        debugPrint('Socket tracking error: $err');
         if (mounted) setState(() => _socketStatus = 'RECONNECTING');
+      });
+
+      _socket!.onReconnect((_) {
+        debugPrint('Socket reconnected to tracking server! Rejoining room...');
+        _socket!.emit('job:join', {'bookingId': widget.bookingId});
+        if (mounted) setState(() => _socketStatus = 'CONNECTED');
       });
 
       // 1. Partner Live Location Stream

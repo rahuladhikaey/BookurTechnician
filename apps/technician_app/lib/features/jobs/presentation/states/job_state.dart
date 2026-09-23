@@ -244,14 +244,21 @@ class JobStateNotifier extends StateNotifier<JobState> {
         final nextDayList = mapped.where((j) {
           if (j.status == TechJobStatus.completed) return false;
           final d = (j.scheduleDate ?? '').toLowerCase();
-          return d.contains(nextDayStr) || d.contains('day after') || (!todayList.contains(j) && !tomorrowList.contains(j));
+          return d.contains(nextDayStr) || d.contains('day after');
         }).toList();
 
         final completedList = mapped.where((j) => j.status == TechJobStatus.completed).toList();
 
         TechJob? active = state.activeJob;
-        if (active == null && todayList.isNotEmpty) {
-          active = todayList.first;
+        if (active == null) {
+          final inProgressJob = mapped.where((j) =>
+              j.status == TechJobStatus.onTheWay ||
+              j.status == TechJobStatus.arrived ||
+              j.status == TechJobStatus.serviceStarted ||
+              j.status == TechJobStatus.accepted).toList();
+          if (inProgressJob.isNotEmpty) {
+            active = inProgressJob.first;
+          }
         }
 
         state = state.copyWith(
@@ -532,27 +539,56 @@ class JobStateNotifier extends StateNotifier<JobState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final response = await _dioClient.dio.patch(
-        '/technician/jobs/${state.activeJob!.id}/status',
-        data: {
-          'status': 'IN_PROGRESS',
-          'startOtp': enteredOtp.trim(),
-        },
-      );
+      final code = enteredOtp.trim();
+      Response response;
+      try {
+        response = await _dioClient.dio.patch(
+          '/technician/jobs/${state.activeJob!.id}/status',
+          data: {
+            'status': 'IN_PROGRESS',
+            'startOtp': code,
+            'otp': code,
+          },
+        );
+      } catch (_) {
+        response = await _dioClient.dio.post(
+          '/bookings/${state.activeJob!.id}/verify-start-otp',
+          data: {
+            'otp': code,
+            'startOtp': code,
+          },
+        );
+      }
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final respData = response.data is Map ? Map<String, dynamic>.from(response.data) : <String, dynamic>{};
+        final generatedEndOtp = respData['endOtp']?.toString() ??
+            respData['data']?['endOtp']?.toString() ??
+            respData['booking']?['endOtp']?.toString() ??
+            '';
+
         state = state.copyWith(
-          activeJob: state.activeJob!.copyWith(status: TechJobStatus.serviceStarted),
+          activeJob: state.activeJob!.copyWith(
+            status: TechJobStatus.serviceStarted,
+          ),
           isOtpVerified: true,
+          endOtp: generatedEndOtp.isNotEmpty ? generatedEndOtp : state.endOtp,
           isLoading: false,
+          errorMessage: null,
         );
         return true;
       }
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] ?? 'Invalid Start Service OTP';
+      final msg = e.response?.data?['message'] ?? e.response?.data?['error'] ?? 'Invalid Start Service OTP';
       state = state.copyWith(
         isLoading: false,
-        errorMessage: msg,
+        errorMessage: msg.toString(),
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'OTP Verification failed: $e',
       );
       return false;
     }
@@ -564,27 +600,49 @@ class JobStateNotifier extends StateNotifier<JobState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final response = await _dioClient.dio.patch(
-        '/technician/jobs/${state.activeJob!.id}/status',
-        data: {
-          'status': 'COMPLETED',
-        },
-      );
+      final code = enteredOtp.trim();
+      Response response;
+      try {
+        response = await _dioClient.dio.patch(
+          '/technician/jobs/${state.activeJob!.id}/status',
+          data: {
+            'status': 'COMPLETED',
+            'endOtp': code,
+            'otp': code,
+          },
+        );
+      } catch (_) {
+        response = await _dioClient.dio.post(
+          '/bookings/${state.activeJob!.id}/verify-end-otp',
+          data: {
+            'otp': code,
+            'endOtp': code,
+          },
+        );
+      }
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         _stopLiveLocationStream();
         state = state.copyWith(
           activeJob: state.activeJob!.copyWith(status: TechJobStatus.completed),
           isEndOtpVerified: true,
           isLoading: false,
+          errorMessage: null,
         );
+        await fetchAssignedJobs();
         return true;
       }
     } on DioException catch (e) {
-      final msg = e.response?.data?['message'] ?? 'Failed to complete job on server';
+      final msg = e.response?.data?['message'] ?? e.response?.data?['error'] ?? 'Failed to complete job on server';
       state = state.copyWith(
         isLoading: false,
-        errorMessage: msg,
+        errorMessage: msg.toString(),
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Completion failed: $e',
       );
       return false;
     }

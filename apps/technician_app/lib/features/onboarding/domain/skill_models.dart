@@ -183,6 +183,20 @@ class TechnicianSkillProfileModel {
     required this.pendingSkillsCount,
   });
 
+  /// Derived primary category name from the first configured skill or category
+  String get primaryCategory {
+    for (final s in skills) {
+      if (s.categoryName.trim().isNotEmpty) {
+        return s.categoryName.trim();
+      }
+    }
+    return 'Partner';
+  }
+
+  /// Total count of selected/configured skills
+  int get totalSelectedSkills => skills.isNotEmpty ? skills.length : totalSkillsCount;
+
+
   factory TechnicianSkillProfileModel.fromJson(Map<String, dynamic> json) {
     var rawSkills = json['skills'] as List? ?? [];
     List<TechnicianSkillItemModel> parsedSkills = rawSkills

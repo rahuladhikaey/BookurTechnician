@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../auth/presentation/auth_provider.dart';
@@ -27,14 +28,21 @@ class PartnerHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<PartnerHomeScreen> createState() => _PartnerHomeScreenState();
 }
 
-class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
+class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with SingleTickerProviderStateMixin {
   final SkillService _skillService = SkillService();
   TechnicianSkillProfileModel? _skillProfile;
+  late AnimationController _radarAnimController;
 
   @override
   void initState() {
     super.initState();
+    _radarAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+
     _fetchSkillProfile();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         final auth = ref.read(authProvider);
@@ -54,6 +62,12 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _radarAnimController.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchSkillProfile() async {
     final profile = await _skillService.fetchMySkillProfile();
     if (mounted && profile != null) {
@@ -61,6 +75,21 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
         _skillProfile = profile;
       });
     }
+  }
+
+  static String formatCleanAddress(String raw) {
+    if (raw.isEmpty) return 'Customer Premise';
+    final parts = raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final seen = <String>{};
+    final cleanParts = <String>[];
+    for (final p in parts) {
+      final lower = p.toLowerCase();
+      if (!seen.contains(lower)) {
+        seen.add(lower);
+        cleanParts.add(p);
+      }
+    }
+    return cleanParts.join(', ');
   }
 
   Future<void> _launchMaps(String destination) async {
@@ -85,21 +114,6 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
     }
   }
 
-  static String formatCleanAddress(String raw) {
-    if (raw.isEmpty) return 'Customer Premise';
-    final parts = raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-    final seen = <String>{};
-    final cleanParts = <String>[];
-    for (final p in parts) {
-      final lower = p.toLowerCase();
-      if (!seen.contains(lower)) {
-        seen.add(lower);
-        cleanParts.add(p);
-      }
-    }
-    return cleanParts.join(', ');
-  }
-
   Future<void> _callCustomer(String phone, String name) async {
     final Uri callUri = Uri(scheme: 'tel', path: phone.replaceAll(' ', ''));
     try {
@@ -108,14 +122,14 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Calling $name at $phone (Masked Relay)')),
+            SnackBar(content: Text('Calling $name at $phone')),
           );
         }
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Calling $name at $phone (Masked Relay)')),
+          SnackBar(content: Text('Calling $name at $phone')),
         );
       }
     }
@@ -126,66 +140,50 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
     final authState = ref.watch(authProvider);
     final dashState = ref.watch(dashboardProvider);
     final dashNotifier = ref.read(dashboardProvider.notifier);
+    final jobState = ref.watch(jobStateProvider);
 
     final technicianName = (authState.fullName != null && authState.fullName!.isNotEmpty)
         ? authState.fullName!
         : 'Rahul';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF1F5F9),
       body: SafeArea(
         child: RefreshIndicator(
           color: const Color(0xFF1E3A8A),
           onRefresh: () async {
             await dashNotifier.fetchAndUpdateLocation();
+            await ref.read(jobStateProvider.notifier).fetchAssignedJobs();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ─── 1. TOP HERO AUTO-SCROLL BANNER (HELLO TECH & REAL GPS) ──
-                _PartnerHeroAutoScrollBanner(
-                  technicianName: technicianName,
-                  skillProfile: _skillProfile,
-                  dashState: dashState,
-                  dashNotifier: dashNotifier,
-                  onProfileTap: () => widget.onNavigateTab?.call(3),
-                  onNotificationTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const NotificationsTab()),
-                    );
-                  },
-                  onSkillsTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MySkillsPage()),
-                    );
-                  },
-                ),
-                const SizedBox(height: 18),
-
-                // ─── 2. METRICS & PERFORMANCE SNAPSHOT (2-Column Card Row) ───
-                _buildMetricsSnapshotRow(dashState),
+                // ─── 1. RAPIDO CAPTAIN TOP APP BAR ───────────────────────────
+                _buildCaptainHeader(technicianName, dashState, dashNotifier),
                 const SizedBox(height: 14),
 
-                // ─── 2b. PARTNER TIER STATUS & DAILY ANALYTICS BANNER ────────
-                _buildTierMembershipBanner(context),
-                const SizedBox(height: 18),
+                // ─── 2. MASTER DUTY ONLINE/OFFLINE RADAR CARD ────────────────
+                _buildMasterDutyCard(dashState, dashNotifier),
+                const SizedBox(height: 16),
 
-                // ─── 3. IN-PROGRESS / ACTIVE JOB CARD ────────────────────────
-                _buildActiveJobCard(context, dashState, dashNotifier),
+                // ─── 3. ACTIVE RUNNING JOB CARD (FLOATING RAPIDO BANNER) ─────
+                _buildActiveRunningJobCard(context, dashState, jobState),
+                const SizedBox(height: 16),
+
+                // ─── 4. PERFORMANCE & EARNINGS 4-GRID (RAPIDO STYLE) ─────────
+                _buildPerformanceMetricsGrid(dashState, jobState),
+                const SizedBox(height: 16),
+
+                // ─── 5. PARTNER TIER STATUS BANNER ───────────────────────────
+                _buildTierMembershipBanner(context),
                 const SizedBox(height: 20),
 
-                // ─── 4. AUTO-SCROLL INCENTIVE & SPOTLIGHT BOOSTER CAROUSEL ───
-                const _PartnerSpotlightIncentiveCarousel(),
-                const SizedBox(height: 22),
-
-                // ─── 5. TODAY'S SCHEDULE (Upcoming Jobs List) ────────────────
-                _buildTodayScheduleSection(context, dashNotifier),
-                const SizedBox(height: 24),
+                // ─── 6. TODAY'S SCHEDULED BOOKINGS (REAL DATA ONLY) ──────────
+                _buildTodayScheduleSection(context, jobState),
+                const SizedBox(height: 28),
               ],
             ),
           ),
@@ -194,168 +192,594 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
     );
   }
 
-  // ─── 2. Metrics & Performance Snapshot (2-Column Row) ──────────────────────
-  Widget _buildMetricsSnapshotRow(DashboardState state) {
-    final earningsText = '₹${state.todayEarnings.toStringAsFixed(0)}';
-    final jobsDoneText = '${state.completedJobsCount} / ${state.todayJobsCount > 0 ? state.todayJobsCount : 0}';
-
-    return Row(
-      children: [
-        // Card 1: "Today's Earnings" with wallet icon and value "₹1,850"
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  // ─── 1. Captain Top Header ──────────────────────────────────────────────────
+  Widget _buildCaptainHeader(String technicianName, DashboardState state, DashboardNotifier notifier) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.account_balance_wallet_rounded,
-                        size: 20,
-                        color: Color(0xFF10B981),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        state.todayEarnings > 0 ? 'Live' : '₹0',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF059669),
+                GestureDetector(
+                  onTap: () => widget.onNavigateTab?.call(3),
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: state.isOnline ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                            width: 2.2,
+                          ),
+                        ),
+                        child: const CircleAvatar(
+                          backgroundColor: Color(0xFF1E293B),
+                          child: Icon(Icons.engineering_rounded, color: Colors.amber, size: 24),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "Today's Earnings",
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF64748B),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: state.isOnline ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  earningsText,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF0F172A),
-                    letterSpacing: -0.5,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              technicianName,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF38BDF8)),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        state.isOnline
+                            ? '🟢 Online • ${_skillProfile?.primaryCategory ?? "Partner"} Dispatch Active'
+                            : '⚪ Offline • ${_skillProfile?.primaryCategory ?? "Partner"} (Tap to go on duty)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: state.isOnline ? const Color(0xFF86EFAC) : const Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: 'Notifications',
+                icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 22),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NotificationsTab()),
+                  );
+                },
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                tooltip: _skillProfile != null
+                    ? '${_skillProfile!.primaryCategory} (${_skillProfile!.totalSelectedSkills} Skills)'
+                    : 'My Skills',
+                icon: const Icon(Icons.badge_outlined, color: Colors.amber, size: 22),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MySkillsPage()),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 2. Master Rapido Online/Offline Duty Card with Radar ────────────────────
+  Widget _buildMasterDutyCard(DashboardState state, DashboardNotifier notifier) {
+    final cleanAddr = formatCleanAddress(state.currentLocationAddress);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: state.isOnline ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+          width: state.isOnline ? 1.8 : 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: state.isOnline
+                ? const Color(0xFF10B981).withValues(alpha: 0.12)
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (state.isOnline)
+                        AnimatedBuilder(
+                          animation: _radarAnimController,
+                          builder: (context, child) {
+                            return Container(
+                              width: 46 + (_radarAnimController.value * 16),
+                              height: 46 + (_radarAnimController.value * 16),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: const Color(0xFF10B981).withValues(
+                                  alpha: (1.0 - _radarAnimController.value) * 0.4,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: state.isOnline ? const Color(0xFF10B981) : const Color(0xFFF1F5F9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          state.isOnline ? Icons.radar_rounded : Icons.power_settings_new_rounded,
+                          color: state.isOnline ? Colors.white : const Color(0xFF64748B),
+                          size: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 14),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        state.isOnline ? 'CAPTAIN ON DUTY' : 'YOU ARE OFFLINE',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.4,
+                          color: state.isOnline ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        state.isOnline
+                            ? 'Scanning high-demand 15km area'
+                            : 'Go Online to receive instant orders',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Transform.scale(
+                scale: 1.15,
+                child: Switch(
+                  value: state.isOnline,
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: const Color(0xFF10B981),
+                  inactiveThumbColor: Colors.white,
+                  inactiveTrackColor: const Color(0xFFCBD5E1),
+                  onChanged: (val) {
+                    HapticFeedback.heavyImpact();
+                    notifier.toggleOnline(val, context: context);
+                    ref.read(jobStateProvider.notifier).toggleShift(val, context: context);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 12),
+          // Live GPS Location bar
+          Row(
+            children: [
+              const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF1E3A8A)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  state.isFetchingLocation ? 'Locating partner GPS...' : cleanAddr,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF334155),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              InkWell(
+                onTap: () => notifier.fetchAndUpdateLocation(context: context, showPromptDialogs: true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh_rounded, size: 12, color: Color(0xFF1E3A8A)),
+                      SizedBox(width: 4),
+                      Text(
+                        'Refresh GPS',
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 3. Active Running Job Card (Floating Rapido Banner) ─────────────────────
+  Widget _buildActiveRunningJobCard(BuildContext context, DashboardState dashState, JobState jobState) {
+    final activeJob = jobState.activeJob;
+    if (activeJob == null || activeJob.status == TechJobStatus.completed) {
+      return const SizedBox.shrink();
+    }
+
+    final title = activeJob.title;
+    final customerName = activeJob.customerName;
+    final address = formatCleanAddress(activeJob.customerAddress);
+    final payout = '₹${activeJob.price.toStringAsFixed(0)}';
+    final customerPhone = activeJob.customerPhone ?? '';
+
+    String stepBadge = 'JOB IN PROGRESS';
+    Color badgeColor = const Color(0xFF1E3A8A);
+    Color badgeBg = const Color(0xFFEFF6FF);
+
+    if (activeJob.status == TechJobStatus.accepted) {
+      stepBadge = 'READY TO DISPATCH';
+      badgeColor = const Color(0xFFD97706);
+      badgeBg = const Color(0xFFFEF3C7);
+    } else if (activeJob.status == TechJobStatus.onTheWay) {
+      stepBadge = 'ON THE WAY TO PICKUP';
+      badgeColor = const Color(0xFF2563EB);
+      badgeBg = const Color(0xFFDBEAFE);
+    } else if (activeJob.status == TechJobStatus.arrived) {
+      stepBadge = 'ARRIVED • ENTER OTP';
+      badgeColor = const Color(0xFF059669);
+      badgeBg = const Color(0xFFECFDF5);
+    } else if (activeJob.status == TechJobStatus.serviceStarted) {
+      stepBadge = 'SERVICE WORK UNDERWAY';
+      badgeColor = const Color(0xFF16A34A);
+      badgeBg = const Color(0xFFDCFCE7);
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF38BDF8), width: 1.8),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  stepBadge,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: badgeColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              Text(
+                payout,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF059669),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF64748B)),
+              const SizedBox(width: 4),
+              Text(customerName, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+              const SizedBox(width: 10),
+              const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  address,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _launchMaps(address),
+                  icon: const Icon(Icons.navigation_outlined, size: 16),
+                  label: const Text('Navigate'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1E3A8A),
+                    side: const BorderSide(color: Color(0xFFBFDBFE), width: 1.4),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (customerPhone.isNotEmpty) ...[
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.call, color: Color(0xFF059669), size: 20),
+                    onPressed: () => _callCustomer(customerPhone, customerName),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                flex: 1,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => JobDetailsPage(bookingId: activeJob.id),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A8A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Open Console →', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 4. Performance & Earnings 4-Grid (Rapido Style) ─────────────────────────
+  Widget _buildPerformanceMetricsGrid(DashboardState state, JobState jobState) {
+    final earningsText = '₹${state.todayEarnings.toStringAsFixed(0)}';
+    final completedCount = jobState.completedJobs.isNotEmpty
+        ? jobState.completedJobs.length
+        : state.completedJobsCount;
+    final totalCount = jobState.todayJobs.length + completedCount;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Today's Shift Insights",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF0F172A),
+            letterSpacing: -0.3,
           ),
         ),
-        const SizedBox(width: 12),
-
-        // Card 2: "Jobs Done" with completion check icon and value
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            // Card 1: Today's Earnings
+            Expanded(
+              child: _buildMetricTile(
+                icon: Icons.account_balance_wallet_rounded,
+                iconColor: const Color(0xFF10B981),
+                bgColor: const Color(0xFFECFDF5),
+                title: "Earnings",
+                value: earningsText,
+                badgeText: "Instant UPI",
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.task_alt_rounded,
-                        size: 20,
-                        color: Color(0xFF1E3A8A),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        state.completedJobsCount > 0 ? '${state.completedJobsCount} Done' : 'Today',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1E3A8A),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "Jobs Done",
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  jobsDoneText,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF0F172A),
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ],
+            const SizedBox(width: 10),
+            // Card 2: Completed Orders
+            Expanded(
+              child: _buildMetricTile(
+                icon: Icons.check_circle_outline_rounded,
+                iconColor: const Color(0xFF2563EB),
+                bgColor: const Color(0xFFEFF6FF),
+                title: "Jobs Done",
+                value: '$completedCount / $totalCount',
+                badgeText: "Target 8",
+              ),
             ),
-          ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            // Card 3: Online Hours
+            Expanded(
+              child: _buildMetricTile(
+                icon: Icons.timer_outlined,
+                iconColor: const Color(0xFFD97706),
+                bgColor: const Color(0xFFFFFBEB),
+                title: "Duty Hours",
+                value: state.isOnline ? "Active" : "0.0 h",
+                badgeText: "Shift",
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Card 4: Acceptance Rate
+            Expanded(
+              child: _buildMetricTile(
+                icon: Icons.verified_user_outlined,
+                iconColor: const Color(0xFF7C3AED),
+                bgColor: const Color(0xFFF5F3FF),
+                title: "Acceptance",
+                value: "98.5%",
+                badgeText: "VIP Tier",
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  // ─── 2b. Partner Tier Membership & Daily Analytics Banner ─────────────────
+  Widget _buildMetricTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required String title,
+    required String value,
+    required String badgeText,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(8)),
+                child: Icon(icon, color: iconColor, size: 18),
+              ),
+              Text(
+                badgeText,
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: iconColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A), letterSpacing: -0.3),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── 5. Tier Membership Banner ──────────────────────────────────────────────
   Widget _buildTierMembershipBanner(BuildContext context) {
     final analyticsState = ref.watch(technicianAnalyticsProvider);
     final tierInfo = analyticsState.tierInfo;
@@ -370,7 +794,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
       case TechnicianTier.gold:
         gradientColors = const [Color(0xFF78350F), Color(0xFFB45309), Color(0xFFD97706)];
         accentColor = const Color(0xFFFDE68A);
-        badgeTitle = 'GOLD VIP ELITE';
+        badgeTitle = 'GOLD VIP CAPTAIN';
         badgeEmoji = '🥇';
         break;
       case TechnicianTier.silver:
@@ -386,10 +810,6 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
         badgeEmoji = '🥉';
         break;
     }
-
-    final onlineHours = tierInfo?.todayHours ?? 0.0;
-    final nextThreshold = tierInfo?.nextTierHoursRequired ?? 5.0;
-    final progress = (tierInfo?.progressToNextTier ?? 0.0).clamp(0.0, 1.0);
 
     return InkWell(
       onTap: () {
@@ -408,375 +828,30 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: gradientColors[1].withAlpha(80),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
-        child: Column(
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(40),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(badgeEmoji, style: const TextStyle(fontSize: 20)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            badgeTitle,
-                            style: TextStyle(
-                              color: accentColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withAlpha(45),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              '${tierInfo?.discountCommissionPercent.toStringAsFixed(0) ?? "10"}% Fee',
-                              style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '${onlineHours.toStringAsFixed(1)}h worked today • Target ${nextThreshold.toStringAsFixed(0)}h',
-                        style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 14),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 5,
-                backgroundColor: Colors.black.withAlpha(40),
-                valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+            Text(badgeEmoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(badgeTitle, style: TextStyle(color: accentColor, fontWeight: FontWeight.w900, fontSize: 12)),
+                  const SizedBox(height: 2),
+                  const Text('Reduced commission fee & daily bonuses', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                ],
               ),
             ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  tierInfo?.isMaxTier == true
-                      ? '✨ Maximum VIP Status Unlocked!'
-                      : '${tierInfo?.hoursRemaining.toStringAsFixed(1) ?? "0.0"}h more to unlock ${tierInfo?.nextTierName ?? "Silver"}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 10.5, fontWeight: FontWeight.w500),
-                ),
-                const Text(
-                  'Daily Graphs 📊',
-                  style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
+            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 14),
           ],
         ),
       ),
     );
   }
 
-  // ─── 4. In-Progress / Active Job Card ──────────────────────────────────────
-  Widget _buildActiveJobCard(BuildContext context, DashboardState state, DashboardNotifier notifier) {
-    final jobState = ref.watch(jobStateProvider);
-    final activeJob = state.activeJob ?? (jobState.activeJob != null ? ActiveJobModel(
-      id: jobState.activeJob!.id,
-      title: jobState.activeJob!.title,
-      customerName: jobState.activeJob!.customerName,
-      customerAddress: jobState.activeJob!.customerAddress,
-      customerPhone: jobState.activeJob!.customerPhone ?? '',
-      price: jobState.activeJob!.price,
-      distanceKm: 0.0,
-      step: jobState.activeJob!.status == TechJobStatus.serviceStarted ? ActiveJobStep.serviceStarted : ActiveJobStep.onTheWay,
-    ) : (jobState.todayJobs.isNotEmpty ? ActiveJobModel(
-      id: jobState.todayJobs.first.id,
-      title: jobState.todayJobs.first.title,
-      customerName: jobState.todayJobs.first.customerName,
-      customerAddress: jobState.todayJobs.first.customerAddress,
-      customerPhone: jobState.todayJobs.first.customerPhone ?? '',
-      price: jobState.todayJobs.first.price,
-      distanceKm: 0.0,
-      step: ActiveJobStep.onTheWay,
-    ) : null));
-
-    if (activeJob == null) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: state.isOnline ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: state.isOnline ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
-                ),
-              ),
-              child: Icon(
-                state.isOnline ? Icons.radar_rounded : Icons.power_settings_new_rounded,
-                color: state.isOnline ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
-                size: 24,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              state.isOnline ? 'Active Radar: Waiting for Requests' : 'You are currently Offline',
-              style: const TextStyle(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              state.isOnline
-                  ? 'High-priority leads within 15 km will ring loudly here.'
-                  : 'Toggle the switch above to go online and receive service leads.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF64748B),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final title = activeJob.title;
-    final customerName = activeJob.customerName;
-    final customerAddress = formatCleanAddress(activeJob.customerAddress);
-    final payout = '₹${activeJob.price.toStringAsFixed(0)}';
-    final customerPhone = activeJob.customerPhone;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF1E3A8A).withValues(alpha: 0.25), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E3A8A).withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header: "IN PROGRESS" chip and payout amount
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.bolt_rounded, size: 14, color: Color(0xFF1E3A8A)),
-                    SizedBox(width: 4),
-                    Text(
-                      'IN PROGRESS',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF1E3A8A),
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                payout,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF10B981),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Title: Service Name
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF0F172A),
-              letterSpacing: -0.2,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Customer details: Customer name and location with distance
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.person_pin_circle_outlined,
-                size: 18,
-                color: Color(0xFF1E3A8A),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      customerName,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      customerAddress,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          Row(
-            children: [
-              // Navigate Button
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _launchMaps(customerAddress),
-                  icon: const Icon(Icons.navigation_outlined, size: 16),
-                  label: const Text('Navigate'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1E3A8A),
-                    side: const BorderSide(color: Color(0xFF1E3A8A), width: 1.4),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Call icon button
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
-                ),
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.call, color: Color(0xFF059669), size: 20),
-                  onPressed: () => _callCustomer(customerPhone, customerName),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // Accept Button
-              Expanded(
-                flex: 1,
-                child: ElevatedButton(
-                  onPressed: () {
-                    ref.read(jobStateProvider.notifier).acceptJob(
-                      activeJob.id,
-                      title,
-                      activeJob.price,
-                      customerName,
-                      customerAddress,
-                    );
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => JobDetailsPage(bookingId: activeJob.id),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A8A),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: const Text(
-                    'Accept',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── 5. Today's Schedule (Upcoming Jobs List) ──────────────────────────────
-  Widget _buildTodayScheduleSection(BuildContext context, DashboardNotifier notifier) {
-    final jobState = ref.watch(jobStateProvider);
+  // ─── 6. Today's Scheduled Bookings (Real Data Only) ──────────────────────────
+  Widget _buildTodayScheduleSection(BuildContext context, JobState jobState) {
     final todayJobs = jobState.todayJobs;
 
     return Column(
@@ -786,25 +861,19 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              "Today's Schedule (${todayJobs.length})",
+              "Today's Assigned Bookings (${todayJobs.length})",
               style: const TextStyle(
-                fontSize: 17,
+                fontSize: 16,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF0F172A),
                 letterSpacing: -0.3,
               ),
             ),
             GestureDetector(
-              onTap: () {
-                widget.onNavigateTab?.call(1); // Navigate to Bookings tab
-              },
+              onTap: () => widget.onNavigateTab?.call(1),
               child: const Text(
                 'View All →',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E3A8A),
-                ),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A)),
               ),
             ),
           ],
@@ -817,7 +886,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
             padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: const Center(
@@ -827,15 +896,11 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                   SizedBox(height: 8),
                   Text(
                     'No scheduled jobs for today',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF475569),
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'New customer bookings within 15km will be assigned automatically.',
+                    'New customer bookings within 15km will ring here automatically.',
                     style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                   ),
                 ],
@@ -866,12 +931,12 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                     ),
                   );
                 },
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFFBFDBFE), width: 1.2),
                     boxShadow: [
                       BoxShadow(
@@ -882,65 +947,42 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                     ],
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Service Icon Box
                       Container(
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
                           color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
-                          Icons.build_circle_outlined,
-                          color: Color(0xFF1E3A8A),
-                          size: 26,
-                        ),
+                        child: const Icon(Icons.build_circle_outlined, color: Color(0xFF1E3A8A), size: 26),
                       ),
                       const SizedBox(width: 12),
-
-                      // Middle Content: Title, Time slot, Address snippet
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               job.title,
-                              style: const TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A),
-                              ),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 3),
                             Row(
                               children: [
-                                const Icon(
-                                  Icons.access_time_rounded,
-                                  size: 13,
-                                  color: Color(0xFF1E3A8A),
-                                ),
+                                const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF1E3A8A)),
                                 const SizedBox(width: 4),
                                 Text(
                                   job.scheduleSlot ?? 'Standard Slot',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF1E3A8A),
-                                  ),
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF1E3A8A)),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 2),
                             Text(
                               formatCleanAddress(job.customerAddress),
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: Color(0xFF64748B),
-                              ),
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -948,18 +990,12 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-
-                      // Expected Payout aligned to the right + Start Button
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
                             '₹${job.price.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF059669),
-                            ),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF059669)),
                           ),
                           const SizedBox(height: 4),
                           Container(
@@ -969,12 +1005,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
-                              'Accept →',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF1E3A8A),
-                              ),
+                              'Open →',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A)),
                             ),
                           ),
                         ],
@@ -985,588 +1017,6 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> {
               );
             },
           ),
-      ],
-    );
-  }
-}
-
-// ─── TOP HERO AUTO-SCROLL BANNER WIDGET ──────────────────────────────────────
-class _PartnerHeroAutoScrollBanner extends StatefulWidget {
-  final String technicianName;
-  final TechnicianSkillProfileModel? skillProfile;
-  final DashboardState dashState;
-  final DashboardNotifier dashNotifier;
-  final VoidCallback? onProfileTap;
-  final VoidCallback? onNotificationTap;
-  final VoidCallback? onSkillsTap;
-
-  const _PartnerHeroAutoScrollBanner({
-    required this.technicianName,
-    required this.skillProfile,
-    required this.dashState,
-    required this.dashNotifier,
-    this.onProfileTap,
-    this.onNotificationTap,
-    this.onSkillsTap,
-  });
-
-  @override
-  State<_PartnerHeroAutoScrollBanner> createState() => _PartnerHeroAutoScrollBannerState();
-}
-
-class _PartnerHeroAutoScrollBannerState extends State<_PartnerHeroAutoScrollBanner> {
-  late PageController _pageController;
-  int _currentIndex = 1000;
-  Timer? _timer;
-
-  static const List<String> _heroImages = [
-    'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1000&auto=format&fit=crop',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(initialPage: _currentIndex);
-    _timer = Timer.periodic(const Duration(milliseconds: 3800), (_) {
-      if (mounted && _pageController.hasClients) {
-        _pageController.nextPage(
-          duration: const Duration(milliseconds: 700),
-          curve: Curves.easeInOutCubic,
-        );
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = widget.dashState;
-    final addressText = state.currentLocationAddress.isNotEmpty
-        ? _PartnerHomeScreenState.formatCleanAddress(state.currentLocationAddress)
-        : (state.isFetchingLocation ? 'Locating partner GPS...' : 'Location Available');
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: Stack(
-          children: [
-            // 1. Auto-scrolling background image carousel
-            Positioned.fill(
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: (idx) => setState(() => _currentIndex = idx),
-                itemBuilder: (context, index) {
-                  final imgUrl = _heroImages[index % _heroImages.length];
-                  return Image.network(
-                    imgUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
-                  );
-                },
-              ),
-            ),
-
-            // 2. Multi-stop Gradient Scrim Overlay for crisp text contrast
-            Positioned.fill(
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xF20F172A),
-                      Color(0xAA0F172A),
-                      Color(0xF80F172A),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: [0.0, 0.45, 1.0],
-                  ),
-                ),
-              ),
-            ),
-
-            // 3. Foreground Content
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top Row: Avatar, Hello Technician, Rating & Notification Bell
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            GestureDetector(
-                              onTap: widget.onProfileTap,
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: const Color(0xFF38BDF8), width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipOval(
-                                  child: Container(
-                                    color: const Color(0xFF1E293B),
-                                    child: const Center(
-                                      child: Icon(Icons.person_rounded, size: 28, color: Colors.white),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          'Hello, ${widget.technicianName}',
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w900,
-                                            color: Colors.white,
-                                            letterSpacing: -0.3,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Text('👋', style: TextStyle(fontSize: 16)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.star_rounded, size: 15, color: Color(0xFFFBBF24)),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        (widget.skillProfile != null && widget.skillProfile!.totalRatingsCount > 0)
-                                            ? widget.skillProfile!.rating.toStringAsFixed(1)
-                                            : '4.9',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '(${widget.skillProfile?.totalRatingsCount ?? 142} reviews)',
-                                        style: const TextStyle(
-                                          fontSize: 11.5,
-                                          color: Color(0xFF94A3B8),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      GestureDetector(
-                                        onTap: widget.onSkillsTap,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF059669).withValues(alpha: 0.25),
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.5)),
-                                          ),
-                                          child: Text(
-                                            '${widget.skillProfile?.verifiedSkillsCount ?? 5} Verified Skills',
-                                            style: const TextStyle(
-                                              fontSize: 9.5,
-                                              fontWeight: FontWeight.w800,
-                                              color: Color(0xFF34D399),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Notification Bell Icon
-                      GestureDetector(
-                        onTap: widget.onNotificationTap,
-                        child: Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.notifications_outlined, size: 21, color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Floating GPS Location Pill Overlay
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 30,
-                          height: 30,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF0284C7),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.my_location_rounded, size: 16, color: Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'REAL-TIME GPS LOCATION',
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF38BDF8),
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              Text(
-                                addressText,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: const Icon(Icons.refresh_rounded, size: 18, color: Color(0xFF38BDF8)),
-                          onPressed: () => widget.dashNotifier.fetchAndUpdateLocation(context: context, showPromptDialogs: true),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Duty Online / Offline Switch Row with Glowing Indicator
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: state.isOnline
-                          ? const Color(0x2210B981)
-                          : const Color(0x22EF4444),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: state.isOnline
-                            ? const Color(0xFF10B981).withValues(alpha: 0.4)
-                            : const Color(0xFFEF4444).withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: state.isOnline ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                                boxShadow: state.isOnline ? const [
-                                  BoxShadow(color: Color(0xFF10B981), blurRadius: 6, spreadRadius: 1)
-                                ] : null,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              state.isOnline ? 'ONLINE & ACCEPTING JOBS' : 'OFFLINE (ON BREAK)',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                                color: state.isOnline ? const Color(0xFF34D399) : const Color(0xFFF87171),
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Transform.scale(
-                          scale: 0.8,
-                          child: Switch(
-                            value: state.isOnline,
-                            activeThumbColor: Colors.white,
-                            activeTrackColor: const Color(0xFF10B981),
-                            inactiveThumbColor: Colors.white,
-                            inactiveTrackColor: const Color(0xFFEF4444),
-                            trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-                            onChanged: (val) => widget.dashNotifier.toggleOnline(val, context: context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // Dots Indicator
-                  Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: List.generate(_heroImages.length, (i) {
-                        final isSel = (i == _currentIndex % _heroImages.length);
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: isSel ? 18 : 6,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: isSel ? const Color(0xFF38BDF8) : Colors.white.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── SPOTLIGHT INCENTIVE & SAFETY AUTO-SCROLL CAROUSEL ────────────────────────
-class _PartnerSpotlightIncentiveCarousel extends StatefulWidget {
-  const _PartnerSpotlightIncentiveCarousel();
-
-  @override
-  State<_PartnerSpotlightIncentiveCarousel> createState() => _PartnerSpotlightIncentiveCarouselState();
-}
-
-class _PartnerSpotlightIncentiveCarouselState extends State<_PartnerSpotlightIncentiveCarousel> {
-  late PageController _pageController;
-  int _currentIndex = 1000;
-  Timer? _timer;
-
-  static const List<Map<String, dynamic>> _incentiveCards = [
-    {
-      'tag': '⚡ DAILY INCENTIVE',
-      'title': 'Complete 3 Jobs Today',
-      'subtitle': 'Unlock an extra ₹500 performance bonus directly to your wallet!',
-      'gradient': [Color(0xFF4338CA), Color(0xFF312E81)],
-      'icon': '🎁',
-      'accent': Color(0xFFA5B4FC),
-    },
-    {
-      'tag': '🛡️ SAFETY PROTOCOL',
-      'title': 'Dual-OTP Verification',
-      'subtitle': 'Always collect the 4-digit start OTP from customer before opening your tool bag.',
-      'gradient': [Color(0xFF0F766E), Color(0xFF134E4A)],
-      'icon': '🔐',
-      'accent': Color(0xFF5EEAD4),
-    },
-    {
-      'tag': '💰 100% INSTANT PAYOUT',
-      'title': 'Zero Commission UPI Payouts',
-      'subtitle': 'Your job payouts are settled instantly to your bank account daily.',
-      'gradient': [Color(0xFFB45309), Color(0xFF78350F)],
-      'icon': '⚡',
-      'accent': Color(0xFFFDE68A),
-    },
-    {
-      'tag': '⭐ PLATINUM PARTNER',
-      'title': 'Maintain 4.8+ Rating',
-      'subtitle': 'Top-rated technicians get priority booking dispatch in a 15km radius.',
-      'gradient': [Color(0xFF1E3A8A), Color(0xFF172554)],
-      'icon': '🏆',
-      'accent': Color(0xFF93C5FD),
-    },
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(initialPage: _currentIndex);
-    _timer = Timer.periodic(const Duration(milliseconds: 4000), (_) {
-      if (mounted && _pageController.hasClients) {
-        _pageController.nextPage(
-          duration: const Duration(milliseconds: 650),
-          curve: Curves.easeInOutCubic,
-        );
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          height: 125,
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: (idx) => setState(() => _currentIndex = idx),
-            itemBuilder: (context, index) {
-              final card = _incentiveCards[index % _incentiveCards.length];
-              final gradient = card['gradient'] as List<Color>;
-              final accentColor = card['accent'] as Color;
-
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: gradient,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: gradient.first.withValues(alpha: 0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              card['tag'] as String,
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                                color: accentColor,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            card['title'] as String,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            card['subtitle'] as String,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: Colors.white70,
-                              height: 1.2,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      card['icon'] as String,
-                      style: const TextStyle(fontSize: 32),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_incentiveCards.length, (i) {
-            final isSel = (i == _currentIndex % _incentiveCards.length);
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: isSel ? 16 : 5,
-              height: 4.5,
-              decoration: BoxDecoration(
-                color: isSel ? const Color(0xFF1E3A8A) : const Color(0xFFCBD5E1),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            );
-          }),
-        ),
       ],
     );
   }
