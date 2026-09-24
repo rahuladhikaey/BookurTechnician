@@ -2,10 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 class EmailService {
-  static const String publicKey = 'hn2znBkgIi2lY8faY';
-  static const String privateKey = 'DLj-DDHXaRY55ww2xu6Jg';
-  static const String serviceId = 'service_u5wyepn';
-  static const String templateId = 'template_gl8uwjj';
+  static const String publicKey = 'nLw-NuKf-O8WBphBk';
+  static const String privateKey = '3-1w03B7e7beloguBha3c';
+  static const String serviceId = 'service_noexwvl';
+  static const String templateId = 'template_159x4wr';
 
   static Future<bool> sendOtpEmail({
     required String email,

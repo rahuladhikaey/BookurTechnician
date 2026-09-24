@@ -40,10 +40,10 @@ function deriveNameFromEmail(email) {
  * @param {string} [params.htmlContent] - Optional HTML Content
  */
 async function sendEmailJsEmail({ to, name, subject, otp, role = 'CUSTOMER', htmlContent }) {
-  const publicKey = process.env.EMAILJS_PUBLIC_KEY || 'hn2znBkgIi2lY8faY';
-  const privateKey = process.env.EMAILJS_PRIVATE_KEY || 'DLj-DDHXaRY55ww2xu6Jg';
-  const serviceId = process.env.EMAILJS_SERVICE_ID || 'service_u5wyepn';
-  const templateId = process.env.EMAILJS_TEMPLATE_ID || 'template_gl8uwjj';
+  const publicKey = process.env.EMAILJS_PUBLIC_KEY || 'nLw-NuKf-O8WBphBk';
+  const privateKey = process.env.EMAILJS_PRIVATE_KEY || '3-1w03B7e7beloguBha3c';
+  const serviceId = process.env.EMAILJS_SERVICE_ID || 'service_noexwvl';
+  const templateId = process.env.EMAILJS_TEMPLATE_ID || 'template_159x4wr';
 
   const resolvedRecipientName = (name && name.trim().length > 0) 
     ? name.trim() 
