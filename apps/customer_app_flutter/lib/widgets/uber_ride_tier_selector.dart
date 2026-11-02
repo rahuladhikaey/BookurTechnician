@@ -540,7 +540,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
           const SizedBox(height: 8),
           // Slots
           DropdownButtonFormField<String>(
-            value: _slotOptions.contains(_selectedSlot) ? _selectedSlot : (_slotOptions.isNotEmpty ? _slotOptions.first : null),
+            initialValue: _slotOptions.contains(_selectedSlot) ? _selectedSlot : (_slotOptions.isNotEmpty ? _slotOptions.first : null),
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               filled: true,

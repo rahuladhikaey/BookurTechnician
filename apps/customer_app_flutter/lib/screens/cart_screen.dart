@@ -160,7 +160,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     void loadBackendSlots(String day, void Function(void Function()) setModalState) async {
       try {
         setModalState(() => isLoadingSlots = true);
-        final serviceId = state.items.isNotEmpty ? state.items.first.service.id : 'srv-default';
+        final serviceId = state.cartItems.isNotEmpty ? state.cartItems.first.id : 'srv-default';
         final resp = await ApiClient.get('/catalog/services/$serviceId/slots?date=${Uri.encodeComponent(day)}');
         if (resp.statusCode == 200) {
           final data = jsonDecode(resp.body);
