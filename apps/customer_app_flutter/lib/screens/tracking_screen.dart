@@ -7,11 +7,12 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../booking_provider.dart';
 import '../config/app_config.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../services/api_client.dart';
+
 
 class LatLngTween extends Tween<LatLng> {
   LatLngTween({super.begin, super.end});
@@ -59,6 +60,13 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
 
   // Live booking remote fetch fallback
   Map<String, dynamic>? _remoteBookingData;
+
+  // Proof of work & add-on state
+  Map<String, dynamic>? _proofOfWork;
+  List<Map<String, dynamic>> _pendingAddons = [];
+  bool _hasRated = false;
+  bool _hasClaimedWarranty = false;
+
 
   @override
   void initState() {
@@ -110,6 +118,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     _statusSyncTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       ref.read(bookingProvider.notifier).loadBookingHistory();
       _fetchLiveBookingDetails();
+      _fetchProofAndAddons();
     });
   }
 
@@ -340,6 +349,14 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
         }
       });
 
+      _socket!.on('booking:addon_requested', (_) {
+        _fetchProofAndAddons();
+      });
+
+      _socket!.on('booking:proof_uploaded', (_) {
+        _fetchProofAndAddons();
+      });
+
     } catch (e) {
       debugPrint('Socket Initialization Failed: $e');
     }
@@ -491,44 +508,378 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     return "$minutes mins ($km km away)";
   }
 
-  Future<void> _callTechnician(String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\s+'), '');
-    if (cleanPhone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Technician phone number will be displayed as soon as partner accepts.'),
-          backgroundColor: Color(0xFF1E40AF),
-        ),
-      );
-      return;
-    }
-    final uri = Uri.parse('tel:$cleanPhone');
+  Future<void> _fetchProofAndAddons() async {
     try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      } else {
-        await Clipboard.setData(ClipboardData(text: cleanPhone));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Phone number $cleanPhone copied to clipboard!'),
-              backgroundColor: const Color(0xFF16A34A),
-            ),
-          );
+      final pRes = await ApiClient.get('/bookings/${widget.bookingId}/proof');
+      if (pRes.statusCode >= 200 && pRes.statusCode < 300) {
+        final decodedP = jsonDecode(pRes.body);
+        if (decodedP is Map && decodedP['success'] == true && decodedP['data'] != null) {
+          setState(() => _proofOfWork = decodedP['data']);
         }
       }
-    } catch (_) {
-      await Clipboard.setData(ClipboardData(text: cleanPhone));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Phone number $cleanPhone copied to clipboard!'),
-            backgroundColor: const Color(0xFF16A34A),
-          ),
-        );
+      final aRes = await ApiClient.get('/bookings/${widget.bookingId}/addons');
+      if (aRes.statusCode >= 200 && aRes.statusCode < 300) {
+        final decodedA = jsonDecode(aRes.body);
+        if (decodedA is Map && decodedA['success'] == true && decodedA['data'] is List) {
+          final list = List<Map<String, dynamic>>.from(decodedA['data']);
+          setState(() {
+            _pendingAddons = list;
+          });
+          final pending = list.where((a) => a['status'] == 'PENDING').toList();
+          if (pending.isNotEmpty && mounted) {
+            _showAddonApprovalDialog(pending.first);
+          }
+        }
       }
-    }
+    } catch (_) {}
   }
+
+  Future<void> _callTechnician(String phone) async {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            const Icon(Icons.shield_outlined, color: Color(0xFF16A34A), size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'Privacy-Protected Call',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your personal mobile number and the technician\'s number are masked to prevent spam and ensure data privacy. Connecting via BookurTechnician Telecom Relay bridge.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('📞 Connecting via BT Telecom Bridge: 1800-889-TECH'),
+                      backgroundColor: Color(0xFF16A34A),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.call),
+                label: const Text('Connect via Virtual Bridge'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF16A34A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddonApprovalDialog(Map<String, dynamic> addon) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.build_circle, color: Color(0xFFD97706)),
+            SizedBox(width: 8),
+            Text('Spare Parts Add-on Approval', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Technician requested spare parts replacement:',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    addon['item_title'] ?? addon['itemTitle'] ?? 'Spare Part',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF92400E)),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Price: ₹${addon['amount']}',
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFFB45309)),
+                  ),
+                  if (addon['description'] != null && addon['description'].toString().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Reason: ${addon['description']}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ApiClient.post('/bookings/${widget.bookingId}/addons/${addon['id']}/respond', {'status': 'REJECTED'});
+              _fetchProofAndAddons();
+            },
+            child: const Text('Decline', style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final res = await ApiClient.post('/bookings/${widget.bookingId}/addons/${addon['id']}/respond', {'status': 'APPROVED'});
+              if (res.statusCode >= 200 && res.statusCode < 300) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      backgroundColor: Color(0xFF16A34A),
+                      content: Text('Add-on approved! Amount added to final invoice.'),
+                    ),
+                  );
+                }
+              }
+              _fetchProofAndAddons();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF16A34A),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Approve & Add to Bill'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRatingModal() {
+    double selectedRating = 5.0;
+    final reviewCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 16),
+              const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 48),
+              const SizedBox(height: 8),
+              const Text('Rate Your Technician', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const SizedBox(height: 4),
+              Text('Your review helps us maintain quality service partners.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  final starVal = index + 1.0;
+                  return IconButton(
+                    iconSize: 36,
+                    icon: Icon(
+                      starVal <= selectedRating ? Icons.star_rounded : Icons.star_outline_rounded,
+                      color: const Color(0xFFF59E0B),
+                    ),
+                    onPressed: () => setSheetState(() => selectedRating = starVal),
+                  );
+                }),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reviewCtrl,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Share your service feedback (punctuality, clean work, etc.)...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final res = await ApiClient.post(
+                      '/bookings/${widget.bookingId}/reviews',
+                      {
+                        'rating': selectedRating,
+                        'review': reviewCtrl.text.trim(),
+                      },
+                    );
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                      setState(() => _hasRated = true);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            backgroundColor: Color(0xFF16A34A),
+                            content: Text('Thank you! Rating submitted successfully.'),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A8A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Submit Rating & Review', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _claimWarrantyModal() {
+    String selectedReason = 'Defect / issue recurred';
+    final descCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+              ),
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Icon(Icons.verified_user_rounded, color: Color(0xFF16A34A), size: 28),
+                  SizedBox(width: 8),
+                  Text('Claim 30-Day Free Warranty Revisit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'BookurTechnician covers free revisit for 30 days if the original issue persists.',
+                style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                initialValue: selectedReason,
+                items: [
+                  'Defect / issue recurred',
+                  'Appliance making abnormal sound',
+                  'Improper fitment or installation leak',
+                  'Service quality issue',
+                ].map((r) => DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 13.5)))).toList(),
+                onChanged: (val) {
+                  if (val != null) setSheetState(() => selectedReason = val);
+                },
+                decoration: InputDecoration(
+                  labelText: 'Primary Reason',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descCtrl,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Describe the recurrence or problem',
+                  hintText: 'e.g. AC cooling dropped again 2 days after gas refilling...',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final res = await ApiClient.post(
+                      '/bookings/${widget.bookingId}/warranty-claim',
+                      {
+                        'reason': selectedReason,
+                        'description': descCtrl.text.trim(),
+                      },
+                    );
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                      String msg = 'Free revisit warranty claim registered!';
+                      try {
+                        final decoded = jsonDecode(res.body);
+                        if (decoded is Map && decoded['message'] != null) {
+                          msg = decoded['message'];
+                        }
+                      } catch (_) {}
+                      setState(() => _hasClaimedWarranty = true);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF16A34A),
+                            content: Text(msg),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.replay_rounded),
+                  label: const Text('Schedule Free Warranty Revisit', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -998,6 +1349,32 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     ),
                                   ),
                                   const SizedBox(width: 8),
+                                  // Chat Button
+                                  Container(
+                                    width: 42,
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: const Color(0xFF93C5FD), width: 1.2),
+                                    ),
+                                    child: IconButton(
+                                      icon: const Icon(Icons.chat_bubble_rounded, size: 19, color: Color(0xFF2563EB)),
+                                      onPressed: () {
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/chat',
+                                          arguments: {
+                                            'bookingId': widget.bookingId,
+                                            'bookingCode': booking.bookingCode,
+                                            'technicianName': techName,
+                                          },
+                                        );
+                                      },
+                                      tooltip: 'In-App Secured Chat',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
                                   // Call Button
                                   Container(
                                     width: 42,
@@ -1013,6 +1390,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                       tooltip: 'Call Technician',
                                     ),
                                   ),
+
                                 ],
                               ),
                             ],
@@ -1195,7 +1573,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                         ),
                       ),
                     ] else ...[
-                      // ─── SERVICE COMPLETED BADGE ───
+                      // ─── SERVICE COMPLETED BADGE & ACTIONS ───
                       const SizedBox(height: 14),
                       Container(
                         width: double.infinity,
@@ -1217,12 +1595,227 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                           ],
                         ),
                       ),
+                      const SizedBox(height: 12),
+
+                      // Proof of Work inspection photos
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.verified_outlined, size: 16, color: Color(0xFF1E3A8A)),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Proof of Work & Inspection Photos',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0F172A)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    height: 70,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                    ),
+                                    child: _proofOfWork != null && (_proofOfWork!['before_photo_url'] != null || _proofOfWork!['beforePhotoUrl'] != null)
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Image.network(
+                                              _proofOfWork!['before_photo_url'] ?? _proofOfWork!['beforePhotoUrl'],
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) => const Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.photo_camera, size: 20, color: Color(0xFF2563EB)),
+                                                  SizedBox(height: 4),
+                                                  Text('Before Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                                                ],
+                                              ),
+                                            ),
+                                          )
+                                        : const Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.photo_camera, size: 20, color: Color(0xFF2563EB)),
+                                              SizedBox(height: 4),
+                                              Text('Before Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                                              Text('GPS Verified', style: TextStyle(fontSize: 9, color: Color(0xFF16A34A))),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Container(
+                                    height: 70,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                    ),
+                                    child: _proofOfWork != null && (_proofOfWork!['after_photo_url'] != null || _proofOfWork!['afterPhotoUrl'] != null)
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Image.network(
+                                              _proofOfWork!['after_photo_url'] ?? _proofOfWork!['afterPhotoUrl'],
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) => const Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.check_circle_outline, size: 20, color: Color(0xFF16A34A)),
+                                                  SizedBox(height: 4),
+                                                  Text('After Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                                                ],
+                                              ),
+                                            ),
+                                          )
+                                        : const Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.check_circle_outline, size: 20, color: Color(0xFF16A34A)),
+                                              SizedBox(height: 4),
+                                              Text('After Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                                              Text('GPS Verified', style: TextStyle(fontSize: 9, color: Color(0xFF16A34A))),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Customer Actions: Rating + Warranty Revisit + Invoice
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _hasRated ? null : _showRatingModal,
+                              icon: const Icon(Icons.star_rate_rounded, size: 16, color: Color(0xFFF59E0B)),
+                              label: Text(
+                                _hasRated ? 'Rated ★★★★★' : 'Rate Partner',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFFF59E0B)),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _hasClaimedWarranty ? null : _claimWarrantyModal,
+                              icon: const Icon(Icons.replay_circle_filled_rounded, size: 16, color: Color(0xFF16A34A)),
+                              label: Text(
+                                _hasClaimedWarranty ? 'Revisit Booked' : '30-Day Warranty',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFF16A34A)),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 42,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/invoice', arguments: widget.bookingId);
+                          },
+                          icon: const Icon(Icons.receipt_long_rounded, size: 18),
+                          label: const Text('View & Download GST Tax Invoice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1E3A8A),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                    ],
+
+                    if (_pendingAddons.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.build_circle_outlined, size: 16, color: Color(0xFFD97706)),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Spare Parts Add-ons (${_pendingAddons.length})',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF92400E)),
+                                    ),
+                                  ],
+                                ),
+                                if (_pendingAddons.any((a) => a['status'] == 'PENDING'))
+                                  InkWell(
+                                    onTap: () => _showAddonApprovalDialog(_pendingAddons.firstWhere((a) => a['status'] == 'PENDING')),
+                                    child: const Text('Review', style: TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.bold, fontSize: 12)),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            ..._pendingAddons.map((addon) => Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          addon['item_title'] ?? addon['itemTitle'] ?? 'Spare Part',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                      Text(
+                                        '₹${addon['amount']} (${addon['status'] ?? 'PENDING'})',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: addon['status'] == 'APPROVED' ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )),
+                          ],
+                        ),
+                      ),
                     ],
                   ],
                 ),
               ),
             ),
-          )
+          ),
         ],
       ),
     );

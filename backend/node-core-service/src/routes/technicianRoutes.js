@@ -19,6 +19,11 @@ router.get('/analytics/overview', optionalAuth, technicianController.getAnalytic
 router.get('/analytics/work-hours', optionalAuth, technicianController.getAnalyticsOverview);
 router.post('/shift/heartbeat', optionalAuth, technicianController.logWorkHeartbeat);
 
+// Wallet & Instant Withdrawal
+router.post('/withdraw', optionalAuth, technicianController.withdrawEarnings);
+router.get('/wallet', optionalAuth, technicianController.getWalletLedger);
+router.get('/wallet/ledger', optionalAuth, technicianController.getWalletLedger);
+
 // Jobs & Lifecycle for Technician App
 router.get('/jobs', optionalAuth, bookingController.getTechnicianBookings);
 router.patch('/jobs/:id/status', optionalAuth, bookingController.updateBookingStatus);
@@ -27,6 +32,9 @@ router.post('/jobs/:id/verify-start-otp', optionalAuth, bookingController.verify
 router.post('/jobs/:id/verify-end-otp', optionalAuth, bookingController.verifyEndOtp);
 router.post('/jobs/:id/resend-start-otp', optionalAuth, bookingController.resendStartOtp);
 router.post('/jobs/:id/resend-end-otp', optionalAuth, bookingController.resendEndOtp);
+router.post('/jobs/:id/proof', optionalAuth, technicianController.uploadJobProofOfWork);
+router.post('/jobs/:id/addons', optionalAuth, technicianController.createAddonCharge);
+router.post('/jobs/:id/rate', optionalAuth, technicianController.rateCustomer);
 
 // Real-Time Dispatch Requests & Proposals
 const dispatchController = require('../controllers/dispatchController');
@@ -69,7 +77,8 @@ router.post('/documents/upload', optionalAuth, technicianController.submitDocume
 router.post('/kyc', optionalAuth, technicianController.submitDocument);
 
 // FCM Notifications
-router.post('/fcm-token', (req, res) => res.json({ success: true, message: 'FCM Token registered' }));
+router.post('/fcm-token', optionalAuth, technicianController.registerFcmToken);
 
 module.exports = router;
+
 

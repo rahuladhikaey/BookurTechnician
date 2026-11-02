@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'ADMIN' || 
+        request.auth.token.role == 'SUPER_ADMIN' ||
+        request.auth.token.admin == true
+      );
+    }
+
+    // Real-time chat messages per booking
+    match /booking_chats/{bookingId}/messages/{messageId} {
+      allow read, write: if isAuthenticated() && (
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == request.resource.data.senderId ||
+        isAdmin()
+      );
+    }
+
+    // Presence & live tracking stream
+    match /presence/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(uid);
+    }
+
+    // Notifications state
+    match /notifications/{uid}/items/{notificationId} {
+      allow read: if isOwner(uid);
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    // Default deny for transactional / financial data (PostgreSQL is authoritative source of truth)
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

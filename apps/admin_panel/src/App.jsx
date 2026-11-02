@@ -40,13 +40,25 @@ export default function App() {
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
 
-  // ─── STATE INITIALIZATION (EMPTY PRODUCTION STATES) ───
-  const [stats, setStats] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [services, setServices] = useState([]);
-  const [technicians, setTechnicians] = useState([]);
-  const [bookings, setBookings] = useState([]);
-  const [customers, setCustomers] = useState([]);
+  // ─── STATE INITIALIZATION (INSTANT LOCAL CACHED STATES + LIVE REVALIDATION) ───
+  const [stats, setStats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('bt_cache_stats')) || null; } catch (_) { return null; }
+  });
+  const [categories, setCategories] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('bt_cache_categories')) || []; } catch (_) { return []; }
+  });
+  const [services, setServices] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('bt_cache_services')) || []; } catch (_) { return []; }
+  });
+  const [technicians, setTechnicians] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('bt_cache_technicians')) || []; } catch (_) { return []; }
+  });
+  const [bookings, setBookings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('bt_cache_bookings')) || []; } catch (_) { return []; }
+  });
+  const [customers, setCustomers] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('bt_cache_customers')) || []; } catch (_) { return []; }
+  });
   const [supportTickets, setSupportTickets] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [selectedTechForIdCard, setSelectedTechForIdCard] = useState(null);
@@ -69,20 +81,44 @@ export default function App() {
     setIsSyncing(true);
     try {
       await Promise.allSettled([
-        api.getStats().then(res => { if (res?.data) setStats(res.data); }),
+        api.getStats().then(res => { 
+          if (res?.data) {
+            setStats(res.data);
+            try { localStorage.setItem('bt_cache_stats', JSON.stringify(res.data)); } catch (_) {}
+          }
+        }),
         api.getTechnicians().then(res => {
           const list = res?.data || (Array.isArray(res) ? res : []);
-          if (Array.isArray(list)) setTechnicians(list);
+          if (Array.isArray(list)) {
+            setTechnicians(list);
+            try { localStorage.setItem('bt_cache_technicians', JSON.stringify(list)); } catch (_) {}
+          }
         }),
-        api.getBookings().then(res => { if (res?.data) setBookings(res.data); }),
-        api.getCustomers().then(res => { if (res?.data) setCustomers(res.data); }),
+        api.getBookings().then(res => { 
+          if (res?.data) {
+            setBookings(res.data);
+            try { localStorage.setItem('bt_cache_bookings', JSON.stringify(res.data)); } catch (_) {}
+          }
+        }),
+        api.getCustomers().then(res => { 
+          if (res?.data) {
+            setCustomers(res.data);
+            try { localStorage.setItem('bt_cache_customers', JSON.stringify(res.data)); } catch (_) {}
+          }
+        }),
         api.getCategories().then(res => {
           const list = res?.data || (Array.isArray(res) ? res : []);
-          if (Array.isArray(list)) setCategories(list);
+          if (Array.isArray(list)) {
+            setCategories(list);
+            try { localStorage.setItem('bt_cache_categories', JSON.stringify(list)); } catch (_) {}
+          }
         }),
         api.getServices().then(res => {
           const list = res?.data || (Array.isArray(res) ? res : []);
-          if (Array.isArray(list)) setServices(list);
+          if (Array.isArray(list)) {
+            setServices(list);
+            try { localStorage.setItem('bt_cache_services', JSON.stringify(list)); } catch (_) {}
+          }
         }),
         api.getSupportTickets().then(res => { if (res?.data) setSupportTickets(res.data); }),
         api.getAuditLogs().then(res => { if (res?.data) setAuditLogs(res.data); }),
@@ -90,7 +126,7 @@ export default function App() {
     } catch (err) {
       console.error('Error fetching admin data from PostgreSQL:', err);
     } finally {
-      setTimeout(() => setIsSyncing(false), 300);
+      setTimeout(() => setIsSyncing(false), 200);
     }
   }, []);
 

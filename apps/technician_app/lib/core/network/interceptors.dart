@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../security/secure_storage.dart';
+import '../config/app_config.dart';
 
 class AuthInterceptor extends Interceptor {
   final SecureStorage _storage;
@@ -9,6 +10,9 @@ class AuthInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
     try {
+      if (options.baseUrl.isEmpty) {
+        options.baseUrl = AppConfig.activeWorkingBaseUrl;
+      }
       final token = await _storage.getToken();
       if (token != null && token.isNotEmpty) {
         options.headers['Authorization'] = 'Bearer $token';
@@ -37,13 +41,18 @@ class ErrorInterceptor extends Interceptor {
           headers: originalRequest.headers,
           extra: {'retried_fallback': true},
         );
-        final fallbackDio = Dio(BaseOptions(baseUrl: 'https://bookurtechnician-backend.onrender.com/api/v1'));
+        final fallbackDio = Dio(BaseOptions(
+          baseUrl: AppConfig.renderApiBaseUrl,
+          connectTimeout: const Duration(seconds: 4),
+          receiveTimeout: const Duration(seconds: 4),
+        ));
         final response = await fallbackDio.request(
           originalRequest.path,
           data: originalRequest.data,
           queryParameters: originalRequest.queryParameters,
           options: fallbackOptions,
         );
+        AppConfig.updateWorkingBaseUrl(AppConfig.renderApiBaseUrl);
         return handler.resolve(response);
       } catch (retryErr) {
         if (retryErr is DioException) {
@@ -69,6 +78,9 @@ class LoggingInterceptor extends Interceptor {
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     debugPrint('<-- ${response.statusCode} ${response.requestOptions.path}');
+    if (response.statusCode != null && response.statusCode! < 500) {
+      AppConfig.updateWorkingBaseUrl(response.requestOptions.baseUrl);
+    }
     handler.next(response);
   }
 

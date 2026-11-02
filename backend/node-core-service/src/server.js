@@ -233,6 +233,31 @@ io.on('connection', (socket) => {
   socket.on('technician:location:update', handleLocationStream);
   socket.on('technician:location', handleLocationStream);
 
+  // Real-time Chat
+  socket.on('chat:send', (msg) => {
+    if (msg && msg.bookingId) {
+      io.to(`booking_${msg.bookingId}`).emit('chat:message', msg);
+      if (msg.receiverId) {
+        io.to(`cust_${msg.receiverId}`).emit('chat:message', msg);
+        io.to(`tech_${msg.receiverId}`).emit('chat:message', msg);
+      }
+    }
+  });
+
+  // Real-time Addon Response
+  socket.on('addon:respond', (data) => {
+    if (data && data.bookingId) {
+      io.to(`booking_${data.bookingId}`).emit('job:addon_responded', data);
+    }
+  });
+
+  // Real-time Proof of Work
+  socket.on('proof:uploaded', (data) => {
+    if (data && data.bookingId) {
+      io.to(`booking_${data.bookingId}`).emit('booking:proof_uploaded', data);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`🔌 [Socket.io] Client disconnected: ${socket.id}`);
   });

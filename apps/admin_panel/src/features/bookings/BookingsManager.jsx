@@ -503,19 +503,25 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                        <a
-                          href={`tel:${selectedBooking.technicianPhone || '+91 98765 43210'}`}
-                          style={{ fontSize: '13px', color: '#15803D', fontFamily: 'monospace', fontWeight: '700', textDecoration: 'none' }}
-                        >
-                          📞 {selectedBooking.technicianPhone || '+91 98765 43210'}
-                        </a>
-                        <button
-                          className="btn btn-sm"
-                          style={{ padding: '2px 6px', fontSize: '10px' }}
-                          onClick={() => handleCopy(selectedBooking.technicianPhone || '+91 98765 43210', 'tech_phone')}
-                        >
-                          {copiedField === 'tech_phone' ? '✓ Copied' : 'Copy'}
-                        </button>
+                        {selectedBooking.technicianPhone ? (
+                          <>
+                            <a
+                              href={`tel:${selectedBooking.technicianPhone}`}
+                              style={{ fontSize: '13px', color: '#15803D', fontFamily: 'monospace', fontWeight: '700', textDecoration: 'none' }}
+                            >
+                              📞 {selectedBooking.technicianPhone}
+                            </a>
+                            <button
+                              className="btn btn-sm"
+                              style={{ padding: '2px 6px', fontSize: '10px' }}
+                              onClick={() => handleCopy(selectedBooking.technicianPhone, 'tech_phone')}
+                            >
+                              {copiedField === 'tech_phone' ? '✓ Copied' : 'Copy'}
+                            </button>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>📞 Virtual Bridge Masked</span>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>

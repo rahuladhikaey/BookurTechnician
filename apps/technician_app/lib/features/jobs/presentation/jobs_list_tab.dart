@@ -32,13 +32,51 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
   }
 
   Future<void> _makeCall(String? phone) async {
-    if (phone == null || phone.trim().isEmpty) return;
-    final uri = Uri.parse('tel:$phone');
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri);
-      }
-    } catch (_) {}
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            const Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'Customer Privacy Masking',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Customer phone numbers are protected. You will be connected via BookurTechnician Virtual IVR Gateway.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  final uri = Uri.parse('tel:18008898324');
+                  launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
+                },
+                icon: const Icon(Icons.call),
+                label: const Text('Connect via Virtual Gateway (1800-889-TECH)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A8A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _openNavigation(String address) async {

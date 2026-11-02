@@ -14,24 +14,41 @@ class AppConfig {
   static const String localSocketUrl = 'http://192.168.1.3:4000';
   static const String wsEndpoint = 'https://api.bookurtechnician.online/ws';
 
-  // Candidate URLs for robust failover
-  static const List<String> candidateBaseUrls = [
-    'https://api.bookurtechnician.online/api/v1',
-    'https://bookurtechnician-backend.onrender.com/api/v1',
-    'https://bookurtechnician.onrender.com/api/v1',
-    'http://192.168.1.3:4000/api/v1',
-    'http://10.0.2.2:4000/api/v1',
-  ];
+  // Working Base URL cache for instant zero-latency routing
+  static String activeWorkingBaseUrl = prodApiBaseUrl;
+
+  static void updateWorkingBaseUrl(String url) {
+    if (url.isNotEmpty && activeWorkingBaseUrl != url) {
+      activeWorkingBaseUrl = url;
+    }
+  }
+
+  // Candidate URLs for robust failover (ordered dynamically with active working URL first)
+  static List<String> get candidateBaseUrls {
+    final list = <String>[activeWorkingBaseUrl];
+    for (final u in [
+      prodApiBaseUrl,
+      renderApiBaseUrl,
+      renderFallbackApiUrl,
+      localWifiApiBaseUrl,
+      localApiBaseUrl,
+    ]) {
+      if (!list.contains(u)) {
+        list.add(u);
+      }
+    }
+    return list;
+  }
 
   static const List<String> candidateSocketUrls = [
     'https://api.bookurtechnician.online',
-    'https://bookurtechnician-backend.onrender.com',
     'https://bookurtechnician.onrender.com',
+    'https://bookurtechnician-backend.onrender.com',
     'http://192.168.1.3:4000',
     'http://10.0.2.2:4000',
   ];
 
-  // Request timeout
-  static const Duration requestTimeout = Duration(seconds: 8);
+  // Request timeout (optimized for instant UI responses)
+  static const Duration requestTimeout = Duration(milliseconds: 4000);
 }
 

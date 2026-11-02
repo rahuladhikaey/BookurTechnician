@@ -420,6 +420,42 @@ const updateLocation = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/v1/customer/fcm-token
+ */
+const registerFcmToken = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.body.userId || req.body.customerId || req.headers['x-user-id'];
+    const { token, platform = 'android' } = req.body;
+
+    if (!userId || !token) {
+      return res.status(400).json({ success: false, error: 'User ID and FCM token are required' });
+    }
+
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(
+          `UPDATE users 
+           SET device_tokens = array_append(array_remove(COALESCE(device_tokens, ARRAY[]::TEXT[]), $1), $1),
+               updated_at = NOW()
+           WHERE id = $2`,
+          [token, userId]
+        );
+      } catch (dbErr) {
+        console.warn('⚠️ [CustomerController] Register FCM PG warning:', dbErr.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'FCM token registered successfully',
+      data: { userId, token, platform }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -428,4 +464,6 @@ module.exports = {
   updateAddress,
   deleteAddress,
   updateLocation,
+  registerFcmToken,
 };
+

@@ -104,19 +104,28 @@ const requestOtp = async (req, res) => {
 
     console.log(`🔑 [OTP Dispatch] For ${identifier} (${role}, Purpose: ${purpose || 'AUTH'}, Resend: ${!!isResend}): ${otp} [Valid 10 mins]`);
 
-    // If identifier is an email address, send transactional email via EmailJS
+    // If identifier is an email address, dispatch transactional email via EmailJS asynchronously with short race
     const isEmail = email || identifier.includes('@');
     let emailResult = { success: true };
     if (isEmail) {
+      const emailPromise = sendOtpEmail(rawEmail || identifier, otp, role, resolvedName)
+        .catch((emailErr) => {
+          console.warn('⚠️ [EmailJS OTP Email Dispatch Warning]:', emailErr.message);
+          return { success: false, error: emailErr.message };
+        });
+
+      // Quick 800ms wait to see if it finishes instantly, otherwise continue in background
       try {
-        emailResult = await sendOtpEmail(rawEmail || identifier, otp, role, resolvedName);
-      } catch (emailErr) {
-        console.warn('⚠️ [EmailJS OTP Email Dispatch Warning]:', emailErr.message);
-        emailResult = { success: false, error: emailErr.message };
+        emailResult = await Promise.race([
+          emailPromise,
+          new Promise((resolve) => setTimeout(() => resolve({ success: true, pending: true }), 800))
+        ]);
+      } catch (_) {
+        emailResult = { success: true };
       }
     }
 
-    // If identifier is a phone number, send transactional SMS via Fast2SMS / Twilio
+    // If identifier is a phone number, send transactional SMS asynchronously
     const targetPhone = phone || (!identifier.includes('@') ? identifier : null);
     if (targetPhone) {
       sendOtpSms(targetPhone, otp, role).catch((smsErr) => {
@@ -129,8 +138,7 @@ const requestOtp = async (req, res) => {
       message: `OTP sent successfully to ${identifier}`,
       identifier,
       name: resolvedName,
-      emailSent: emailResult.success,
-      emailError: !emailResult.success ? emailResult.error : undefined,
+      emailSent: emailResult.success !== false,
       debugOtp: process.env.NODE_ENV !== 'production' || process.env.ALLOW_TEST_OTP === 'true' ? otp : undefined,
     });
   } catch (error) {

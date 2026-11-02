@@ -1,0 +1,73 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'ADMIN' || 
+        request.auth.token.role == 'SUPER_ADMIN' ||
+        request.auth.token.admin == true
+      );
+    }
+    
+    function isValidImage() {
+      return request.resource.contentType.matches('image/.*')
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    function isValidDocument() {
+      return (request.resource.contentType.matches('application/pdf') || request.resource.contentType.matches('image/.*'))
+        && request.resource.size < 15 * 1024 * 1024;
+    }
+
+    // 1. User Profiles (/users/{uid}/)
+    match /users/{uid}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(uid) && isValidImage();
+    }
+
+    // 2. Technician KYC Documents (/technicians/{technicianId}/kyc/)
+    // STRICT PRIVATE: Only technician owner or admin can read/write KYC files
+    match /technicians/{technicianId}/kyc/{allPaths=**} {
+      allow read: if isOwner(technicianId) || isAdmin();
+      allow write: if (isOwner(technicianId) || isAdmin()) && isValidDocument();
+    }
+
+    // 3. Booking Before Photos (/bookings/{bookingId}/before/)
+    match /bookings/{bookingId}/before/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidImage();
+    }
+
+    // 4. Booking After Photos (/bookings/{bookingId}/after/)
+    match /bookings/{bookingId}/after/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidImage();
+    }
+
+    // 5. Booking Documents (/bookings/{bookingId}/documents/)
+    match /bookings/{bookingId}/documents/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidDocument();
+    }
+
+    // 6. Tax Invoices (/invoices/{bookingId}/)
+    match /invoices/{bookingId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Fallback: Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

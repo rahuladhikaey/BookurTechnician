@@ -288,7 +288,14 @@ class _ServiceCard extends ConsumerWidget {
             }),
           ])),
           ElevatedButton(
-            onPressed: () => ref.read(bookingProvider.notifier).toggleCartItem(service),
+            onPressed: () {
+              final count = state.getServiceAvailabilityCount(service.id);
+              if (!inCart && count == 0) {
+                _showNoTechnicianDialog(context, service.name);
+                return;
+              }
+              ref.read(bookingProvider.notifier).toggleCartItem(service);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: inCart ? const Color(0xFFDCFCE7) : kBlack,
               foregroundColor: inCart ? kSuccessGreen : Colors.white,
@@ -300,6 +307,35 @@ class _ServiceCard extends ConsumerWidget {
             child: Text(inCart ? 'Remove' : 'Add', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ]),
+      ),
+    );
+  }
+
+  void _showNoTechnicianDialog(BuildContext context, [String? serviceName]) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.block_rounded, color: Color(0xFFEF4444)),
+            SizedBox(width: 8),
+            Text('No Technician Online', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          serviceName != null && serviceName.isNotEmpty
+              ? 'Option B (Strict Real-Time Booking Active):\n\nThere are currently 0 verified technicians online within 15 km for "$serviceName".\n\nBooking is strictly blocked until an active technician comes online. Please check back shortly.'
+              : 'Option B (Strict Real-Time Booking Active):\n\nThere are currently no verified technicians online within your 15 km service area for this service.\n\nBooking is strictly blocked until an active technician comes online. Please check back shortly.',
+          style: const TextStyle(fontSize: 13, color: kSecondaryText, height: 1.4),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
+            child: const Text('Understood'),
+          ),
+        ],
       ),
     );
   }
@@ -1159,6 +1195,9 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
     ServiceItem service,
     bool inCart,
   ) {
+    final appState = ref.watch(bookingProvider);
+    final isServiceAvailable = appState.getServiceAvailabilityCount(service.id) > 0;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: const BoxDecoration(
@@ -1216,9 +1255,14 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
             ),
             const SizedBox(width: 12),
 
-            // 1. Add to Cart Toggle
+            // 1. Add to Cart Toggle (Strict Block if 0 online)
             OutlinedButton(
               onPressed: () {
+                final isAvailable = appState.getServiceAvailabilityCount(service.id) > 0;
+                if (!isAvailable) {
+                  _showNoTechnicianDialog(context, service.name);
+                  return;
+                }
                 ref.read(bookingProvider.notifier).toggleCartItem(service);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -1239,8 +1283,15 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                 );
               },
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: inCart ? const Color(0xFFEF4444) : kBrandPrimary, width: 1.5),
-                foregroundColor: inCart ? const Color(0xFFEF4444) : kBrandPrimary,
+                side: BorderSide(
+                  color: !isServiceAvailable
+                      ? const Color(0xFFCBD5E1)
+                      : (inCart ? const Color(0xFFEF4444) : kBrandPrimary),
+                  width: 1.5,
+                ),
+                foregroundColor: !isServiceAvailable
+                    ? const Color(0xFF94A3B8)
+                    : (inCart ? const Color(0xFFEF4444) : kBrandPrimary),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               ),
@@ -1251,11 +1302,18 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
             ),
             const SizedBox(width: 8),
 
-            // 2. Direct Book Now Button (Skips Cart -> Direct Location & Payment Sheet)
+            // 2. Direct Book Now Button (Strict Block if 0 online)
             ElevatedButton(
-              onPressed: () => _showDirectBookingModal(context, ref, service),
+              onPressed: () {
+                final isAvailable = appState.getServiceAvailabilityCount(service.id) > 0;
+                if (!isAvailable) {
+                  _showNoTechnicianDialog(context, service.name);
+                  return;
+                }
+                _showDirectBookingModal(context, ref, service);
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: kBlack,
+                backgroundColor: isServiceAvailable ? kBlack : const Color(0xFF94A3B8),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1263,23 +1321,56 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 elevation: 0,
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Text(
-                    'Book Now',
-                    style: TextStyle(
-                      fontSize: 14,
+                    isServiceAvailable ? 'Book Now' : 'Unavailable (0 Online)',
+                    style: const TextStyle(
+                      fontSize: 13.5,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
-                  SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
+                  const SizedBox(width: 4),
+                  Icon(
+                    isServiceAvailable ? Icons.arrow_forward_rounded : Icons.block_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showNoTechnicianDialog(BuildContext context, [String? serviceName]) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.block_rounded, color: Color(0xFFEF4444)),
+            SizedBox(width: 8),
+            Text('No Technician Online', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          serviceName != null && serviceName.isNotEmpty
+              ? 'Option B (Strict Real-Time Booking Active):\n\nThere are currently 0 verified technicians online within 15 km for "$serviceName".\n\nBooking is strictly blocked until an active technician comes online. Please check back shortly.'
+              : 'Option B (Strict Real-Time Booking Active):\n\nThere are currently no verified technicians online within your 15 km service area for this service.\n\nBooking is strictly blocked until an active technician comes online. Please check back shortly.',
+          style: const TextStyle(fontSize: 13, color: kSecondaryText, height: 1.4),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
+            child: const Text('Understood'),
+          ),
+        ],
       ),
     );
   }
@@ -1580,6 +1671,11 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                           onPressed: isProcessing
                               ? null
                               : () async {
+                                  final currentCount = ref.read(bookingProvider).getServiceAvailabilityCount(service.id);
+                                  if (currentCount == 0) {
+                                    _showNoTechnicianDialog(context, service.name);
+                                    return;
+                                  }
                                   setModalState(() => isProcessing = true);
                                   final code = 'BT-${10000000 + Random().nextInt(90000000)}';
                                   final bkgId = 'bkg_${DateTime.now().millisecondsSinceEpoch}';
@@ -1631,6 +1727,11 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                           onPressed: isProcessing
                               ? null
                               : () async {
+                                  final currentCount = ref.read(bookingProvider).getServiceAvailabilityCount(service.id);
+                                  if (currentCount == 0) {
+                                    _showNoTechnicianDialog(context, service.name);
+                                    return;
+                                  }
                                   setModalState(() => isProcessing = true);
                                   final code = 'BT-${10000000 + Random().nextInt(90000000)}';
                                   final bkgId = 'bkg_${DateTime.now().millisecondsSinceEpoch}';

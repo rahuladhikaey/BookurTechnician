@@ -1402,6 +1402,14 @@ class BookingNotifier extends StateNotifier<AppState> {
     if (state.cartItems.isEmpty) return null;
 
     final services = [...state.cartItems];
+
+    // Option B Strict Real-Time Block: Reject if any service has 0 online technicians
+    final hasUnavailableService = services.any((s) => state.getServiceAvailabilityCount(s.id) == 0);
+    if (hasUnavailableService) {
+      debugPrint('[Option B Strict Block]: Cannot confirm order - one or more services have 0 online technicians within 15 km');
+      return null;
+    }
+
     final firstService = services.first;
     final serviceNames = services.map((s) => s.name).join(', ');
     final totalBase = state.baseCost > 0 ? state.baseCost : services.fold(0.0, (sum, s) => sum + s.price);
@@ -1512,6 +1520,12 @@ class BookingNotifier extends StateNotifier<AppState> {
     String? customBookingCode,
     String? customBookingId,
   }) async {
+    // Option B Strict Real-Time Block: Reject if service has 0 online technicians
+    if (state.getServiceAvailabilityCount(service.id) == 0) {
+      debugPrint('[Option B Strict Block]: Cannot confirm direct booking - service has 0 online technicians within 15 km');
+      return null;
+    }
+
     final services = [service];
     final totalBase = service.price;
     final totalVisit = 0.0;

@@ -4,6 +4,7 @@ const bookingsStore = require('../config/bookingsStore');
 const postgres = require('../config/postgres');
 const mongo = require('../config/mongo');
 const postgresSpatialScanner = require('../services/postgresSpatialScanner');
+const ledgerService = require('../services/ledgerService');
 
 // In-memory fallback cache for fast standalone operations
 const { inMemorySkills, inMemoryDocs, inMemoryTechProfiles } = require('../config/inMemoryTechStore');
@@ -1879,6 +1880,327 @@ const logWorkHeartbeat = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/v1/technician/withdraw
+ * Real Atomic Wallet Withdrawal for Technicians
+ */
+/**
+ * POST /api/v1/technician/withdraw
+ * Real Atomic Wallet Withdrawal for Technicians with Row-Locking & Idempotency
+ */
+const withdrawEarnings = async (req, res) => {
+  try {
+    const technicianId = req.user?.id || req.body.technicianId || req.headers['x-technician-id'] || 'tech-default';
+    const amount = parseFloat(req.body.amount);
+    const upiId = (req.body.upiId || req.body.upi || '').trim();
+    const idempotencyKey = req.body.idempotencyKey || req.headers['idempotency-key'] || `with_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ success: false, error: 'Valid withdrawal amount is required' });
+    }
+    if (!upiId) {
+      return res.status(400).json({ success: false, error: 'Target UPI ID is required for instant settlement' });
+    }
+
+    const result = await ledgerService.processWithdrawal({
+      technicianId,
+      amount,
+      upiId,
+      idempotencyKey,
+    });
+
+    if (global.io) {
+      global.io.emit(`tech:wallet:${technicianId}`, {
+        balance: result.data.remainingBalance,
+        withdrawalId: result.data.withdrawalId,
+        amount: result.data.amount,
+        upiId: result.data.upiId,
+        status: result.data.status,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `₹${amount.toFixed(0)} transferred instantly to ${upiId}`,
+      data: result.data,
+    });
+  } catch (err) {
+    console.error('❌ [Withdrawal Error]:', err.message);
+    const statusCode = err.message.toLowerCase().includes('insufficient') ? 400 : 500;
+    return res.status(statusCode).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * GET /api/v1/technician/wallet
+ * Returns live wallet ledger, calculated balance from source of truth, and transaction history
+ */
+const getWalletLedger = async (req, res) => {
+  try {
+    const technicianId = req.user?.id || req.query.technicianId || req.headers['x-technician-id'] || 'tech-default';
+    let balance = await ledgerService.calculateWalletBalance(technicianId);
+    let upiId = '';
+    let codBalance = 0;
+    let transactions = [];
+
+    if (postgres.isPgHealthy()) {
+      const techRes = await postgres.query(
+        'SELECT wallet_balance, upi_id, cod_balance FROM technician_profiles WHERE technician_id = $1 OR id = $1',
+        [technicianId]
+      );
+      if (techRes.rows.length > 0) {
+        upiId = techRes.rows[0].upi_id || '';
+        codBalance = parseFloat(techRes.rows[0].cod_balance || 0);
+      }
+
+      // Query ledger_transactions first
+      const ledgerRes = await postgres.query(`
+        SELECT id, amount, type, direction, status, reference_id, created_at
+        FROM ledger_transactions
+        WHERE technician_id = $1
+        ORDER BY created_at DESC
+        LIMIT 50;
+      `, [technicianId]);
+
+      if (ledgerRes.rows.length > 0) {
+        transactions = ledgerRes.rows.map(t => {
+          const isCredit = t.direction === 'CREDIT';
+          const amt = parseFloat(t.amount);
+          return {
+            id: t.id,
+            amount: amt,
+            type: t.type,
+            title: t.type === 'WITHDRAWAL' ? `Instant Payout to UPI ${upiId || ''}` :
+                   t.type === 'SERVICE_EARNING' ? 'Service Earnings' :
+                   t.type === 'ADDON_EARNING' ? 'Spare Parts Add-on Earning' :
+                   t.type === 'PLATFORM_FEE' ? 'Platform Convenience Fee (15%)' :
+                   t.type === 'COD_COLLECTION' ? 'Cash Collected on Delivery' : t.type,
+            date: new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+            isCredit,
+            status: t.status,
+          };
+        });
+      } else {
+        // Fallback to legacy wallet_transactions
+        const txnRes = await postgres.query(`
+          SELECT id, amount, type, description, created_at
+          FROM wallet_transactions
+          WHERE user_id = $1
+          ORDER BY created_at DESC
+          LIMIT 50;
+        `, [technicianId]);
+
+        transactions = txnRes.rows.map(t => ({
+          id: t.id,
+          amount: Math.abs(parseFloat(t.amount)),
+          type: t.type,
+          title: t.description || (parseFloat(t.amount) >= 0 ? 'Service Earnings' : 'Withdrawal to Bank'),
+          date: new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          isCredit: parseFloat(t.amount) >= 0,
+        }));
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        availableBalance: balance,
+        balance,
+        pendingPayout: 0,
+        codBalance,
+        savedUpiId: upiId,
+        transactions,
+        payoutMethod: upiId ? 'Instant UPI' : 'Pending Setup',
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * POST /api/v1/technician/jobs/:id/proof
+ * Upload Before & After Defect Photos
+ */
+/**
+ * POST /api/v1/technician/jobs/:id/proof
+ * Upload Before & After Defect Photos
+ */
+const uploadJobProofOfWork = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const technicianId = req.user?.id || req.headers['x-technician-id'] || 'tech-default';
+    const proofType = (req.body.type || req.body.photoType || '').toUpperCase();
+    const mediaUrl = req.body.mediaUrl || req.body.photoUrl || req.body.url;
+    const gpsLat = req.body.gpsLat != null ? req.body.gpsLat : req.body.latitude;
+    const gpsLng = req.body.gpsLng != null ? req.body.gpsLng : req.body.longitude;
+
+    if (!proofType || !['BEFORE', 'AFTER'].includes(proofType)) {
+      return res.status(400).json({ success: false, error: "Type must be 'BEFORE' or 'AFTER'" });
+    }
+    if (!mediaUrl) {
+      return res.status(400).json({ success: false, error: 'mediaUrl or photoUrl is required' });
+    }
+
+    const proofId = `PRF-${Date.now().toString(36).toUpperCase()}`;
+
+    if (postgres.isPgHealthy()) {
+      await postgres.query(`
+        INSERT INTO booking_proof_of_work (id, booking_id, technician_id, type, media_url, gps_lat, gps_lng, timestamp)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      `, [proofId, bookingId, technicianId, proofType, mediaUrl, gpsLat || null, gpsLng || null]);
+
+      const col = proofType === 'BEFORE' ? 'before_service_photos' : 'after_service_photos';
+      await postgres.query(`
+        UPDATE bookings
+        SET ${col} = COALESCE(${col}, '[]'::jsonb) || $1::jsonb,
+            updated_at = NOW()
+        WHERE id = $2 OR booking_code = $2;
+      `, [JSON.stringify([{ url: mediaUrl, timestamp: new Date().toISOString(), lat: gpsLat, lng: gpsLng }]), bookingId]);
+    }
+
+    if (global.io) {
+      global.io.emit(`booking:proof_uploaded`, { bookingId, type: proofType, mediaUrl });
+      global.io.to(`booking_${bookingId}`).emit('booking:proof_uploaded', { bookingId, type: proofType, mediaUrl });
+    }
+
+    return res.json({
+      success: true,
+      message: `${proofType} photo proof attached successfully`,
+      data: { proofId, bookingId, type: proofType, mediaUrl, photoType: proofType, photoUrl: mediaUrl },
+      proof: { proofId, bookingId, type: proofType, mediaUrl, photoType: proofType, photoUrl: mediaUrl },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * POST /api/v1/technician/jobs/:id/addons
+ * Request Add-on Work / Spare Part Bill Approval from Customer
+ */
+const createAddonCharge = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const technicianId = req.user?.id || req.headers['x-technician-id'] || 'tech-default';
+    const title = req.body.title || req.body.itemTitle || req.body.name;
+    const rawPrice = req.body.unitPrice ?? req.body.amount ?? req.body.price;
+    const description = req.body.description || '';
+    const quantity = parseInt(req.body.quantity, 10) || 1;
+
+    if (!title || rawPrice === undefined) {
+      return res.status(400).json({ success: false, error: 'Title and unitPrice/amount are required' });
+    }
+
+    const price = parseFloat(rawPrice);
+    const totalPrice = price * quantity;
+    const addonId = `ADD-${Date.now().toString(36).toUpperCase()}`;
+
+    if (postgres.isPgHealthy()) {
+      await postgres.query(`
+        INSERT INTO booking_addons (id, booking_id, technician_id, title, description, unit_price, quantity, total_price, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING', NOW())
+      `, [addonId, bookingId, technicianId, title, description, price, quantity, totalPrice]);
+    }
+
+    const payload = {
+      id: addonId,
+      addonId,
+      bookingId,
+      title,
+      itemTitle: title,
+      description,
+      unitPrice: price,
+      amount: price,
+      quantity,
+      totalPrice,
+      status: 'PENDING',
+      timestamp: Date.now(),
+    };
+
+    if (global.io) {
+      global.io.to(`booking_${bookingId}`).emit('job:addon_requested', payload);
+      global.io.emit('job:addon_requested', payload);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Add-on approval request sent to customer successfully',
+      addon: payload,
+      data: payload,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * POST /api/v1/technician/jobs/:id/rate
+ * Technician rates customer
+ */
+const rateCustomer = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const technicianId = req.user?.id || req.headers['x-technician-id'] || 'tech-default';
+    const { rating, review } = req.body;
+
+    if (postgres.isPgHealthy()) {
+      await postgres.query(`
+        INSERT INTO booking_reviews (id, booking_id, customer_id, technician_id, technician_rating, technician_review, created_at)
+        VALUES ($1, $2, 'cust', $3, $4, $5, NOW())
+        ON CONFLICT (booking_id) DO UPDATE
+        SET technician_rating = EXCLUDED.technician_rating,
+            technician_review = EXCLUDED.technician_review;
+      `, [`REV-${bookingId}`, bookingId, technicianId, parseFloat(rating || 5.0), review || 'Good customer']);
+    }
+
+    return res.json({ success: true, message: 'Customer rating submitted successfully' });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * POST /api/v1/technicians/fcm-token & POST /api/v1/technician/fcm-token
+ */
+const registerFcmToken = async (req, res) => {
+  try {
+    const technicianId = req.user?.id || req.body.technicianId || req.headers['x-technician-id'] || req.headers['x-user-id'];
+    const { token, platform = 'android' } = req.body;
+
+    if (!technicianId || !token) {
+      return res.status(400).json({ success: false, error: 'Technician ID and FCM token are required' });
+    }
+
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          UPDATE users 
+          SET device_tokens = array_append(array_remove(COALESCE(device_tokens, ARRAY[]::TEXT[]), $1), $1),
+              updated_at = NOW()
+          WHERE id = $2;
+        `, [token, technicianId]);
+
+        await postgres.query(`
+          UPDATE technician_profiles
+          SET updated_at = NOW()
+          WHERE technician_id = $1 OR id = $1;
+        `, [technicianId]);
+      } catch (pgErr) {
+        console.warn('⚠️ [TechnicianController] PG FCM update warning:', pgErr.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Technician FCM token registered successfully',
+      data: { technicianId, token, platform }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 module.exports = {
   syncLocation,
   toggleOnlineStatus,
@@ -1897,4 +2219,11 @@ module.exports = {
   getTierStatus,
   getAnalyticsOverview,
   logWorkHeartbeat,
+  withdrawEarnings,
+  getWalletLedger,
+  uploadJobProofOfWork,
+  createAddonCharge,
+  rateCustomer,
+  registerFcmToken,
 };
+

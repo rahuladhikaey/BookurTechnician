@@ -42,6 +42,8 @@ class ActiveJobModel {
     this.step = ActiveJobStep.onTheWay,
   });
 
+  String get serviceTitle => title;
+
   ActiveJobModel copyWith({
     String? id,
     String? title,

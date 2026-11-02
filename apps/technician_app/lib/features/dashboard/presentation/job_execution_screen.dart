@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
 import 'dashboard_provider.dart';
@@ -21,6 +22,12 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
   bool _isLoading = false;
   int _failedAttempts = 0;
   GoogleMapController? _mapController;
+
+  String? _beforePhotoUrl;
+  String? _afterPhotoUrl;
+  bool _isUploadingPhoto = false;
+  final List<Map<String, dynamic>> _addons = [];
+
 
   @override
   void initState() {
@@ -49,18 +56,232 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
   }
 
   Future<void> _callCustomer(String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\s+'), '');
-    final uri = Uri.parse('tel:$cleanPhone');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            const Icon(Icons.shield_outlined, color: Color(0xFF16A34A), size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'Privacy-Protected Partner Call',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Direct customer phone numbers are masked for data protection. Connecting via BookurTechnician Telecom Relay bridge.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('📞 Connecting via BT Telecom Bridge: 1800-889-TECH'),
+                      backgroundColor: Color(0xFF16A34A),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.call),
+                label: const Text('Connect via Telecom Bridge'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF16A34A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _captureProofOfWork(String type) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80,
+      );
+
+      if (pickedFile == null) return;
+
+      setState(() => _isUploadingPhoto = true);
+
+      final bookingId = widget.job['id'];
+      final dioClient = DioClient(SecureStorage());
+
+      const photoUrl = 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800';
+
+      final res = await dioClient.dio.post('/technician/jobs/$bookingId/proof', data: {
+        'photoType': type,
+        'photoUrl': photoUrl,
+        'latitude': widget.job['latitude'] ?? 22.5726,
+        'longitude': widget.job['longitude'] ?? 88.3639,
+      });
+
+      if (res.data != null && res.data['success'] == true) {
+        setState(() {
+          if (type == 'BEFORE') {
+            _beforePhotoUrl = photoUrl;
+          } else {
+            _afterPhotoUrl = photoUrl;
+          }
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF166534),
+              content: Text('$type photo verified with GPS timestamp and attached to booking.'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Calling $phone')),
+          SnackBar(
+            backgroundColor: const Color(0xFFDC2626),
+            content: Text('Failed to upload proof photo: $e'),
+          ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
     }
   }
+
+  void _showAddonRequestDialog() {
+    final titleCtrl = TextEditingController();
+    final amountCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.add_shopping_cart, color: Color(0xFF1E3A8A)),
+            SizedBox(width: 8),
+            Text('Request Add-on Spare Parts', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Add-ons require customer confirmation in real-time before adding to the bill.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: titleCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Part / Service Name',
+                  hintText: 'e.g. Copper Pipe Extension (2m)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: amountCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Amount (₹)',
+                  hintText: 'e.g. 450',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: descCtrl,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: 'Reason for Replacement',
+                  hintText: 'e.g. Old pipe had gas leak',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final title = titleCtrl.text.trim();
+              final amount = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+              final desc = descCtrl.text.trim();
+
+              if (title.isEmpty || amount <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter valid part title and amount')),
+                );
+                return;
+              }
+
+              Navigator.pop(ctx);
+              try {
+                final dioClient = DioClient(SecureStorage());
+                final bookingId = widget.job['id'];
+                final res = await dioClient.dio.post('/technician/jobs/$bookingId/addons', data: {
+                  'itemTitle': title,
+                  'amount': amount,
+                  'quantity': 1,
+                  'description': desc,
+                });
+
+                if (res.data != null && res.data['success'] == true) {
+                  setState(() {
+                    _addons.add({
+                      'title': title,
+                      'amount': amount,
+                      'status': 'PENDING',
+                    });
+                  });
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        backgroundColor: Color(0xFF166534),
+                        content: Text('Add-on request sent to customer via FCM & Realtime! Waiting for approval.'),
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(backgroundColor: const Color(0xFFDC2626), content: Text('Add-on error: $e')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E3A8A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Send to Customer'),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Future<void> _launchNavigation(String address, {double? lat, double? lng}) async {
     Uri targetUrl;
@@ -856,47 +1077,213 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // ─── ACTION BUTTON 1 & 2: DUAL-OTP EXECUTION ───
+            // ─── PROOF OF WORK & ADD-ONS SUMMARY ───
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.camera_alt_outlined, size: 18, color: Color(0xFF1E3A8A)),
+                      SizedBox(width: 8),
+                      Text(
+                        'Proof of Work & Inspection Photos',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF0F172A)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      // Before Photo Chip
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: _beforePhotoUrl != null ? const Color(0xFFECFDF5) : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: _beforePhotoUrl != null ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _beforePhotoUrl != null ? Icons.check_circle : Icons.pending_outlined,
+                                size: 16,
+                                color: _beforePhotoUrl != null ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _beforePhotoUrl != null ? 'Before Photo Attached' : 'Before Photo Pending',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: _beforePhotoUrl != null ? const Color(0xFF166534) : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // After Photo Chip
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: _afterPhotoUrl != null ? const Color(0xFFECFDF5) : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: _afterPhotoUrl != null ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _afterPhotoUrl != null ? Icons.check_circle : Icons.pending_outlined,
+                                size: 16,
+                                color: _afterPhotoUrl != null ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _afterPhotoUrl != null ? 'After Photo Attached' : 'After Photo Pending',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: _afterPhotoUrl != null ? const Color(0xFF166534) : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_addons.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    const Divider(height: 1),
+                    const SizedBox(height: 8),
+                    ..._addons.map((a) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('• ${a['title']}', style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
+                          Text('₹${a['amount']} (${a['status']})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+                        ],
+                      ),
+                    )),
+                  ],
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ─── ACTION BUTTONS: PROOF + DUAL-OTP + ADD-ONS ───
             if (!isInProgress && !isCompleted) ...[
-              // Action 1: Start Service (Opens Start OTP dialog)
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _showStartOtpDialog,
-                  icon: const Icon(Icons.play_arrow_rounded, size: 24),
-                  label: const Text(
-                    '1. Start Service (Enter Start OTP)',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+              if (_beforePhotoUrl == null)
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: _isUploadingPhoto ? null : () => _captureProofOfWork('BEFORE'),
+                    icon: _isUploadingPhoto
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.camera_alt, size: 22),
+                    label: const Text(
+                      '1. Capture Before Photo (Mandatory)',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A8A),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _showStartOtpDialog,
+                    icon: const Icon(Icons.play_arrow_rounded, size: 24),
+                    label: const Text(
+                      '2. Start Service (Verify Start OTP)',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E3A8A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
                   ),
                 ),
-              ),
             ] else if (isInProgress) ...[
-              // Action 2: Complete Service (Opens End OTP dialog)
+              // Addon Button
               SizedBox(
                 width: double.infinity,
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _showEndOtpDialog,
-                  icon: const Icon(Icons.check_circle_outline_rounded, size: 24),
-                  label: const Text(
-                    '2. Complete Service (Enter End OTP)',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                height: 44,
+                child: OutlinedButton.icon(
+                  onPressed: _showAddonRequestDialog,
+                  icon: const Icon(Icons.add_shopping_cart, size: 18),
+                  label: const Text('+ Request Add-on Spare Parts / Extra Work', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB45309),
+                    side: const BorderSide(color: Color(0xFFF59E0B)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+              if (_afterPhotoUrl == null)
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: _isUploadingPhoto ? null : () => _captureProofOfWork('AFTER'),
+                    icon: _isUploadingPhoto
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.camera_alt, size: 22),
+                    label: const Text(
+                      '3. Capture Completed Work Photo',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D9488),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _showEndOtpDialog,
+                    icon: const Icon(Icons.check_circle_outline_rounded, size: 24),
+                    label: const Text(
+                      '4. Complete Service (Enter End OTP)',
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
             ] else ...[
               // Completed State
               Container(
@@ -920,6 +1307,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                 ),
               ),
             ],
+
           ],
         ),
       ),

@@ -339,6 +339,40 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       return;
     }
 
+    // ─── STRICT REAL-TIME BLOCK (OPTION B): TECHNICIAN AVAILABILITY VALIDATION ───
+    final unavailableService = state.cartItems.firstWhere(
+      (item) => state.getServiceAvailabilityCount(item.id) == 0,
+      orElse: () => const ServiceItem(id: '', name: '', price: 0, description: ''),
+    );
+
+    if (unavailableService.id.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (dialogCtx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.block_rounded, color: Color(0xFFEF4444)),
+              SizedBox(width: 8),
+              Text('No Technician Online', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            'Option B (Strict Real-Time Booking Active):\n\nThere are currently 0 verified technicians online within 15 km for "${unavailableService.name}".\n\nBooking and checkout are strictly blocked until an active technician comes online. Please check back shortly.',
+            style: const TextStyle(fontSize: 13, color: kSecondaryText, height: 1.4),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
+              child: const Text('Understood'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     _showPaymentSelectionSheet(state);
   }
 
@@ -770,13 +804,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
   // ─── Service Card Component ───────────────────────────────────────────────
   Widget _buildServiceCard(ServiceItem service) {
+    final state = ref.watch(bookingProvider);
+    final count = state.getServiceAvailabilityCount(service.id);
+    final isAvailable = state.hasValidLocation && count > 0;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kBorderColor),
+        border: Border.all(color: isAvailable ? kBorderColor : const Color(0xFFFECACA)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -850,6 +888,37 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 6),
+                // Option B Availability Tag
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isAvailable ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: isAvailable ? const Color(0xFFA7F3D0) : const Color(0xFFFECACA)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isAvailable ? Icons.check_circle_rounded : Icons.block_rounded,
+                        size: 11,
+                        color: isAvailable ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isAvailable
+                            ? '$count Online within 15 km'
+                            : '0 Online in 15 km • Checkout Blocked',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: isAvailable ? const Color(0xFF047857) : const Color(0xFFDC2626),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(

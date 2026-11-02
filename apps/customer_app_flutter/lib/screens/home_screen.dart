@@ -1746,6 +1746,11 @@ class _BookUrServiceCard extends ConsumerWidget {
                         height: 40,
                         child: ElevatedButton(
                           onPressed: () {
+                            final count = state.getServiceAvailabilityCount(service.id);
+                            if (!inCart && count == 0) {
+                              _showNoTechnicianDialog(context, service.name);
+                              return;
+                            }
                             ref.read(bookingProvider.notifier).toggleCartItem(service);
                           },
                           style: ElevatedButton.styleFrom(
@@ -1786,6 +1791,35 @@ class _BookUrServiceCard extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showNoTechnicianDialog(BuildContext context, [String? serviceName]) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.block_rounded, color: Color(0xFFEF4444)),
+            SizedBox(width: 8),
+            Text('No Technician Online', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          serviceName != null && serviceName.isNotEmpty
+              ? 'Option B (Strict Real-Time Booking Active):\n\nThere are currently 0 verified technicians online within 15 km for "$serviceName".\n\nBooking is strictly blocked until an active technician comes online. Please check back shortly.'
+              : 'Option B (Strict Real-Time Booking Active):\n\nThere are currently no verified technicians online within your 15 km service area for this service.\n\nBooking is strictly blocked until an active technician comes online. Please check back shortly.',
+          style: const TextStyle(fontSize: 13, color: kSecondaryText, height: 1.4),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
+            child: const Text('Understood'),
+          ),
+        ],
       ),
     );
   }

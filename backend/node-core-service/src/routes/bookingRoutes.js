@@ -30,6 +30,28 @@ router.post('/:id/add-bill', bookingController.addBillCharges);
 router.post('/:id/verify-end-otp', bookingController.verifyEndOtp);
 router.post('/:id/complete', bookingController.verifyEndOtp);
 
+// In-App P2P Chat
+router.get('/:id/messages', bookingController.getBookingMessages);
+router.post('/:id/messages', bookingController.sendBookingMessage);
+
+// Add-ons Approval Engine
+router.get('/:id/addons', bookingController.getBookingAddons);
+router.post('/:id/addons/:addonId/respond', bookingController.respondToAddon);
+
+// Proof of Work
+router.get('/:id/proof', bookingController.getBookingProof);
+
+// Reviews & Ratings
+router.post('/:id/reviews', bookingController.submitBookingReview);
+router.get('/:id/reviews', bookingController.getBookingReview);
+
+// 30-Day Service Guarantee & Warranty
+router.post('/:id/warranty-claim', bookingController.claimWarrantyRevisit);
+router.get('/:id/warranty-status', bookingController.getWarrantyStatus);
+
+// GST Tax Invoice
+router.get('/:id/invoice', bookingController.getBookingInvoice);
+
 // Deletion & Cancellation
 router.delete('/my-bookings', bookingController.clearCustomerBookings);
 router.delete('/:id', bookingController.deleteBooking);

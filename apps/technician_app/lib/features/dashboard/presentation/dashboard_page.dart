@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../domain/technician_banner.dart';
 import 'dashboard_provider.dart';
+import '../../chat/chat_screen.dart';
+
 
 class DashboardPage extends ConsumerStatefulWidget {
   final ValueChanged<int>? onNavigateTab;
@@ -950,19 +952,27 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Opening in-app customer chat...')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TechnicianChatScreen(
+                          bookingId: job.id,
+                          customerName: job.customerName,
+                          serviceName: job.serviceTitle,
+                        ),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.chat_bubble_outline, size: 14),
                   label: const Text('CHAT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF667085),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    foregroundColor: const Color(0xFF17399A),
+                    side: const BorderSide(color: Color(0xFF17399A)),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
               ),
+
             ],
           ),
           const SizedBox(height: 12),

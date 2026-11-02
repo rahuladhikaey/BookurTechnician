@@ -76,63 +76,46 @@ async function sendEmailJsEmail({ to, name, subject, otp, role = 'CUSTOMER', htm
     app_name: 'BookurTechnician',
   };
 
-  // Candidate service & template IDs to try for maximum delivery success
-  const candidateServices = [
-    serviceId,
-    'service_default',
-    'service_gmail',
-    'service_bt',
-  ].filter(Boolean);
+  // Primary service and template direct dispatch with tight 3500ms timeout
+  const payload = {
+    service_id: serviceId,
+    template_id: templateId,
+    user_id: publicKey,
+    accessToken: privateKey,
+    template_params: templateParams,
+  };
 
-  const candidateTemplates = [
-    templateId,
-    'template_otp',
-    'template_default',
-  ].filter(Boolean);
+  try {
+    const response = await axios.post(EMAILJS_API_URL, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'https://bookurtechnician.online',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      },
+      timeout: 3500,
+    });
 
-  let lastError = null;
+    console.log(`📧 [EmailJS] Email sent to ${to} (Service: ${serviceId}, Template: ${templateId})`);
+    return { success: true, response: response.data, serviceId, templateId };
+  } catch (error) {
+    const lastError = error.response?.data || error.message;
+    console.warn(`⚠️ [EmailJS Warning] Primary dispatch notice for ${to}:`, lastError);
+    
+    // Quick fallback attempt with default template if primary failed
+    try {
+      const fallbackPayload = { ...payload, template_id: 'template_default' };
+      const fbResponse = await axios.post(EMAILJS_API_URL, fallbackPayload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://bookurtechnician.online',
+        },
+        timeout: 2500,
+      });
+      return { success: true, response: fbResponse.data };
+    } catch (_) {}
 
-  for (const sId of candidateServices) {
-    for (const tId of candidateTemplates) {
-      try {
-        const payload = {
-          service_id: sId,
-          template_id: tId,
-          user_id: publicKey,
-          accessToken: privateKey,
-          template_params: templateParams,
-        };
-
-        const response = await axios.post(EMAILJS_API_URL, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Origin': 'https://bookurtechnician.online',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-          },
-          timeout: 10000,
-        });
-
-        console.log(`📧 [EmailJS] Email successfully sent to ${to} via service [${sId}] template [${tId}]. Response:`, response.data);
-        return { success: true, response: response.data, serviceId: sId, templateId: tId };
-      } catch (error) {
-        lastError = error.response?.data || error.message;
-        const statusCode = error.response?.status;
-        
-        if (statusCode === 403 && typeof lastError === 'string' && lastError.includes('non-browser environments')) {
-          console.error(`🔒 [EmailJS Non-Browser API Notice] Please enable "Allow EmailJS API for non-browser applications" at https://dashboard.emailjs.com/admin/account/security`);
-          return { success: false, error: 'EmailJS non-browser API access disabled. Please enable in EmailJS Security settings.' };
-        }
-
-        // If template or service not found, try next candidate
-        if (statusCode === 400 || statusCode === 404) {
-          continue;
-        }
-      }
-    }
+    return { success: false, error: lastError };
   }
-
-  console.warn(`⚠️ [EmailJS Warning] Could not dispatch email to ${to}:`, lastError);
-  return { success: false, error: lastError };
 }
 
 /**

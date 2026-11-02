@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 
 class ApiClient {
-  /// Active API Base URL derived from AppConfig
-  static String get activeBaseUrl => AppConfig.apiBaseUrl;
+  static String? _cachedWorkingBaseUrl;
+  static const String _keyWorkingBaseUrl = 'bt_working_base_url';
 
   static const String _keyAccessToken = 'bt_access_token';
   static const String _keyRefreshToken = 'bt_refresh_token';
@@ -15,6 +15,48 @@ class ApiClient {
   static const String _keyUserPhone = 'bt_user_phone';
   static const String _keyUserEmail = 'bt_user_email';
   static const String _keyUserProfileJson = 'bt_user_profile_json';
+
+  /// Active API Base URL derived from cached working base URL or AppConfig
+  static String get activeBaseUrl => _cachedWorkingBaseUrl ?? AppConfig.apiBaseUrl;
+
+  static List<String> get _candidateBaseUrls {
+    final list = <String>[];
+    if (_cachedWorkingBaseUrl != null && _cachedWorkingBaseUrl!.isNotEmpty) {
+      list.add(_cachedWorkingBaseUrl!);
+    }
+    for (final url in [
+      AppConfig.apiBaseUrl,
+      AppConfig.renderApiBaseUrl,
+      AppConfig.renderFallbackApiUrl,
+      AppConfig.prodApiBaseUrl,
+      AppConfig.localApiBaseUrl,
+      'http://localhost:4000/api/v1',
+    ]) {
+      if (!list.contains(url)) {
+        list.add(url);
+      }
+    }
+    return list;
+  }
+
+  static void _updateWorkingBaseUrl(String url) {
+    if (_cachedWorkingBaseUrl != url) {
+      _cachedWorkingBaseUrl = url;
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString(_keyWorkingBaseUrl, url);
+      }).catchError((_) {});
+    }
+  }
+
+  static Future<void> initWorkingBaseUrl() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_keyWorkingBaseUrl);
+      if (saved != null && saved.isNotEmpty) {
+        _cachedWorkingBaseUrl = saved;
+      }
+    } catch (_) {}
+  }
 
   static Future<String?> getAccessToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -88,14 +130,7 @@ class ApiClient {
     return headers;
   }
 
-  static List<String> get _candidateBaseUrls => [
-    AppConfig.apiBaseUrl,
-    AppConfig.renderApiBaseUrl,
-    AppConfig.renderFallbackApiUrl,
-    AppConfig.prodApiBaseUrl,
-    AppConfig.localApiBaseUrl,
-    'http://localhost:4000/api/v1',
-  ];
+  static const Duration _fastTimeout = Duration(milliseconds: 3500);
 
   static Future<http.Response> get(String endpoint) async {
     String? token = await getAccessToken();
@@ -104,16 +139,17 @@ class ApiClient {
     for (final base in _candidateBaseUrls) {
       try {
         final uri = Uri.parse('$base$endpoint');
-        var response = await http.get(uri, headers: _buildHeaders(token)).timeout(AppConfig.requestTimeout);
+        var response = await http.get(uri, headers: _buildHeaders(token)).timeout(_fastTimeout);
 
         if (response.statusCode == 401) {
           final refreshed = await _attemptRefreshToken();
           if (refreshed) {
             token = await getAccessToken();
-            response = await http.get(uri, headers: _buildHeaders(token)).timeout(AppConfig.requestTimeout);
+            response = await http.get(uri, headers: _buildHeaders(token)).timeout(_fastTimeout);
           }
         }
         if (response.statusCode < 500) {
+          _updateWorkingBaseUrl(base);
           return response;
         }
       } catch (e) {
@@ -137,7 +173,7 @@ class ApiClient {
           uri,
           headers: _buildHeaders(token),
           body: jsonEncode(body),
-        ).timeout(AppConfig.requestTimeout);
+        ).timeout(_fastTimeout);
 
         if (response.statusCode == 401) {
           final refreshed = await _attemptRefreshToken();
@@ -147,10 +183,11 @@ class ApiClient {
               uri,
               headers: _buildHeaders(token),
               body: jsonEncode(body),
-            ).timeout(AppConfig.requestTimeout);
+            ).timeout(_fastTimeout);
           }
         }
         if (response.statusCode < 500) {
+          _updateWorkingBaseUrl(base);
           return response;
         }
       } catch (e) {
@@ -174,7 +211,7 @@ class ApiClient {
           uri,
           headers: _buildHeaders(token),
           body: jsonEncode(body),
-        ).timeout(AppConfig.requestTimeout);
+        ).timeout(_fastTimeout);
 
         if (response.statusCode == 401) {
           final refreshed = await _attemptRefreshToken();
@@ -184,10 +221,11 @@ class ApiClient {
               uri,
               headers: _buildHeaders(token),
               body: jsonEncode(body),
-            ).timeout(AppConfig.requestTimeout);
+            ).timeout(_fastTimeout);
           }
         }
         if (response.statusCode < 500) {
+          _updateWorkingBaseUrl(base);
           return response;
         }
       } catch (e) {
@@ -211,7 +249,7 @@ class ApiClient {
           uri,
           headers: _buildHeaders(token),
           body: jsonEncode(body),
-        ).timeout(AppConfig.requestTimeout);
+        ).timeout(_fastTimeout);
 
         if (response.statusCode == 401) {
           final refreshed = await _attemptRefreshToken();
@@ -221,10 +259,11 @@ class ApiClient {
               uri,
               headers: _buildHeaders(token),
               body: jsonEncode(body),
-            ).timeout(AppConfig.requestTimeout);
+            ).timeout(_fastTimeout);
           }
         }
         if (response.statusCode < 500) {
+          _updateWorkingBaseUrl(base);
           return response;
         }
       } catch (e) {
@@ -247,7 +286,7 @@ class ApiClient {
         var response = await http.delete(
           uri,
           headers: _buildHeaders(token),
-        ).timeout(AppConfig.requestTimeout);
+        ).timeout(_fastTimeout);
 
         if (response.statusCode == 401) {
           final refreshed = await _attemptRefreshToken();
@@ -256,10 +295,11 @@ class ApiClient {
             response = await http.delete(
               uri,
               headers: _buildHeaders(token),
-            ).timeout(AppConfig.requestTimeout);
+            ).timeout(_fastTimeout);
           }
         }
         if (response.statusCode < 500) {
+          _updateWorkingBaseUrl(base);
           return response;
         }
       } catch (e) {

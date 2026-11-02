@@ -16,4 +16,8 @@ router.delete('/addresses/:id', customerController.deleteAddress);
 // Live GPS Location & Primary Address Sync
 router.post('/location', customerController.updateLocation);
 
+// FCM Device Token Registration
+router.post('/fcm-token', customerController.registerFcmToken);
+
 module.exports = router;
+

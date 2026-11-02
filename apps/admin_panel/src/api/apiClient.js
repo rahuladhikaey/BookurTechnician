@@ -15,8 +15,20 @@ const API_CANDIDATE_HOSTS = [
 
 class ApiClient {
   constructor() {
-    this.candidateUrls = [...API_CANDIDATE_HOSTS];
-    this.baseUrl = this.candidateUrls[0];
+    const savedBaseUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('bt_active_base_url') : null;
+    const baseList = [...API_CANDIDATE_HOSTS];
+    if (savedBaseUrl && !baseList.includes(savedBaseUrl)) {
+      baseList.unshift(savedBaseUrl);
+    } else if (savedBaseUrl) {
+      // Prioritize saved working base URL
+      const idx = baseList.indexOf(savedBaseUrl);
+      if (idx > -1) {
+        baseList.splice(idx, 1);
+        baseList.unshift(savedBaseUrl);
+      }
+    }
+    this.candidateUrls = baseList;
+    this.baseUrl = this.candidateUrls[0] || 'https://api.bookurtechnician.online/api/v1';
     this.onUnauthorizedCallback = null;
   }
 
@@ -83,7 +95,15 @@ class ApiClient {
 
     for (const targetUrl of urlsToTry) {
       try {
-        const response = await fetch(targetUrl, config);
+        // Fast 4.5s timeout signal per candidate attempt to prevent freezing
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4500);
+        
+        const response = await fetch(targetUrl, {
+          ...config,
+          signal: options.signal || controller.signal,
+        });
+        clearTimeout(timeoutId);
 
         // Handle expired token auto-renewal
         if ((response.status === 401 || response.status === 403) && !targetUrl.includes('/auth/')) {
@@ -134,11 +154,14 @@ class ApiClient {
           throw new Error(errMsg);
         }
 
-        // Remember the working base URL
+        // Remember the working base URL persistently
         const matchedBase = this.candidateUrls.find(c => targetUrl.startsWith(c));
         if (matchedBase && matchedBase !== this.baseUrl) {
           this.baseUrl = matchedBase;
+          localStorage.setItem('bt_active_base_url', matchedBase);
           console.log(`[ApiClient] Switched active base URL to: ${matchedBase}`);
+        } else if (matchedBase) {
+          localStorage.setItem('bt_active_base_url', matchedBase);
         }
 
         return data;

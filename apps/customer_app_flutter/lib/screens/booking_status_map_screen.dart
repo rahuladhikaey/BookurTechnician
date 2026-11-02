@@ -171,17 +171,51 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
   }
 
   Future<void> _callTechnician(String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\s+'), '');
-    final uri = Uri.parse('tel:$cleanPhone');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Calling $phone')),
-        );
-      }
-    }
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            const Icon(Icons.shield_outlined, color: Color(0xFF16A34A), size: 48),
+            const SizedBox(height: 12),
+            const Text(
+              'Privacy-Protected Call',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Personal numbers are strictly masked for safety. BookurTechnician connects you securely via our virtual telecom gateway.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  final bridgeUri = Uri.parse('tel:18008898324');
+                  launchUrl(bridgeUri, mode: LaunchMode.externalApplication).catchError((_) => false);
+                },
+                icon: const Icon(Icons.call),
+                label: const Text('Call via Masked Bridge (1800-889-TECH)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _resendCompletionEmail() async {

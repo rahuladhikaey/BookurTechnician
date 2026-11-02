@@ -172,6 +172,12 @@ class Booking {
     this.addOns = const [],
   });
 
+  String get bookingCode {
+    if (id.startsWith('BT-') || id.startsWith('BK-')) return id;
+    final clean = id.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+    return 'BT-${clean.length >= 6 ? clean.substring(clean.length - 6).toUpperCase() : clean.toUpperCase()}';
+  }
+
   factory Booking.fromJson(Map<String, dynamic> json) {
     final statusStr = json['status']?.toString().toUpperCase() ?? 'CONFIRMED';
     BookingStatus bookingStatus = BookingStatus.confirmed;

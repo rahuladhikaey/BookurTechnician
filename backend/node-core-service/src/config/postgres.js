@@ -9,6 +9,14 @@ const inMemoryStore = {
   bookings: new Map(),
   payments: new Map(),
   wallets: new Map(),
+  messages: new Map(),
+  addons: new Map(),
+  proofOfWork: new Map(),
+  reviews: new Map(),
+  warranties: new Map(),
+  withdrawals: new Map(),
+  invoices: new Map(),
+  auditLogs: [],
 };
 
 const initPostgres = async () => {
@@ -94,6 +102,20 @@ const createCoreTables = async () => {
         description TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS ledger_transactions (
+        id VARCHAR(64) PRIMARY KEY,
+        technician_id VARCHAR(64) NOT NULL,
+        booking_id VARCHAR(64),
+        type VARCHAR(40) NOT NULL,
+        amount NUMERIC(10, 2) NOT NULL,
+        direction VARCHAR(10) NOT NULL,
+        status VARCHAR(30) DEFAULT 'SETTLED',
+        reference_id VARCHAR(100),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_ledger_tech ON ledger_transactions(technician_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_ledger_booking ON ledger_transactions(booking_id);
 
       CREATE TABLE IF NOT EXISTS customer_addresses (
         id VARCHAR(64) PRIMARY KEY,
@@ -252,6 +274,145 @@ const createCoreTables = async () => {
 
       CREATE INDEX IF NOT EXISTS idx_tech_work_logs_date ON technician_work_logs(technician_id, work_date DESC);
       ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS tier VARCHAR(20) DEFAULT 'COPPER';
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS cod_balance NUMERIC(10, 2) DEFAULT 0.00;
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS is_cod_suspended BOOLEAN DEFAULT false;
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS firebase_uid VARCHAR(128);
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS firebase_uid VARCHAR(128);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT false;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS device_tokens JSONB DEFAULT '[]'::jsonb;
+
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS before_service_photos JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS after_service_photos JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS addon_charges NUMERIC(10, 2) DEFAULT 0.00;
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancellation_fee NUMERIC(10, 2) DEFAULT 0.00;
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS refund_amount NUMERIC(10, 2) DEFAULT 0.00;
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS refund_id VARCHAR(100);
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(100);
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(100);
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS warranty_until TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS warranty_claim_id VARCHAR(64);
+
+      -- 1. Real-time P2P In-App Chat Messages
+      CREATE TABLE IF NOT EXISTS booking_messages (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        sender_id VARCHAR(64) NOT NULL,
+        sender_role VARCHAR(30) NOT NULL,
+        receiver_id VARCHAR(64) NOT NULL,
+        content TEXT NOT NULL,
+        attachment_url TEXT,
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_booking_messages_booking ON booking_messages(booking_id, created_at ASC);
+
+      -- 2. Add-on Services & Spare Parts Approval Engine
+      CREATE TABLE IF NOT EXISTS booking_addons (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        technician_id VARCHAR(64) NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        description TEXT,
+        unit_price NUMERIC(10, 2) NOT NULL,
+        quantity INT DEFAULT 1,
+        total_price NUMERIC(10, 2) NOT NULL,
+        status VARCHAR(30) DEFAULT 'PENDING',
+        responded_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_booking_addons_booking ON booking_addons(booking_id, status);
+
+      -- 3. Proof of Work (Before & After Defect Photos)
+      CREATE TABLE IF NOT EXISTS booking_proof_of_work (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        technician_id VARCHAR(64) NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        media_url TEXT NOT NULL,
+        gps_lat DOUBLE PRECISION,
+        gps_lng DOUBLE PRECISION,
+        timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_booking_proof_booking ON booking_proof_of_work(booking_id, type);
+
+      -- 4. Mutual 2-Way Reviews & Ratings
+      CREATE TABLE IF NOT EXISTS booking_reviews (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) UNIQUE NOT NULL,
+        customer_id VARCHAR(64) NOT NULL,
+        technician_id VARCHAR(64) NOT NULL,
+        customer_rating NUMERIC(2, 1),
+        customer_review TEXT,
+        customer_tags JSONB DEFAULT '[]'::jsonb,
+        technician_rating NUMERIC(2, 1),
+        technician_review TEXT,
+        tip_amount NUMERIC(10, 2) DEFAULT 0.00,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_reviews_technician ON booking_reviews(technician_id);
+
+      -- 5. 30-Day Service Guarantee & Warranty Engine
+      CREATE TABLE IF NOT EXISTS booking_warranties (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        customer_id VARCHAR(64) NOT NULL,
+        revisit_booking_id VARCHAR(64),
+        reason TEXT NOT NULL,
+        status VARCHAR(30) DEFAULT 'CLAIMED',
+        claimed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        resolved_at TIMESTAMP WITH TIME ZONE
+      );
+      CREATE INDEX IF NOT EXISTS idx_warranties_booking ON booking_warranties(booking_id);
+
+      -- 6. Technician Instant Wallet Withdrawals
+      CREATE TABLE IF NOT EXISTS technician_withdrawals (
+        id VARCHAR(64) PRIMARY KEY,
+        technician_id VARCHAR(64) NOT NULL,
+        amount NUMERIC(10, 2) NOT NULL,
+        upi_id VARCHAR(100) NOT NULL,
+        status VARCHAR(30) DEFAULT 'PENDING',
+        idempotency_key VARCHAR(100) UNIQUE,
+        payout_reference VARCHAR(100),
+        failure_reason TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        processed_at TIMESTAMP WITH TIME ZONE
+      );
+      CREATE INDEX IF NOT EXISTS idx_tech_withdrawals_tech ON technician_withdrawals(technician_id, created_at DESC);
+
+      -- 7. GSTIN Tax Invoices
+      CREATE TABLE IF NOT EXISTS invoices (
+        id VARCHAR(64) PRIMARY KEY,
+        invoice_number VARCHAR(64) UNIQUE NOT NULL,
+        booking_id VARCHAR(64) NOT NULL,
+        customer_id VARCHAR(64) NOT NULL,
+        technician_id VARCHAR(64),
+        sac_code VARCHAR(20) DEFAULT '9987',
+        base_amount NUMERIC(10, 2) NOT NULL,
+        addon_amount NUMERIC(10, 2) DEFAULT 0.00,
+        visit_fee NUMERIC(10, 2) DEFAULT 49.00,
+        gst_amount NUMERIC(10, 2) NOT NULL,
+        total_amount NUMERIC(10, 2) NOT NULL,
+        pdf_url TEXT,
+        payment_reference VARCHAR(100),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_invoices_booking ON invoices(booking_id);
+
+      -- 8. Immutable Enterprise Operations Audit Trail
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id VARCHAR(64) PRIMARY KEY,
+        actor_id VARCHAR(64) NOT NULL,
+        actor_role VARCHAR(30) NOT NULL,
+        action VARCHAR(100) NOT NULL,
+        resource VARCHAR(50) NOT NULL,
+        resource_id VARCHAR(64) NOT NULL,
+        before_state JSONB,
+        after_state JSONB,
+        ip_address VARCHAR(50),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource, resource_id);
     `);
 
     // Auto-backfill PostGIS geography point if coordinates exist but location is null
@@ -341,4 +502,4 @@ const query = async (text, params) => {
 
 const isPgHealthy = () => isPostgresConnected;
 
-module.exports = { initPostgres, query, isPgHealthy, inMemoryStore };
+module.exports = { initPostgres, query, isPgHealthy, getPool: () => pool, inMemoryStore };

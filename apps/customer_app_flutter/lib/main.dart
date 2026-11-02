@@ -21,10 +21,21 @@ import 'screens/booking_status_map_screen.dart';
 import 'screens/razorpay_payment_screen.dart';
 import 'screens/all_services_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/booking_chat_screen.dart';
+import 'services/fcm_notification_service.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    await FcmNotificationService().initialize();
+  } catch (e) {
+    debugPrint('ℹ️ [Firebase Setup] Local init notice: $e');
+  }
   runApp(const ProviderScope(child: CustomerApp()));
 }
+
 
 class CustomerApp extends StatelessWidget {
   const CustomerApp({super.key});
@@ -82,7 +93,18 @@ class CustomerApp extends StatelessWidget {
           case '/tracking':
             final bId = settings.arguments as String? ?? '';
             return MaterialPageRoute(builder: (_) => BookingTrackingScreen(bookingId: bId));
+          case '/chat':
+            final args = settings.arguments as Map<String, dynamic>? ?? {};
+            return MaterialPageRoute(
+              builder: (_) => BookingChatScreen(
+                bookingId: args['bookingId']?.toString() ?? '',
+                bookingCode: args['bookingCode']?.toString(),
+                technicianName: args['technicianName']?.toString(),
+                technicianAvatar: args['technicianAvatar']?.toString(),
+              ),
+            );
           case '/booking_status_map':
+
             final args = settings.arguments as Map<String, dynamic>?;
             return MaterialPageRoute(builder: (_) => BookingStatusMapScreen(initialBookingData: args));
           case '/history':
