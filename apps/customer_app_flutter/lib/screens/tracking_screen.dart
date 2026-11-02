@@ -1458,7 +1458,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     ],
                                   ),
                                   child: Text(
-                                    _liveStartOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '4821'),
+                                    _liveStartOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '----'),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w900,
                                       fontSize: 28,
@@ -1472,7 +1472,8 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                   icon: const Icon(Icons.copy_rounded, color: Color(0xFF4338CA), size: 22),
                                   tooltip: 'Copy OTP',
                                   onPressed: () {
-                                    final code = _liveStartOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '4821');
+                                    final code = _liveStartOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '');
+                                    if (code.isEmpty) return;
                                     Clipboard.setData(ClipboardData(text: code));
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(

@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const { authenticateToken, requireAdminRole } = require('../middleware/authMiddleware');
+
+// Universal Admin Security: Require Cryptographic Authentication & Admin RBAC
+router.use(authenticateToken);
+router.use(requireAdminRole);
 
 // Overview & Executive Analytics
 router.get('/overview', adminController.getOverview);

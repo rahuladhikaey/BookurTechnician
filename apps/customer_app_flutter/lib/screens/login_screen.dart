@@ -163,23 +163,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             return;
           }
 
-          // 3. If server is unreachable or 503, provide fallback to OTP screen
           if (response.statusCode >= 500 || response.statusCode == 503 || msg.toLowerCase().contains('unreachable') || msg.toLowerCase().contains('failed')) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Verification link active. Default test code: 123456'),
-                backgroundColor: Color(0xFF17399A),
-                duration: Duration(seconds: 4),
-              ),
-            );
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => OtpScreen(
-                  phoneNumber: isRegister ? phone : '',
-                  emailAddress: email,
-                  fullName: isRegister ? name : '',
-                ),
+              SnackBar(
+                content: Text(msg.isNotEmpty ? msg : 'Unable to reach authentication server. Please try again.'),
+                backgroundColor: const Color(0xFFDC2626),
+                duration: const Duration(seconds: 4),
               ),
             );
             return;
@@ -199,19 +188,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Connecting to server. Default test code: 123456'),
-            duration: Duration(seconds: 4),
-          ),
-        );
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OtpScreen(
-              phoneNumber: isRegister ? phone : '',
-              emailAddress: email,
-              fullName: isRegister ? name : '',
-            ),
+          SnackBar(
+            content: Text('Connection error: ${e.toString()}'),
+            backgroundColor: const Color(0xFFDC2626),
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -870,7 +850,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       setState(() => _isVerifying = false);
 
       if (mounted) {
-        if (response.statusCode == 200 || response.statusCode == 201 || (response.statusCode >= 500 && otp.trim() == '123456')) {
+        if (response.statusCode == 200 || response.statusCode == 201) {
           Map<String, dynamic> decoded = {};
           try {
             decoded = jsonDecode(response.body);
@@ -967,9 +947,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     // Direct EmailJS fallback if backend unreachable
     try {
+      final generatedOtp = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
       await EmailService.sendOtpEmail(
         email: widget.emailAddress,
-        otp: '123456',
+        otp: generatedOtp,
         role: 'Customer',
         name: widget.fullName.isNotEmpty ? widget.fullName : _formatNameFromEmail(widget.emailAddress),
       );

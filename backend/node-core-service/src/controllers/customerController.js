@@ -426,17 +426,23 @@ const updateLocation = async (req, res) => {
 const registerFcmToken = async (req, res) => {
   try {
     const userId = req.user?.id || req.body.userId || req.body.customerId || req.headers['x-user-id'];
-    const { token, platform = 'android' } = req.body;
+    const token = req.body.token || req.body.fcmToken;
+    const platform = req.body.platform || 'android';
 
     if (!userId || !token) {
       return res.status(400).json({ success: false, error: 'User ID and FCM token are required' });
+    }
+
+    if (token.startsWith('tech_fcm_') || token.startsWith('cust_fcm_') || token.startsWith('fcm_')) {
+      return res.status(400).json({ success: false, error: 'Synthetic FCM tokens are rejected in production. Provide a valid Firebase device registration token.' });
     }
 
     if (postgres.isPgHealthy()) {
       try {
         await postgres.query(
           `UPDATE users 
-           SET device_tokens = array_append(array_remove(COALESCE(device_tokens, ARRAY[]::TEXT[]), $1), $1),
+           SET fcm_token = $1,
+               device_tokens = array_append(array_remove(COALESCE(device_tokens, ARRAY[]::TEXT[]), $1), $1),
                updated_at = NOW()
            WHERE id = $2`,
           [token, userId]

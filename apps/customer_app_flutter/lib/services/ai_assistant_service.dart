@@ -484,7 +484,7 @@ class AiAssistantService {
             "• Current Status: $statusStr\n"
             "• Assigned Technician: $tech\n"
             "• Scheduled Slot: ${b.date} • ${b.timeSlot}\n"
-            "• Start OTP: ${b.otpCode.isNotEmpty ? b.otpCode : '4821'}\n\n"
+            "• Start OTP: ${b.otpCode.isNotEmpty ? b.otpCode : 'Will be displayed upon technician assignment'}\n\n"
             "You can track your technician live on the map.",
         sender: ChatSender.assistant,
         timestamp: DateTime.now(),

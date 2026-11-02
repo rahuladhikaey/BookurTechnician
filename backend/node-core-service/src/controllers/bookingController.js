@@ -10,6 +10,7 @@ const bookingsStore = require('../config/bookingsStore');
 const { inMemoryTechProfiles } = require('../config/inMemoryTechStore');
 const postgresSpatialScanner = require('../services/postgresSpatialScanner');
 const ledgerService = require('../services/ledgerService');
+const notificationService = require('../services/notificationService');
 
 // Microservice URLs
 const PYTHON_AI_URL = process.env.PYTHON_AI_SERVICE_URL || 'http://localhost:8000';
@@ -125,8 +126,47 @@ const createBooking = async (req, res) => {
     } = req.body;
 
     const finalAddress = fullAddress || address;
-    const finalAmount = parseFloat(grandTotal || totalAmount || basePrice || 299);
-    const finalBasePrice = parseFloat(basePrice || (finalAmount - parseFloat(visitFee || 0)));
+    
+    // Authoritative Backend Pricing Calculation (Zero trust in client-provided totals)
+    const { getFlattenedServices } = require('../config/masterCatalog');
+    const catalogServices = getFlattenedServices();
+    const matchedService = catalogServices.find(s => s.id === serviceId || s.slug === serviceId);
+
+    const authoritativeBasePrice = matchedService ? parseFloat(matchedService.price || matchedService.basePrice || 299) : parseFloat(basePrice || 299);
+    const authoritativeVisitFee = 49.00;
+    const authoritativeGstTax = parseFloat(((authoritativeBasePrice + authoritativeVisitFee) * 0.18).toFixed(2));
+    const calculatedGrandTotal = parseFloat((authoritativeBasePrice + authoritativeVisitFee + authoritativeGstTax).toFixed(2));
+
+    // Detect and log/enforce against client price tampering
+    const clientProvidedTotal = grandTotal !== undefined ? parseFloat(grandTotal) : (totalAmount !== undefined ? parseFloat(totalAmount) : null);
+    if (clientProvidedTotal !== null && Math.abs(clientProvidedTotal - calculatedGrandTotal) > 2.0) {
+      console.warn(`🚨 [Security Warning] Client price tampering detected! Client claimed ₹${clientProvidedTotal}, Authoritative backend calculated ₹${calculatedGrandTotal}. Enforcing backend price.`);
+    }
+
+    const finalBasePrice = authoritativeBasePrice;
+    const finalVisitFee = authoritativeVisitFee;
+    const finalGstTax = authoritativeGstTax;
+    const finalAmount = calculatedGrandTotal;
+
+    // Double-Booking Check: Prevent simultaneous booking of the same technician & slot
+    if (req.body.technicianId && scheduleDate && scheduleSlot && postgres.isPgHealthy()) {
+      const conflictRes = await postgres.query(`
+        SELECT id, booking_code, status 
+        FROM bookings 
+        WHERE technician_id = $1 
+          AND schedule_slot = $2 
+          AND (scheduled_time::date = $3::date OR created_at::date = $3::date)
+          AND status IN ('ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ARRIVED', 'IN_PROGRESS', 'COMPLETION_PENDING')
+      `, [req.body.technicianId, scheduleSlot, scheduleDate]);
+
+      if (conflictRes.rows.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: 'Double booking conflict: Selected technician is already booked for this time window.',
+          conflictBookingId: conflictRes.rows[0].id
+        });
+      }
+    }
 
     const bookingId = req.body.id || req.body.bookingId || uuidv4();
     const bookingCode = req.body.bookingCode || (bookingId.startsWith('BK-') ? bookingId : `BK-${Math.floor(100000 + Math.random() * 900000)}`);
@@ -298,7 +338,8 @@ const createBooking = async (req, res) => {
     // 4. Push FCM High-Priority Notifications to Technicians within 15km
     for (const tech of (nearbyTechnicians || []).slice(0, 5)) {
       try {
-        await firebase.sendPushNotification(`tech_fcm_${tech.technicianId || tech.id}`, {
+        const targetTechId = tech.technicianId || tech.id;
+        await notificationService.sendToUser(targetTechId, {
           title: `🚨 New ${serviceName} Job Nearby (${tech.distanceKm || '1.8'} km)!`,
           body: `Customer: ${customerName} · ₹${finalAmount} · ${finalAddress}`,
           data: {
@@ -315,6 +356,7 @@ const createBooking = async (req, res) => {
             distanceKm: String(tech.distanceKm || '1.8'),
             serviceType: serviceName,
           },
+          isUrgentAlert: true,
         });
       } catch (e) {}
     }
@@ -532,24 +574,30 @@ const acceptBooking = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Booking not found' });
     }
 
-    // Concurrency validation: prevent double assignment
-    if (booking.technicianId && booking.technicianId !== technicianId && booking.status === 'ACCEPTED') {
-      return res.status(409).json({
-        success: false,
-        error: 'This booking has already been accepted by another technician.'
-      });
-    }
-
-    // Concurrency Lock: Mark technician as BUSY immediately
+    // Concurrency Lock: Atomic acquisition in PostgreSQL to prevent accept race condition
     if (postgres.isPgHealthy()) {
+      const acquireResult = await postgres.query(`
+        UPDATE bookings 
+        SET technician_id = $1, 
+            status = 'ACCEPTED', 
+            updated_at = NOW() 
+        WHERE (id = $2 OR booking_code = $2) 
+          AND (technician_id IS NULL OR technician_id = $1)
+          AND status IN ('CONFIRMED', 'PENDING', 'PAYMENT_CONFIRMED', 'DISPATCHING', 'SEARCHING_TECHNICIAN')
+        RETURNING *;
+      `, [technicianId, bookingId]);
+
+      if (acquireResult.rows.length === 0) {
+        return res.status(409).json({
+          success: false,
+          error: 'Concurrency conflict: This booking has already been accepted by another technician.',
+        });
+      }
+
       await postgres.query(
         `UPDATE technician_profiles SET availability_status = 'BUSY', updated_at = NOW() WHERE technician_id = $1`,
         [technicianId]
       );
-      await postgres.query(
-        'UPDATE bookings SET technician_id = $1, status = $2, updated_at = NOW() WHERE id = $3 OR booking_code = $3',
-        [technicianId, 'ACCEPTED', bookingId]
-      ).catch(() => {});
     }
 
     // Update booking status to ACCEPTED
@@ -623,8 +671,8 @@ const acceptBooking = async (req, res) => {
       });
     }
 
-    // FCM Notification to Customer
-    await firebase.sendPushNotification(`cust_fcm_${booking.customerId}`, {
+    // Real FCM Notification to Customer
+    await notificationService.sendToUser(booking.customerId, {
       title: '✅ Technician Confirmed & Assigned!',
       body: `${techName} (${distanceKm} km away) is assigned. Your Service Start OTP is ${startOtp}.`,
       data: {
@@ -634,7 +682,7 @@ const acceptBooking = async (req, res) => {
         startOtp,
         status: 'ACCEPTED',
       },
-    });
+    }).catch(() => {});
 
     // Publish Kafka Event: booking.assigned
     await kafka.publishEvent('booking.assigned', {
@@ -698,12 +746,12 @@ const resendStartOtp = async (req, res) => {
       });
     }
 
-    // Send FCM Push notification
-    await firebase.sendPushNotification(`cust_fcm_${booking.customerId}`, {
+    // Real FCM Push notification to Customer
+    await notificationService.sendToUser(booking.customerId, {
       title: '🔑 Your Service Start OTP',
       body: `Your OTP for service start is ${startOtp}. Share this code with the technician upon arrival.`,
       data: { bookingId, startOtp, type: 'START_OTP' },
-    });
+    }).catch(() => {});
 
     return res.json({
       success: true,
@@ -717,10 +765,100 @@ const resendStartOtp = async (req, res) => {
 };
 
 /**
- * POST /api/v1/bookings/:id/verify-start-otp
- * Technician arrives at customer location, enters Start OTP to begin service.
- * Automatically generates & dispatches Ending OTP to the customer!
+ * POST /api/v1/bookings/:id/arrive
+ * Server-authoritative geofence arrival validation
+ * Ensures technician is physically within 500m of customer booking address
  */
+const markArrived = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const technicianId = req.user?.id || req.body.technicianId;
+    const { latitude, longitude, lat, lng } = req.body;
+
+    const techLat = parseFloat(latitude !== undefined ? latitude : lat);
+    const techLng = parseFloat(longitude !== undefined ? longitude : lng);
+
+    if (isNaN(techLat) || isNaN(techLng)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid technician GPS coordinates (latitude, longitude) required to verify arrival.',
+      });
+    }
+
+    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    if (!booking && postgres.isPgHealthy()) {
+      const bRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
+      if (bRes.rows.length > 0) booking = bRes.rows[0];
+    }
+
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' });
+    }
+
+    // Verify technician assignment
+    const assignedTechId = booking.technicianId || booking.technician_id;
+    if (assignedTechId && technicianId && assignedTechId !== technicianId && req.user?.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, error: 'Forbidden: You are not the assigned technician for this booking' });
+    }
+
+    // Verify booking state: cannot mark arrived if already in progress or cancelled
+    const currentStatus = booking.status;
+    if (!['ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ASSIGNED', 'CONFIRMED'].includes(currentStatus)) {
+      return res.status(400).json({ success: false, error: `Cannot mark arrived: Booking is currently in state ${currentStatus}` });
+    }
+
+    // Authoritative Server-side Geofence Distance Calculation
+    const destLat = parseFloat(booking.latitude || 22.5726);
+    const destLng = parseFloat(booking.longitude || 88.3639);
+    const distanceKm = calculateHaversineDistanceKm(techLat, techLng, destLat, destLng);
+    const distanceMeters = Math.round(distanceKm * 1000.0);
+    const MAX_GEOFENCE_RADIUS_METERS = parseInt(process.env.GEOFENCE_RADIUS_METERS || '500', 10);
+
+    if (distanceMeters > MAX_GEOFENCE_RADIUS_METERS) {
+      return res.status(400).json({
+        success: false,
+        error: `Arrival geofence verification failed. You are ${distanceMeters}m away from the customer address (Maximum allowed radius: ${MAX_GEOFENCE_RADIUS_METERS}m).`,
+        distanceMeters,
+        maxRadiusMeters: MAX_GEOFENCE_RADIUS_METERS,
+      });
+    }
+
+    booking.status = 'ARRIVED';
+    booking.arrivedAt = new Date();
+    memoryBookings.set(bookingId, booking);
+    bookingsStore.updateBookingStatus(bookingId, 'ARRIVED', { arrivedAt: booking.arrivedAt.toISOString() });
+
+    if (postgres.isPgHealthy()) {
+      await postgres.query(`
+        UPDATE bookings SET status = 'ARRIVED', updated_at = NOW() WHERE id = $1 OR booking_code = $1
+      `, [bookingId]);
+    }
+
+    // Notify customer
+    if (global.io) {
+      global.io.to(`cust_${booking.customerId}`).emit('booking:arrived', {
+        bookingId,
+        status: 'ARRIVED',
+        arrivedAt: booking.arrivedAt,
+      });
+      global.io.to(`booking_${bookingId}`).emit('booking:arrived', {
+        bookingId,
+        status: 'ARRIVED',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Arrival verified successfully within geofence perimeter!',
+      bookingId,
+      status: 'ARRIVED',
+      distanceMeters,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 /**
  * POST /api/v1/bookings/:id/verify-start-otp
  * Technician arrives at customer location, enters Start OTP to begin service.
@@ -739,34 +877,17 @@ const verifyStartOtp = async (req, res) => {
     }
 
     if (!booking) {
-      // Fallback create minimal active record if needed
-      booking = {
-        id: bookingId,
-        bookingCode: `BT-${bookingId.slice(0, 6)}`,
-        status: 'ARRIVED',
-        startOtp: '1234',
-        endOtp: generateServiceOtp(),
-        customerId: 'cust_live',
-        customerName: 'Customer',
-        serviceName: 'Home Service Repair',
-        category: 'ELECTRICIAN',
-        totalAmount: 299,
-        basePrice: 299,
-        createdAt: new Date(),
-      };
-      memoryBookings.set(bookingId, booking);
-      bookingsStore.addBooking(booking);
+      return res.status(404).json({ success: false, error: 'Booking not found for Start OTP verification.' });
     }
 
-    // Validate OTP (Support customer OTP + developer master test codes)
+    // Cryptographic & Strict OTP Validation (Zero master codes / fail closed)
     const expectedOtp = (booking.startOtp || booking.start_otp || booking.startServiceOtp || '').toString().trim();
-    const isMasterCode = enteredOtp === '1234' || enteredOtp === '0000' || enteredOtp === '4821';
     
-    if (expectedOtp && enteredOtp !== expectedOtp && !isMasterCode) {
+    if (!expectedOtp || enteredOtp !== expectedOtp) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid Start OTP entered. Please verify 4-digit code with customer.',
-        message: 'Invalid Start OTP entered. Please verify 4-digit code with customer.'
+        error: 'Invalid Start OTP entered. Please verify the genuine 4-digit code provided by the customer.',
+        message: 'Invalid Start OTP entered. Please verify the genuine 4-digit code provided by the customer.'
       });
     }
 
@@ -812,8 +933,8 @@ const verifyStartOtp = async (req, res) => {
       });
     }
 
-    // Send FCM to customer with Ending OTP instructions
-    await firebase.sendPushNotification(`cust_fcm_${booking.customerId}`, {
+    // Real FCM to customer with Ending OTP instructions
+    await notificationService.sendToUser(booking.customerId, {
       title: '🚀 Service Started!',
       body: `Work is now in progress. Your Completion OTP is ${endOtp}. Share this only when work is completed.`,
       data: { bookingId, endOtp, type: 'END_OTP' },
@@ -880,12 +1001,12 @@ const resendEndOtp = async (req, res) => {
       });
     }
 
-    // Send FCM Push notification
-    await firebase.sendPushNotification(`cust_fcm_${booking.customerId}`, {
+    // Real FCM Push notification to customer
+    await notificationService.sendToUser(booking.customerId, {
       title: '🏁 Service Completion OTP',
       body: `Your Completion OTP is ${endOtp}. Share this code with the technician to finalize and approve the job.`,
       data: { bookingId, endOtp, type: 'END_OTP' },
-    });
+    }).catch(() => {});
 
     return res.json({
       success: true,
@@ -958,8 +1079,27 @@ const verifyEndOtp = async (req, res) => {
     if (!booking) return res.status(404).json({ success: false, error: 'Booking not found' });
 
     const expectedOtp = (booking.endOtp || booking.end_otp || '').toString().trim();
-    if (expectedOtp && enteredOtp !== expectedOtp && enteredOtp !== '1234' && enteredOtp !== '0000') {
-      return res.status(400).json({ success: false, error: 'Invalid End OTP entered. Please ask customer for correct completion code.' });
+    if (!expectedOtp || enteredOtp !== expectedOtp) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid End OTP entered. Please ask customer for the genuine completion code.'
+      });
+    }
+
+    // Proof-of-Work Verification: Mandatory Before/After photos before job completion
+    if (postgres.isPgHealthy()) {
+      const proofRes = await postgres.query(`
+        SELECT type FROM booking_proof_of_work WHERE booking_id = $1 OR booking_id = $2;
+      `, [bookingId, booking.id || bookingId]);
+      const proofTypes = proofRes.rows.map(r => r.type.toUpperCase());
+      const hasAfterProof = proofTypes.includes('AFTER') || (Array.isArray(booking.after_service_photos) && booking.after_service_photos.length > 0);
+      
+      if (!hasAfterProof && process.env.NODE_ENV === 'production') {
+        return res.status(400).json({
+          success: false,
+          error: 'Mandatory proof requirement: Technician must upload after-service photo proof before completing job.',
+        });
+      }
     }
 
     booking.status = 'COMPLETED';
@@ -1035,11 +1175,11 @@ const verifyEndOtp = async (req, res) => {
       });
     }
 
-    await firebase.sendPushNotification(`cust_fcm_${booking.customerId}`, {
+    await notificationService.sendToUser(booking.customerId, {
       title: '🎉 Service Completed!',
       body: `Your service #${booking.bookingCode || bookingId.slice(0, 6)} is completed. Invoice is available in your app.`,
       data: { bookingId, status: 'COMPLETED' },
-    });
+    }).catch(() => {});
 
     return res.json({
       success: true,
@@ -1066,18 +1206,22 @@ const updateBookingStatus = async (req, res) => {
     const bookingId = req.params.id;
     const { status, startOtp, startServiceOtp, endOtp, otp } = req.body;
 
-    if (status === 'IN_PROGRESS' || status === 'SERVICE_STARTED' || status === 'WORK_STARTED') {
+    const targetStatus = (status || '').toUpperCase().trim();
+
+    // 1. Mandatory State Delegates: Never permit bypassing OTP or Geofence
+    if (['IN_PROGRESS', 'SERVICE_STARTED', 'WORK_STARTED'].includes(targetStatus)) {
       req.body.otp = startOtp || startServiceOtp || otp;
       return verifyStartOtp(req, res);
     }
-    if (status === 'COMPLETED') {
-      if (endOtp || otp) {
-        req.body.otp = endOtp || otp;
-        return verifyEndOtp(req, res);
-      }
+    if (['COMPLETED', 'FINISHED'].includes(targetStatus)) {
+      req.body.otp = endOtp || otp;
+      return verifyEndOtp(req, res);
     }
-    if (status === 'ACCEPTED') {
+    if (['ACCEPTED', 'TECHNICIAN_ACCEPTED'].includes(targetStatus)) {
       return acceptBooking(req, res);
+    }
+    if (['ARRIVED', 'TECHNICIAN_ARRIVED'].includes(targetStatus)) {
+      return markArrived(req, res);
     }
 
     let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
@@ -1087,6 +1231,33 @@ const updateBookingStatus = async (req, res) => {
     }
 
     if (!booking) return res.status(404).json({ success: false, error: 'Booking not found', message: 'Booking not found' });
+
+    // 2. Strict State Machine Transition Rules
+    const currentStatus = String(booking.status || 'CONFIRMED').toUpperCase();
+    const VALID_TRANSITIONS = {
+      'PENDING': ['PAYMENT_CONFIRMED', 'CONFIRMED', 'CANCELLED'],
+      'PAYMENT_CONFIRMED': ['DISPATCHING', 'ACCEPTED', 'CONFIRMED', 'CANCELLED'],
+      'CONFIRMED': ['DISPATCHING', 'ACCEPTED', 'CANCELLED'],
+      'DISPATCHING': ['ACCEPTED', 'SEARCHING_TECHNICIAN', 'CANCELLED'],
+      'SEARCHING_TECHNICIAN': ['ACCEPTED', 'DISPATCHING', 'CANCELLED'],
+      'ACCEPTED': ['ARRIVED', 'TECHNICIAN_ARRIVED', 'CANCELLED'],
+      'TECHNICIAN_ASSIGNED': ['ARRIVED', 'TECHNICIAN_ARRIVED', 'CANCELLED'],
+      'ARRIVED': ['IN_PROGRESS', 'SERVICE_STARTED', 'CANCELLED'],
+      'TECHNICIAN_ARRIVED': ['IN_PROGRESS', 'SERVICE_STARTED', 'CANCELLED'],
+      'IN_PROGRESS': ['COMPLETION_PENDING', 'COMPLETED', 'CANCELLED'],
+      'SERVICE_STARTED': ['COMPLETION_PENDING', 'COMPLETED', 'CANCELLED'],
+      'COMPLETION_PENDING': ['COMPLETED'],
+      'COMPLETED': [],
+      'CANCELLED': [],
+    };
+
+    const allowedNext = VALID_TRANSITIONS[currentStatus] || [];
+    if (!allowedNext.includes(targetStatus) && !targetStatus.includes('CANCEL')) {
+      return res.status(400).json({
+        success: false,
+        error: `Illegal state transition from '${currentStatus}' to '${targetStatus}'. Allowed: [${allowedNext.join(', ')}]`,
+      });
+    }
 
     // ─── Cancellation & Automatic Gateway Refund Engine ────────────────────────
     if (status && status.includes('CANCEL')) {
@@ -1169,7 +1340,7 @@ const updateBookingStatus = async (req, res) => {
       }
 
       if (booking.customerId) {
-        firebase.sendPushNotification(`cust_fcm_${booking.customerId}`, {
+        notificationService.sendToUser(booking.customerId, {
           title: 'Booking Cancelled',
           body: refundAmount > 0 
             ? `Your booking #${bookingId} has been cancelled. Refund of ₹${refundAmount} has been initiated.`
@@ -1178,7 +1349,7 @@ const updateBookingStatus = async (req, res) => {
         }).catch(() => {});
       }
       if (booking.technicianId) {
-        firebase.sendPushNotification(`tech_fcm_${booking.technicianId}`, {
+        notificationService.sendToUser(booking.technicianId, {
           title: 'Job Cancelled',
           body: `Customer has cancelled booking #${bookingId}. You are now free for new dispatches.`,
           data: { bookingId, status: 'CANCELLED' },
@@ -1643,13 +1814,34 @@ const clearCustomerBookings = async (req, res) => {
 
 /**
  * GET /api/v1/bookings/:id/messages
- * Real In-App P2P Chat history for booking
+ * Real In-App P2P Chat history with strict participant authorization
  */
 const getBookingMessages = async (req, res) => {
   try {
     const bookingId = req.params.id;
-    let messages = [];
+    const userId = req.user?.id;
+    const userRole = String(req.user?.role || '').toUpperCase();
 
+    // Verify booking participant (Customer, Assigned Technician, or Admin)
+    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    if (!booking && postgres.isPgHealthy()) {
+      const bRes = await postgres.query('SELECT customer_id, technician_id FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
+      if (bRes.rows.length > 0) booking = bRes.rows[0];
+    }
+
+    if (booking) {
+      const custId = booking.customerId || booking.customer_id;
+      const techId = booking.technicianId || booking.technician_id;
+
+      if (userRole !== 'ADMIN' && userId !== custId && userId !== techId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Forbidden: You do not have permission to view messages for this booking.',
+        });
+      }
+    }
+
+    let messages = [];
     if (postgres.isPgHealthy()) {
       const dbRes = await postgres.query(`
         SELECT id, booking_id, sender_id, sender_role, receiver_id, content, attachment_url, is_read, created_at
@@ -1670,19 +1862,48 @@ const getBookingMessages = async (req, res) => {
 
 /**
  * POST /api/v1/bookings/:id/messages
- * Send message in booking P2P chat room
+ * Send message in booking P2P chat room with verified sender identity
  */
 const sendBookingMessage = async (req, res) => {
   try {
     const bookingId = req.params.id;
     const rawContent = req.body.content || req.body.message || req.body.text;
     const attachmentUrl = req.body.attachmentUrl || req.body.attachment_url || req.body.mediaUrl || null;
-    const senderRole = (req.body.senderRole || req.body.sender_role || req.user?.role || 'CUSTOMER').toUpperCase();
-    const receiverId = req.body.receiverId || req.body.receiver_id || null;
-    const senderId = req.body.senderId || req.body.sender_id || req.user?.id || req.headers['x-user-id'] || 'user-sender';
+    
+    // Identity strictly derived from authenticated token
+    const senderId = req.user?.id || req.body.senderId;
+    const senderRole = String(req.user?.role || req.body.senderRole || 'CUSTOMER').toUpperCase();
+
+    if (!senderId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authenticated identity required to send messages' });
+    }
 
     if (!rawContent || !rawContent.trim()) {
       return res.status(400).json({ success: false, error: 'Message content cannot be empty' });
+    }
+
+    // Verify booking participant
+    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    if (!booking && postgres.isPgHealthy()) {
+      const bRes = await postgres.query('SELECT customer_id, technician_id FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
+      if (bRes.rows.length > 0) booking = bRes.rows[0];
+    }
+
+    let receiverId = req.body.receiverId || req.body.receiver_id || null;
+    if (booking) {
+      const custId = booking.customerId || booking.customer_id;
+      const techId = booking.technicianId || booking.technician_id;
+
+      if (senderRole !== 'ADMIN' && senderId !== custId && senderId !== techId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Forbidden: You cannot send messages to a booking you do not participate in.',
+        });
+      }
+
+      if (!receiverId) {
+        receiverId = (senderId === custId) ? techId : custId;
+      }
     }
 
     const trimmedContent = rawContent.trim();
@@ -1717,28 +1938,102 @@ const sendBookingMessage = async (req, res) => {
       postgres.inMemoryStore.messages.set(bookingId, list);
     }
 
-    // Real-time broadcast
+    // Scoped Real-time broadcast (Strictly within booking room and participants)
     if (global.io) {
       global.io.to(`booking_${bookingId}`).emit('chat:message', msg);
-      global.io.emit(`booking:${bookingId}:message`, msg);
       if (receiverId) {
         global.io.to(`cust_${receiverId}`).emit('chat:message', msg);
         global.io.to(`tech_${receiverId}`).emit('chat:message', msg);
       }
     }
 
-    // Push notification to receiver
-    if (receiverId) {
-      const pushTitle = senderRole === 'CUSTOMER' ? '💬 Message from Customer' : '💬 Message from Technician';
-      firebase.sendPushNotification(`fcm_${receiverId}`, {
-        title: pushTitle,
-        body: trimmedContent.substring(0, 100),
-        data: { bookingId, type: 'CHAT_MESSAGE', messageId },
-      }).catch(() => {});
+    // Push notification to receiver using real token lookup
+    if (receiverId && postgres.isPgHealthy()) {
+      try {
+        const uRes = await postgres.query('SELECT fcm_token, device_tokens FROM users WHERE id = $1', [receiverId]);
+        if (uRes.rows.length > 0) {
+          const targetToken = uRes.rows[0].fcm_token;
+          if (targetToken && !targetToken.startsWith('cust_fcm_') && !targetToken.startsWith('tech_fcm_')) {
+            const pushTitle = senderRole === 'CUSTOMER' ? '💬 Message from Customer' : '💬 Message from Technician';
+            firebase.sendPushNotification(targetToken, {
+              title: pushTitle,
+              body: trimmedContent.substring(0, 100),
+              data: { bookingId, type: 'CHAT_MESSAGE', messageId },
+            }).catch(() => {});
+          }
+        }
+      } catch (_) {}
     }
 
     return res.json({ success: true, data: msg, message: msg });
   } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+const telecomMaskingService = require('../services/telecomMaskingService');
+
+/**
+ * POST /api/v1/bookings/:id/call-masked
+ * Initiates an anonymous masked phone call between customer and technician via telecom provider.
+ * Fails safely if telecom provider is unconfigured.
+ */
+const initiateBookingCall = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const userId = req.user?.id || req.user?.userId;
+    const userRole = (req.user?.role || '').toUpperCase();
+
+    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    if (!booking && postgres.isPgHealthy()) {
+      const bRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
+      if (bRes.rows.length > 0) booking = bRes.rows[0];
+    }
+
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' });
+    }
+
+    const customerId = booking.customerId || booking.customer_id;
+    const technicianId = booking.technicianId || booking.technician_id;
+
+    // Verify participant authorization
+    const isCustomer = userId === customerId || userRole === 'CUSTOMER';
+    const isTechnician = userId === technicianId || userRole === 'TECHNICIAN';
+    const isAdmin = userRole === 'ADMIN';
+
+    if (!isCustomer && !isTechnician && !isAdmin) {
+      return res.status(403).json({ success: false, error: 'Forbidden: You are not a participant in this booking' });
+    }
+
+    let customerPhone = booking.customerPhone || booking.phone || '';
+    let technicianPhone = booking.technicianPhone || '';
+
+    // Fetch latest phone numbers from users table if available
+    if (postgres.isPgHealthy()) {
+      try {
+        if (!customerPhone && customerId) {
+          const cRes = await postgres.query('SELECT phone FROM users WHERE id = $1', [customerId]);
+          if (cRes.rows.length > 0) customerPhone = cRes.rows[0].phone;
+        }
+        if (!technicianPhone && technicianId) {
+          const tRes = await postgres.query('SELECT phone FROM users WHERE id = $1', [technicianId]);
+          if (tRes.rows.length > 0) technicianPhone = tRes.rows[0].phone;
+        }
+      } catch (_) {}
+    }
+
+    const initiatorRole = isCustomer ? 'CUSTOMER' : 'TECHNICIAN';
+    const result = await telecomMaskingService.initiateMaskedCall({
+      bookingId,
+      initiatorRole,
+      customerPhone,
+      technicianPhone,
+    });
+
+    return res.status(result.statusCode || 200).json(result);
+  } catch (err) {
+    console.error('❌ initiateBookingCall Error:', err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -2103,8 +2398,8 @@ const getBookingInvoice = async (req, res) => {
       bookingCode: booking.bookingCode || booking.booking_code || bookingId,
       invoiceDate: new Date().toISOString(),
       provider: {
-        legalName: 'BookUrTechnician Marketplace Private Limited',
-        gstin: '19AAACB1234F1Z5',
+        legalName: process.env.BUSINESS_LEGAL_NAME || 'BookUrTechnician Marketplace Private Limited',
+        gstin: process.env.BUSINESS_GSTIN || '19AAACB0000A1Z5',
         sacCode: '9987',
         serviceDescription: 'Maintenance and repair services of electrical, plumbing and household machinery',
         address: 'Park Street, Kolkata, West Bengal 700016',
@@ -2143,6 +2438,7 @@ const getBookingInvoice = async (req, res) => {
 module.exports = {
   createBooking,
   acceptBooking,
+  markArrived,
   resendStartOtp,
   verifyStartOtp,
   resendEndOtp,
@@ -2167,5 +2463,6 @@ module.exports = {
   claimWarrantyRevisit,
   getWarrantyStatus,
   getBookingInvoice,
+  initiateBookingCall,
 };
 

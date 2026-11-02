@@ -71,10 +71,14 @@ const requestOtp = async (req, res) => {
       }
     }
 
-    // Default test OTP for fast MVP development / test accounts: 123456
-    const otp = (identifier.includes('9999999999') || identifier.includes('test') || identifier.includes('demo')) 
+    // Production-grade cryptographically secure 6-digit OTP
+    const isExplicitDevTestAccount = process.env.NODE_ENV === 'development' && 
+      process.env.ALLOW_TEST_OTP === 'true' && 
+      (identifier.includes('9999999999') || identifier.includes('testaccount'));
+
+    const otp = isExplicitDevTestAccount 
       ? '123456' 
-      : generateOtp();
+      : crypto.randomInt(100000, 1000000).toString();
 
     const candidateName = (fullName || name || '').trim();
     const resolvedName = candidateName || existingUser?.full_name || (email ? deriveNameFromEmail(email) : (phone ? `User-${phone.slice(-4)}` : 'Customer'));
@@ -139,7 +143,7 @@ const requestOtp = async (req, res) => {
       identifier,
       name: resolvedName,
       emailSent: emailResult.success !== false,
-      debugOtp: process.env.NODE_ENV !== 'production' || process.env.ALLOW_TEST_OTP === 'true' ? otp : undefined,
+      debugOtp: (process.env.NODE_ENV === 'development' && process.env.ALLOW_TEST_OTP === 'true') ? otp : undefined,
     });
   } catch (error) {
     console.error('❌ Request OTP Error:', error);
@@ -188,10 +192,10 @@ const verifyOtp = async (req, res) => {
       if (cachedData) break;
     }
 
-    // Allow valid OTP or master test OTP '123456' for seamless development & fallback access
-    const isTestOtpAllowed = process.env.ALLOW_TEST_OTP !== 'false';
-    const isMasterOtp = inputOtp === '123456';
-    const isValid = (cachedData && cachedData.otp.toString().trim() === inputOtp) || (isTestOtpAllowed && isMasterOtp);
+    // Fail closed: Only allow test OTP in strict development mode with explicit opt-in
+    const isDevTestAllowed = process.env.NODE_ENV === 'development' && process.env.ALLOW_TEST_OTP === 'true';
+    const isMasterOtp = isDevTestAllowed && inputOtp === '123456';
+    const isValid = (cachedData && cachedData.otp.toString().trim() === inputOtp) || isMasterOtp;
 
     if (!isValid) {
       return res.status(400).json({ success: false, error: 'Invalid or expired OTP' });

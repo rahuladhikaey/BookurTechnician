@@ -234,6 +234,8 @@ async function settleBookingLedger({
   }
 }
 
+const payoutService = require('./payoutService');
+
 /**
  * Atomic Withdrawal Engine with Row-Locking and Idempotency
  */
@@ -244,8 +246,18 @@ async function processWithdrawal({ technicianId, amount, upiId, idempotencyKey }
 
   const requestedAmount = parseFloat(parseFloat(amount).toFixed(2));
   const withdrawalId = `WD-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
-  const payoutRef = `UPI-RZPX-${Date.now().toString().slice(-8)}`;
   const key = idempotencyKey || `IDEM-${technicianId}-${withdrawalId}`;
+
+  // Initiate real payout provider request
+  const payoutResult = await payoutService.initiatePayout({
+    withdrawalId,
+    technicianId,
+    amount: requestedAmount,
+    upiId,
+  });
+
+  const payoutStatus = payoutResult.status || 'PENDING_ADMIN_APPROVAL';
+  const payoutRef = payoutResult.utr || payoutResult.providerReference || null;
 
   if (postgres.isPgHealthy()) {
     const client = await postgres.getPool().connect();
@@ -307,8 +319,8 @@ async function processWithdrawal({ technicianId, amount, upiId, idempotencyKey }
       // 5. Insert withdrawal record
       await client.query(`
         INSERT INTO technician_withdrawals (id, technician_id, amount, upi_id, status, idempotency_key, payout_reference, processed_at)
-        VALUES ($1, $2, $3, $4, 'PROCESSED', $5, $6, NOW())
-      `, [withdrawalId, technicianId, requestedAmount, upiId, key, payoutRef]);
+        VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $5 = 'PAID' THEN NOW() ELSE NULL END)
+      `, [withdrawalId, technicianId, requestedAmount, upiId, payoutStatus, key, payoutRef]);
 
       // 6. Update cached balance and UPI ID on technician profile
       const newBalance = parseFloat((currentBalance - requestedAmount).toFixed(2));
@@ -333,6 +345,7 @@ async function processWithdrawal({ technicianId, amount, upiId, idempotencyKey }
           amount: requestedAmount,
           upiId,
           payoutRef,
+          status: payoutStatus,
           previousBalance: currentBalance,
           newBalance
         })
@@ -349,8 +362,8 @@ async function processWithdrawal({ technicianId, amount, upiId, idempotencyKey }
           upiId,
           payoutReference: payoutRef,
           remainingBalance: newBalance,
-          status: 'PROCESSED',
-          processedAt: new Date().toISOString(),
+          status: payoutStatus,
+          processedAt: payoutStatus === 'PAID' ? new Date().toISOString() : null,
         }
       };
     } catch (err) {

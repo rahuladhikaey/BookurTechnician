@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../booking_provider.dart';
@@ -5,6 +6,7 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets/radar_matching_sheet.dart';
 import '../screens/profile_completion_wizard_screen.dart';
+import '../services/api_client.dart';
 
 enum BookingMode { instantDispatch, scheduleForLater }
 
@@ -107,6 +109,34 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
     '04:00 PM - 06:00 PM',
     '06:00 PM - 08:00 PM',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDynamicSlots(_selectedDate);
+  }
+
+  Future<void> _fetchDynamicSlots(String date) async {
+    try {
+      final srvId = widget.service.id.isNotEmpty ? widget.service.id : 'srv-default';
+      final resp = await ApiClient.get('/catalog/services/$srvId/slots?date=${Uri.encodeComponent(date)}');
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data['success'] == true && data['slots'] is List) {
+          final fetched = (data['slots'] as List).map((s) => s['time']?.toString() ?? s.toString()).toList();
+          if (fetched.isNotEmpty && mounted) {
+            setState(() {
+              _slotOptions.clear();
+              _slotOptions.addAll(fetched);
+              if (!_slotOptions.contains(_selectedSlot)) {
+                _selectedSlot = _slotOptions.first;
+              }
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
 
   double get _baseFare {
     if (widget.bundleServices != null && widget.bundleServices!.isNotEmpty) {
@@ -497,7 +527,10 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
                       side: BorderSide(color: isSelected ? kBlack : kBorderColor),
                     ),
                     onSelected: (val) {
-                      if (val) setState(() => _selectedDate = date);
+                      if (val) {
+                        setState(() => _selectedDate = date);
+                        _fetchDynamicSlots(date);
+                      }
                     },
                   ),
                 );
@@ -507,7 +540,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
           const SizedBox(height: 8),
           // Slots
           DropdownButtonFormField<String>(
-            initialValue: _selectedSlot,
+            value: _slotOptions.contains(_selectedSlot) ? _selectedSlot : (_slotOptions.isNotEmpty ? _slotOptions.first : null),
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               filled: true,

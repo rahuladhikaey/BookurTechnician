@@ -1600,12 +1600,80 @@ const getPayments = async (req, res) => {
 };
 
 const getWithdrawals = async (req, res) => {
-  const withdrawals = [];
-  return res.json({ success: true, data: withdrawals });
+  try {
+    if (postgres.isPgHealthy()) {
+      const dbRes = await postgres.query(`
+        SELECT 
+          tw.id,
+          tw.technician_id,
+          COALESCE(tp.full_name, 'Technician') AS technician_name,
+          COALESCE(tp.phone, '') AS technician_phone,
+          tw.amount,
+          tw.upi_id,
+          tw.status,
+          tw.idempotency_key,
+          tw.payout_reference,
+          tw.failure_reason,
+          tw.created_at,
+          tw.processed_at
+        FROM technician_withdrawals tw
+        LEFT JOIN technician_profiles tp ON (tp.technician_id = tw.technician_id OR tp.id = tw.technician_id)
+        ORDER BY tw.created_at DESC
+        LIMIT 100;
+      `);
+      return res.json({ success: true, data: dbRes.rows });
+    }
+    return res.json({ success: true, data: [] });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 const updateWithdrawalStatus = async (req, res) => {
-  return res.json({ success: true, message: 'Withdrawal processed', id: req.params.id, status: req.body.status });
+  try {
+    const { id } = req.params;
+    const { status, failureReason, payoutReference } = req.body;
+
+    if (!['PROCESSED', 'PAID', 'FAILED', 'REJECTED', 'PENDING'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Invalid withdrawal status' });
+    }
+
+    if (postgres.isPgHealthy()) {
+      const existing = await postgres.query('SELECT * FROM technician_withdrawals WHERE id = $1', [id]);
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Withdrawal record not found' });
+      }
+
+      const w = existing.rows[0];
+
+      // If transition to FAILED or REJECTED from PENDING/REQUESTED, refund ledger
+      if (['FAILED', 'REJECTED'].includes(status) && ['PENDING', 'REQUESTED', 'PROCESSING'].includes(w.status)) {
+        await postgres.query(`
+          INSERT INTO ledger_transactions (id, technician_id, booking_id, type, amount, direction, status, reference_id, created_at)
+          VALUES ($1, $2, NULL, 'WITHDRAWAL_REVERSAL', $3, 'CREDIT', 'SETTLED', $4, NOW());
+        `, [`LTX-REV-${Date.now()}`, w.technician_id, w.amount, id]);
+
+        await postgres.query(`
+          UPDATE technician_profiles
+          SET wallet_balance = wallet_balance + $1, updated_at = NOW()
+          WHERE technician_id = $2 OR id = $2;
+        `, [w.amount, w.technician_id]);
+      }
+
+      await postgres.query(`
+        UPDATE technician_withdrawals
+        SET status = $1,
+            failure_reason = COALESCE($2, failure_reason),
+            payout_reference = COALESCE($3, payout_reference),
+            processed_at = NOW()
+        WHERE id = $4;
+      `, [status, failureReason || null, payoutReference || null, id]);
+    }
+
+    return res.json({ success: true, message: `Withdrawal #${id} status updated to ${status}`, id, status });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 const getSupportTickets = async (req, res) => res.json({ success: true, data: [] });
@@ -1687,6 +1755,22 @@ const getAvailabilityOverview = async (req, res) => {
 
 const cleanSlatePurge = async (req, res) => {
   try {
+    // FAIL CLOSED: Destructive purge is strictly prohibited in production
+    if (process.env.NODE_ENV === 'production' || process.env.ALLOW_CLEAN_SLATE !== 'true') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Destructive clean-slate database purging is strictly blocked in production.',
+      });
+    }
+
+    const purgeSecret = req.headers['x-purge-secret'] || req.body?.purgeSecret;
+    if (!purgeSecret || purgeSecret !== process.env.ADMIN_PURGE_SECRET) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Valid administrative purge secret required.',
+      });
+    }
+
     // 1. Wipe in-memory active data
     bookingsStore.clearAllBookings();
     bookingsStore.clearAllCustomers();

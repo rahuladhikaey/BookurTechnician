@@ -144,17 +144,43 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       {'label': 'Day After', 'date': '${now.add(const Duration(days: 2)).day} ${_getMonth(now.add(const Duration(days: 2)).month)}'},
     ];
 
-    final slots = [
-      '9:00 AM – 10:00 AM',
+    List<String> dynamicSlots = [
+      '09:00 AM – 10:00 AM',
       '11:00 AM – 12:00 PM',
-      '2:00 PM – 3:00 PM',
-      '3:00 PM – 4:00 PM',
-      '5:00 PM – 6:00 PM',
-      '7:00 PM – 8:00 PM',
+      '02:00 PM – 03:00 PM',
+      '03:00 PM – 04:00 PM',
+      '05:00 PM – 06:00 PM',
+      '07:00 PM – 08:00 PM',
     ];
+    bool isLoadingSlots = false;
 
     String selectedDay = state.selectedScheduleDate;
     String selectedSlot = state.selectedScheduleSlot;
+
+    void loadBackendSlots(String day, void Function(void Function()) setModalState) async {
+      try {
+        setModalState(() => isLoadingSlots = true);
+        final serviceId = state.items.isNotEmpty ? state.items.first.service.id : 'srv-default';
+        final resp = await ApiClient.get('/catalog/services/$serviceId/slots?date=${Uri.encodeComponent(day)}');
+        if (resp.statusCode == 200) {
+          final data = jsonDecode(resp.body);
+          if (data['success'] == true && data['slots'] is List) {
+            final fetched = (data['slots'] as List).map((s) => s['time']?.toString() ?? s.toString()).toList();
+            if (fetched.isNotEmpty) {
+              setModalState(() {
+                dynamicSlots = fetched;
+                if (!dynamicSlots.contains(selectedSlot)) {
+                  selectedSlot = dynamicSlots.first;
+                }
+              });
+            }
+          }
+        }
+      } catch (_) {
+      } finally {
+        setModalState(() => isLoadingSlots = false);
+      }
+    }
 
     showModalBottomSheet(
       context: context,
@@ -171,7 +197,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Select Service Date & Time (Max 3 Days)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: kPrimaryText)),
+                  const Text('Select Service Date & Time (Live Backend Slots)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: kPrimaryText)),
                   IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => Navigator.pop(ctx)),
                 ],
               ),
@@ -183,7 +209,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   final isSelected = selectedDay == d['label'] || selectedDay == d['date'];
                   return Expanded(
                     child: GestureDetector(
-                      onTap: () => setModalState(() => selectedDay = d['label']!),
+                      onTap: () {
+                        setModalState(() => selectedDay = d['label']!);
+                        loadBackendSlots(d['label']!, setModalState);
+                      },
                       child: Container(
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -218,12 +247,23 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 }).toList(),
               ),
               const SizedBox(height: 18),
-              const Text('Choose Available Time Slot', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: kSecondaryText)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Available Dynamic Time Slots', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: kSecondaryText)),
+                  if (isLoadingSlots)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary),
+                    ),
+                ],
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: slots.map((s) {
+                children: dynamicSlots.map((s) {
                   final isSelected = selectedSlot == s;
                   return ChoiceChip(
                     label: Text(s, style: TextStyle(fontSize: 11.5, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : kPrimaryText)),

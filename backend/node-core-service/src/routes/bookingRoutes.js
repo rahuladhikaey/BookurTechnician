@@ -17,6 +17,7 @@ router.patch('/:id/status', bookingController.updateBookingStatus);
 router.patch('/:id', bookingController.updateBookingStatus);
 router.post('/:id/status', bookingController.updateBookingStatus);
 router.post('/:id/accept', bookingController.acceptBooking);
+router.post('/:id/arrive', authenticateToken, bookingController.markArrived);
 router.post('/:id/cancel', (req, res) => {
   req.body.status = 'CANCELLED';
   return bookingController.updateBookingStatus(req, res);
@@ -30,9 +31,10 @@ router.post('/:id/add-bill', bookingController.addBillCharges);
 router.post('/:id/verify-end-otp', bookingController.verifyEndOtp);
 router.post('/:id/complete', bookingController.verifyEndOtp);
 
-// In-App P2P Chat
+// In-App P2P Chat & Masked Calling
 router.get('/:id/messages', bookingController.getBookingMessages);
 router.post('/:id/messages', bookingController.sendBookingMessage);
+router.post('/:id/call-masked', authenticateToken, bookingController.initiateBookingCall);
 
 // Add-ons Approval Engine
 router.get('/:id/addons', bookingController.getBookingAddons);

@@ -225,8 +225,9 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
                   ),
                   const SizedBox(height: AppSpacing.s),
                   Text(
-                    'Hint: Customer\'s OTP is ${jobState.activeJob?.otp ?? "4821"}',
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                    'Ask the customer for the 4-digit Service Start OTP shown on their app screen',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
                   ),
                 ],
               ),

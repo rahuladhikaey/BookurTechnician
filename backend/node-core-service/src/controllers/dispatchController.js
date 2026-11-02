@@ -7,6 +7,7 @@ const postgres = require('../config/postgres');
 const bookingsStore = require('../config/bookingsStore');
 const firebase = require('../config/firebase');
 const kafka = require('../config/kafka');
+const notificationService = require('../services/notificationService');
 const { calculateHaversineDistanceKm } = require('../services/postgresSpatialScanner');
 
 // In-Memory active dispatch proposals store (fast cache + fallback)
@@ -503,10 +504,10 @@ const acceptDispatchRequest = async (req, res) => {
       });
     }
 
-    // 4. FCM to Customer
+    // 4. Real FCM to Customer
     const custId = memoryBooking?.customerId || bookingAssigned?.customer_id;
     if (custId) {
-      await firebase.sendPushNotification(`cust_fcm_${custId}`, {
+      await notificationService.sendToUser(custId, {
         title: '✅ Technician Assigned!',
         body: `${techName} (${distanceKm.toFixed(1)} km away) is on the way. Service Start OTP is ${startOtp}.`,
         data: {
@@ -516,7 +517,7 @@ const acceptDispatchRequest = async (req, res) => {
           startOtp,
           status: 'ACCEPTED',
         },
-      });
+      }).catch(() => {});
     }
 
     return res.json({

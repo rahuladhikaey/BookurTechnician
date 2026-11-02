@@ -74,14 +74,26 @@ const createOrder = async (req, res) => {
           console.log(`💳 [Razorpay] Created live order ${razorpayOrderId} for Booking #${bookingId} (₹${payableAmount})`);
         }
       } catch (rzpErr) {
-        console.warn('⚠️ [Razorpay API Call Warning]:', rzpErr.response?.data?.error?.description || rzpErr.message);
+        console.error('❌ [Razorpay API Call Error]:', rzpErr.response?.data?.error?.description || rzpErr.message);
+        if (process.env.NODE_ENV === 'production') {
+          return res.status(502).json({
+            success: false,
+            error: 'Failed to initiate secure order with Razorpay payment gateway',
+            details: rzpErr.response?.data?.error?.description || rzpErr.message
+          });
+        }
       }
     }
 
-    // Safe fallback if Razorpay gateway is in sandbox test mode or offline
     if (!razorpayOrderId) {
-      razorpayOrderId = `order_rzp_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
-      console.log(`ℹ️ [Razorpay] Generated development test order ID: ${razorpayOrderId}`);
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({
+          success: false,
+          error: 'Razorpay gateway unavailable or credentials missing. Cannot generate production order.'
+        });
+      }
+      razorpayOrderId = `order_dev_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+      console.log(`ℹ️ [Razorpay DEV] Sandbox order fallback: ${razorpayOrderId}`);
     }
 
     // 3. Persist order ID on booking record
@@ -133,32 +145,40 @@ const verifySignature = async (req, res) => {
       return res.status(400).json({ success: false, error: 'razorpayPaymentId is required for verification' });
     }
 
-    let isSignatureValid = false;
-
-    // Cryptographic validation if orderId and signature are present
-    if (razorpayOrderId && razorpaySignature && RAZORPAY_KEY_SECRET) {
-      try {
-        const body = `${razorpayOrderId}|${razorpayPaymentId}`;
-        const expectedSignature = crypto
-          .createHmac('sha256', RAZORPAY_KEY_SECRET)
-          .update(body)
-          .digest('hex');
-
-        if (expectedSignature === razorpaySignature) {
-          isSignatureValid = true;
-          console.log(`✅ [Razorpay HMAC] Signature verified for Payment #${razorpayPaymentId}`);
-        } else {
-          console.warn(`⚠️ [Razorpay HMAC] Signature mismatch. Expected: ${expectedSignature}, Received: ${razorpaySignature}`);
-        }
-      } catch (cryptoErr) {
-        console.warn('⚠️ [Razorpay HMAC] Signature verification calculation error:', cryptoErr.message);
-      }
+    // Strict Cryptographic HMAC SHA-256 validation (No bypasses)
+    if (!razorpayOrderId || !razorpaySignature) {
+      return res.status(400).json({
+        success: false,
+        error: 'Both razorpayOrderId and razorpaySignature are strictly required for payment verification',
+      });
     }
 
-    // In development mode or test transactions, allow graceful confirmation
-    if (!isSignatureValid && (process.env.NODE_ENV !== 'production' || razorpayPaymentId.startsWith('pay_test_') || razorpayPaymentId.startsWith('pay_'))) {
-      isSignatureValid = true;
-      console.log(`ℹ️ [Razorpay] Confirmed payment in test/sandbox mode: ${razorpayPaymentId}`);
+    if (!RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({
+        success: false,
+        error: 'Razorpay secret key is not configured on server',
+      });
+    }
+
+    let isSignatureValid = false;
+    try {
+      const body = `${razorpayOrderId}|${razorpayPaymentId}`;
+      const expectedSignature = crypto
+        .createHmac('sha256', RAZORPAY_KEY_SECRET)
+        .update(body)
+        .digest('hex');
+
+      const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+      const receivedBuf = Buffer.from(razorpaySignature, 'utf8');
+
+      if (expectedBuf.length === receivedBuf.length && crypto.timingSafeEqual(expectedBuf, receivedBuf)) {
+        isSignatureValid = true;
+        console.log(`✅ [Razorpay HMAC] Cryptographic signature verified for Payment #${razorpayPaymentId}`);
+      } else {
+        console.warn(`⚠️ [Razorpay HMAC] Signature mismatch. Payment #${razorpayPaymentId} rejected.`);
+      }
+    } catch (cryptoErr) {
+      console.warn('⚠️ [Razorpay HMAC] Signature verification calculation error:', cryptoErr.message);
     }
 
     if (!isSignatureValid) {
@@ -187,9 +207,11 @@ const verifySignature = async (req, res) => {
       try {
         await postgres.query(
           `UPDATE bookings 
-           SET updated_at = NOW() 
-           WHERE id = $1 OR booking_code = $1`,
-          [bookingId]
+           SET updated_at = NOW(),
+               razorpay_payment_id = $1,
+               razorpay_order_id = $2
+           WHERE id = $3 OR booking_code = $3`,
+          [razorpayPaymentId, razorpayOrderId, bookingId]
         );
 
         // Record in payments audit table
@@ -210,7 +232,7 @@ const verifySignature = async (req, res) => {
       }
     }
 
-    // 5. Emit real-time payment confirmation via Socket.io
+    // 5. Emit real-time payment confirmation scoped strictly to customer and booking rooms
     if (global.io) {
       const payload = {
         bookingId,
@@ -222,17 +244,24 @@ const verifySignature = async (req, res) => {
       if (booking?.customerId) {
         global.io.to(`cust_${booking.customerId}`).emit('booking:payment_success', payload);
       }
-      global.io.emit('booking:paid', payload);
-      global.io.emit('job:payment_received', payload);
+      global.io.to(`booking_${bookingId}`).emit('booking:paid', payload);
     }
 
-    // 6. Send FCM Notification to customer
-    if (booking?.customerId) {
-      firebase.sendPushNotification(`cust_fcm_${booking.customerId}`, {
-        title: '💳 Payment Received!',
-        body: `Payment of ₹${booking.totalAmount || booking.grandTotal || 299} confirmed. We are assigning your expert technician.`,
-        data: { bookingId, paymentId: razorpayPaymentId, status: 'PAID' },
-      }).catch(() => {});
+    // 6. Send FCM Notification to customer using real token lookup
+    if (booking?.customerId && postgres.isPgHealthy()) {
+      try {
+        const uRes = await postgres.query('SELECT fcm_token, device_tokens FROM users WHERE id = $1', [booking.customerId]);
+        if (uRes.rows.length > 0) {
+          const userToken = uRes.rows[0].fcm_token;
+          if (userToken && !userToken.startsWith('cust_fcm_')) {
+            firebase.sendPushNotification(userToken, {
+              title: '💳 Payment Received!',
+              body: `Payment of ₹${booking.totalAmount || booking.grandTotal || 299} confirmed. We are assigning your expert technician.`,
+              data: { bookingId, paymentId: razorpayPaymentId, status: 'PAID' },
+            }).catch(() => {});
+          }
+        }
+      } catch (_) {}
     }
 
     return res.json({
@@ -251,27 +280,54 @@ const verifySignature = async (req, res) => {
   }
 };
 
+const processedWebhookEvents = new Set();
+
 /**
  * POST /api/v1/payments/webhook
- * Handles asynchronous server-to-server Razorpay webhooks
+ * Handles asynchronous server-to-server Razorpay webhooks with raw body HMAC & idempotency
  */
 const handleWebhook = async (req, res) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
     const event = req.body;
 
-    if (RAZORPAY_WEBHOOK_SECRET && signature) {
+    if (!signature) {
+      return res.status(400).json({ status: 'missing_signature', error: 'x-razorpay-signature header required' });
+    }
+
+    if (RAZORPAY_WEBHOOK_SECRET) {
       try {
+        // Authoritative raw request body capture for cryptographic HMAC
+        const rawBody = req.rawBody ? req.rawBody : Buffer.from(JSON.stringify(req.body));
         const expectedSignature = crypto
           .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
-          .update(JSON.stringify(req.body))
+          .update(rawBody)
           .digest('hex');
 
-        if (expectedSignature !== signature) {
-          console.warn('⚠️ [Razorpay Webhook] Invalid webhook signature');
-          return res.status(400).json({ status: 'invalid_signature' });
+        const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+        const receivedBuf = Buffer.from(signature, 'utf8');
+
+        if (expectedBuf.length !== receivedBuf.length || !crypto.timingSafeEqual(expectedBuf, receivedBuf)) {
+          console.warn('⚠️ [Razorpay Webhook] Invalid webhook cryptographic signature');
+          return res.status(400).json({ status: 'invalid_signature', error: 'Cryptographic HMAC mismatch' });
         }
-      } catch (_) {}
+      } catch (sigErr) {
+        console.warn('⚠️ [Razorpay Webhook] Signature check error:', sigErr.message);
+        return res.status(400).json({ status: 'signature_verification_failed' });
+      }
+    }
+
+    const eventId = event.id || (event.payload?.payment?.entity?.id ? `${event.event}_${event.payload.payment.entity.id}` : null);
+    if (eventId) {
+      if (processedWebhookEvents.has(eventId)) {
+        console.log(`ℹ️ [Razorpay Webhook] Idempotency: Webhook ${eventId} already processed.`);
+        return res.json({ status: 'already_processed', eventId });
+      }
+      processedWebhookEvents.add(eventId);
+      if (processedWebhookEvents.size > 5000) {
+        const [oldest] = processedWebhookEvents;
+        processedWebhookEvents.delete(oldest);
+      }
     }
 
     const eventType = event.event;
@@ -300,8 +356,27 @@ const handleWebhook = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/v1/payments/payout-webhook
+ * Reconciles technician payouts from RazorpayX webhook
+ */
+const handlePayoutWebhook = async (req, res) => {
+  try {
+    const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body));
+    const signature = req.headers['x-razorpay-signature'];
+
+    const payoutService = require('../services/payoutService');
+    const result = await payoutService.handlePayoutWebhook(rawBody, signature);
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('❌ Payout Webhook Error:', err.message);
+    return res.status(400).json({ success: false, error: err.message });
+  }
+};
+
 module.exports = {
   createOrder,
   verifySignature,
   handleWebhook,
+  handlePayoutWebhook,
 };

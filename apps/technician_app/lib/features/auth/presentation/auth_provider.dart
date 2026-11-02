@@ -196,9 +196,10 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     // Direct EmailJS fallback guarantee
     try {
       debugPrint('📧 [AuthNotifier] Backend unreachable. Triggering direct EmailJS OTP email delivery...');
+      final generatedOtp = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
       await EmailService.sendOtpEmail(
         email: normalizedEmail,
-        otp: '123456',
+        otp: generatedOtp,
         role: 'Technician',
         name: candidateName,
       );
@@ -351,32 +352,6 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
           }
         }
       }
-    }
-
-    // Default test code / offline verification fallback
-    if (targetOtp == '123456' || targetOtp.length == 6) {
-      const fallbackToken = 'offline_session_token_technician_2026';
-      await _secureStorage.saveToken(fallbackToken);
-      await _secureStorage.saveUserId(targetEmail);
-      await _secureStorage.saveUserDetails(
-        name: targetName,
-        age: targetAge?.toString(),
-        phone: targetPhone,
-        email: targetEmail,
-      );
-
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        phone: targetPhone,
-        email: targetEmail,
-        fullName: targetName,
-        age: targetAge,
-        token: fallbackToken,
-        latitude: currentLat,
-        longitude: currentLng,
-      );
-
-      return const ApiSuccess(fallbackToken);
     }
 
     final errorMsg = lastErrorMsg ?? 'Verification failed. Please check the 6-digit OTP code entered.';

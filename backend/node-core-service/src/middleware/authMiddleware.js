@@ -51,72 +51,70 @@ async function resolveUserFromToken(token, req) {
     }
   } catch (_) {}
 
-  // 3. Fallback decoding for development sessions
-  try {
-    const decoded = jwt.decode(token);
-    if (decoded && (decoded.id || decoded.sub)) return decoded;
-  } catch (_) {}
+  // 3. Reject unverified tokens and header-based identity forging in production
+  if (process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_HEADERS === 'true') {
+    const techIdHeader = req.headers['x-technician-id'] || req.headers['x-user-id'];
+    if (techIdHeader) {
+      return { id: techIdHeader, role: req.headers['x-user-role'] || 'TECHNICIAN' };
+    }
+  }
 
-  // 4. Check if offline/fallback token with custom header fallback
-  const techIdHeader = req.headers['x-technician-id'] || req.headers['x-user-id'];
-  if (techIdHeader) {
-    return { id: techIdHeader, role: req.headers['x-user-role'] || 'TECHNICIAN' };
-  }
-  if (token.includes('technician') || token.startsWith('offline_session_')) {
-    return { id: techIdHeader || 'tech-partner-default', role: 'TECHNICIAN' };
-  }
   return null;
 }
 
 /**
  * Authenticate JWT or Firebase ID token from Authorization header (Bearer <token>)
+ * Zero-trust: Identity MUST originate from verified cryptographic signature
  */
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  const techIdHeader = req.headers['x-technician-id'] || req.headers['x-user-id'];
 
-  if (!token && !techIdHeader) {
-    return res.status(401).json({ success: false, error: 'Access token required' });
+  if (!token) {
+    return res.status(401).json({ success: false, error: 'Unauthorized: Bearer authentication token required' });
   }
 
   const user = await resolveUserFromToken(token, req);
-  if (user && user.error === 'ACCOUNT_SUSPENDED') {
+  if (!user) {
+    return res.status(403).json({ success: false, error: 'Forbidden: Invalid, tampered, or expired access token' });
+  }
+
+  if (user.error === 'ACCOUNT_SUSPENDED') {
     return res.status(403).json({ success: false, error: 'Account has been suspended by administration.' });
   }
 
-  if (!user && !techIdHeader) {
-    return res.status(403).json({ success: false, error: 'Invalid or expired token' });
-  }
-
-  req.user = user || { id: techIdHeader, role: req.headers['x-user-role'] || 'TECHNICIAN' };
+  req.user = user;
   next();
 };
 
 /**
- * Optional Auth - extracts user if token or header present, doesn't reject if missing
+ * Optional Auth - extracts user if verified token present, does NOT allow unverified header forging
  */
 const optionalAuth = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  const techIdHeader = req.headers['x-technician-id'] || req.headers['x-user-id'];
 
   if (token) {
     const user = await resolveUserFromToken(token, req);
-    if (user && !user.error) req.user = user;
-  } else if (techIdHeader) {
-    req.user = { id: techIdHeader, role: req.headers['x-user-role'] || 'TECHNICIAN' };
+    if (user && !user.error) {
+      req.user = user;
+    }
   }
   next();
 };
 
 /**
  * Role-Based Access Control (RBAC) Guard
- * @param  {...string} roles Allowed roles
+ * @param  {...string} roles Allowed roles (case-insensitive)
  */
 const requireRole = (...roles) => {
+  const normalizedRoles = roles.map(r => r.toUpperCase());
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user || !req.user.role) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
+    }
+    const userRole = String(req.user.role).toUpperCase();
+    if (!normalizedRoles.includes(userRole) && userRole !== 'ADMIN') {
       return res.status(403).json({
         success: false,
         error: `Forbidden: Requires one of [${roles.join(', ')}] permissions`,
@@ -126,5 +124,24 @@ const requireRole = (...roles) => {
   };
 };
 
-module.exports = { authenticateToken, optionalAuth, requireRole };
+/**
+ * Strict Admin-Only Guard
+ */
+const requireAdminRole = (req, res, next) => {
+  if (!req.user || String(req.user.role).toUpperCase() !== 'ADMIN') {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: Administrative authorization required',
+    });
+  }
+  next();
+};
+
+module.exports = {
+  authenticateToken,
+  optionalAuth,
+  requireRole,
+  requireAdminRole,
+  JWT_SECRET,
+};
 

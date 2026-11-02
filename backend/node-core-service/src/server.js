@@ -53,7 +53,17 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+app.use(express.urlencoded({
+  extended: true,
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 // Serve Static Admin Web Panel if built
 const potentialPaths = [
@@ -206,17 +216,9 @@ io.on('connection', (socket) => {
         timestamp: Date.now(),
       };
 
-      // Broadcast location to customers tracking this technician
-      io.emit(`tech:location:${techId}`, locationPayload);
-      io.emit('technician:location:broadcast', locationPayload);
-      io.emit('job:partner_location', locationPayload);
-      io.emit('telemetry', locationPayload);
-      io.emit('availability:updated', {
-        technicianId: techId,
-        latitude: parsedLat,
-        longitude: parsedLng,
-        timestamp: Date.now(),
-      });
+      // GPS PRIVACY: Scoped exclusively to active booking room, authorized customer, technician, and admin
+      io.to(`tech_${techId}`).emit('technician:location:self', locationPayload);
+      io.to('admin_dispatch').emit('technician:location:admin', locationPayload);
 
       if (activeBookingId) {
         io.to(`booking_${activeBookingId}`).emit('job:partner_location', locationPayload);
