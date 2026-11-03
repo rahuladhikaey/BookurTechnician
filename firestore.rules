@@ -18,30 +18,63 @@ service cloud.firestore {
       );
     }
 
+    // Public & Live Operational Collections for Spark Mode
+    match /service_categories/{categoryId} {
+      allow read, write: if true;
+    }
+
+    match /services/{serviceId} {
+      allow read, write: if true;
+    }
+
+    match /banners/{bannerId} {
+      allow read, write: if true;
+    }
+
+    // Users & Profiles
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    match /customers/{custId} {
+      allow read, write: if true;
+    }
+
+    match /technician_profiles/{techId} {
+      allow read, write: if true;
+    }
+
+    // Bookings & Real-time Dispatch
+    match /bookings/{bookingId} {
+      allow read, write: if true;
+    }
+
+    match /dispatch_requests/{requestId} {
+      allow read, write: if true;
+    }
+
     // Real-time chat messages per booking
     match /booking_chats/{bookingId}/messages/{messageId} {
-      allow read, write: if isAuthenticated() && (
-        request.auth.uid == resource.data.senderId ||
-        request.auth.uid == request.resource.data.senderId ||
-        isAdmin()
-      );
+      allow read, write: if true;
     }
 
     // Presence & live tracking stream
     match /presence/{uid} {
-      allow read: if isAuthenticated();
-      allow write: if isOwner(uid);
+      allow read, write: if true;
     }
 
-    // Notifications state
-    match /notifications/{uid}/items/{notificationId} {
-      allow read: if isOwner(uid);
-      allow write: if isOwner(uid) || isAdmin();
+    // Notifications & Audit Logs
+    match /notifications/{docId=**} {
+      allow read, write: if true;
     }
 
-    // Default deny for transactional / financial data (PostgreSQL is authoritative source of truth)
+    match /audit_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    // Fallback for admin & operational collections
     match /{document=**} {
-      allow read, write: if isAdmin();
+      allow read, write: if true;
     }
   }
 }

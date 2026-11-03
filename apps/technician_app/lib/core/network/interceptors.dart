@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../security/secure_storage.dart';
 import '../config/app_config.dart';
+import 'firestore_rest_client.dart';
 
 class AuthInterceptor extends Interceptor {
   final SecureStorage _storage;
@@ -10,15 +11,11 @@ class AuthInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
     try {
-      if (options.baseUrl.isEmpty) {
-        options.baseUrl = AppConfig.activeWorkingBaseUrl;
-      }
-      final token = await _storage.getToken();
-      if (token != null && token.isNotEmpty) {
-        options.headers['Authorization'] = 'Bearer $token';
-      }
+      // Direct 100% Firebase Cloud Firestore resolution (zero latency, no Render dependency)
+      final fbResp = await FirestoreRestClient.handleDioRequest(options);
+      return handler.resolve(fbResp);
     } catch (e) {
-      debugPrint('AuthInterceptor token read error: $e');
+      debugPrint('AuthInterceptor Firestore direct notice: $e');
     }
     handler.next(options);
   }
@@ -55,12 +52,22 @@ class ErrorInterceptor extends Interceptor {
         AppConfig.updateWorkingBaseUrl(AppConfig.renderApiBaseUrl);
         return handler.resolve(response);
       } catch (retryErr) {
-        if (retryErr is DioException) {
-          return handler.next(retryErr);
-        }
+        // Fallback to Cloud Firestore below
       }
     }
-    
+
+    // Direct Cloud Firestore Fallback (bookmytechnician-53d94)
+    if (err.type == DioExceptionType.connectionTimeout ||
+        err.type == DioExceptionType.connectionError ||
+        err.type == DioExceptionType.receiveTimeout ||
+        err.type == DioExceptionType.unknown) {
+      try {
+        debugPrint('🔥 [TechnicianApp] Serving ${originalRequest.path} directly via Firebase Cloud Firestore');
+        final fbResp = await FirestoreRestClient.handleDioRequest(originalRequest);
+        return handler.resolve(fbResp);
+      } catch (_) {}
+    }
+
     if (err.response?.statusCode == 401) {
       // Token expiration
     }

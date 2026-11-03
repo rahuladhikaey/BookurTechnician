@@ -4,12 +4,46 @@
 // ============================================================================
 
 const { v4: uuidv4 } = require('uuid');
+const firestoreSync = require('./firestoreSync');
 
-// In-Memory live bookings list (synchronized with PostgreSQL when available)
+// In-Memory live bookings list (synchronized with PostgreSQL & Cloud Firestore)
 let LIVE_BOOKINGS = [];
 
 // In-Memory live customer registry
 let LIVE_CUSTOMERS = new Map();
+
+// Hydrate Bookings & Customers from Cloud Firestore on boot
+async function hydrateFromFirestore() {
+  try {
+    const [remoteBookings, remoteCustomers] = await Promise.all([
+      firestoreSync.listDocuments('bookings', 300),
+      firestoreSync.listDocuments('customers', 300),
+    ]);
+
+    if (Array.isArray(remoteBookings) && remoteBookings.length > 0) {
+      remoteBookings.forEach(rb => {
+        if (rb && (rb.id || rb.bookingCode)) {
+          const idx = LIVE_BOOKINGS.findIndex(b => b.id === rb.id || b.bookingCode === rb.bookingCode);
+          if (idx === -1) {
+            LIVE_BOOKINGS.push(rb);
+          }
+        }
+      });
+      console.log(`🔥 [Firestore Hydration] Restored ${remoteBookings.length} live bookings from Cloud Firestore`);
+    }
+
+    if (Array.isArray(remoteCustomers) && remoteCustomers.length > 0) {
+      remoteCustomers.forEach(rc => {
+        if (rc && (rc.id || rc.customerId)) {
+          LIVE_CUSTOMERS.set(rc.id || rc.customerId, rc);
+        }
+      });
+      console.log(`🔥 [Firestore Hydration] Restored ${remoteCustomers.length} customers from Cloud Firestore`);
+    }
+  } catch (err) {
+    console.warn('⚠️ [Firestore Hydration] Notice:', err.message);
+  }
+}
 
 /**
  * Get all real bookings (sorted newest first)
@@ -99,7 +133,7 @@ function addBooking(raw) {
   }
 
   // Register in LIVE_CUSTOMERS
-  LIVE_CUSTOMERS.set(custId, {
+  const custObj = {
     id: custId,
     customerId: custId,
     fullName: custName,
@@ -110,7 +144,12 @@ function addBooking(raw) {
     totalBookings: (LIVE_CUSTOMERS.get(custId)?.totalBookings || 0) + 1,
     totalSpent: (LIVE_CUSTOMERS.get(custId)?.totalSpent || 0) + grandTotal,
     lastBookingAt: new Date().toISOString(),
-  });
+  };
+  LIVE_CUSTOMERS.set(custId, custObj);
+
+  // Sync to Cloud Firestore asynchronously
+  firestoreSync.upsertDocument('bookings', newBooking.id, newBooking).catch(() => {});
+  firestoreSync.upsertDocument('customers', custId, custObj).catch(() => {});
 
   return newBooking;
 }
@@ -128,6 +167,8 @@ function updateBookingStatus(idOrCode, newStatus, extra = {}) {
     ...extra,
     updatedAt: new Date().toISOString(),
   };
+
+  firestoreSync.upsertDocument('bookings', LIVE_BOOKINGS[index].id, LIVE_BOOKINGS[index]).catch(() => {});
 
   return LIVE_BOOKINGS[index];
 }
@@ -151,6 +192,8 @@ function assignTechnician(idOrCode, techId, techName, techPhone = '', techCatego
     status: 'TECHNICIAN_ASSIGNED',
     updatedAt: new Date().toISOString(),
   };
+
+  firestoreSync.upsertDocument('bookings', LIVE_BOOKINGS[index].id, LIVE_BOOKINGS[index]).catch(() => {});
 
   return LIVE_BOOKINGS[index];
 }
@@ -268,6 +311,8 @@ function cancelBooking(idOrCode, reason = 'Cancelled by Customer/Admin') {
     updatedAt: new Date().toISOString(),
   };
 
+  firestoreSync.upsertDocument('bookings', LIVE_BOOKINGS[index].id, LIVE_BOOKINGS[index]).catch(() => {});
+
   return LIVE_BOOKINGS[index];
 }
 
@@ -311,8 +356,14 @@ function getDashboardStats() {
  * Delete a booking permanently
  */
 function deleteBooking(idOrCode) {
+  const target = LIVE_BOOKINGS.find(b => b.id === idOrCode || b.bookingCode === idOrCode);
   const initialLen = LIVE_BOOKINGS.length;
   LIVE_BOOKINGS = LIVE_BOOKINGS.filter(b => b.id !== idOrCode && b.bookingCode !== idOrCode);
+  if (target) {
+    firestoreSync.removeDocument('bookings', target.id).catch(() => {});
+  } else {
+    firestoreSync.removeDocument('bookings', idOrCode).catch(() => {});
+  }
   return LIVE_BOOKINGS.length < initialLen;
 }
 
@@ -360,6 +411,7 @@ function registerCustomer(data) {
   };
 
   LIVE_CUSTOMERS.set(custId, updated);
+  firestoreSync.upsertDocument('customers', custId, updated).catch(() => {});
   return updated;
 }
 
@@ -367,6 +419,7 @@ function registerCustomer(data) {
  * Delete a customer permanently
  */
 function deleteCustomer(custId) {
+  firestoreSync.removeDocument('customers', custId).catch(() => {});
   return LIVE_CUSTOMERS.delete(custId);
 }
 
@@ -406,5 +459,6 @@ module.exports = {
   updateTechnicianLocation,
   getBookingLiveTracking,
   findActiveBookingForTechnician,
+  hydrateFromFirestore,
 };
 

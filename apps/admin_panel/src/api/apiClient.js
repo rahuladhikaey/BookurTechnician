@@ -3,14 +3,11 @@
 // Multi-Host Auto-Failover, Preflight/CORS Resilience, and Self-Healing Network
 // ============================================================================
 
+import { handleFirestoreFallback } from './firestoreAdapter';
+
 const API_CANDIDATE_HOSTS = [
   import.meta.env?.VITE_API_BASE_URL,
-  import.meta.env?.VITE_API_URL,
-  'https://api.bookurtechnician.online/api/v1',
-  'https://bookurtechnician-backend.onrender.com/api/v1',
-  'https://bookurtechnician.onrender.com/api/v1',
-  'http://localhost:4000/api/v1',
-  '/api/v1'
+  import.meta.env?.VITE_API_URL
 ].filter(Boolean);
 
 class ApiClient {
@@ -27,8 +24,8 @@ class ApiClient {
         baseList.unshift(savedBaseUrl);
       }
     }
-    this.candidateUrls = baseList;
-    this.baseUrl = this.candidateUrls[0] || 'https://api.bookurtechnician.online/api/v1';
+    this.candidateUrls = baseList.filter(u => u && !u.includes('onrender.com') && !u.includes('api.bookurtechnician.online'));
+    this.baseUrl = this.candidateUrls[0] || '';
     this.onUnauthorizedCallback = null;
   }
 
@@ -71,15 +68,10 @@ class ApiClient {
     const isFullUrl = endpoint.startsWith('http://') || endpoint.startsWith('https://');
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-    // List of URLs to attempt in priority order
+    // List of URLs to attempt in priority order (empty when running in 100% Direct Firebase Mode)
     const urlsToTry = isFullUrl
       ? [endpoint]
-      : [
-          `${this.baseUrl}${normalizedEndpoint}`,
-          ...this.candidateUrls
-            .filter(c => `${c}${normalizedEndpoint}` !== `${this.baseUrl}${normalizedEndpoint}`)
-            .map(c => `${c}${normalizedEndpoint}`)
-        ];
+      : this.candidateUrls.map(c => `${c}${normalizedEndpoint}`);
 
     const headers = this.getHeaders(options.headers || {});
     const config = {
@@ -170,6 +162,18 @@ class ApiClient {
         lastError = err;
         console.warn(`[ApiClient] Attempt on ${targetUrl} failed: ${err.message}. Trying next candidate...`);
       }
+    }
+
+    // Automatic Direct Cloud Firestore Fallback (100% Serverless Firebase Mode)
+    try {
+      let parsedBody = options.body;
+      if (typeof parsedBody === 'string') {
+        try { parsedBody = JSON.parse(parsedBody); } catch (_) {}
+      }
+      console.log(`🔥 [Firebase Direct] Serving ${normalizedEndpoint} via Cloud Firestore (bookmytechnician-53d94)`);
+      return await handleFirestoreFallback(normalizedEndpoint, options.method || 'GET', parsedBody);
+    } catch (fbErr) {
+      console.warn('[Firebase Direct] Fallback error:', fbErr);
     }
 
     throw lastError || new Error('Could not connect to backend servers. Please check your connection.');

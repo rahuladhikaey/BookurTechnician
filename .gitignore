@@ -58,3 +58,4 @@ implementation_plan
 __pycache__/
 *.py[cod]
 *$py.class
+.firebase/

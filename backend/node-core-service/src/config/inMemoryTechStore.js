@@ -3,12 +3,34 @@
 // Stores live authenticated technician profiles, uploaded documents, and declared skills.
 // ============================================================================
 
+const firestoreSync = require('./firestoreSync');
+
 const inMemorySkills = new Map();
 const inMemoryDocs = new Map();
 const inMemoryTechProfiles = new Map();
 
 /**
- * Register or update a real technician partner in-memory
+ * Hydrate Technicians from Cloud Firestore on server startup
+ */
+async function hydrateTechniciansFromFirestore() {
+  try {
+    const remoteTechs = await firestoreSync.listDocuments('technician_profiles', 300);
+    if (Array.isArray(remoteTechs) && remoteTechs.length > 0) {
+      remoteTechs.forEach(tech => {
+        const id = tech.id || tech.technicianId;
+        if (id) {
+          inMemoryTechProfiles.set(id, tech);
+        }
+      });
+      console.log(`🔥 [Firestore Hydration] Restored ${remoteTechs.length} technician profiles from Cloud Firestore`);
+    }
+  } catch (err) {
+    console.warn('⚠️ [Firestore Tech Hydration] Notice:', err.message);
+  }
+}
+
+/**
+ * Register or update a real technician partner in-memory & Cloud Firestore
  */
 function setTechnicianProfile(id, profileData) {
   const existing = inMemoryTechProfiles.get(id) || {};
@@ -20,6 +42,7 @@ function setTechnicianProfile(id, profileData) {
     updatedAt: new Date().toISOString(),
   };
   inMemoryTechProfiles.set(merged.id, merged);
+  firestoreSync.upsertDocument('technician_profiles', merged.id, merged).catch(() => {});
   return merged;
 }
 
@@ -30,6 +53,7 @@ function deleteTechnicianProfile(id) {
   inMemoryTechProfiles.delete(id);
   inMemoryDocs.delete(id);
   inMemorySkills.delete(id);
+  firestoreSync.removeDocument('technician_profiles', id).catch(() => {});
   return true;
 }
 
@@ -50,4 +74,5 @@ module.exports = {
   setTechnicianProfile,
   deleteTechnicianProfile,
   clearAllTechniciansStore,
+  hydrateTechniciansFromFirestore,
 };

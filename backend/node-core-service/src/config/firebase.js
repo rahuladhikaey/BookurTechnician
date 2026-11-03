@@ -23,21 +23,50 @@ const initFirebase = () => {
       }
     }
 
+    const projectId = process.env.FIREBASE_PROJECT_ID || (serviceAccount && serviceAccount.project_id) || 'bookmytechnician-53d94';
+    const storageBucket = process.env.FIREBASE_STORAGE_BUCKET || `${projectId}.firebasestorage.app`;
+
     if (serviceAccount) {
       if (admin.apps.length === 0) {
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
-          projectId: process.env.FIREBASE_PROJECT_ID || serviceAccount.project_id || 'bookmytechnician-53d94',
+          projectId,
+          storageBucket,
         });
       }
       isFirebaseInitialized = true;
-      console.log(`✅ [Firebase FCM] Initialized with Service Account Credentials (${serviceAccount.project_id})`);
+      console.log(`✅ [Firebase] Initialized with Service Account Credentials (${projectId})`);
       return;
     }
+
+    // Option 3: Application Default Credentials / Project ID initialization
+    if (admin.apps.length === 0) {
+      admin.initializeApp({
+        projectId,
+        storageBucket,
+      });
+    }
+    isFirebaseInitialized = true;
+    console.log(`✅ [Firebase] Initialized with Project ID (${projectId})`);
+    return;
   } catch (err) {
     console.warn('⚠️ [Firebase FCM] Failed to load credentials, falling back to simulator:', err.message);
   }
   console.log('ℹ️ [Firebase FCM] Running in Simulated Push Mode ($0 MVP Mode - Live alerts log to console & WebSockets)');
+};
+
+/**
+ * Get Cloud Firestore Database Instance
+ */
+const getFirestoreDb = () => {
+  if (isFirebaseInitialized || admin.apps.length > 0) {
+    try {
+      return admin.firestore();
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
 };
 
 /**
@@ -196,5 +225,6 @@ module.exports = {
   sendHighPriorityTechnicianAlert,
   sendMulticastPushNotification,
   getStorageBucket,
+  getFirestoreDb,
   admin,
 };

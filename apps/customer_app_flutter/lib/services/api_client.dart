@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
+import 'firestore_rest_client.dart';
 
 class ApiClient {
   static String? _cachedWorkingBaseUrl;
@@ -19,25 +20,7 @@ class ApiClient {
   /// Active API Base URL derived from cached working base URL or AppConfig
   static String get activeBaseUrl => _cachedWorkingBaseUrl ?? AppConfig.apiBaseUrl;
 
-  static List<String> get _candidateBaseUrls {
-    final list = <String>[];
-    if (_cachedWorkingBaseUrl != null && _cachedWorkingBaseUrl!.isNotEmpty) {
-      list.add(_cachedWorkingBaseUrl!);
-    }
-    for (final url in [
-      AppConfig.apiBaseUrl,
-      AppConfig.renderApiBaseUrl,
-      AppConfig.renderFallbackApiUrl,
-      AppConfig.prodApiBaseUrl,
-      AppConfig.localApiBaseUrl,
-      'http://localhost:4000/api/v1',
-    ]) {
-      if (!list.contains(url)) {
-        list.add(url);
-      }
-    }
-    return list;
-  }
+  static List<String> get _candidateBaseUrls => const [];
 
   static void _updateWorkingBaseUrl(String url) {
     if (_cachedWorkingBaseUrl != url) {
@@ -158,8 +141,8 @@ class ApiClient {
       }
     }
 
-    if (lastException != null) throw lastException;
-    return http.Response('{"status":"error","message":"Server unreachable"}', 503);
+    debugPrint('🔥 [ApiClient] Serving GET $endpoint directly via Firebase Cloud Firestore');
+    return FirestoreRestClient.handleRequest('GET', endpoint);
   }
 
   static Future<http.Response> post(String endpoint, Map<String, dynamic> body) async {
@@ -196,8 +179,8 @@ class ApiClient {
       }
     }
 
-    if (lastException != null) throw lastException;
-    return http.Response('{"status":"error","message":"Server unreachable"}', 503);
+    debugPrint('🔥 [ApiClient] Serving POST $endpoint directly via Firebase Cloud Firestore');
+    return FirestoreRestClient.handleRequest('POST', endpoint, body);
   }
 
   static Future<http.Response> put(String endpoint, Map<String, dynamic> body) async {
@@ -234,8 +217,8 @@ class ApiClient {
       }
     }
 
-    if (lastException != null) throw lastException;
-    return http.Response('{"status":"error","message":"Server unreachable"}', 503);
+    debugPrint('🔥 [ApiClient] Serving PUT $endpoint directly via Firebase Cloud Firestore');
+    return FirestoreRestClient.handleRequest('PUT', endpoint, body);
   }
 
   static Future<http.Response> patch(String endpoint, Map<String, dynamic> body) async {
@@ -272,8 +255,8 @@ class ApiClient {
       }
     }
 
-    if (lastException != null) throw lastException;
-    return http.Response('{"status":"error","message":"Server unreachable"}', 503);
+    debugPrint('🔥 [ApiClient] Serving PATCH $endpoint directly via Firebase Cloud Firestore');
+    return FirestoreRestClient.handleRequest('PATCH', endpoint, body);
   }
 
   static Future<http.Response> delete(String endpoint) async {
@@ -308,8 +291,8 @@ class ApiClient {
       }
     }
 
-    if (lastException != null) throw lastException;
-    return http.Response('{"status":"error","message":"Server unreachable"}', 503);
+    debugPrint('🔥 [ApiClient] Serving DELETE $endpoint directly via Firebase Cloud Firestore');
+    return FirestoreRestClient.handleRequest('DELETE', endpoint);
   }
 
   static Future<bool> _attemptRefreshToken() async {

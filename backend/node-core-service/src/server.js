@@ -13,6 +13,9 @@ const { initPostgres, isPgHealthy } = require('./config/postgres');
 const { initRedis, isRedisHealthy, geoAdd } = require('./config/redis');
 const { initFirebase } = require('./config/firebase');
 const { initKafka } = require('./config/kafka');
+const firestoreSync = require('./config/firestoreSync');
+const bookingsStore = require('./config/bookingsStore');
+const { hydrateTechniciansFromFirestore } = require('./config/inMemoryTechStore');
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
@@ -276,6 +279,13 @@ const startServer = async () => {
   initRedis();
   initFirebase();
   await initKafka();
+
+  // Hydrate & Synchronize with Cloud Firestore (bookmytechnician-53d94)
+  Promise.allSettled([
+    bookingsStore.hydrateFromFirestore(),
+    hydrateTechniciansFromFirestore(),
+    firestoreSync.syncCatalogToFirestore(),
+  ]).catch(() => {});
 
   server.listen(PORT, () => {
     console.log(`=======================================================`);
