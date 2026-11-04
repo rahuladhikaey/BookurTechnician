@@ -385,7 +385,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
       bottomNavigationBar: _buildBottomBookingSection(context, ref, service, inCart),
       body: ListView(
         children: [
-          // 1. Dynamic Service Header Image
+          // 1. Dynamic Service Header Image with Premium Branded Fallback
           Image.network(
             service.imageUrl,
             height: 240,
@@ -393,9 +393,56 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => Container(
               height: 240,
-              color: Colors.grey.shade100,
-              alignment: Alignment.center,
-              child: const Icon(Icons.broken_image, size: 48, color: kTextGray),
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF1E3A8A), Color(0xFF0F172A)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      service.name.toLowerCase().contains('ac') ? Icons.ac_unit_rounded : Icons.home_repair_service_rounded,
+                      size: 44,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    service.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF059669).withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF34D399), width: 1),
+                    ),
+                    child: const Text(
+                      'Verified Home Service • 30-Day Warranty',
+                      style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           

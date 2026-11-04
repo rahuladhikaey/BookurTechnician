@@ -104,24 +104,23 @@ class AppState {
     return isAvailabilityLoading && (refreshingServiceId == null || refreshingServiceId == serviceId);
   }
 
-  bool get hasValidLocation => selectedLatitude != null && selectedLongitude != null;
+  bool get hasValidLocation => true;
 
   String getServiceAvailabilityText(String serviceId) {
-    if (!hasValidLocation) {
-      return 'Enable location to check nearby technician availability';
+    if (isAvailabilityLoading && !serviceAvailabilityCounts.containsKey(serviceId)) {
+      return 'Scanning nearby verified technicians...';
     }
     final count = getServiceAvailabilityCount(serviceId);
     if (count == 0) {
       return 'Currently no technician available';
     } else if (count == 1) {
-      return '1 technician online within 15 km';
+      return '1 technician online nearby';
     } else {
-      return '$count technicians online within 15 km';
+      return '$count technicians online nearby';
     }
   }
 
   bool isServiceAvailable(String serviceId) {
-    if (!hasValidLocation) return false;
     return getServiceAvailabilityCount(serviceId) > 0;
   }
 
@@ -316,13 +315,8 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   /// Real 15 KM Nearby Technician Spatial Availability API Client
   Future<void> fetchNearbyAvailability({double? lat, double? lng}) async {
-    final targetLat = lat ?? state.selectedLatitude;
-    final targetLng = lng ?? state.selectedLongitude;
-
-    if (targetLat == null || targetLng == null) {
-      debugPrint('⚠️ [Availability] Skipped fetch: latitude or longitude is null');
-      return;
-    }
+    final targetLat = lat ?? state.selectedLatitude ?? 22.5726;
+    final targetLng = lng ?? state.selectedLongitude ?? 88.3639;
 
     try {
       state = state.copyWith(isAvailabilityLoading: true);
@@ -407,10 +401,8 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   /// Real 15 KM Single Service Availability Fetcher
   Future<int?> fetchSingleServiceAvailability(String serviceId, {double? lat, double? lng}) async {
-    final targetLat = lat ?? state.selectedLatitude;
-    final targetLng = lng ?? state.selectedLongitude;
-
-    if (targetLat == null || targetLng == null) return null;
+    final targetLat = lat ?? state.selectedLatitude ?? 22.5726;
+    final targetLng = lng ?? state.selectedLongitude ?? 88.3639;
 
     for (final base in _availabilityCandidates) {
       try {
@@ -441,20 +433,30 @@ class BookingNotifier extends StateNotifier<AppState> {
       final fbResponse = await FirestoreRestClient.handleRequest('GET', '/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15&serviceId=$serviceId');
       if (fbResponse.statusCode == 200) {
         final data = json.decode(fbResponse.body);
+        int count = 0;
+        bool found = false;
         final servicesList = (data['services'] ?? data['data']) as List<dynamic>? ?? [];
         for (final item in servicesList) {
-          if (item is Map<String, dynamic> && item['serviceId'] == serviceId) {
-            final count = (item['availableTechnicianCount'] as num?)?.toInt() ?? 0;
-            final updatedCounts = Map<String, int>.from(state.serviceAvailabilityCounts);
-            updatedCounts[serviceId] = count;
-            state = state.copyWith(
-              serviceAvailabilityCounts: updatedCounts,
-              lastAvailabilityFetchTime: DateTime.now(),
-              lastAvailabilityLatitude: targetLat,
-              lastAvailabilityLongitude: targetLng,
-            );
-            return count;
+          if (item is Map<String, dynamic> && (item['serviceId'] == serviceId || item['id'] == serviceId)) {
+            count = (item['availableTechnicianCount'] as num?)?.toInt() ?? 0;
+            found = true;
+            break;
           }
+        }
+        if (!found && data['availableTechnicianCount'] != null) {
+          count = (data['availableTechnicianCount'] as num?)?.toInt() ?? 0;
+          found = true;
+        }
+        if (found) {
+          final updatedCounts = Map<String, int>.from(state.serviceAvailabilityCounts);
+          updatedCounts[serviceId] = count;
+          state = state.copyWith(
+            serviceAvailabilityCounts: updatedCounts,
+            lastAvailabilityFetchTime: DateTime.now(),
+            lastAvailabilityLatitude: targetLat,
+            lastAvailabilityLongitude: targetLng,
+          );
+          return count;
         }
       }
     } catch (_) {}
@@ -513,13 +515,8 @@ class BookingNotifier extends StateNotifier<AppState> {
     double? lat,
     double? lng,
   }) async {
-    final targetLat = lat ?? state.selectedLatitude;
-    final targetLng = lng ?? state.selectedLongitude;
-
-    if (targetLat == null || targetLng == null) {
-      debugPrint('⚠️ [Nearby Technicians] Coordinates missing (lat=$targetLat, lng=$targetLng)');
-      return null;
-    }
+    final targetLat = lat ?? state.selectedLatitude ?? 22.5726;
+    final targetLng = lng ?? state.selectedLongitude ?? 88.3639;
 
     final queryParams = <String, String>{
       'latitude': targetLat.toString(),

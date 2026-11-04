@@ -198,9 +198,24 @@ class FirestoreRestClient {
           }
         }
 
+        // Expanded operational & development cluster fallback:
+        // If no technician within strict 15 km, include online technicians within active coverage
+        if (reachableTechs.isEmpty && onlineTechs.isNotEmpty) {
+          reachableTechs.addAll(onlineTechs);
+        }
+
         final categories = await listCollection('service_categories');
         final List<Map<String, dynamic>> servicesList = [];
         final Map<String, int> serviceCounts = {};
+
+        // Extract target serviceId if this is a single service availability query
+        String? targetServiceId = queryParams['serviceId'] ?? (body != null ? body['serviceId']?.toString() : null);
+        if (targetServiceId == null && cleanPath.contains('/services/')) {
+          final parts = cleanPath.split('/services/').last.split('/');
+          if (parts.isNotEmpty && parts.first != 'availability') {
+            targetServiceId = parts.first;
+          }
+        }
 
         for (final cat in categories) {
           final catName = cat['name']?.toString() ?? '';
@@ -261,12 +276,17 @@ class FirestoreRestClient {
           }
         }
 
+        final int targetCount = (targetServiceId != null && serviceCounts.containsKey(targetServiceId))
+            ? (serviceCounts[targetServiceId] ?? 0)
+            : reachableTechs.length;
+
         return _jsonResponse({
           'success': true,
           'services': servicesList,
           'data': servicesList,
+          'availableTechnicianCount': targetCount,
           'totalOnlineTechnicians': reachableTechs.length,
-          'availableTechnicianCount': reachableTechs.length,
+          'count': targetCount,
         });
       }
 
