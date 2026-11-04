@@ -797,6 +797,34 @@ const verifyStartOtp = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Booking not found for Start OTP verification.' });
     }
 
+    // Enforce Technician Ownership: another technician cannot start someone else's assignment
+    const assignedTechId = booking.technicianId || booking.technician_id;
+    const callerRole = String(req.user?.role || '').toUpperCase();
+    if (assignedTechId && req.user?.id && callerRole === 'TECHNICIAN' && String(req.user.id) !== String(assignedTechId)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: You are not the assigned technician for this booking.',
+      });
+    }
+
+    // Enforce State Machine: cannot start work if already completed, cancelled, or still searching
+    const validPreStartStates = [
+      'ARRIVED',
+      'TECHNICIAN_ARRIVED',
+      'ASSIGNED',
+      'TECHNICIAN_ASSIGNED',
+      'TECHNICIAN_ON_THE_WAY',
+      'ACCEPTED',
+      'CONFIRMED',
+      'DISPATCHED',
+    ];
+    if (booking.status && !validPreStartStates.includes(String(booking.status).toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot verify Start OTP when booking is in state ${booking.status}. Technician must arrive first.`,
+      });
+    }
+
     // Cryptographic & Strict OTP Validation (Zero master codes / fail closed)
     const expectedOtp = (booking.startOtp || booking.start_otp || booking.startServiceOtp || '').toString().trim();
 
@@ -1007,6 +1035,25 @@ const verifyEndOtp = async (req, res) => {
 
     if (!booking) return res.status(404).json({ success: false, error: 'Booking not found' });
 
+    // Enforce Technician Ownership: another technician cannot complete someone else's assignment
+    const assignedTechId = booking.technicianId || booking.technician_id;
+    const callerRole = String(req.user?.role || '').toUpperCase();
+    if (assignedTechId && req.user?.id && callerRole === 'TECHNICIAN' && String(req.user.id) !== String(assignedTechId)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: You are not the assigned technician for this booking.',
+      });
+    }
+
+    // Enforce State Machine: booking must be IN_PROGRESS / SERVICE_STARTED before End OTP completion
+    const validPreCompleteStates = ['IN_PROGRESS', 'SERVICE_STARTED', 'SERVICE_IN_PROGRESS', 'STARTED'];
+    if (booking.status && !validPreCompleteStates.includes(String(booking.status).toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot complete booking from state ${booking.status}. Start OTP must be verified first.`,
+      });
+    }
+
     const expectedOtp = (booking.endOtp || booking.end_otp || '').toString().trim();
     if (!expectedOtp || enteredOtp !== expectedOtp) {
       return res.status(400).json({
@@ -1015,20 +1062,33 @@ const verifyEndOtp = async (req, res) => {
       });
     }
 
-    // Proof-of-Work Verification: Mandatory Before/After photos before job completion
-    if (postgres.isPgHealthy()) {
+    // Proof-of-Work Verification: Mandatory after-service photo proof in all environments (cannot be bypassed)
+    let hasAfterProof =
+      (Array.isArray(booking.after_service_photos) && booking.after_service_photos.length > 0) ||
+      (Array.isArray(booking.serviceProofs) && booking.serviceProofs.some(p => String(p.type || '').toUpperCase() === 'AFTER'));
+
+    if (!hasAfterProof && postgres.isPgHealthy()) {
       const proofRes = await postgres.query(`
         SELECT type FROM booking_proof_of_work WHERE booking_id = $1 OR booking_id = $2;
-      `, [bookingId, booking.id || bookingId]);
-      const proofTypes = proofRes.rows.map(r => r.type.toUpperCase());
-      const hasAfterProof = proofTypes.includes('AFTER') || (Array.isArray(booking.after_service_photos) && booking.after_service_photos.length > 0);
+      `, [bookingId, booking.id || bookingId]).catch(() => ({ rows: [] }));
+      const proofTypes = (proofRes.rows || []).map(r => String(r.type || '').toUpperCase());
+      if (proofTypes.includes('AFTER')) hasAfterProof = true;
 
-      if (!hasAfterProof && process.env.NODE_ENV === 'production') {
-        return res.status(400).json({
-          success: false,
-          error: 'Mandatory proof requirement: Technician must upload after-service photo proof before completing job.',
-        });
+      if (!hasAfterProof) {
+        const spRes = await postgres.query(`
+          SELECT proof_type FROM service_proofs WHERE booking_id = $1 OR booking_id = $2;
+        `, [bookingId, booking.id || bookingId]).catch(() => ({ rows: [] }));
+        if ((spRes.rows || []).some(r => String(r.proof_type || '').toUpperCase() === 'AFTER')) {
+          hasAfterProof = true;
+        }
       }
+    }
+
+    if (!hasAfterProof) {
+      return res.status(400).json({
+        success: false,
+        error: 'Mandatory proof requirement: Technician must upload after-service photo proof before completing job.',
+      });
     }
 
     booking.status = 'COMPLETED';

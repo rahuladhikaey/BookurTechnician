@@ -2081,9 +2081,17 @@ const uploadJobProofOfWork = async (req, res) => {
       timestamp: new Date().toISOString(),
     };
 
-    // Update in-memory booking store
+    // Update in-memory booking store & verify technician ownership
     const memBooking = bookingsStore.getBookingById(bookingId);
     if (memBooking) {
+      const assignedTechId = memBooking.technicianId || memBooking.technician_id;
+      const callerRole = String(req.user?.role || '').toUpperCase();
+      if (assignedTechId && req.user?.id && callerRole === 'TECHNICIAN' && String(req.user.id) !== String(assignedTechId)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Forbidden: You cannot upload proof for another technician assignment.',
+        });
+      }
       if (!Array.isArray(memBooking.serviceProofs)) memBooking.serviceProofs = [];
       memBooking.serviceProofs.push(proofRecord);
       if (normalizedType === 'BEFORE') {

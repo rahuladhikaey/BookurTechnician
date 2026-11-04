@@ -942,15 +942,15 @@ _CategoryMeta _getCategoryMeta(String id, String name) {
   if (lower.contains('wash') || lower.contains('laundry')) {
     return const _CategoryMeta(
       icon: Icons.local_laundry_service_rounded,
-      bgColor: Color(0xFFF3E8FF),
-      iconColor: Color(0xFF9333EA),
+      bgColor: Color(0xFFEDF3FF),
+      iconColor: Color(0xFF173B8F),
     );
   }
   if (lower.contains('laptop') || lower.contains('computer') || lower.contains('pc')) {
     return const _CategoryMeta(
       icon: Icons.laptop_chromebook_rounded,
-      bgColor: Color(0xFFE0E7FF),
-      iconColor: Color(0xFF4F46E5),
+      bgColor: Color(0xFFEDF3FF),
+      iconColor: Color(0xFF102A63),
     );
   }
   if (lower.contains('cctv') || lower.contains('camera') || lower.contains('security')) {

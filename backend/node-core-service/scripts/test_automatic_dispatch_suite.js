@@ -807,6 +807,33 @@ async function runSuite() {
       { headers: { Authorization: `Bearer ${assignedTechToken}` } }
     );
 
+    // Security check: Attempting to complete job BEFORE uploading service proof must fail with 400
+    const raceBookingMid = bookingsStore.getBookingById('BK-RACE-13');
+    let bypassProofStatus = null;
+    try {
+      await axios.post(
+        `${BASE_URL}/bookings/BK-RACE-13/verify-end-otp`,
+        { endOtp: raceBookingMid.endOtp },
+        { headers: { Authorization: `Bearer ${assignedTechToken}` } }
+      );
+    } catch (err) {
+      bypassProofStatus = err.response?.status;
+    }
+    assert.strictEqual(bypassProofStatus, 400, 'Completion without after-service proof must be blocked with 400');
+
+    // Security check: Unassigned technician attempting to upload proof to BK-RACE-13 must fail with 403
+    let wrongTechProofStatus = null;
+    try {
+      await axios.post(
+        `${BASE_URL}/bookings/BK-RACE-13/proof`,
+        { type: 'AFTER', mediaUrl: 'https://storage.googleapis.com/bookmytechnician-53d94.appspot.com/proofs/unauth.jpg' },
+        { headers: { Authorization: `Bearer ${tech1Token}` } }
+      );
+    } catch (err) {
+      wrongTechProofStatus = err.response?.status;
+    }
+    assert.strictEqual(wrongTechProofStatus, 403, 'Unassigned technician proof upload must be blocked with 403');
+
     const proofUploadRes = await axios.post(
       `${BASE_URL}/bookings/BK-RACE-13/proof`,
       {
