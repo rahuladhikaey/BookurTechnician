@@ -68,67 +68,75 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
         _errorMsg = null;
       });
 
-      if (_latitude == null || _longitude == null) {
-        await _requestInitialLocation();
-      }
-
-      final isLogin = _selectedMode == 0;
-      final email = isLogin 
-          ? _loginEmailController.text.trim() 
-          : _regEmailController.text.trim();
-      final phone = isLogin 
-          ? null 
-          : _regPhoneController.text.trim();
-      final name = isLogin 
-          ? null 
-          : _regNameController.text.trim();
-      final age = isLogin 
-          ? null 
-          : int.tryParse(_regAgeController.text.trim());
-
-      final res = await ref.read(authProvider.notifier).requestOtp(
-        phone,
-        email: email,
-        fullName: name,
-        age: age,
-      );
-      
-      if (res is ApiSuccess<bool>) {
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => OtpPage(
-                phoneNumber: phone ?? '',
-                emailAddress: email,
-                fullName: name,
-                age: age,
-                latitude: _latitude,
-                longitude: _longitude,
-              ),
-            ),
-          );
+      try {
+        if (_latitude == null || _longitude == null) {
+          await _requestInitialLocation().timeout(const Duration(seconds: 2), onTimeout: () {});
         }
-      } else if (res is ApiFailure<bool>) {
-        if (mounted) {
-          if (!isLogin && (res.message.toLowerCase().contains('already exists') || res.message.toLowerCase().contains('log in'))) {
-            setState(() {
-              _selectedMode = 0; // Auto-switch to "Existing Partner Log In"
-              _loginEmailController.text = email;
-              _errorMsg = '⚠️ ${res.message}';
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('⚠️ ${res.message}'),
-                backgroundColor: const Color(0xFFD97706),
-                duration: const Duration(seconds: 4),
+
+        final isLogin = _selectedMode == 0;
+        final email = isLogin 
+            ? _loginEmailController.text.trim() 
+            : _regEmailController.text.trim();
+        final phone = isLogin 
+            ? null 
+            : _regPhoneController.text.trim();
+        final name = isLogin 
+            ? null 
+            : _regNameController.text.trim();
+        final age = isLogin 
+            ? null 
+            : int.tryParse(_regAgeController.text.trim());
+
+        final res = await ref.read(authProvider.notifier).requestOtp(
+          phone,
+          email: email,
+          fullName: name,
+          age: age,
+        );
+        
+        if (res is ApiSuccess<bool>) {
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => OtpPage(
+                  phoneNumber: phone ?? '',
+                  emailAddress: email,
+                  fullName: name,
+                  age: age,
+                  latitude: _latitude,
+                  longitude: _longitude,
+                ),
               ),
             );
-          } else {
-            setState(() {
-              _errorMsg = res.message;
-            });
           }
+        } else if (res is ApiFailure<bool>) {
+          if (mounted) {
+            if (!isLogin && (res.message.toLowerCase().contains('already exists') || res.message.toLowerCase().contains('log in'))) {
+              setState(() {
+                _selectedMode = 0; // Auto-switch to "Existing Partner Log In"
+                _loginEmailController.text = email;
+                _errorMsg = '⚠️ ${res.message}';
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('⚠️ ${res.message}'),
+                  backgroundColor: const Color(0xFFD97706),
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            } else {
+              setState(() {
+                _errorMsg = res.message;
+              });
+            }
+          }
+        }
+      } catch (err) {
+        if (mounted) {
+          setState(() {
+            _errorMsg = 'Connection issue: $err';
+          });
         }
       }
     }
