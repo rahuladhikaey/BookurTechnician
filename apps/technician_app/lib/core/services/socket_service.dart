@@ -120,6 +120,11 @@ class TechnicianSocketService {
       });
 
       // ─── 1. REAL-TIME AUDIBLE DISPATCH RINGING & ASSIGNMENT EVENTS ──────────
+      _socket!.on('dispatch:offer:new', (data) {
+        debugPrint('🚨 [TechnicianSocket] Sequential Dispatch Offer New: $data');
+        _handleIncomingJobAlert(data is Map ? Map<String, dynamic>.from(data) : {});
+      });
+
       _socket!.on('booking:dispatch_ringing', (data) {
         debugPrint('🚨 [TechnicianSocket] Incoming Dispatch Ringing: $data');
         _handleIncomingJobAlert(data is Map ? Map<String, dynamic>.from(data) : {});
@@ -161,7 +166,21 @@ class TechnicianSocketService {
         _handleNewServiceAnnouncement(data is Map ? Map<String, dynamic>.from(data) : {});
       });
 
-      // ─── 3. BOOKING CANCELLED / TAKEN BY ANOTHER TECH ──────────────────────
+      // ─── 3. BOOKING CANCELLED / TAKEN BY ANOTHER TECH / EXPIRED ────────────
+      _socket!.on('dispatch:offer:expired', (data) {
+        final targetId = data is Map ? (data['offerId'] ?? data['bookingId'] ?? data['id'])?.toString() ?? '' : '';
+        BookingRequestManager().handleProposalExpiredOrClaimed(targetId);
+      });
+
+      _socket!.on('dispatch:offer:cancelled', (data) {
+        final targetId = data is Map ? (data['offerId'] ?? data['bookingId'] ?? data['id'])?.toString() ?? '' : '';
+        BookingRequestManager().handleProposalExpiredOrClaimed(targetId);
+      });
+
+      _socket!.on('dispatch:offer:accepted', (_) {
+        AudioAlertService().stopAlert();
+      });
+
       _socket!.on('booking:cancelled', (data) {
         final bookingId = data is Map ? (data['bookingId'] ?? data['id'])?.toString() ?? '' : '';
         BookingRequestManager().handleProposalExpiredOrClaimed(bookingId);

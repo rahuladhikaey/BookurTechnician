@@ -46,24 +46,26 @@ class JobProposalData {
   });
 
   factory JobProposalData.fromMap(Map<String, dynamic> data) {
-    final rawPayout = data['payout'] ?? data['estimatedEarning'] ?? data['amount'] ?? '350';
+    final rawPayout = data['expectedEarning'] ?? data['payout'] ?? data['estimatedEarning'] ?? data['amount'] ?? '350';
     final rawTotal = data['totalAmount'] ?? data['price'] ?? '499';
-    final srvType = data['serviceType'] ?? data['serviceName'] ?? data['category'] ?? 'Service Request';
+    final srvType = data['serviceName'] ?? data['serviceType'] ?? data['category'] ?? 'Service Request';
+    final approxArea = data['approximateCustomerArea'] ?? data['approximateArea'] ?? data['customerAddress'] ?? data['address'] ?? 'Nearby Service Area';
 
     return JobProposalData(
-      proposalId: data['proposalId']?.toString() ??
+      proposalId: data['offerId']?.toString() ??
+          data['proposalId']?.toString() ??
           data['dispatchRequestId']?.toString() ??
           data['id']?.toString() ??
-          'prop-${DateTime.now().millisecondsSinceEpoch}',
+          'offer-${DateTime.now().millisecondsSinceEpoch}',
       bookingId: data['bookingId']?.toString() ?? data['id']?.toString() ?? '',
       serviceType: srvType.toString(),
       serviceName: (data['serviceName'] ?? srvType).toString(),
-      customerName: (data['customerName'] ?? data['customer'] ?? 'Customer').toString(),
-      customerAddress: (data['customerAddress'] ?? data['address'] ?? 'Nearby Customer Address').toString(),
+      customerName: (data['customerName'] ?? data['customer'] ?? 'Verified Customer').toString(),
+      customerAddress: approxArea.toString(),
       distanceKm: (data['distanceKm'] ?? '1.8').toString(),
       payout: rawPayout.toString(),
       totalAmount: rawTotal.toString(),
-      timeoutSeconds: int.tryParse(data['timeoutSeconds']?.toString() ?? '30') ?? 30,
+      timeoutSeconds: int.tryParse(data['timeoutSeconds']?.toString() ?? '20') ?? 20,
       expiresAt: data['expiresAt']?.toString(),
       createdAt: data['createdAt']?.toString(),
     );
@@ -213,9 +215,13 @@ class BookingRequestManager {
 
       Response response;
       try {
-        response = await dio.get('${AppConfig.apiBaseUrl}/dispatch/proposals/pending');
+        response = await dio.get('${AppConfig.apiBaseUrl}/technician/offers');
       } catch (_) {
-        response = await dio.get('${AppConfig.apiBaseUrl}/technician/dispatch/pending');
+        try {
+          response = await dio.get('${AppConfig.apiBaseUrl}/dispatch/proposals/pending');
+        } catch (_) {
+          response = await dio.get('${AppConfig.apiBaseUrl}/technician/dispatch/pending');
+        }
       }
 
       if (response.statusCode == 200 && response.data != null) {

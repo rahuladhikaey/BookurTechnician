@@ -8,14 +8,15 @@ class AppTheme {
       useMaterial3: true,
       fontFamily: 'Inter',
       primaryColor: AppColors.primary,
-      scaffoldBackgroundColor: AppColors.background,
+      scaffoldBackgroundColor: AppColors.surface,
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
-        secondary: AppColors.primaryDark,
+        secondary: AppColors.accentYellow,
+        tertiary: AppColors.primaryDark,
         surface: AppColors.card,
         surfaceContainerLowest: AppColors.background,
         onPrimary: Colors.white,
-        onSecondary: Colors.white,
+        onSecondary: AppColors.primaryDark,
         onSurface: AppColors.textPrimary,
         outline: AppColors.border,
         error: AppColors.error,
@@ -29,16 +30,17 @@ class AppTheme {
         ),
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: TextStyle(
-          color: AppColors.textPrimary,
+          color: Colors.white,
           fontWeight: FontWeight.w800,
           fontSize: 17,
         ),
-        iconTheme: IconThemeData(color: AppColors.primary),
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -70,4 +72,3 @@ class AppTheme {
 
   static ThemeData get darkTheme => lightTheme;
 }
-

@@ -205,25 +205,8 @@ export default function App() {
         </div>
 
         <div className="sidebar-nav">
-          <div className="nav-section-title">⚡ OPERATIONS CONTROL TOWER</div>
+          <div className="nav-section-title">⚡ OPERATIONS &amp; DISPATCH</div>
 
-          <div className={`nav-item ${activeTab === 'live_radar' ? 'active' : ''}`} onClick={() => selectView('live_radar')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">📡</span>
-              <span>Live Dispatch Radar</span>
-            </div>
-            <span className="nav-badge nav-badge-pulse">LIVE</span>
-          </div>
-
-          <div className={`nav-item ${activeTab === 'settlements' ? 'active' : ''}`} onClick={() => selectView('settlements')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">💰</span>
-              <span>Wallet Settlements</span>
-            </div>
-          </div>
-
-          <div className="nav-section-title">CORE OPERATIONS</div>
-          
           <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => selectView('dashboard')}>
             <div className="nav-item-content">
               <span className="nav-icon">🏠</span>
@@ -231,10 +214,18 @@ export default function App() {
             </div>
           </div>
 
-          <div className={`nav-item ${activeTab === 'bookings' ? 'active' : ''}`} onClick={() => selectView('bookings')}>
+          <div className={`nav-item ${activeTab === 'live_radar' ? 'active' : ''}`} onClick={() => selectView('live_radar')}>
+            <div className="nav-item-content">
+              <span className="nav-icon">📡</span>
+              <span>Live Dispatch</span>
+            </div>
+            <span className="nav-badge nav-badge-pulse">LIVE</span>
+          </div>
+
+          <div className={`nav-item ${activeTab === 'bookings' ? 'active' : ''}`} onClick={() => selectView('bookings', 'all')}>
             <div className="nav-item-content">
               <span className="nav-icon">📋</span>
-              <span>Bookings</span>
+              <span>All Bookings</span>
             </div>
             <span className="nav-badge nav-badge-royal">{stats?.totalBookings !== undefined && stats?.totalBookings !== null ? stats.totalBookings : bookings.length}</span>
           </div>
@@ -247,7 +238,7 @@ export default function App() {
             <span className="nav-badge nav-badge-royal">{stats?.totalCustomers !== undefined && stats?.totalCustomers !== null ? stats.totalCustomers : customers.length}</span>
           </div>
 
-          <div className={`nav-item ${activeTab === 'technicians' || activeTab === 'id_card' ? 'active' : ''}`} onClick={() => selectView('technicians')}>
+          <div className={`nav-item ${activeTab === 'technicians' && activeSubTab !== 'verification' ? 'active' : ''}`} onClick={() => selectView('technicians', 'directory')}>
             <div className="nav-item-content">
               <span className="nav-icon">👨‍🔧</span>
               <span>Technicians</span>
@@ -255,12 +246,27 @@ export default function App() {
             <span className="nav-badge nav-badge-royal">{stats?.totalTechnicians !== undefined && stats?.totalTechnicians !== null ? stats.totalTechnicians : technicians.length}</span>
           </div>
 
-          <div className="nav-section-title">CATALOG & GROWTH</div>
+          <div className={`nav-item ${activeTab === 'technicians' && activeSubTab === 'verification' ? 'active' : ''}`} onClick={() => selectView('technicians', 'verification')}>
+            <div className="nav-item-content">
+              <span className="nav-icon">🪪</span>
+              <span>Technician Verification</span>
+            </div>
+          </div>
 
-          <div className={`nav-item ${activeTab === 'services' ? 'active' : ''}`} onClick={() => selectView('services')}>
+          <div className="nav-section-title">CATALOG &amp; COVERAGE</div>
+
+          <div className={`nav-item ${activeTab === 'services' && activeSubTab === 'categories' ? 'active' : ''}`} onClick={() => selectView('services', 'categories')}>
+            <div className="nav-item-content">
+              <span className="nav-icon">🗂️</span>
+              <span>Service Categories</span>
+            </div>
+            <span className="nav-badge nav-badge-royal">{categories.length}</span>
+          </div>
+
+          <div className={`nav-item ${activeTab === 'services' && activeSubTab !== 'categories' ? 'active' : ''}`} onClick={() => selectView('services', 'services')}>
             <div className="nav-item-content">
               <span className="nav-icon">🛠️</span>
-              <span>Services</span>
+              <span>Service Management</span>
             </div>
             <span className="nav-badge nav-badge-royal">{services.length}</span>
           </div>
@@ -268,20 +274,27 @@ export default function App() {
           <div className={`nav-item ${activeTab === 'pricing' ? 'active' : ''}`} onClick={() => selectView('pricing')}>
             <div className="nav-item-content">
               <span className="nav-icon">🏷️</span>
-              <span>Pricing & Rates</span>
+              <span>Pricing &amp; Addons</span>
             </div>
           </div>
 
-          <div className={`nav-item ${activeTab === 'banners' ? 'active' : ''}`} onClick={() => selectView('banners')}>
+          <div className={`nav-item ${activeTab === 'availability' ? 'active' : ''}`} onClick={() => selectView('availability')}>
             <div className="nav-item-content">
-              <span className="nav-icon">🖼️</span>
-              <span>Banners</span>
+              <span className="nav-icon">🗓️</span>
+              <span>Availability Management</span>
             </div>
           </div>
 
-          <div className="nav-section-title">FINANCE & AUDIT</div>
+          <div className={`nav-item ${activeTab === 'service_areas' ? 'active' : ''}`} onClick={() => selectView('service_areas')}>
+            <div className="nav-item-content">
+              <span className="nav-icon">📍</span>
+              <span>Service Areas</span>
+            </div>
+          </div>
 
-          <div className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => selectView('payments')}>
+          <div className="nav-section-title">FINANCE &amp; SETTLEMENT</div>
+
+          <div className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => selectView('payments', 'transactions')}>
             <div className="nav-item-content">
               <span className="nav-icon">💳</span>
               <span>Payments</span>
@@ -295,7 +308,21 @@ export default function App() {
             </div>
           </div>
 
-          <div className="nav-section-title">SUPPORT & SYSTEM</div>
+          <div className={`nav-item ${activeTab === 'settlements' && activeSubTab !== 'withdrawals' ? 'active' : ''}`} onClick={() => selectView('settlements', 'earnings')}>
+            <div className="nav-item-content">
+              <span className="nav-icon">💰</span>
+              <span>Technician Earnings</span>
+            </div>
+          </div>
+
+          <div className={`nav-item ${activeTab === 'settlements' && activeSubTab === 'withdrawals' ? 'active' : ''}`} onClick={() => selectView('settlements', 'withdrawals')}>
+            <div className="nav-item-content">
+              <span className="nav-icon">🏦</span>
+              <span>Withdrawals</span>
+            </div>
+          </div>
+
+          <div className="nav-section-title">SUPPORT, GROWTH &amp; GOVERNANCE</div>
 
           <div className={`nav-item ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => selectView('reviews')}>
             <div className="nav-item-content">
@@ -304,32 +331,46 @@ export default function App() {
             </div>
           </div>
 
-          <div className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => selectView('reports')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">📊</span>
-              <span>Reports</span>
-            </div>
-          </div>
-
           <div className={`nav-item ${activeTab === 'support' ? 'active' : ''}`} onClick={() => selectView('support')}>
             <div className="nav-item-content">
               <span className="nav-icon">🎧</span>
-              <span>Support</span>
+              <span>Support Tickets</span>
             </div>
             <span className="nav-badge nav-badge-royal">{supportTickets.length}</span>
           </div>
 
-          <div className={`nav-item ${activeTab === 'ai_assistant' ? 'active' : ''}`} onClick={() => selectView('ai_assistant')}>
+          <div className={`nav-item ${activeTab === 'banners' ? 'active' : ''}`} onClick={() => selectView('banners')}>
             <div className="nav-item-content">
-              <span className="nav-icon">🤖</span>
-              <span>AI Help Center CMS</span>
+              <span className="nav-icon">🎁</span>
+              <span>Promotions</span>
             </div>
           </div>
 
-          <div className={`nav-item ${activeTab === 'audit_logs' ? 'active' : ''}`} onClick={() => selectView('audit_logs')}>
+          <div className={`nav-item ${activeTab === 'ai_assistant' ? 'active' : ''}`} onClick={() => selectView('ai_assistant')}>
+            <div className="nav-item-content">
+              <span className="nav-icon">🔔</span>
+              <span>Notifications</span>
+            </div>
+          </div>
+
+          <div className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => selectView('reports')}>
+            <div className="nav-item-content">
+              <span className="nav-icon">📊</span>
+              <span>Reports &amp; Analytics</span>
+            </div>
+          </div>
+
+          <div className={`nav-item ${activeTab === 'audit_logs' && activeSubTab !== 'settings' ? 'active' : ''}`} onClick={() => selectView('audit_logs', 'audit')}>
             <div className="nav-item-content">
               <span className="nav-icon">📜</span>
               <span>Audit Logs</span>
+            </div>
+          </div>
+
+          <div className={`nav-item ${activeTab === 'admin_settings' ? 'active' : ''}`} onClick={() => selectView('admin_settings', 'settings')}>
+            <div className="nav-item-content">
+              <span className="nav-icon">⚙️</span>
+              <span>Admin Settings</span>
             </div>
           </div>
         </div>
@@ -572,13 +613,34 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'audit_logs' && (
+          {activeTab === 'availability' && (
+            <SchedulingManager
+              bookings={bookings}
+              technicians={technicians}
+              auditLogAction={auditLogAction}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
+            />
+          )}
+
+          {activeTab === 'service_areas' && (
+            <DispatchManager
+              bookings={bookings}
+              setBookings={setBookings}
+              technicians={technicians}
+              auditLogAction={auditLogAction}
+              onReload={loadAllAdminData}
+              isSyncing={isSyncing}
+            />
+          )}
+
+          {(activeTab === 'audit_logs' || activeTab === 'admin_settings') && (
             <SettingsManager
               settings={settings}
               setSettings={setSettings}
               auditLogs={auditLogs}
               auditLogAction={auditLogAction}
-              subTab="audit"
+              subTab={activeTab === 'admin_settings' ? 'general' : 'audit'}
               onResetDatabase={handleResetDatabase}
               onReload={loadAllAdminData}
               isSyncing={isSyncing}

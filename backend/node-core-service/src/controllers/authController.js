@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const redis = require('../config/redis');
@@ -6,7 +7,7 @@ const MongoTechnicianProfile = require('../models/MongoTechnicianProfile');
 const { sendOtpEmail, deriveNameFromEmail } = require('../services/emailService');
 const { sendOtpSms } = require('../services/smsService');
 const bookingsStore = require('../config/bookingsStore');
-const { setTechnicianProfile } = require('../config/inMemoryTechStore');
+const { inMemoryTechProfiles, setTechnicianProfile } = require('../config/inMemoryTechStore');
 
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_bookurtechnician_2026_secure';
@@ -83,42 +84,58 @@ const requestOtp = async (req, res) => {
     const candidateName = (fullName || name || '').trim();
     const resolvedName = candidateName || existingUser?.full_name || (email ? deriveNameFromEmail(email) : (phone ? `User-${phone.slice(-4)}` : 'Customer'));
 
+    // Also resolve registered email from in-memory technician/customer stores if user entered phone
+    let registeredEmailFromStore = existingUser?.email || '';
+    if (!registeredEmailFromStore && phone) {
+      const cleanP = String(phone).replace(/\D/g, '').slice(-10);
+      for (const [, t] of inMemoryTechProfiles.entries()) {
+        const tp = String(t.phone || '').replace(/\D/g, '').slice(-10);
+        if (cleanP && tp === cleanP && t.email) {
+          registeredEmailFromStore = t.email;
+          break;
+        }
+      }
+      if (!registeredEmailFromStore && typeof bookingsStore.getAllCustomers === 'function') {
+        const custs = bookingsStore.getAllCustomers() || [];
+        const matchedCust = custs.find(c => String(c.phone || '').replace(/\D/g, '').slice(-10) === cleanP && c.email);
+        if (matchedCust) registeredEmailFromStore = matchedCust.email;
+      }
+    }
+
+    const rawEmail = (email || registeredEmailFromStore || (identifier.includes('@') ? identifier : '')).trim().toLowerCase();
+    const rawPhone = (phone || existingUser?.phone || (!identifier.includes('@') ? identifier : '')).trim();
+    const strippedPhone = rawPhone.replace(/\D/g, '');
+    const local10DigitPhone = strippedPhone.length >= 10 ? strippedPhone.slice(-10) : strippedPhone;
+
     const otpPayload = { 
       otp, 
       role, 
       name: resolvedName, 
       fullName: resolvedName,
       purpose: purpose || (existingUser ? 'LOGIN' : 'REGISTER'), 
-      phone: phone ? phone.trim() : null, 
-      email: email ? email.trim().toLowerCase() : null, 
+      phone: rawPhone || null, 
+      email: rawEmail || null, 
       requestedAt: Date.now() 
     };
 
     // Cache in Redis under all possible identifier aliases for 10 minutes (600s)
-    const rawEmail = (email || (identifier.includes('@') ? identifier : '')).trim().toLowerCase();
-    const rawPhone = (phone || (!identifier.includes('@') ? identifier : '')).trim();
-    const strippedPhone = rawPhone.replace(/\D/g, '');
-    const local10DigitPhone = strippedPhone.length >= 10 ? strippedPhone.slice(-10) : strippedPhone;
-
     if (rawEmail) await redis.setWithExpiry(`otp:${rawEmail}`, otpPayload, 600);
     if (rawPhone) await redis.setWithExpiry(`otp:${rawPhone.toLowerCase()}`, otpPayload, 600);
     if (strippedPhone && strippedPhone !== rawPhone) await redis.setWithExpiry(`otp:${strippedPhone}`, otpPayload, 600);
     if (local10DigitPhone && local10DigitPhone !== strippedPhone) await redis.setWithExpiry(`otp:${local10DigitPhone}`, otpPayload, 600);
     await redis.setWithExpiry(`otp:${identifier}`, otpPayload, 600);
 
-    console.log(`🔑 [OTP Dispatch] For ${identifier} (${role}, Purpose: ${purpose || 'AUTH'}, Resend: ${!!isResend}): ${otp} [Valid 10 mins]`);
+    console.log(`🔑 [OTP Dispatch] For ${identifier} (Registered Email: ${rawEmail || 'N/A'}, Role: ${role}): ${otp} [Valid 10 mins]`);
 
-    // If identifier is an email address, dispatch transactional email via EmailJS asynchronously with short race
-    const isEmail = email || identifier.includes('@');
+    // Always dispatch transactional OTP email via EmailJS API when registered email is available
     let emailResult = { success: true };
-    if (isEmail) {
-      const emailPromise = sendOtpEmail(rawEmail || identifier, otp, role, resolvedName)
+    if (rawEmail && rawEmail.includes('@')) {
+      const emailPromise = sendOtpEmail(rawEmail, otp, role, resolvedName)
         .catch((emailErr) => {
           console.warn('⚠️ [EmailJS OTP Email Dispatch Warning]:', emailErr.message);
           return { success: false, error: emailErr.message };
         });
 
-      // Quick 800ms wait to see if it finishes instantly, otherwise continue in background
       try {
         emailResult = await Promise.race([
           emailPromise,

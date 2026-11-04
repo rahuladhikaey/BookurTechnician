@@ -1,3 +1,5 @@
+
+
 const { Pool } = require('pg');
 
 let pool = null;
@@ -413,6 +415,277 @@ const createCoreTables = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource, resource_id);
+
+      -- 9. Technician Availability & Working Hours (Section 14 & 16)
+      CREATE TABLE IF NOT EXISTS technician_availability (
+        id VARCHAR(64) PRIMARY KEY,
+        technician_id VARCHAR(64) NOT NULL,
+        day_of_week SMALLINT NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+        start_time VARCHAR(10) NOT NULL DEFAULT '08:00',
+        end_time VARCHAR(10) NOT NULL DEFAULT '21:00',
+        is_available BOOLEAN DEFAULT true,
+        unavailable_from TIMESTAMP WITH TIME ZONE,
+        unavailable_until TIMESTAMP WITH TIME ZONE,
+        max_concurrent_jobs INT DEFAULT 1,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        CONSTRAINT uq_tech_availability_day UNIQUE(technician_id, day_of_week)
+      );
+      CREATE INDEX IF NOT EXISTS idx_tech_availability_tech ON technician_availability(technician_id, day_of_week, is_available);
+
+      -- 10. Technician Service Skills Mapping (Section 3 & 16)
+      CREATE TABLE IF NOT EXISTS technician_service_skills (
+        id VARCHAR(64) PRIMARY KEY,
+        technician_id VARCHAR(64) NOT NULL,
+        service_id VARCHAR(64) NOT NULL,
+        category_id VARCHAR(64),
+        proficiency_level VARCHAR(30) DEFAULT 'EXPERT',
+        is_verified BOOLEAN DEFAULT true,
+        active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        CONSTRAINT uq_tech_service_skill UNIQUE(technician_id, service_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_tech_service_skills_lookup ON technician_service_skills(service_id, active, is_verified);
+      CREATE INDEX IF NOT EXISTS idx_tech_service_skills_tech ON technician_service_skills(technician_id, active);
+
+      -- 11. Dispatch Sessions (Booking Dispatch Lifecycle - Section 6 & 16)
+      CREATE TABLE IF NOT EXISTS dispatch_sessions (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) UNIQUE NOT NULL,
+        booking_mode VARCHAR(20) NOT NULL DEFAULT 'INSTANT',
+        status VARCHAR(40) NOT NULL DEFAULT 'SEARCHING',
+        current_radius_km DOUBLE PRECISION NOT NULL DEFAULT 3.0,
+        attempt_number INT NOT NULL DEFAULT 0,
+        max_attempts INT NOT NULL DEFAULT 12,
+        offer_timeout_seconds INT NOT NULL DEFAULT 20,
+        active_offer_id VARCHAR(64),
+        assigned_technician_id VARCHAR(64),
+        scheduled_dispatch_at TIMESTAMP WITH TIME ZONE,
+        failure_reason TEXT,
+        config_snapshot JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_dispatch_sessions_status ON dispatch_sessions(status, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_dispatch_sessions_booking ON dispatch_sessions(booking_id);
+
+      -- 12. Dispatch Offers (Sequential Technician Offers - Section 6, 7 & 16)
+      CREATE TABLE IF NOT EXISTS dispatch_offers (
+        id VARCHAR(64) PRIMARY KEY,
+        session_id VARCHAR(64) NOT NULL REFERENCES dispatch_sessions(id) ON DELETE CASCADE,
+        booking_id VARCHAR(64) NOT NULL,
+        technician_id VARCHAR(64) NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+        attempt_number INT NOT NULL DEFAULT 1,
+        radius_km DOUBLE PRECISION NOT NULL DEFAULT 3.0,
+        distance_km DOUBLE PRECISION,
+        eta_minutes INT,
+        eta_source VARCHAR(30) DEFAULT 'HAVERSINE_ESTIMATE',
+        expected_earning NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+        total_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+        service_id VARCHAR(64),
+        service_name VARCHAR(150),
+        approximate_area TEXT,
+        appointment_time VARCHAR(100),
+        ranking_score NUMERIC(6, 4) DEFAULT 0.0000,
+        ranking_reasons JSONB DEFAULT '{}'::jsonb,
+        sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        responded_at TIMESTAMP WITH TIME ZONE,
+        rejection_reason TEXT,
+        fcm_message_id VARCHAR(128),
+        fcm_delivery_status VARCHAR(50),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_dispatch_offers_tech_status ON dispatch_offers(technician_id, status, expires_at);
+      CREATE INDEX IF NOT EXISTS idx_dispatch_offers_booking_status ON dispatch_offers(booking_id, status);
+      CREATE INDEX IF NOT EXISTS idx_dispatch_offers_session ON dispatch_offers(session_id, attempt_number);
+
+      -- 13. Persistent Technician Location Updates (Section 12 & 16)
+      CREATE TABLE IF NOT EXISTS technician_location_updates (
+        id VARCHAR(64) PRIMARY KEY,
+        technician_id VARCHAR(64) NOT NULL,
+        booking_id VARCHAR(64),
+        latitude DOUBLE PRECISION NOT NULL,
+        longitude DOUBLE PRECISION NOT NULL,
+        speed DOUBLE PRECISION DEFAULT 0,
+        heading DOUBLE PRECISION DEFAULT 0,
+        recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_tech_location_updates_tech ON technician_location_updates(technician_id, recorded_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_tech_location_updates_booking ON technician_location_updates(booking_id, recorded_at DESC);
+
+      -- 14. Dispatch Audit Logs (Section 15, 16 & 21)
+      CREATE TABLE IF NOT EXISTS dispatch_audit_logs (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        session_id VARCHAR(64),
+        offer_id VARCHAR(64),
+        technician_id VARCHAR(64),
+        actor_id VARCHAR(64),
+        actor_role VARCHAR(30) DEFAULT 'SYSTEM',
+        event_type VARCHAR(60) NOT NULL,
+        details JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_dispatch_audit_booking ON dispatch_audit_logs(booking_id, created_at ASC);
+      CREATE INDEX IF NOT EXISTS idx_dispatch_audit_tech ON dispatch_audit_logs(technician_id, created_at DESC);
+
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT true;
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT false;
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS service_radius_km DOUBLE PRECISION DEFAULT 15.0;
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS acceptance_rate NUMERIC(5, 2) DEFAULT 95.00;
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS completed_offers_count INT DEFAULT 10;
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS total_offers_count INT DEFAULT 10;
+      ALTER TABLE technician_profiles ADD COLUMN IF NOT EXISTS fcm_token TEXT;
+      ALTER TABLE bookings ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(128);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_idempotency_key ON bookings(idempotency_key) WHERE idempotency_key IS NOT NULL;
+
+      -- 15. Booking Status History (Phase 3 & 15)
+      CREATE TABLE IF NOT EXISTS booking_status_history (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        previous_status VARCHAR(50),
+        new_status VARCHAR(50) NOT NULL,
+        actor_id VARCHAR(64),
+        actor_role VARCHAR(30) DEFAULT 'SYSTEM',
+        reason TEXT,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_booking_status_history_booking ON booking_status_history(booking_id, created_at ASC);
+
+      -- 16. Technician Locations (Phase 8 & 15)
+      CREATE TABLE IF NOT EXISTS technician_locations (
+        id VARCHAR(64) PRIMARY KEY,
+        technician_id VARCHAR(64) NOT NULL,
+        booking_id VARCHAR(64),
+        latitude DOUBLE PRECISION NOT NULL,
+        longitude DOUBLE PRECISION NOT NULL,
+        speed DOUBLE PRECISION DEFAULT 0,
+        heading DOUBLE PRECISION DEFAULT 0,
+        accuracy DOUBLE PRECISION DEFAULT 10,
+        recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_technician_locations_tech ON technician_locations(technician_id, recorded_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_technician_locations_booking ON technician_locations(booking_id, recorded_at DESC);
+
+      -- 17. Technician Assignments (Phase 6 & 15)
+      CREATE TABLE IF NOT EXISTS technician_assignments (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        session_id VARCHAR(64),
+        offer_id VARCHAR(64),
+        technician_id VARCHAR(64) NOT NULL,
+        assignment_type VARCHAR(30) NOT NULL DEFAULT 'AUTOMATIC_DISPATCH',
+        assigned_by VARCHAR(64) DEFAULT 'SYSTEM',
+        reason TEXT,
+        status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
+        assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        released_at TIMESTAMP WITH TIME ZONE
+      );
+      CREATE INDEX IF NOT EXISTS idx_tech_assignments_booking ON technician_assignments(booking_id, status);
+      CREATE INDEX IF NOT EXISTS idx_tech_assignments_tech ON technician_assignments(technician_id, status);
+
+      -- 18. Service Proofs (Phase 10 & 15)
+      CREATE TABLE IF NOT EXISTS service_proofs (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        technician_id VARCHAR(64) NOT NULL,
+        proof_type VARCHAR(30) NOT NULL,
+        media_url TEXT NOT NULL,
+        summary_notes TEXT,
+        gps_lat DOUBLE PRECISION,
+        gps_lng DOUBLE PRECISION,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_service_proofs_booking ON service_proofs(booking_id, proof_type);
+
+      -- 19. Payments & Webhook Events & Refunds (Phase 11 & 15)
+      CREATE TABLE IF NOT EXISTS payments (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        customer_id VARCHAR(64) NOT NULL,
+        razorpay_order_id VARCHAR(100),
+        razorpay_payment_id VARCHAR(100),
+        amount NUMERIC(10, 2) NOT NULL,
+        currency VARCHAR(10) DEFAULT 'INR',
+        method VARCHAR(40) DEFAULT 'ONLINE_RAZORPAY',
+        status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+        metadata JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);
+      CREATE INDEX IF NOT EXISTS idx_payments_rzp_order ON payments(razorpay_order_id);
+
+      CREATE TABLE IF NOT EXISTS payment_webhook_events (
+        id VARCHAR(64) PRIMARY KEY,
+        event_id VARCHAR(128) UNIQUE NOT NULL,
+        event_type VARCHAR(80) NOT NULL,
+        booking_id VARCHAR(64),
+        payment_id VARCHAR(100),
+        payload JSONB DEFAULT '{}'::jsonb,
+        processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_payment_webhooks_event ON payment_webhook_events(event_id);
+
+      CREATE TABLE IF NOT EXISTS refunds (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        payment_id VARCHAR(100),
+        customer_id VARCHAR(64),
+        amount NUMERIC(10, 2) NOT NULL,
+        cancellation_fee NUMERIC(10, 2) DEFAULT 0.00,
+        gateway_refund_id VARCHAR(100),
+        reason TEXT,
+        status VARCHAR(30) NOT NULL DEFAULT 'PROCESSED',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_refunds_booking ON refunds(booking_id);
+
+      -- 20. Technician Earnings Ledger (Phase 11 & 15)
+      CREATE TABLE IF NOT EXISTS technician_earnings_ledger (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        technician_id VARCHAR(64) NOT NULL,
+        gross_amount NUMERIC(10, 2) NOT NULL,
+        platform_fee NUMERIC(10, 2) NOT NULL,
+        net_earning NUMERIC(10, 2) NOT NULL,
+        payment_method VARCHAR(30) DEFAULT 'ONLINE',
+        status VARCHAR(30) DEFAULT 'SETTLED',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_tech_earnings_ledger_tech ON technician_earnings_ledger(technician_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_tech_earnings_ledger_booking ON technician_earnings_ledger(booking_id);
+
+      -- 21. Notifications & Booking Audit Logs (Phase 14 & 15)
+      CREATE TABLE IF NOT EXISTS notifications (
+        id VARCHAR(64) PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL,
+        role VARCHAR(30) DEFAULT 'CUSTOMER',
+        title VARCHAR(200) NOT NULL,
+        body TEXT NOT NULL,
+        type VARCHAR(60) DEFAULT 'GENERAL',
+        data JSONB DEFAULT '{}'::jsonb,
+        fcm_message_id VARCHAR(128),
+        delivery_status VARCHAR(40) DEFAULT 'SENT',
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS booking_audit_logs (
+        id VARCHAR(64) PRIMARY KEY,
+        booking_id VARCHAR(64) NOT NULL,
+        actor_id VARCHAR(64),
+        actor_role VARCHAR(30) DEFAULT 'SYSTEM',
+        event_type VARCHAR(60) NOT NULL,
+        before_state JSONB,
+        after_state JSONB,
+        details JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_booking_audit_logs_booking ON booking_audit_logs(booking_id, created_at ASC);
     `);
 
     // Auto-backfill PostGIS geography point if coordinates exist but location is null

@@ -161,6 +161,30 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       try {
         setModalState(() => isLoadingSlots = true);
         final serviceId = state.cartItems.isNotEmpty ? state.cartItems.first.id : 'srv-default';
+        final lat = state.selectedLatitude ?? 22.5726;
+        final lng = state.selectedLongitude ?? 88.3639;
+        // Phase 2 Real-Time Availability Engine: check eligible technician capacity first
+        final availResp = await ApiClient.get(
+          '/bookings/available-slots?serviceId=${Uri.encodeComponent(serviceId)}&date=${Uri.encodeComponent(day)}&latitude=$lat&longitude=$lng',
+        );
+        if (availResp.statusCode == 200) {
+          final availData = jsonDecode(availResp.body);
+          if (availData['success'] == true && availData['slots'] is List) {
+            final fetched = (availData['slots'] as List)
+                .where((s) => s['available'] != false)
+                .map((s) => (s['label'] ?? s['time'] ?? s.toString()).toString())
+                .toList();
+            if (fetched.isNotEmpty) {
+              setModalState(() {
+                dynamicSlots = fetched;
+                if (!dynamicSlots.contains(selectedSlot)) {
+                  selectedSlot = dynamicSlots.first;
+                }
+              });
+              return;
+            }
+          }
+        }
         final resp = await ApiClient.get('/catalog/services/$serviceId/slots?date=${Uri.encodeComponent(day)}');
         if (resp.statusCode == 200) {
           final data = jsonDecode(resp.body);

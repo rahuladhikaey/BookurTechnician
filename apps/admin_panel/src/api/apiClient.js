@@ -7,7 +7,10 @@ import { handleFirestoreFallback } from './firestoreAdapter';
 
 const API_CANDIDATE_HOSTS = [
   import.meta.env?.VITE_API_BASE_URL,
-  import.meta.env?.VITE_API_URL
+  import.meta.env?.VITE_API_URL,
+  typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:4000/api/v1'
+    : null,
 ].filter(Boolean);
 
 class ApiClient {
@@ -250,11 +253,18 @@ class ApiClient {
   deleteService(id) { return this.delete(`/admin/services/${id}`); }
   updatePricing(id, data) { return this.put(`/admin/pricing/${id}`, data); }
 
-  // Bookings
+  // Bookings & Dispatch Engine (Section 15 & 17)
   getBookings(params) { return this.get('/admin/bookings', params); }
   getBookingLiveTracking(id) { return this.get(`/admin/bookings/${id}/live-tracking`); }
   updateBookingStatus(id, status, extra = {}) { return this.patch(`/admin/bookings/${id}/status`, { status, ...extra }); }
-  assignBooking(id, data) { return this.post(`/admin/bookings/${id}/assign`, data); }
+  assignBooking(id, data) { return this.post(`/admin/bookings/${id}/assign`, typeof data === 'object' ? data : { technicianId: data }); }
+  manualAssignDispatch(bookingId, technicianId, reason = 'ADMIN_MANUAL_ASSIGNMENT') {
+    return this.post(`/dispatch/${bookingId}/manual-assign`, { technicianId, reason });
+  }
+  retryBookingDispatch(bookingId) { return this.post(`/dispatch/${bookingId}/retry`, {}); }
+  getLiveDispatch() { return this.get('/admin/dispatch/live'); }
+  getDispatchHistory(bookingId) { return this.get(`/admin/dispatch/${bookingId}/history`); }
+  updateDispatchConfig(config) { return this.put('/admin/dispatch/config', config); }
   cancelBooking(id, reason) { return this.post(`/admin/bookings/${id}/cancel`, { reason }); }
   deleteBooking(id) { return this.delete(`/admin/bookings/${id}`); }
   clearAllBookings() { return this.delete('/admin/bookings'); }

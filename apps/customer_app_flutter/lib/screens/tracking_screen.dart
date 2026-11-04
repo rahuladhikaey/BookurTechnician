@@ -235,34 +235,65 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
       });
 
       // 1. Partner Live Location Stream
-      _socket!.on('job:partner_location', (data) {
-        if (data != null) {
+      void handlePartnerLocation(dynamic data) {
+        if (data != null && data is Map) {
           final lat = (data['latitude'] as num?)?.toDouble();
           final lng = (data['longitude'] as num?)?.toDouble();
           final heading = (data['heading'] as num?)?.toDouble() ?? 0.0;
           final speed = (data['speed'] as num?)?.toDouble() ?? 0.0;
 
-          if (lat != null && lng != null) {
+          if (lat != null && lng != null && (lat != 0.0 || lng != 0.0)) {
             _onTechnicianLocationReceived(LatLng(lat, lng), heading, speed);
           }
         }
-      });
+      }
+
+      _socket!.on('booking:partner:location', handlePartnerLocation);
+      _socket!.on('job:partner_location', handlePartnerLocation);
 
       _socket!.on('telemetry', (data) {
-        if (data != null && data['bookingId'] == widget.bookingId) {
-          final lat = (data['latitude'] as num?)?.toDouble();
-          final lng = (data['longitude'] as num?)?.toDouble();
-          final heading = (data['heading'] as num?)?.toDouble() ?? 0.0;
-          final speed = (data['speed'] as num?)?.toDouble() ?? 0.0;
-
-          if (lat != null && lng != null) {
-            _onTechnicianLocationReceived(LatLng(lat, lng), heading, speed);
-          }
+        if (data != null && data is Map && data['bookingId'] == widget.bookingId) {
+          handlePartnerLocation(data);
         }
       });
 
-      // 2. Technician Assignment & Confirmed
-      _socket!.on('booking:technician_assigned', (data) {
+      // 1b. Dispatch Searching / Started / Failed Events (Section 11 & 18)
+      _socket!.on('booking:dispatch:started', (data) {
+        if (data != null && data is Map && mounted) {
+          setState(() {
+            _remoteBookingData = {
+              ...?_remoteBookingData,
+              ...Map<String, dynamic>.from(data),
+            };
+          });
+        }
+      });
+
+      _socket!.on('booking:dispatch:searching', (data) {
+        if (data != null && data is Map && mounted) {
+          setState(() {
+            _remoteBookingData = {
+              ...?_remoteBookingData,
+              ...Map<String, dynamic>.from(data),
+            };
+          });
+        }
+      });
+
+      _socket!.on('booking:dispatch:failed', (data) {
+        if (data != null && data is Map && mounted) {
+          setState(() {
+            _remoteBookingData = {
+              ...?_remoteBookingData,
+              ...Map<String, dynamic>.from(data),
+              'status': 'NO_TECHNICIAN_AVAILABLE',
+            };
+          });
+        }
+      });
+
+      // 2. Technician Assignment & Reassignment Confirmed
+      void handleTechnicianAssigned(dynamic data) {
         if (data != null && data is Map) {
           ref.read(bookingProvider.notifier).setBookingStatus(BookingStatus.techAssigned);
           setState(() {
@@ -300,7 +331,11 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
             }
           }
         }
-      });
+      }
+
+      _socket!.on('booking:technician:assigned', handleTechnicianAssigned);
+      _socket!.on('booking:technician:reassigned', handleTechnicianAssigned);
+      _socket!.on('booking:technician_assigned', handleTechnicianAssigned);
 
       // 3. Start OTP Sent / Resent
       _socket!.on('booking:start_otp_sent', (data) {

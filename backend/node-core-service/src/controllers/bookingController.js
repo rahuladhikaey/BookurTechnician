@@ -97,6 +97,8 @@ const scanTechniciansWithin15Km = async (customerLat, customerLng, category, ser
   }
 };
 
+const idempotencyBookingsMap = new Map(); // idempotencyKey -> bookingId
+
 /**
  * POST /api/v1/bookings
  * Create new service booking with automatic 15km technician geo-scan, Python AI ranking, and real-time dispatch
@@ -104,6 +106,25 @@ const scanTechniciansWithin15Km = async (customerLat, customerLng, category, ser
 const createBooking = async (req, res) => {
   try {
     const customerId = req.user?.id || req.body.customerId || 'cust-' + uuidv4().slice(0, 8);
+    const idempotencyKey = (req.headers['idempotency-key'] || req.body.idempotencyKey || '').toString().trim();
+
+    if (idempotencyKey && idempotencyBookingsMap.has(`${customerId}:${idempotencyKey}`)) {
+      const existingId = idempotencyBookingsMap.get(`${customerId}:${idempotencyKey}`);
+      const existingBooking = memoryBookings.get(existingId) || bookingsStore.getBookingById(existingId);
+      if (existingBooking) {
+        const automaticDispatchEngine = require('../services/automaticDispatchEngine');
+        return res.status(200).json({
+          success: true,
+          idempotentReplay: true,
+          message: 'Idempotent replay: Returning existing booking',
+          data: existingBooking,
+          booking: existingBooking,
+          dispatchSession: automaticDispatchEngine.getBookingDispatchStatus(existingId),
+          startOtp: existingBooking.startOtp,
+        });
+      }
+    }
+
     const customerName = req.body.customerName || req.body.customer || req.user?.name || req.body.name || 'Customer';
     const customerPhone = req.body.customerPhone || req.body.phone || req.user?.phone || '';
     const {
@@ -126,7 +147,7 @@ const createBooking = async (req, res) => {
     } = req.body;
 
     const finalAddress = fullAddress || address;
-    
+
     // Authoritative Backend Pricing Calculation (Zero trust in client-provided totals)
     const { getFlattenedServices } = require('../config/masterCatalog');
     const catalogServices = getFlattenedServices();
@@ -170,7 +191,7 @@ const createBooking = async (req, res) => {
 
     const bookingId = req.body.id || req.body.bookingId || uuidv4();
     const bookingCode = req.body.bookingCode || (bookingId.startsWith('BK-') ? bookingId : `BK-${Math.floor(100000 + Math.random() * 900000)}`);
-    
+
     // Generate secure 4-digit Start OTP and End OTP
     const startOtp = req.body.startOtp || req.body.otpCode || generateServiceOtp();
     const endOtp = req.body.endOtp || generateServiceOtp();
@@ -247,6 +268,9 @@ const createBooking = async (req, res) => {
       }));
     }
 
+    const customerEmail = req.body.customerEmail || req.body.email || req.user?.email || '';
+    const bookingMode = String(req.body.bookingMode || 'INSTANT').toUpperCase();
+
     const bookingRecord = {
       id: bookingId,
       bookingCode,
@@ -255,6 +279,9 @@ const createBooking = async (req, res) => {
       customer: customerName,
       customerPhone,
       phone: customerPhone,
+      customerEmail,
+      email: customerEmail,
+      bookingMode,
       technicianId: null,
       technicianName: 'Assigning Expert...',
       technician: 'Assigning Expert...',
@@ -335,148 +362,32 @@ const createBooking = async (req, res) => {
       totalAmount: finalAmount,
     });
 
-    // 4. Push FCM High-Priority Notifications to Technicians within 15km
-    for (const tech of (nearbyTechnicians || []).slice(0, 5)) {
-      try {
-        const targetTechId = tech.technicianId || tech.id;
-        await notificationService.sendToUser(targetTechId, {
-          title: `🚨 New ${serviceName} Job Nearby (${tech.distanceKm || '1.8'} km)!`,
-          body: `Customer: ${customerName} · ₹${finalAmount} · ${finalAddress}`,
-          data: {
-            type: 'NEW_JOB_ALERT',
-            bookingId,
-            bookingCode,
-            category,
-            amount: String(finalAmount),
-            customerName,
-            customerPhone,
-            customerAddress: finalAddress,
-            customerLatitude: String(custLat),
-            customerLongitude: String(custLng),
-            distanceKm: String(tech.distanceKm || '1.8'),
-            serviceType: serviceName,
-          },
-          isUrgentAlert: true,
-        });
-      } catch (e) {}
+    // 4. Send Start OTP to Customer's Registered Email via EmailJS API
+    if (customerEmail) {
+      const emailService = require('../services/emailService');
+      emailService.sendOtpEmail(customerEmail, startOtp, customerName).catch(() => { });
     }
 
-    // 5. Register Centralized Dispatch Request & Emit real-time Socket.io dispatch
-    if (global.io) {
-      const normCatKey = normalizeCategoryKey(category);
-      const { registerDispatchRequest } = require('./dispatchController');
-      
-      const primaryTech = nearbyTechnicians && nearbyTechnicians.length > 0 ? nearbyTechnicians[0] : null;
-      const remainingCandidates = nearbyTechnicians && nearbyTechnicians.length > 1 ? nearbyTechnicians.slice(1) : [];
-
-      let activeProposal = null;
-      if (primaryTech) {
-        activeProposal = await registerDispatchRequest({
-          bookingId: bookingRecord.id,
-          technicianId: primaryTech.technicianId || primaryTech.id,
-          serviceId: bookingRecord.serviceId,
-          serviceName: bookingRecord.serviceName,
-          customerName: bookingRecord.customerName,
-          customerAddress: bookingRecord.address,
-          distanceKm: primaryTech.distanceKm || 1.8,
-          estimatedPayout: (finalAmount * 0.80).toFixed(0),
-          totalAmount: finalAmount,
-          timeoutSeconds: 30,
-          candidatesQueue: remainingCandidates,
-        });
-      } else {
-        activeProposal = await registerDispatchRequest({
-          bookingId: bookingRecord.id,
-          technicianId: 'ALL',
-          serviceId: bookingRecord.serviceId,
-          serviceName: bookingRecord.serviceName,
-          customerName: bookingRecord.customerName,
-          customerAddress: bookingRecord.address,
-          distanceKm: 1.8,
-          estimatedPayout: (finalAmount * 0.80).toFixed(0),
-          totalAmount: finalAmount,
-          timeoutSeconds: 30,
-          candidatesQueue: [],
-        });
-      }
-
-      const proposalId = activeProposal?.id || `prop-${bookingId.slice(0, 8)}`;
-      const firstTechDist = primaryTech?.distanceKm || 1.8;
-
-      const dispatchRingingPayload = {
-        event: 'TECHNICIAN_BOOKING_REQUEST',
-        type: 'NEW_JOB_ALERT',
-        dispatchRequestId: proposalId,
-        proposalId,
-        bookingId: bookingRecord.id,
-        bookingCode: bookingRecord.bookingCode,
-        serviceType: bookingRecord.serviceName,
-        serviceName: bookingRecord.serviceName,
-        serviceId: bookingRecord.serviceId,
-        category: bookingRecord.category,
-        customerName: bookingRecord.customerName,
-        customerPhone: bookingRecord.customerPhone,
-        customerAddress: bookingRecord.address,
-        address: bookingRecord.address,
-        latitude: bookingRecord.latitude,
-        longitude: bookingRecord.longitude,
-        customerLatitude: bookingRecord.latitude,
-        customerLongitude: bookingRecord.longitude,
-        distanceKm: String(firstTechDist),
-        estimatedEarning: parseFloat((finalAmount * 0.80).toFixed(0)),
-        payout: (finalAmount * 0.80).toFixed(0),
-        totalAmount: finalAmount,
-        timeoutSeconds: 30,
-        createdAt: activeProposal?.createdAt || new Date().toISOString(),
-        expiresAt: activeProposal?.expiresAt || new Date(Date.now() + 30000).toISOString(),
-        startOtp: bookingRecord.startOtp,
-        scheduledTime: bookingRecord.scheduledTime,
-        playRingtone: true,
-        vibrate: true,
-      };
-
-      // Broadcast to global rooms & category rooms
-      global.io.emit('booking:broadcast', bookingRecord);
-      global.io.emit('booking:dispatch_ringing', dispatchRingingPayload);
-      global.io.emit('TECHNICIAN_BOOKING_REQUEST', dispatchRingingPayload);
-      global.io.emit('booking:new_available', bookingRecord);
-      global.io.to('global_dispatch').emit('booking:dispatch_ringing', dispatchRingingPayload);
-      global.io.to('global_dispatch').emit('TECHNICIAN_BOOKING_REQUEST', dispatchRingingPayload);
-      global.io.to(`category_${normCatKey}`).emit('booking:dispatch_ringing', dispatchRingingPayload);
-      global.io.to(`category_${normCatKey}`).emit('TECHNICIAN_BOOKING_REQUEST', dispatchRingingPayload);
-      global.io.to(`category_${(category || '').toLowerCase()}`).emit('booking:dispatch_ringing', dispatchRingingPayload);
-      global.io.to(`category_${(category || '').toLowerCase()}`).emit('TECHNICIAN_BOOKING_REQUEST', dispatchRingingPayload);
-
-      // Emit directly to every candidate technician's socket room
-      for (const tech of (nearbyTechnicians || [])) {
-        const techPayload = {
-          ...dispatchRingingPayload,
-          distanceKm: String(tech.distanceKm || '1.8'),
-        };
-        const techId = tech.technicianId || tech.id;
-        if (techId) {
-          global.io.to(`tech_${techId}`).emit('booking:dispatch_ringing', techPayload);
-          global.io.to(`tech_${techId}`).emit('TECHNICIAN_BOOKING_REQUEST', techPayload);
-          global.io.to(`tech_${techId}`).emit('booking:new_available', bookingRecord);
-        }
-        if (tech.technicianCode) {
-          global.io.to(`tech_${tech.technicianCode}`).emit('booking:dispatch_ringing', techPayload);
-          global.io.to(`tech_${tech.technicianCode}`).emit('TECHNICIAN_BOOKING_REQUEST', techPayload);
-        }
-        if (tech.phone) {
-          global.io.to(`tech_${tech.phone}`).emit('booking:dispatch_ringing', techPayload);
-          global.io.to(`tech_${tech.phone}`).emit('TECHNICIAN_BOOKING_REQUEST', techPayload);
-          global.io.to(`tech_${tech.phone}`).emit('booking:new_available', bookingRecord);
-        }
-      }
-      console.log(`🚨 [Socket Dispatch] Emitted ringing alert with user details & live location to ${(nearbyTechnicians || []).length} technicians.`);
+    // 5. Trigger Authoritative Sequential Automatic Dispatch Engine (Section 2 & 6)
+    if (idempotencyKey) {
+      idempotencyBookingsMap.set(`${customerId}:${idempotencyKey}`, bookingId);
     }
+
+    const automaticDispatchEngine = require('../services/automaticDispatchEngine');
+    const dispatchSession = await automaticDispatchEngine.startDispatchForBooking(bookingRecord, {
+      bookingMode,
+      offerTimeoutSeconds: req.body.offerTimeoutSeconds,
+      radiiKm: req.body.radiiKm,
+      actorId: customerId,
+      actorRole: 'CUSTOMER',
+    });
 
     return res.status(201).json({
       success: true,
-      message: 'Booking created and dispatched successfully to nearby technicians',
+      message: 'Booking created and automatic sequential technician dispatch started',
       data: bookingRecord,
       booking: bookingRecord,
+      dispatchSession,
       startOtp, // Returned to customer
       matchedTechniciansCount: nearbyTechnicians.length,
     });
@@ -547,7 +458,7 @@ const acceptBooking = async (req, res) => {
           }
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // Check in-memory store
     if (inMemoryTechProfiles.has(technicianId)) {
@@ -561,7 +472,7 @@ const acceptBooking = async (req, res) => {
       }
     }
 
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
 
     if (!booking && postgres.isPgHealthy()) {
       const pgRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
@@ -682,7 +593,7 @@ const acceptBooking = async (req, res) => {
         startOtp,
         status: 'ACCEPTED',
       },
-    }).catch(() => {});
+    }).catch(() => { });
 
     // Publish Kafka Event: booking.assigned
     await kafka.publishEvent('booking.assigned', {
@@ -716,7 +627,7 @@ const acceptBooking = async (req, res) => {
 const resendStartOtp = async (req, res) => {
   try {
     const bookingId = req.params.id;
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
 
     if (!booking) {
       const pgRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
@@ -731,7 +642,7 @@ const resendStartOtp = async (req, res) => {
     booking.startServiceOtp = startOtp;
     memoryBookings.set(bookingId, booking);
 
-    await postgres.query('UPDATE bookings SET start_otp = $1 WHERE id = $2 OR booking_code = $2', [startOtp, bookingId]).catch(() => {});
+    await postgres.query('UPDATE bookings SET start_otp = $1 WHERE id = $2 OR booking_code = $2', [startOtp, bookingId]).catch(() => { });
 
     // Emit live Socket notification to customer
     if (global.io) {
@@ -751,11 +662,17 @@ const resendStartOtp = async (req, res) => {
       title: '🔑 Your Service Start OTP',
       body: `Your OTP for service start is ${startOtp}. Share this code with the technician upon arrival.`,
       data: { bookingId, startOtp, type: 'START_OTP' },
-    }).catch(() => {});
+    }).catch(() => { });
+
+    const custEmail = booking.customerEmail || booking.email || req.body?.email;
+    if (custEmail) {
+      const emailService = require('../services/emailService');
+      emailService.sendOtpEmail(custEmail, startOtp, booking.customerName || 'Customer').catch(() => { });
+    }
 
     return res.json({
       success: true,
-      message: 'Start OTP sent to customer successfully via push and real-time socket',
+      message: 'Start OTP sent to customer successfully via EmailJS, push, and real-time socket',
       startOtp,
       bookingId,
     });
@@ -785,7 +702,7 @@ const markArrived = async (req, res) => {
       });
     }
 
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
     if (!booking && postgres.isPgHealthy()) {
       const bRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
       if (bRes.rows.length > 0) booking = bRes.rows[0];
@@ -803,7 +720,7 @@ const markArrived = async (req, res) => {
 
     // Verify booking state: cannot mark arrived if already in progress or cancelled
     const currentStatus = booking.status;
-    if (!['ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ASSIGNED', 'CONFIRMED'].includes(currentStatus)) {
+    if (!['ASSIGNED', 'TECHNICIAN_ON_THE_WAY', 'ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ASSIGNED', 'CONFIRMED'].includes(currentStatus)) {
       return res.status(400).json({ success: false, error: `Cannot mark arrived: Booking is currently in state ${currentStatus}` });
     }
 
@@ -870,7 +787,7 @@ const verifyStartOtp = async (req, res) => {
     const { otp, startOtp, startServiceOtp } = req.body;
     const enteredOtp = (otp || startOtp || startServiceOtp || '').toString().trim();
 
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
     if (!booking && postgres.isPgHealthy()) {
       const pgRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
       if (pgRes.rows.length > 0) booking = pgRes.rows[0];
@@ -882,7 +799,7 @@ const verifyStartOtp = async (req, res) => {
 
     // Cryptographic & Strict OTP Validation (Zero master codes / fail closed)
     const expectedOtp = (booking.startOtp || booking.start_otp || booking.startServiceOtp || '').toString().trim();
-    
+
     if (!expectedOtp || enteredOtp !== expectedOtp) {
       return res.status(400).json({
         success: false,
@@ -905,7 +822,7 @@ const verifyStartOtp = async (req, res) => {
       await postgres.query(
         'UPDATE bookings SET status = $1, end_otp = $2, updated_at = NOW() WHERE id = $3 OR booking_code = $3',
         ['IN_PROGRESS', endOtp, bookingId]
-      ).catch(() => {});
+      ).catch(() => { });
     }
 
     // Emit live events to Customer and Technician
@@ -938,7 +855,13 @@ const verifyStartOtp = async (req, res) => {
       title: '🚀 Service Started!',
       body: `Work is now in progress. Your Completion OTP is ${endOtp}. Share this only when work is completed.`,
       data: { bookingId, endOtp, type: 'END_OTP' },
-    }).catch(() => {});
+    }).catch(() => { });
+
+    const custEmailForEnd = booking.customerEmail || booking.email || req.body?.email;
+    if (custEmailForEnd) {
+      const emailService = require('../services/emailService');
+      emailService.sendOtpEmail(custEmailForEnd, endOtp, booking.customerName || 'Customer').catch(() => { });
+    }
 
     // Publish Kafka Event: booking.started
     await kafka.publishEvent('booking.started', {
@@ -949,7 +872,7 @@ const verifyStartOtp = async (req, res) => {
       startedAt: booking.startedAt,
       endOtp,
       timestamp: new Date().toISOString(),
-    }).catch(() => {});
+    }).catch(() => { });
 
     return res.json({
       success: true,
@@ -972,7 +895,7 @@ const verifyStartOtp = async (req, res) => {
 const resendEndOtp = async (req, res) => {
   try {
     const bookingId = req.params.id;
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
 
     if (!booking) {
       const pgRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
@@ -986,7 +909,7 @@ const resendEndOtp = async (req, res) => {
     booking.endOtp = endOtp;
     memoryBookings.set(bookingId, booking);
 
-    await postgres.query('UPDATE bookings SET end_otp = $1 WHERE id = $2 OR booking_code = $2', [endOtp, bookingId]).catch(() => {});
+    await postgres.query('UPDATE bookings SET end_otp = $1 WHERE id = $2 OR booking_code = $2', [endOtp, bookingId]).catch(() => { });
 
     // Emit live Socket notification to customer
     if (global.io) {
@@ -1006,11 +929,17 @@ const resendEndOtp = async (req, res) => {
       title: '🏁 Service Completion OTP',
       body: `Your Completion OTP is ${endOtp}. Share this code with the technician to finalize and approve the job.`,
       data: { bookingId, endOtp, type: 'END_OTP' },
-    }).catch(() => {});
+    }).catch(() => { });
+
+    const custEmailResend = booking.customerEmail || booking.email || req.body?.email;
+    if (custEmailResend) {
+      const emailService = require('../services/emailService');
+      emailService.sendOtpEmail(custEmailResend, endOtp, booking.customerName || 'Customer').catch(() => { });
+    }
 
     return res.json({
       success: true,
-      message: 'Ending OTP resent to customer successfully via push and real-time socket',
+      message: 'Ending OTP resent to customer successfully via EmailJS, push, and real-time socket',
       endOtp,
       bookingId,
     });
@@ -1028,7 +957,7 @@ const addBillCharges = async (req, res) => {
     const bookingId = req.params.id;
     const { items = [], additionalLabor = 0 } = req.body;
 
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
     if (!booking) return res.status(404).json({ success: false, error: 'Booking not found' });
 
     const materialTotal = items.reduce((acc, item) => acc + (parseFloat(item.price) || 0), 0);
@@ -1038,7 +967,7 @@ const addBillCharges = async (req, res) => {
     booking.totalAmount = updatedTotal;
     memoryBookings.set(bookingId, booking);
 
-    await postgres.query('UPDATE bookings SET total_amount = $1 WHERE id = $2 OR booking_code = $2', [updatedTotal, bookingId]).catch(() => {});
+    await postgres.query('UPDATE bookings SET total_amount = $1 WHERE id = $2 OR booking_code = $2', [updatedTotal, bookingId]).catch(() => { });
 
     if (global.io) {
       global.io.to(`cust_${booking.customerId}`).emit('booking:bill_updated', {
@@ -1070,7 +999,7 @@ const verifyEndOtp = async (req, res) => {
     const { otp, endOtp, rating, reviewText } = req.body;
     const enteredOtp = (otp || endOtp || '').toString().trim();
 
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
     if (!booking) {
       const pgRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
       if (pgRes.rows.length > 0) booking = pgRes.rows[0];
@@ -1093,7 +1022,7 @@ const verifyEndOtp = async (req, res) => {
       `, [bookingId, booking.id || bookingId]);
       const proofTypes = proofRes.rows.map(r => r.type.toUpperCase());
       const hasAfterProof = proofTypes.includes('AFTER') || (Array.isArray(booking.after_service_photos) && booking.after_service_photos.length > 0);
-      
+
       if (!hasAfterProof && process.env.NODE_ENV === 'production') {
         return res.status(400).json({
           success: false,
@@ -1110,7 +1039,7 @@ const verifyEndOtp = async (req, res) => {
     await postgres.query(
       'UPDATE bookings SET status = $1, updated_at = NOW() WHERE id = $2 OR booking_code = $2',
       ['COMPLETED', bookingId]
-    ).catch(() => {});
+    ).catch(() => { });
 
     // ─── Trigger ACID Double-Entry Financial Settlement ───
     const totalAmount = parseFloat(booking.totalAmount || booking.grandTotal || 299);
@@ -1146,8 +1075,8 @@ const verifyEndOtp = async (req, res) => {
         totalAmount,
         commissionAmount: platformCommission,
         payoutAmount: technicianEarnings,
-      }, { timeout: 1000 }).catch(() => {});
-    } catch (_) {}
+      }, { timeout: 1000 }).catch(() => { });
+    } catch (_) { }
 
     // Publish Kafka Event: booking.completed
     await kafka.publishEvent('booking.completed', {
@@ -1179,10 +1108,11 @@ const verifyEndOtp = async (req, res) => {
       title: '🎉 Service Completed!',
       body: `Your service #${booking.bookingCode || bookingId.slice(0, 6)} is completed. Invoice is available in your app.`,
       data: { bookingId, status: 'COMPLETED' },
-    }).catch(() => {});
+    }).catch(() => { });
 
     return res.json({
       success: true,
+      status: 'COMPLETED',
       message: 'Job completed successfully and payment ledger settled',
       booking,
       settlement: {
@@ -1224,7 +1154,7 @@ const updateBookingStatus = async (req, res) => {
       return markArrived(req, res);
     }
 
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
     if (!booking && postgres.isPgHealthy()) {
       const pgRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
       if (pgRes.rows.length > 0) booking = pgRes.rows[0];
@@ -1235,18 +1165,29 @@ const updateBookingStatus = async (req, res) => {
     // 2. Strict State Machine Transition Rules
     const currentStatus = String(booking.status || 'CONFIRMED').toUpperCase();
     const VALID_TRANSITIONS = {
-      'PENDING': ['PAYMENT_CONFIRMED', 'CONFIRMED', 'CANCELLED'],
-      'PAYMENT_CONFIRMED': ['DISPATCHING', 'ACCEPTED', 'CONFIRMED', 'CANCELLED'],
-      'CONFIRMED': ['DISPATCHING', 'ACCEPTED', 'CANCELLED'],
-      'DISPATCHING': ['ACCEPTED', 'SEARCHING_TECHNICIAN', 'CANCELLED'],
-      'SEARCHING_TECHNICIAN': ['ACCEPTED', 'DISPATCHING', 'CANCELLED'],
-      'ACCEPTED': ['ARRIVED', 'TECHNICIAN_ARRIVED', 'CANCELLED'],
-      'TECHNICIAN_ASSIGNED': ['ARRIVED', 'TECHNICIAN_ARRIVED', 'CANCELLED'],
-      'ARRIVED': ['IN_PROGRESS', 'SERVICE_STARTED', 'CANCELLED'],
-      'TECHNICIAN_ARRIVED': ['IN_PROGRESS', 'SERVICE_STARTED', 'CANCELLED'],
-      'IN_PROGRESS': ['COMPLETION_PENDING', 'COMPLETED', 'CANCELLED'],
-      'SERVICE_STARTED': ['COMPLETION_PENDING', 'COMPLETED', 'CANCELLED'],
+      'DRAFT': ['PENDING_PAYMENT', 'CONFIRMED_PAYMENT', 'SEARCHING_TECHNICIAN', 'CONFIRMED', 'CANCELLED'],
+      'PENDING': ['PAYMENT_CONFIRMED', 'CONFIRMED_PAYMENT', 'SEARCHING_TECHNICIAN', 'CONFIRMED', 'CANCELLED'],
+      'PENDING_PAYMENT': ['PAYMENT_CONFIRMED', 'CONFIRMED_PAYMENT', 'SEARCHING_TECHNICIAN', 'CONFIRMED', 'CANCELLED'],
+      'PAYMENT_CONFIRMED': ['DISPATCHING', 'SEARCHING_TECHNICIAN', 'ACCEPTED', 'ASSIGNED', 'CONFIRMED', 'CANCELLED'],
+      'CONFIRMED_PAYMENT': ['DISPATCHING', 'SEARCHING_TECHNICIAN', 'ACCEPTED', 'ASSIGNED', 'CONFIRMED', 'CANCELLED'],
+      'CONFIRMED': ['DISPATCHING', 'SEARCHING_TECHNICIAN', 'ACCEPTED', 'ASSIGNED', 'CANCELLED'],
+      'DISPATCHING': ['ACCEPTED', 'ASSIGNED', 'SEARCHING_TECHNICIAN', 'NO_TECHNICIAN_AVAILABLE', 'CANCELLED'],
+      'SEARCHING_TECHNICIAN': ['TECHNICIAN_OFFERED', 'ACCEPTED', 'ASSIGNED', 'TECHNICIAN_ASSIGNED', 'DISPATCHING', 'NO_TECHNICIAN_AVAILABLE', 'CANCELLED'],
+      'TECHNICIAN_OFFERED': ['ASSIGNED', 'TECHNICIAN_ASSIGNED', 'ACCEPTED', 'SEARCHING_TECHNICIAN', 'NO_TECHNICIAN_AVAILABLE', 'CANCELLED'],
+      'ASSIGNED': ['BOOKING_CONFIRMED', 'TECHNICIAN_ON_THE_WAY', 'ARRIVED', 'TECHNICIAN_ARRIVED', 'CANCELLED'],
+      'BOOKING_CONFIRMED': ['TECHNICIAN_ON_THE_WAY', 'ARRIVED', 'TECHNICIAN_ARRIVED', 'CANCELLED'],
+      'TECHNICIAN_ON_THE_WAY': ['ARRIVED', 'TECHNICIAN_ARRIVED', 'CANCELLED'],
+      'ACCEPTED': ['TECHNICIAN_ON_THE_WAY', 'ARRIVED', 'TECHNICIAN_ARRIVED', 'CANCELLED'],
+      'TECHNICIAN_ASSIGNED': ['TECHNICIAN_ON_THE_WAY', 'ARRIVED', 'TECHNICIAN_ARRIVED', 'CANCELLED'],
+      'ARRIVED': ['IN_PROGRESS', 'SERVICE_STARTED', 'SERVICE_IN_PROGRESS', 'CANCELLED'],
+      'TECHNICIAN_ARRIVED': ['IN_PROGRESS', 'SERVICE_STARTED', 'SERVICE_IN_PROGRESS', 'CANCELLED'],
+      'IN_PROGRESS': ['SERVICE_IN_PROGRESS', 'SERVICE_COMPLETED', 'COMPLETION_PENDING', 'COMPLETED', 'CANCELLED'],
+      'SERVICE_STARTED': ['IN_PROGRESS', 'SERVICE_IN_PROGRESS', 'SERVICE_COMPLETED', 'COMPLETION_PENDING', 'COMPLETED', 'CANCELLED'],
+      'SERVICE_IN_PROGRESS': ['SERVICE_COMPLETED', 'COMPLETION_PENDING', 'COMPLETED', 'CANCELLED'],
+      'SERVICE_COMPLETED': ['PAYMENT_PENDING', 'COMPLETED'],
+      'PAYMENT_PENDING': ['COMPLETED'],
       'COMPLETION_PENDING': ['COMPLETED'],
+      'NO_TECHNICIAN_AVAILABLE': ['SEARCHING_TECHNICIAN', 'CANCELLED'],
       'COMPLETED': [],
       'CANCELLED': [],
     };
@@ -1317,13 +1258,35 @@ const updateBookingStatus = async (req, res) => {
               refundAmount,
               `Gateway Refund (${refundId}) for Booking #${bookingId} (Less ₹${cancellationFee} fee)`
             ]);
-          } catch (_) {}
+          } catch (_) { }
         }
       }
 
       booking.cancellationReason = reason;
       booking.status = 'CANCELLED';
       bookingsStore.cancelBooking(bookingId, reason);
+
+      // Cancel any active dispatch session & pending offers, and free assigned technician
+      try {
+        const automaticDispatchEngine = require('../services/automaticDispatchEngine');
+        await automaticDispatchEngine.cancelDispatchSessionForBooking(
+          bookingId,
+          reason,
+          req.user?.id || booking.customerId || 'CUSTOMER',
+          req.user?.role || 'CUSTOMER'
+        );
+        if (booking.technicianId) {
+          const { inMemoryTechProfiles, setTechnicianProfile } = require('../config/inMemoryTechStore');
+          const techProf = inMemoryTechProfiles.get(booking.technicianId);
+          if (techProf) {
+            setTechnicianProfile(booking.technicianId, {
+              ...techProf,
+              availabilityStatus: 'AVAILABLE',
+              availability_status: 'AVAILABLE',
+            });
+          }
+        }
+      } catch (_) { }
 
       if (postgres.isPgHealthy()) {
         await postgres.query(`
@@ -1336,24 +1299,24 @@ const updateBookingStatus = async (req, res) => {
               payment_status = CASE WHEN $3 > 0 THEN 'REFUNDED' ELSE payment_status END,
               updated_at = NOW()
           WHERE id = $5 OR booking_code = $5;
-        `, [reason, refundId, refundAmount, cancellationFee, bookingId]).catch(() => {});
+        `, [reason, refundId, refundAmount, cancellationFee, bookingId]).catch(() => { });
       }
 
       if (booking.customerId) {
         notificationService.sendToUser(booking.customerId, {
           title: 'Booking Cancelled',
-          body: refundAmount > 0 
+          body: refundAmount > 0
             ? `Your booking #${bookingId} has been cancelled. Refund of ₹${refundAmount} has been initiated.`
             : `Your booking #${bookingId} has been cancelled.`,
           data: { bookingId, status: 'CANCELLED', refundId: refundId || '' },
-        }).catch(() => {});
+        }).catch(() => { });
       }
       if (booking.technicianId) {
         notificationService.sendToUser(booking.technicianId, {
           title: 'Job Cancelled',
           body: `Customer has cancelled booking #${bookingId}. You are now free for new dispatches.`,
           data: { bookingId, status: 'CANCELLED' },
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       if (global.io) {
@@ -1384,7 +1347,7 @@ const updateBookingStatus = async (req, res) => {
       await postgres.query(
         'UPDATE bookings SET status = $1, updated_at = NOW() WHERE id = $2 OR booking_code = $2',
         [status, bookingId]
-      ).catch(() => {});
+      ).catch(() => { });
     }
 
     if (global.io) {
@@ -1425,6 +1388,22 @@ const getBookingById = async (req, res) => {
   let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
 
   if (booking) {
+    // Enforce participant authorization if authenticated user token is provided (Phase 17 Test 22)
+    if (req.user) {
+      const role = String(req.user.role || '').toUpperCase();
+      if (role === 'CUSTOMER' && booking.customerId && String(booking.customerId) !== String(req.user.id)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Forbidden: You are not authorized to access another customer booking.',
+        });
+      }
+      if (role === 'TECHNICIAN' && booking.technicianId && String(booking.technicianId) !== String(req.user.id)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Forbidden: You are not the assigned technician for this booking.',
+        });
+      }
+    }
     return res.json({ success: true, data: booking, booking });
   }
 
@@ -1469,7 +1448,7 @@ const getBookingById = async (req, res) => {
       };
       return res.json({ success: true, data: mapped, booking: mapped });
     }
-  } catch (err) {}
+  } catch (err) { }
 
   return res.status(404).json({ success: false, error: 'Booking not found' });
 };
@@ -1602,8 +1581,8 @@ const getTechnicianBookings = async (req, res) => {
             const custPhone = row.customer_phone || '';
             const fullAddr = row.address || 'Customer Premise';
             const schedDate = row.scheduled_time
-                ? new Date(row.scheduled_time).toISOString().split('T')[0]
-                : (row.created_at ? new Date(row.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+              ? new Date(row.scheduled_time).toISOString().split('T')[0]
+              : (row.created_at ? new Date(row.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
 
             return {
               id: row.id,
@@ -1823,7 +1802,7 @@ const getBookingMessages = async (req, res) => {
     const userRole = String(req.user?.role || '').toUpperCase();
 
     // Verify booking participant (Customer, Assigned Technician, or Admin)
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
     if (!booking && postgres.isPgHealthy()) {
       const bRes = await postgres.query('SELECT customer_id, technician_id FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
       if (bRes.rows.length > 0) booking = bRes.rows[0];
@@ -1869,7 +1848,7 @@ const sendBookingMessage = async (req, res) => {
     const bookingId = req.params.id;
     const rawContent = req.body.content || req.body.message || req.body.text;
     const attachmentUrl = req.body.attachmentUrl || req.body.attachment_url || req.body.mediaUrl || null;
-    
+
     // Identity strictly derived from authenticated token
     const senderId = req.user?.id || req.body.senderId;
     const senderRole = String(req.user?.role || req.body.senderRole || 'CUSTOMER').toUpperCase();
@@ -1883,7 +1862,7 @@ const sendBookingMessage = async (req, res) => {
     }
 
     // Verify booking participant
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
     if (!booking && postgres.isPgHealthy()) {
       const bRes = await postgres.query('SELECT customer_id, technician_id FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
       if (bRes.rows.length > 0) booking = bRes.rows[0];
@@ -1959,10 +1938,10 @@ const sendBookingMessage = async (req, res) => {
               title: pushTitle,
               body: trimmedContent.substring(0, 100),
               data: { bookingId, type: 'CHAT_MESSAGE', messageId },
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     return res.json({ success: true, data: msg, message: msg });
@@ -1984,7 +1963,7 @@ const initiateBookingCall = async (req, res) => {
     const userId = req.user?.id || req.user?.userId;
     const userRole = (req.user?.role || '').toUpperCase();
 
-    let booking = memoryBookings.get(bookingId) || bookingsStore.getBookingById(bookingId);
+    let booking = bookingsStore.getBookingById(bookingId) || memoryBookings.get(bookingId);
     if (!booking && postgres.isPgHealthy()) {
       const bRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [bookingId]);
       if (bRes.rows.length > 0) booking = bRes.rows[0];
@@ -2020,7 +1999,7 @@ const initiateBookingCall = async (req, res) => {
           const tRes = await postgres.query('SELECT phone FROM users WHERE id = $1', [technicianId]);
           if (tRes.rows.length > 0) technicianPhone = tRes.rows[0].phone;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const initiatorRole = isCustomer ? 'CUSTOMER' : 'TECHNICIAN';
@@ -2172,7 +2151,39 @@ const getBookingProof = async (req, res) => {
       }));
     }
 
-    return res.json({ success: true, data: proofs });
+    if (proofs.length === 0 && postgres.isPgHealthy()) {
+      const spRes = await postgres.query(`
+        SELECT id, booking_id, technician_id, proof_type as type, media_url, gps_lat, gps_lng, created_at as timestamp
+        FROM service_proofs
+        WHERE booking_id = $1
+        ORDER BY created_at ASC;
+      `, [bookingId]).catch(() => ({ rows: [] }));
+      if (spRes.rows && spRes.rows.length > 0) {
+        proofs = spRes.rows.map(p => ({
+          id: p.id,
+          bookingId: p.booking_id,
+          technicianId: p.technician_id,
+          type: p.type,
+          mediaUrl: p.media_url,
+          after_image_url: p.media_url,
+          gpsLat: p.gps_lat,
+          gpsLng: p.gps_lng,
+          timestamp: p.timestamp,
+        }));
+      }
+    }
+
+    if (proofs.length === 0) {
+      const storeBooking = bookingsStore.getBookingById(bookingId);
+      const memBooking = memoryBookings.get(bookingId);
+      if (storeBooking && Array.isArray(storeBooking.serviceProofs) && storeBooking.serviceProofs.length > 0) {
+        proofs = storeBooking.serviceProofs;
+      } else if (memBooking && Array.isArray(memBooking.serviceProofs) && memBooking.serviceProofs.length > 0) {
+        proofs = memBooking.serviceProofs;
+      }
+    }
+
+    return res.json({ success: true, data: proofs, proofs });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -2216,7 +2227,7 @@ const submitBookingReview = async (req, res) => {
             rating = ROUND(((rating * total_ratings_count + $1) / (total_ratings_count + 1)), 2),
             updated_at = NOW()
         WHERE technician_id = $2 OR id = $2;
-      `, [numRating, techId]).catch(() => {});
+      `, [numRating, techId]).catch(() => { });
     }
 
     const reviewPayload = { bookingId, rating: numRating, review, tags, tip };

@@ -12,35 +12,87 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _controller = PageController();
   int _currentPage = 0;
+  bool _hasSelectedLanguage = false;
+  String _selectedLang = 'en'; // 'en' or 'hi'
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLanguagePreference();
+  }
+
+  Future<void> _loadLanguagePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedLang = prefs.getString('selected_language');
+    if (savedLang != null && savedLang.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _selectedLang = savedLang;
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_language', _selectedLang);
+    if (mounted) {
+      setState(() {
+        _hasSelectedLanguage = true;
+      });
+    }
+  }
 
   Future<void> _completeOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_onboarding', true);
+    await prefs.setString('selected_language', _selectedLang);
     if (mounted) {
       Navigator.pushReplacementNamed(context, '/login');
     }
   }
 
-  final List<_SlideData> _slides = [
-    const _SlideData(
-      title: 'Expert Technicians',
-      subtitle: 'Verified and background-checked professionals at your doorstep.',
-      trustText: 'Skilled • Verified • Trusted',
-      illustration: TechnicianIllustration(),
-    ),
-    const _SlideData(
-      title: 'Track Your Technician',
-      subtitle: "See your technician's location and estimated arrival time in real time.",
-      trustText: 'Stay updated from booking to arrival.',
-      illustration: TrackingIllustration(),
-    ),
-    const _SlideData(
-      title: 'Secure Payments',
-      subtitle: 'Pay safely and securely with trusted payment options.',
-      trustText: 'UPI, cards and other secure payment methods available.',
-      illustration: PaymentsIllustration(),
-    ),
-  ];
+  List<_SlideData> get _slides => _selectedLang == 'hi'
+      ? [
+          const _SlideData(
+            title: 'भरोसेमंद विशेषज्ञ खोजें',
+            subtitle: 'आपके घर के लिए सत्यापित और अनुभवी तकनीशियन तुरंत उपलब्ध।',
+            trustText: 'सत्यापित • कुशल • भरोसेमंद',
+            illustration: TechnicianIllustration(),
+          ),
+          const _SlideData(
+            title: 'आसानी से सेवाएं बुक करें',
+            subtitle: 'पारदर्शी मूल्य और उपलब्ध समय स्लॉट के साथ मिनटों में सेवा बुक करें।',
+            trustText: 'पारदर्शी कीमत • सुरक्षित भुगतान',
+            illustration: PaymentsIllustration(),
+          ),
+          const _SlideData(
+            title: 'अपने तकनीशियन को लाइव ट्रैक करें',
+            subtitle: 'रीयल-टाइम मैप पर अपने तकनीशियन की लोकेशन और आने का समय देखें।',
+            trustText: 'बुकिंग से आगमन तक लाइव अपडेट',
+            illustration: TrackingIllustration(),
+          ),
+        ]
+      : [
+          const _SlideData(
+            title: 'Find Trusted Professionals',
+            subtitle: 'Verified and background-checked specialists ready for your home service needs.',
+            trustText: 'Skilled • Verified • Trusted',
+            illustration: TechnicianIllustration(),
+          ),
+          const _SlideData(
+            title: 'Book Services Easily',
+            subtitle: 'Choose real-time available slots with transparent server-validated pricing.',
+            trustText: 'Transparent Pricing • Instant Confirmation',
+            illustration: PaymentsIllustration(),
+          ),
+          const _SlideData(
+            title: 'Track Your Technician Live',
+            subtitle: "Follow your assigned technician's live GPS location and arrival estimate in real time.",
+            trustText: 'Stay updated from booking to completion.',
+            illustration: TrackingIllustration(),
+          ),
+        ];
 
   @override
   void dispose() {
@@ -48,203 +100,380 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
+  Widget _buildLanguageSelectionView() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const BrandLogoIcon(size: 38),
+              const SizedBox(width: 10),
+              RichText(
+                text: const TextSpan(
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontFamily: 'Inter',
+                    letterSpacing: -0.5,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: 'bookur',
+                      style: TextStyle(color: kDeepNavy, fontWeight: FontWeight.w900),
+                    ),
+                    TextSpan(
+                      text: 'technician',
+                      style: TextStyle(color: kRoyalBlue, fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          const Text(
+            'Choose Your Language\nअपनी भाषा चुनें',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: kDeepNavy,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Select your preferred language to continue using BookurTechnician.',
+            style: TextStyle(fontSize: 14, color: kSecondaryText),
+          ),
+          const SizedBox(height: 28),
+          _buildLanguageCard(
+            code: 'en',
+            title: 'English',
+            subtitle: 'Default Application Language',
+            badgeText: 'A',
+          ),
+          const SizedBox(height: 16),
+          _buildLanguageCard(
+            code: 'hi',
+            title: 'हिन्दी (Hindi)',
+            subtitle: 'भारतीय राष्ट्रीय भाषा',
+            badgeText: 'अ',
+          ),
+          const Spacer(),
+          BTYellowCtaButton(
+            label: _selectedLang == 'hi' ? 'आगे बढ़ें (Continue)' : 'Continue',
+            icon: Icons.arrow_forward_rounded,
+            onPressed: _confirmLanguage,
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLanguageCard({
+    required String code,
+    required String title,
+    required String subtitle,
+    required String badgeText,
+  }) {
+    final isSelected = _selectedLang == code;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => setState(() => _selectedLang = code),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isSelected ? kLightBlueTint : kWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? kRoyalBlue : kBorderColor,
+            width: isSelected ? 2.2 : 1.2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: kRoyalBlue.withValues(alpha: 0.10),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : const [],
+        ),
+        child: Row(
           children: [
-            // Brand Logo Header
-            Padding(
-              padding: const EdgeInsets.only(top: 24, bottom: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const BrandLogoIcon(size: 32),
-                  const SizedBox(width: 8),
-                  RichText(
-                    text: const TextSpan(
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontFamily: 'Inter',
-                        letterSpacing: -0.5,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: 'bookur',
-                          style: TextStyle(
-                            color: kTextNavy,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        TextSpan(
-                          text: 'technician',
-                          style: TextStyle(
-                            color: kBrandSecondary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: isSelected ? kRoyalBlue : kLightBlueTint,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                badgeText,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: isSelected ? kBrightYellow : kRoyalBlue,
+                ),
               ),
             ),
-            
-            // Onboarding content page view
+            const SizedBox(width: 16),
             Expanded(
-              child: PageView.builder(
-                controller: _controller,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentPage = index;
-                  });
-                },
-                itemCount: _slides.length,
-                itemBuilder: (context, index) {
-                  final slide = _slides[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Centered Hero Illustration
-                        Expanded(
-                          child: Center(
-                            child: slide.illustration,
-                          ),
-                        ),
-                        
-                        // Text section
-                        const SizedBox(height: 16),
-                        Text(
-                          slide.title,
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: kTextNavy,
-                            letterSpacing: -0.5,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          slide.subtitle,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: kTextGray,
-                            height: 1.4,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Small trust badge/text
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: index == 0
-                                ? const Color(0xFFFEF3C7) // soft amber
-                                : const Color(0xFFF1F5F9), // soft slate
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          child: Text(
-                            slide.trustText,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: index == 0
-                                  ? const Color(0xFFD97706) // dark amber
-                                  : kBrandPrimary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Pagination indicators
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_slides.length, (i) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: _currentPage == i ? 24 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _currentPage == i ? kBrandSecondary : const Color(0xFFCBD5E1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: 24),
-
-            // Navigation Buttons Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kBlack,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: () {
-                        if (_currentPage < _slides.length - 1) {
-                          _controller.nextPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        } else {
-                          _completeOnboarding();
-                        }
-                      },
-                      child: Text(
-                        _currentPage < _slides.length - 1 ? 'Next' : 'Get Started',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: kDeepNavy,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  TextButton(
-                    onPressed: _completeOnboarding,
-                    style: TextButton.styleFrom(
-                      foregroundColor: kTextGray,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text(
-                      'Skip',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: kSecondaryText,
                     ),
                   ),
-                  const SizedBox(height: 8),
                 ],
               ),
             ),
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected ? kBrightYellow : Colors.transparent,
+                border: Border.all(
+                  color: isSelected ? kRoyalBlue : kBorderColor,
+                  width: 2,
+                ),
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check_rounded, size: 16, color: kDeepNavy)
+                  : null,
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final slides = _slides;
+    return Scaffold(
+      backgroundColor: kWhite,
+      body: SafeArea(
+        child: !_hasSelectedLanguage
+            ? _buildLanguageSelectionView()
+            : Column(
+                children: [
+                  // Brand Logo Header + Language Switch Pill
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const BrandLogoIcon(size: 32),
+                            const SizedBox(width: 8),
+                            RichText(
+                              text: const TextSpan(
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontFamily: 'Inter',
+                                  letterSpacing: -0.5,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: 'bookur',
+                                    style: TextStyle(
+                                      color: kDeepNavy,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'technician',
+                                    style: TextStyle(
+                                      color: kRoyalBlue,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        InkWell(
+                          onTap: () => setState(() => _hasSelectedLanguage = false),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: kLightBlueTint,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: kBorderColor),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.language_rounded, size: 15, color: kRoyalBlue),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _selectedLang == 'hi' ? 'हिन्दी' : 'EN',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: kRoyalBlue,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Onboarding content page view
+                  Expanded(
+                    child: PageView.builder(
+                      controller: _controller,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentPage = index;
+                        });
+                      },
+                      itemCount: slides.length,
+                      itemBuilder: (context, index) {
+                        final slide = slides[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Center(
+                                  child: slide.illustration,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                slide.title,
+                                style: const TextStyle(
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w900,
+                                  color: kDeepNavy,
+                                  letterSpacing: -0.5,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                slide.subtitle,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  color: kSecondaryText,
+                                  height: 1.45,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: kLightBlueTint,
+                                  borderRadius: BorderRadius.circular(100),
+                                  border: Border.all(color: kBorderColor),
+                                ),
+                                child: Text(
+                                  slide.trustText,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: kRoyalBlue,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 28),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Pagination indicators (Bright Yellow active, Light Blue inactive)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(slides.length, (i) {
+                      final isActive = _currentPage == i;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: isActive ? 26 : 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: isActive ? kBrightYellow : kBorderColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Navigation Buttons Section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        BTPrimaryButton(
+                          label: _currentPage < slides.length - 1
+                              ? (_selectedLang == 'hi' ? 'अगला (Next)' : 'Continue')
+                              : (_selectedLang == 'hi' ? 'शुरू करें (Get Started)' : 'Get Started'),
+                          useYellowHighlight: _currentPage == slides.length - 1,
+                          onPressed: () {
+                            if (_currentPage < slides.length - 1) {
+                              _controller.nextPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            } else {
+                              _completeOnboarding();
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 4),
+                        TextButton(
+                          onPressed: _completeOnboarding,
+                          style: TextButton.styleFrom(
+                            foregroundColor: kSecondaryText,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: Text(
+                            _selectedLang == 'hi' ? 'छोड़ें (Skip)' : 'Skip',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

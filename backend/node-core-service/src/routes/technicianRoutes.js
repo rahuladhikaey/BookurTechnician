@@ -5,7 +5,14 @@ const bookingController = require('../controllers/bookingController');
 
 const { authenticateToken, optionalAuth } = require('../middleware/authMiddleware');
 
-// Location & Status
+// Location, Availability & Status
+const dispatchController = require('../controllers/dispatchController');
+router.get('/availability', optionalAuth, dispatchController.getTechniciansAvailability);
+router.post('/availability', authenticateToken, dispatchController.updateTechnicianAvailability);
+router.put('/availability', authenticateToken, dispatchController.updateTechnicianAvailability);
+router.get('/slots', optionalAuth, dispatchController.getAvailableSlots);
+router.get('/available-slots', optionalAuth, dispatchController.getAvailableSlots);
+router.get('/offers', authenticateToken, dispatchController.getTechnicianOffers);
 router.get('/nearby', technicianController.getNearbyTechnicians);
 router.get('/count', technicianController.getNearbyTechnicians);
 router.post('/location', optionalAuth, technicianController.syncLocation);
@@ -37,7 +44,6 @@ router.post('/jobs/:id/addons', optionalAuth, technicianController.createAddonCh
 router.post('/jobs/:id/rate', optionalAuth, technicianController.rateCustomer);
 
 // Real-Time Dispatch Requests & Proposals
-const dispatchController = require('../controllers/dispatchController');
 router.get('/dispatch/pending', optionalAuth, dispatchController.getPendingDispatchRequests);
 router.get('/dispatch/:id', optionalAuth, dispatchController.getDispatchRequestById);
 router.post('/dispatch/:id/accept', optionalAuth, dispatchController.acceptDispatchRequest);

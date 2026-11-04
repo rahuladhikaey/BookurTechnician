@@ -21,7 +21,7 @@ function resolveDocUrl(url, docType = '') {
   if (url && typeof url === 'string') {
     const trimmed = url.trim();
     if (trimmed.startsWith('https://res.cloudinary.com') ||
-        (trimmed.startsWith('http') && !trimmed.includes('supabase.co') && !trimmed.includes('localhost') && !trimmed.includes('example.com') && !trimmed.includes('uploaded_'))) {
+      (trimmed.startsWith('http') && !trimmed.includes('supabase.co') && !trimmed.includes('localhost') && !trimmed.includes('example.com') && !trimmed.includes('uploaded_'))) {
       return trimmed;
     }
   }
@@ -206,26 +206,24 @@ const syncLocation = async (req, res) => {
         },
         { upsert: true }
       );
-    } catch (e) {}
+    } catch (e) { }
 
-    // 5. Update coordinates in assigned active bookings
+    // 5. Record persistent location update & emit ONLY to authorized customer/booking/admin rooms (Section 12 & 21)
     try {
-      bookingsStore.updateTechnicianLocation(technicianId, finalLat, finalLng, speed, heading);
-    } catch (_) {}
-
-    // 6. Broadcast real-time telemetry & availability invalidation
-    if (global.io) {
-      const payload = {
+      const automaticDispatchEngine = require('../services/automaticDispatchEngine');
+      await automaticDispatchEngine.recordTechnicianLocationUpdate({
         technicianId,
-        longitude: finalLng,
         latitude: finalLat,
+        longitude: finalLng,
         speed: parseFloat(speed) || 0,
         heading: parseFloat(heading) || 0,
-        timestamp: Date.now(),
-      };
-      global.io.emit(`tech:location:${technicianId}`, payload);
-      global.io.emit('technician:location:broadcast', payload);
-      global.io.emit('availability:updated', {
+        bookingId: req.body.bookingId || null,
+      });
+    } catch (_) { }
+
+    // 6. Emit status update ONLY to admin dispatch & technician's own room (never broadcast raw GPS globally)
+    if (global.io) {
+      global.io.to('admin_dispatch').emit('admin:technician:status', {
         technicianId,
         latitude: finalLat,
         longitude: finalLng,
@@ -233,7 +231,7 @@ const syncLocation = async (req, res) => {
         availabilityStatus: 'AVAILABLE',
         timestamp: Date.now(),
       });
-      global.io.emit('technician:status_changed', {
+      global.io.to(`tech_${technicianId}`).emit('technician:status_changed', {
         technicianId,
         isOnline: true,
         availabilityStatus: 'AVAILABLE',
@@ -331,7 +329,7 @@ const toggleOnlineStatus = async (req, res) => {
             await redis.geoAdd('technician:locations', finalLng, finalLat, technicianId);
             await redis.geoAdd('tech_geo:all', finalLng, finalLat, technicianId);
             await redis.setHeartbeat(technicianId, 1800);
-          } catch (_) {}
+          } catch (_) { }
         }
       }
 
@@ -368,7 +366,7 @@ const toggleOnlineStatus = async (req, res) => {
           { technicianId },
           { $set: { isOnline: true, availabilityStatus: newStatus, updatedAt: new Date() } }
         );
-      } catch (e) {}
+      } catch (e) { }
     } else {
       // Offline transition: clean up from Redis GEO & update PostgreSQL
       if (postgres.isPgHealthy()) {
@@ -387,6 +385,12 @@ const toggleOnlineStatus = async (req, res) => {
         p.availabilityStatus = 'OFFLINE';
       }
 
+      // Immediately invalidate any pending dispatch offer held by this technician and cascade to next candidate (Section 8)
+      try {
+        const automaticDispatchEngine = require('../services/automaticDispatchEngine');
+        await automaticDispatchEngine.handleTechnicianOffline(technicianId, 'TECHNICIAN_TOGGLED_OFFLINE');
+      } catch (_) { }
+
       try {
         await redis.geoRemove('technician:locations', technicianId);
         await redis.geoRemove('tech_geo:all', technicianId);
@@ -400,7 +404,7 @@ const toggleOnlineStatus = async (req, res) => {
           { technicianId },
           { $set: { isOnline: false, availabilityStatus: 'OFFLINE', updatedAt: new Date() } }
         );
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Broadcast availability updated event
@@ -437,16 +441,16 @@ const toggleOnlineStatus = async (req, res) => {
  */
 const getSkills = async (req, res) => {
   try {
-    const technicianId = req.params.id || req.params.techId || req.query.technicianId || 
-                         req.headers['x-technician-id'] || req.headers['x-user-id'] || req.user?.id ||
-                         (inMemoryTechProfiles.size > 0 ? Array.from(inMemoryTechProfiles.keys())[0] : 'BT-PARTNER');
-    
+    const technicianId = req.params.id || req.params.techId || req.query.technicianId ||
+      req.headers['x-technician-id'] || req.headers['x-user-id'] || req.user?.id ||
+      (inMemoryTechProfiles.size > 0 ? Array.from(inMemoryTechProfiles.keys())[0] : 'BT-PARTNER');
+
     let profile = null;
 
     if (mongo.isMongoHealthy()) {
       try {
         profile = await MongoTechnicianProfile.findOne({ technicianId });
-      } catch (e) {}
+      } catch (e) { }
     }
 
     let rawSkills = profile?.skills || inMemorySkills.get(technicianId) || [];
@@ -459,7 +463,7 @@ const getSkills = async (req, res) => {
         if (dbRes.rows.length > 0 && dbRes.rows[0].skills) {
           rawSkills = Array.isArray(dbRes.rows[0].skills) ? dbRes.rows[0].skills : [];
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Merge skills declared in technician_services relational mapping table
@@ -485,7 +489,7 @@ const getSkills = async (req, res) => {
             enabled: row.active !== false,
           });
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const formattedSkills = rawSkills.map((s, idx) => {
@@ -546,8 +550,8 @@ const getSkills = async (req, res) => {
 const saveSkillsBulk = async (req, res) => {
   try {
     const technicianId = req.user?.id || req.body.technicianId || req.query.technicianId ||
-                         req.headers['x-technician-id'] || req.headers['x-user-id'] || 'BT-PARTNER';
-    
+      req.headers['x-technician-id'] || req.headers['x-user-id'] || 'BT-PARTNER';
+
     const rawInput = req.body.skills || req.body.data || [];
     const skills = Array.isArray(rawInput) ? rawInput : [rawInput];
 
@@ -609,7 +613,7 @@ const saveSkillsBulk = async (req, res) => {
         try {
           const { resolveServiceIdsFromSkill } = require('../services/catalogSkillMapper');
           await postgres.query(`DELETE FROM technician_services WHERE technician_id = $1`, [technicianId]);
-          
+
           const allLinkedServiceIds = new Set();
           for (const s of formattedSkills) {
             const rawId = s.skillId || s.id;
@@ -715,7 +719,7 @@ const verifySkillAdmin = async (req, res) => {
           SET active = ($1 = 'VERIFIED')
           WHERE id = $2 OR service_id = $2;
         `, [status, id]);
-      } catch (_) {}
+      } catch (_) { }
     }
 
     if (global.io) {
@@ -750,7 +754,7 @@ const verifyDocumentAdmin = async (req, res) => {
           SET verification_status = $1, updated_at = NOW()
           WHERE id = $2 OR technician_id = $2;
         `, [status, id]);
-      } catch (_) {}
+      } catch (_) { }
     }
 
     if (global.io) {
@@ -798,7 +802,7 @@ const getProfile = async (req, res) => {
 
     try {
       profile = await MongoTechnicianProfile.findOne({ $or: [{ technicianId }, { phone: technicianId }] });
-    } catch (e) {}
+    } catch (e) { }
 
     const memProfile = inMemoryTechProfiles.get(technicianId);
 
@@ -922,7 +926,7 @@ const updateProfile = async (req, res) => {
         { $set: updates },
         { upsert: true, new: true }
       );
-    } catch (e) {}
+    } catch (e) { }
 
     // 3. Update in-memory store
     const existing = inMemoryTechProfiles.get(technicianId) || {};
@@ -1042,7 +1046,7 @@ const getDocuments = async (req, res) => {
         });
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // 3. From PostgreSQL
   if (postgres.isPgHealthy()) {
@@ -1067,7 +1071,7 @@ const getDocuments = async (req, res) => {
           });
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const result = Array.from(docMap.values());
@@ -1179,8 +1183,8 @@ const uploadProfilePhoto = async (req, res) => {
  */
 const submitDocument = async (req, res) => {
   const technicianId = req.user?.id || req.body.technicianId || req.query.technicianId ||
-                       req.headers['x-technician-id'] || req.headers['x-user-id'] || 'BT-PARTNER';
-  
+    req.headers['x-technician-id'] || req.headers['x-user-id'] || 'BT-PARTNER';
+
   const { documentType = 'AADHAAR', fileUrl = '', photoUrl = '', maskedNumber, fileSizeMb } = req.body;
   const docTypeUpper = String(documentType).toUpperCase();
   const rawFileUrl = fileUrl || photoUrl || '';
@@ -1462,7 +1466,7 @@ const getTierStatus = async (req, res) => {
         await postgres.query(`
           UPDATE technician_profiles SET tier = $1 WHERE technician_id = $2 OR id = $2;
         `, [tier, technicianId]);
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const perks = {
@@ -1971,10 +1975,10 @@ const getWalletLedger = async (req, res) => {
             amount: amt,
             type: t.type,
             title: t.type === 'WITHDRAWAL' ? `Instant Payout to UPI ${upiId || ''}` :
-                   t.type === 'SERVICE_EARNING' ? 'Service Earnings' :
-                   t.type === 'ADDON_EARNING' ? 'Spare Parts Add-on Earning' :
-                   t.type === 'PLATFORM_FEE' ? 'Platform Convenience Fee (15%)' :
-                   t.type === 'COD_COLLECTION' ? 'Cash Collected on Delivery' : t.type,
+              t.type === 'SERVICE_EARNING' ? 'Service Earnings' :
+                t.type === 'ADDON_EARNING' ? 'Spare Parts Add-on Earning' :
+                  t.type === 'PLATFORM_FEE' ? 'Platform Convenience Fee (15%)' :
+                    t.type === 'COD_COLLECTION' ? 'Cash Collected on Delivery' : t.type,
             date: new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
             isCredit,
             status: t.status,
@@ -2030,45 +2034,102 @@ const uploadJobProofOfWork = async (req, res) => {
   try {
     const bookingId = req.params.id;
     const technicianId = req.user?.id || req.headers['x-technician-id'] || 'tech-default';
-    const proofType = (req.body.type || req.body.photoType || '').toUpperCase();
-    const mediaUrl = req.body.mediaUrl || req.body.photoUrl || req.body.url;
+    const proofType = (req.body.type || req.body.photoType || req.body.proofType || 'AFTER').toUpperCase();
+    const mediaUrl =
+      req.body.mediaUrl ||
+      req.body.photoUrl ||
+      req.body.url ||
+      req.body.afterImageUrl ||
+      req.body.beforeImageUrl ||
+      req.body.afterPhotoUrl ||
+      req.body.beforePhotoUrl;
+    const summaryNotes =
+      req.body.notes ||
+      req.body.summaryNotes ||
+      req.body.summary ||
+      req.body.technicianNotes ||
+      '';
+    const partsReplaced = req.body.partsReplaced || '';
     const gpsLat = req.body.gpsLat != null ? req.body.gpsLat : req.body.latitude;
     const gpsLng = req.body.gpsLng != null ? req.body.gpsLng : req.body.longitude;
 
-    if (!proofType || !['BEFORE', 'AFTER'].includes(proofType)) {
+    if (!proofType || !['BEFORE', 'AFTER', 'BEFORE_SERVICE', 'AFTER_SERVICE'].includes(proofType)) {
       return res.status(400).json({ success: false, error: "Type must be 'BEFORE' or 'AFTER'" });
     }
     if (!mediaUrl) {
       return res.status(400).json({ success: false, error: 'mediaUrl or photoUrl is required' });
     }
 
+    const normalizedType = proofType.startsWith('BEFORE') ? 'BEFORE' : 'AFTER';
     const proofId = `PRF-${Date.now().toString(36).toUpperCase()}`;
+    const proofRecord = {
+      id: proofId,
+      proofId,
+      bookingId,
+      technicianId,
+      type: normalizedType,
+      photoType: normalizedType,
+      mediaUrl,
+      photoUrl: mediaUrl,
+      before_image_url: req.body.beforeImageUrl || (normalizedType === 'BEFORE' ? mediaUrl : null),
+      after_image_url: req.body.afterImageUrl || (normalizedType === 'AFTER' ? mediaUrl : null),
+      summaryNotes,
+      technicianNotes: summaryNotes,
+      partsReplaced,
+      gpsLat: gpsLat || null,
+      gpsLng: gpsLng || null,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Update in-memory booking store
+    const memBooking = bookingsStore.getBookingById(bookingId);
+    if (memBooking) {
+      if (!Array.isArray(memBooking.serviceProofs)) memBooking.serviceProofs = [];
+      memBooking.serviceProofs.push(proofRecord);
+      if (normalizedType === 'BEFORE') {
+        if (!Array.isArray(memBooking.before_service_photos)) memBooking.before_service_photos = [];
+        memBooking.before_service_photos.push(proofRecord);
+      } else {
+        if (!Array.isArray(memBooking.after_service_photos)) memBooking.after_service_photos = [];
+        memBooking.after_service_photos.push(proofRecord);
+      }
+      if (summaryNotes) {
+        memBooking.serviceSummary = summaryNotes;
+      }
+    }
 
     if (postgres.isPgHealthy()) {
       await postgres.query(`
         INSERT INTO booking_proof_of_work (id, booking_id, technician_id, type, media_url, gps_lat, gps_lng, timestamp)
         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-      `, [proofId, bookingId, technicianId, proofType, mediaUrl, gpsLat || null, gpsLng || null]);
+      `, [proofId, bookingId, technicianId, normalizedType, mediaUrl, gpsLat || null, gpsLng || null]).catch(() => {});
 
-      const col = proofType === 'BEFORE' ? 'before_service_photos' : 'after_service_photos';
+      await postgres.query(`
+        INSERT INTO service_proofs (id, booking_id, technician_id, proof_type, media_url, summary_notes, gps_lat, gps_lng, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      `, [proofId, bookingId, technicianId, normalizedType, mediaUrl, summaryNotes, gpsLat || null, gpsLng || null]).catch(() => {});
+
+      const col = normalizedType === 'BEFORE' ? 'before_service_photos' : 'after_service_photos';
       await postgres.query(`
         UPDATE bookings
         SET ${col} = COALESCE(${col}, '[]'::jsonb) || $1::jsonb,
             updated_at = NOW()
         WHERE id = $2 OR booking_code = $2;
-      `, [JSON.stringify([{ url: mediaUrl, timestamp: new Date().toISOString(), lat: gpsLat, lng: gpsLng }]), bookingId]);
+      `, [JSON.stringify([{ url: mediaUrl, timestamp: new Date().toISOString(), lat: gpsLat, lng: gpsLng }]), bookingId]).catch(() => {});
     }
 
     if (global.io) {
-      global.io.emit(`booking:proof_uploaded`, { bookingId, type: proofType, mediaUrl });
-      global.io.to(`booking_${bookingId}`).emit('booking:proof_uploaded', { bookingId, type: proofType, mediaUrl });
+      global.io.to(`booking_${bookingId}`).emit('booking:proof_uploaded', proofRecord);
+      if (memBooking?.customerId) {
+        global.io.to(`cust_${memBooking.customerId}`).emit('booking:proof_uploaded', proofRecord);
+      }
     }
 
     return res.json({
       success: true,
-      message: `${proofType} photo proof attached successfully`,
-      data: { proofId, bookingId, type: proofType, mediaUrl, photoType: proofType, photoUrl: mediaUrl },
-      proof: { proofId, bookingId, type: proofType, mediaUrl, photoType: proofType, photoUrl: mediaUrl },
+      message: `${normalizedType} photo proof attached successfully`,
+      data: proofRecord,
+      proof: proofRecord,
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
@@ -2173,25 +2234,46 @@ const registerFcmToken = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Technician ID and FCM token are required' });
     }
 
-    if (token.startsWith('tech_fcm_') || token.startsWith('cust_fcm_') || token.startsWith('fcm_')) {
-      return res.status(400).json({ success: false, error: 'Synthetic FCM tokens are rejected in production. Provide a valid Firebase device registration token.' });
+    const automaticDispatchEngine = require('../services/automaticDispatchEngine');
+    const notificationService = require('../services/notificationService');
+
+    if (
+      !automaticDispatchEngine.isValidFcmToken(token) ||
+      token.startsWith('tech_fcm_') ||
+      token.startsWith('cust_fcm_') ||
+      token.startsWith('fcm_')
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'Synthetic or invalid FCM tokens are rejected in production. Provide a valid Firebase device registration token.',
+      });
     }
+
+    notificationService.registerToken(technicianId, token);
+    const existingMem = inMemoryTechProfiles.get(technicianId) || { id: technicianId, technicianId };
+    setTechnicianProfile(technicianId, {
+      ...existingMem,
+      fcmToken: token,
+      fcm_token: token,
+      deviceTokens: [...new Set([...(existingMem.deviceTokens || []), token])],
+    });
 
     if (postgres.isPgHealthy()) {
       try {
         await postgres.query(`
           UPDATE users 
           SET fcm_token = $1,
-              device_tokens = array_append(array_remove(COALESCE(device_tokens, ARRAY[]::TEXT[]), $1), $1),
+              device_tokens = COALESCE(device_tokens, '[]'::jsonb) || to_jsonb($1::text),
               updated_at = NOW()
           WHERE id = $2;
         `, [token, technicianId]);
 
         await postgres.query(`
           UPDATE technician_profiles
-          SET updated_at = NOW()
+          SET fcm_token = $2,
+              updated_at = NOW()
           WHERE technician_id = $1 OR id = $1;
-        `, [technicianId]);
+        `, [technicianId, token]);
       } catch (pgErr) {
         console.warn('⚠️ [TechnicianController] PG FCM update warning:', pgErr.message);
       }

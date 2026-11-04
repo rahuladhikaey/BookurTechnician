@@ -1,61 +1,63 @@
 /* ==========================================================================
    BOOKURTECHNICIAN ADMIN CONTROL TOWER - ENTERPRISE DESIGN SYSTEM
-   Color Scheme: Pure Obsidian Black, Crisp White & Royal Blue
+   Color Scheme: Royal Blue (#173B8F), Deep Navy (#102A63), Bright Yellow (#FFC928) & Pure White (#FFFFFF)
    ========================================================================== */
 
 :root {
-  /* ─── Black & Dark Tones ─── */
-  --bg-sidebar: #080C16;
-  --bg-sidebar-dark: #04060B;
-  --bg-sidebar-hover: #121829;
-  --bg-sidebar-active: #17213C;
-  --bg-header: #0F172A;
-  --text-dark: #080C16;
-  --black: #000000;
+  /* ─── Deep Navy & Royal Blue Sidebar Tones ─── */
+  --bg-sidebar: #102A63;
+  --bg-sidebar-dark: #0B1E47;
+  --bg-sidebar-hover: #173B8F;
+  --bg-sidebar-active: #173B8F;
+  --bg-header: #102A63;
+  --text-dark: #202938;
+  --black: #102A63;
 
-  /* ─── Pure White & Light Canvas ─── */
-  --bg-canvas: #F8FAFC;
+  /* ─── Pure White & Light Blue Canvas (#EDF3FF) ─── */
+  --bg-canvas: #EDF3FF;
   --bg-card: #FFFFFF;
-  --bg-card-hover: #F1F5F9;
+  --bg-card-hover: #F4F8FF;
   --bg-input: #FFFFFF;
   --text-white: #FFFFFF;
-  --text-main: #0F172A;
-  --text-secondary: #475569;
-  --text-muted: #64748B;
+  --text-main: #202938;
+  --text-secondary: #737D8C;
+  --text-muted: #737D8C;
   --text-light: #94A3B8;
 
-  /* ─── Royal Blue Core Brand Accents ─── */
-  --royal-blue: #2563EB;
-  --royal-blue-hover: #1D4ED8;
-  --royal-blue-dark: #1E40AF;
-  --royal-blue-deep: #172554;
-  --royal-blue-light: #EFF6FF;
-  --royal-blue-subtle: #DBEAFE;
-  --royal-glow: rgba(37, 99, 235, 0.25);
-  --royal-border: #93C5FD;
-  --primary: #2563EB;
-  --primary-hover: #1D4ED8;
-  --primary-light: #EFF6FF;
+  /* ─── Royal Blue (#173B8F) & Bright Yellow (#FFC928) Brand Accents ─── */
+  --royal-blue: #173B8F;
+  --royal-blue-hover: #102A63;
+  --royal-blue-dark: #102A63;
+  --royal-blue-deep: #102A63;
+  --royal-blue-light: #EDF3FF;
+  --royal-blue-subtle: #DCE7FF;
+  --royal-glow: rgba(23, 59, 143, 0.25);
+  --royal-border: #B8CEFF;
+  --primary: #173B8F;
+  --primary-hover: #102A63;
+  --primary-light: #EDF3FF;
+  --accent-yellow: #FFC928;
+  --accent-yellow-soft: #FFF4CC;
 
-  /* ─── Border & Dividers ─── */
-  --border-color: #E2E8F0;
-  --border-subtle: #F1F5F9;
-  --border-dark: #1E293B;
-  --border-focus: #2563EB;
+  /* ─── Border & Dividers (#E4E9F1) ─── */
+  --border-color: #E4E9F1;
+  --border-subtle: #EDF3FF;
+  --border-dark: #173B8F;
+  --border-focus: #173B8F;
 
-  /* ─── Status Colors (Clean & High Contrast) ─── */
-  --status-green: #10B981;
-  --status-green-light: #ECFDF5;
-  --status-green-text: #065F46;
+  /* ─── Status Colors (Clean & High Contrast — Zero Purple) ─── */
+  --status-green: #18864B;
+  --status-green-light: #EAF7F0;
+  --status-green-text: #18864B;
   --status-amber: #F59E0B;
-  --status-amber-light: #FFFBEB;
+  --status-amber-light: #FFF4CC;
   --status-amber-text: #92400E;
-  --status-red: #EF4444;
-  --status-red-light: #FEF2F2;
-  --status-red-text: #991B1B;
-  --status-purple: #8B5CF6;
-  --status-purple-light: #F5F3FF;
-  --status-purple-text: #5B21B6;
+  --status-red: #D64545;
+  --status-red-light: #FDECEC;
+  --status-red-text: #D64545;
+  --status-purple: #173B8F;
+  --status-purple-light: #EDF3FF;
+  --status-purple-text: #102A63;
 
   /* ─── Typography & Geometry ─── */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;

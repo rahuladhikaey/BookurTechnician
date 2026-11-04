@@ -1,11 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const dispatchController = require('../controllers/dispatchController');
 const { authenticateToken, requireAdminRole } = require('../middleware/authMiddleware');
 
 // Universal Admin Security: Require Cryptographic Authentication & Admin RBAC
 router.use(authenticateToken);
 router.use(requireAdminRole);
+
+// Admin Dispatch Engine Endpoints (Section 15 & 17)
+router.get('/dispatch/live', dispatchController.getAdminLiveDispatch);
+router.get('/dispatch/:bookingId/history', dispatchController.getAdminDispatchHistory);
+router.put('/dispatch/config', dispatchController.updateAdminDispatchConfig);
+router.post('/dispatch/:bookingId/manual-assign', dispatchController.manualAssignDispatch);
 
 // Overview & Executive Analytics
 router.get('/overview', adminController.getOverview);

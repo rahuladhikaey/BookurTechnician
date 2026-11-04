@@ -62,8 +62,8 @@ class RadarMatchingSheet extends ConsumerStatefulWidget {
 class _RadarMatchingSheetState extends ConsumerState<RadarMatchingSheet>
     with SingleTickerProviderStateMixin {
   late AnimationController _animCtrl;
-  String _statusText = 'Scanning 15 km PostGIS spatial radius...';
-  String _subStatusText = 'Filtering background-verified technicians';
+  String _statusText = 'Finding the Best Technician Near You';
+  String _subStatusText = 'Checking technician availability...';
   bool _isDispatched = false;
   Booking? _createdBooking;
   Timer? _stepTimer;
@@ -80,11 +80,11 @@ class _RadarMatchingSheetState extends ConsumerState<RadarMatchingSheet>
   }
 
   Future<void> _executeBookingFlow() async {
-    _stepTimer = Timer(const Duration(milliseconds: 1200), () {
+    _stepTimer = Timer(const Duration(milliseconds: 900), () {
       if (mounted) {
         setState(() {
-          _statusText = 'AI Matchmaker ranking optimal specialists...';
-          _subStatusText = 'Evaluating distance, rating & speed';
+          _statusText = 'Finding the Best Technician Near You';
+          _subStatusText = 'Finding nearby professionals & sending booking requests...';
         });
       }
     });
@@ -103,11 +103,11 @@ class _RadarMatchingSheetState extends ConsumerState<RadarMatchingSheet>
         setState(() {
           _isDispatched = true;
           _createdBooking = booking;
-          _statusText = 'Technician Match Confirmed!';
-          _subStatusText = 'Dispatch request accepted. Diverting to live GPS tracker.';
+          _statusText = 'Finding the Best Technician Near You';
+          _subStatusText = 'Waiting for technician response...';
         });
 
-        await Future.delayed(const Duration(milliseconds: 1400));
+        await Future.delayed(const Duration(milliseconds: 1100));
         if (mounted) {
           Navigator.pop(context);
           Navigator.pushNamed(
@@ -121,21 +121,16 @@ class _RadarMatchingSheetState extends ConsumerState<RadarMatchingSheet>
         }
       } else {
         setState(() {
-          _statusText = 'No Technician Online';
-          _subStatusText = 'All verified partners in your 15 km area are currently busy.';
+          _statusText = 'No Technician Available Nearby';
+          _subStatusText = 'All verified specialists in your 15 km radius are currently busy. Please retry or reschedule.';
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _statusText = 'Dispatch Notice';
-          _subStatusText = 'Offline simulation booked. Redirecting to tracking...';
+          _statusText = 'Unable to Complete Dispatch Request';
+          _subStatusText = 'Please check your connection and retry.';
         });
-        await Future.delayed(const Duration(seconds: 1));
-        if (mounted) {
-          Navigator.pop(context);
-          Navigator.pushNamed(context, '/home');
-        }
       }
     }
   }
@@ -184,22 +179,23 @@ class _RadarMatchingSheetState extends ConsumerState<RadarMatchingSheet>
                     ),
                     child: Center(
                       child: Container(
-                        width: 58,
-                        height: 58,
+                        width: 60,
+                        height: 60,
                         decoration: BoxDecoration(
-                          color: _isDispatched ? kSuccessGreen : kBlack,
+                          color: _isDispatched ? kSuccessGreen : kRoyalBlue,
                           shape: BoxShape.circle,
+                          border: Border.all(color: kBrightYellow, width: 2.5),
                           boxShadow: [
                             BoxShadow(
-                              color: (_isDispatched ? kSuccessGreen : kBlack).withValues(alpha: 0.25),
-                              blurRadius: 16,
+                              color: (_isDispatched ? kSuccessGreen : kRoyalBlue).withValues(alpha: 0.30),
+                              blurRadius: 18,
                               spreadRadius: 4,
                             ),
                           ],
                         ),
                         child: Icon(
                           _isDispatched ? Icons.check_rounded : widget.selectedTier.icon,
-                          color: kWhite,
+                          color: kBrightYellow,
                           size: 30,
                         ),
                       ),
@@ -299,9 +295,9 @@ class _RadarScanPainter extends CustomPainter {
     final maxRadius = size.width / 2;
 
     final ringPaint = Paint()
-      ..color = (isSuccess ? kSuccessGreen : Colors.grey.shade400).withValues(alpha: 0.3)
+      ..color = (isSuccess ? kSuccessGreen : kRoyalBlue).withValues(alpha: 0.28)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
+      ..strokeWidth = 1.4;
 
     // Draw concentric radar rings
     for (int i = 1; i <= 3; i++) {
@@ -318,8 +314,8 @@ class _RadarScanPainter extends CustomPainter {
           startAngle: 0,
           endAngle: sweepAngle,
           colors: [
-            Colors.black.withValues(alpha: 0.28),
-            Colors.black.withValues(alpha: 0.0),
+            kRoyalBlue.withValues(alpha: 0.30),
+            kBrightYellow.withValues(alpha: 0.08),
           ],
         ).createShader(Rect.fromCircle(center: center, radius: maxRadius))
         ..style = PaintingStyle.fill;

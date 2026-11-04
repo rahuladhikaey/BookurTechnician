@@ -1,634 +1,541 @@
 // ============================================================================
-// BOOKURTECHNICIAN CENTRALIZED DISPATCH ENGINE & DISPATCH REQUEST CONTROLLER
-// Atomic Concurrency, 30s-35s Server Expiry, Cascading Re-dispatch, and Sync
+// BOOKURTECHNICIAN - DISPATCH CONTROLLER (PRODUCTION GRADE)
+// Exposes Customer, Technician & Admin Dispatch Endpoints backed by
+// automaticDispatchEngine.js with strict RBAC & ownership enforcement.
 // ============================================================================
 
-const postgres = require('../config/postgres');
+const automaticDispatchEngine = require('../services/automaticDispatchEngine');
 const bookingsStore = require('../config/bookingsStore');
-const firebase = require('../config/firebase');
-const kafka = require('../config/kafka');
-const notificationService = require('../services/notificationService');
-const { calculateHaversineDistanceKm } = require('../services/postgresSpatialScanner');
-
-// In-Memory active dispatch proposals store (fast cache + fallback)
-const activeDispatchStore = new Map();
+const { inMemoryTechProfiles } = require('../config/inMemoryTechStore');
 
 /**
- * Creates and registers a new unique dispatch request
+ * GET /api/v1/technicians/availability
+ * Returns eligible & available technicians for a service, location, and appointment slot,
+ * or returns a specific technician's working hours schedule.
  */
-async function registerDispatchRequest({
-  bookingId,
-  technicianId,
-  serviceId,
-  serviceName,
-  customerName,
-  customerAddress,
-  distanceKm,
-  estimatedPayout,
-  totalAmount,
-  timeoutSeconds = 35,
-  candidatesQueue = [],
-}) {
-  const dispatchRequestId = `disp_req_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + timeoutSeconds * 1000);
-
-  const proposal = {
-    id: dispatchRequestId,
-    dispatchRequestId,
-    proposalId: dispatchRequestId,
-    bookingId,
-    technicianId,
-    serviceId: serviceId || 'srv_general',
-    serviceName: serviceName || 'General Service',
-    serviceType: serviceName || 'General Service',
-    customerName: customerName || 'Customer',
-    customerAddress: customerAddress || 'Customer Location',
-    distanceKm: parseFloat(distanceKm || 1.8).toFixed(1),
-    estimatedPayout: parseFloat(estimatedPayout || 350).toFixed(0),
-    payout: parseFloat(estimatedPayout || 350).toFixed(0),
-    totalAmount: parseFloat(totalAmount || 499).toFixed(0),
-    status: 'PENDING',
-    createdAt: now.toISOString(),
-    expiresAt: expiresAt.toISOString(),
-    timeoutSeconds,
-    candidatesQueue,
-  };
-
-  // 1. Save to in-memory store
-  activeDispatchStore.set(dispatchRequestId, proposal);
-
-  // 2. Persist to PostgreSQL if available
-  if (postgres.isPgHealthy()) {
-    try {
-      await postgres.query(
-        `INSERT INTO dispatch_requests (
-          id, booking_id, technician_id, service_id, service_name, customer_name, 
-          customer_address, distance_km, estimated_payout, total_amount, status, 
-          created_at, expires_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-        ON CONFLICT (id) DO UPDATE SET status = $11, expires_at = $13`,
-        [
-          dispatchRequestId,
-          bookingId,
-          technicianId,
-          proposal.serviceId,
-          proposal.serviceName,
-          proposal.customerName,
-          proposal.customerAddress,
-          proposal.distanceKm,
-          proposal.estimatedPayout,
-          proposal.totalAmount,
-          'PENDING',
-          now,
-          expiresAt,
-        ]
-      );
-    } catch (e) {
-      console.warn('⚠️ [DispatchStore] PostgreSQL insert error (using in-memory):', e.message);
-    }
-  }
-
-  // 3. Schedule automatic server-side expiry & cascading
-  setTimeout(async () => {
-    await handleServerSideExpiry(dispatchRequestId);
-  }, timeoutSeconds * 1000);
-
-  console.log(`[DISPATCH] REQUEST_CREATED id=${dispatchRequestId} booking=${bookingId} tech=${technicianId} distance=${distanceKm}km status=PENDING`);
-
-  return proposal;
-}
-
-/**
- * Handles server-side timeout when technician does not respond within the time limit
- */
-async function handleServerSideExpiry(dispatchRequestId) {
-  const proposal = activeDispatchStore.get(dispatchRequestId);
-  if (!proposal) return;
-
-  if (proposal.status === 'PENDING') {
-    proposal.status = 'EXPIRED';
-    proposal.respondedAt = new Date().toISOString();
-    activeDispatchStore.set(dispatchRequestId, proposal);
-
-    if (postgres.isPgHealthy()) {
-      try {
-        await postgres.query(
-          `UPDATE dispatch_requests SET status = 'EXPIRED', responded_at = NOW() WHERE id = $1 AND status = 'PENDING'`,
-          [dispatchRequestId]
-        );
-      } catch (_) {}
-    }
-
-    console.log(`[DISPATCH] REQUEST_EXPIRED id=${dispatchRequestId} booking=${proposal.bookingId} tech=${proposal.technicianId}`);
-
-    // Notify technician that proposal expired
-    if (global.io) {
-      global.io.to(`tech_${proposal.technicianId}`).emit('booking:expired', {
-        dispatchRequestId,
-        bookingId: proposal.bookingId,
-        message: 'Job request timed out and was forwarded to another partner.',
-      });
-      global.io.to(`tech_${proposal.technicianId}`).emit('dispatch:expired', {
-        dispatchRequestId,
-        bookingId: proposal.bookingId,
-      });
-    }
-
-    // Cascade dispatch to the next candidate in the queue
-    if (Array.isArray(proposal.candidatesQueue) && proposal.candidatesQueue.length > 0) {
-      const nextCandidate = proposal.candidatesQueue.shift();
-      console.log(`[DISPATCH] CASCADING to next candidate tech=${nextCandidate.technicianId} for booking=${proposal.bookingId}`);
-      
-      const newProposal = await registerDispatchRequest({
-        bookingId: proposal.bookingId,
-        technicianId: nextCandidate.technicianId,
-        serviceId: proposal.serviceId,
-        serviceName: proposal.serviceName,
-        customerName: proposal.customerName,
-        customerAddress: proposal.customerAddress,
-        distanceKm: nextCandidate.distanceKm || '2.5',
-        estimatedPayout: proposal.estimatedPayout,
-        totalAmount: proposal.totalAmount,
-        timeoutSeconds: 30,
-        candidatesQueue: proposal.candidatesQueue,
-      });
-
-      // Emit to new technician
-      if (global.io) {
-        const ringingPayload = {
-          event: 'TECHNICIAN_BOOKING_REQUEST',
-          type: 'NEW_JOB_ALERT',
-          dispatchRequestId: newProposal.id,
-          proposalId: newProposal.id,
-          bookingId: newProposal.bookingId,
-          serviceId: newProposal.serviceId,
-          serviceName: newProposal.serviceName,
-          serviceType: newProposal.serviceName,
-          customerName: newProposal.customerName,
-          customerAddress: newProposal.customerAddress,
-          distanceKm: String(newProposal.distanceKm),
-          estimatedEarning: parseFloat(newProposal.estimatedPayout),
-          payout: String(newProposal.estimatedPayout),
-          totalAmount: parseFloat(newProposal.totalAmount),
-          timeoutSeconds: 30,
-          createdAt: newProposal.createdAt,
-          expiresAt: newProposal.expiresAt,
-          playRingtone: true,
-          vibrate: true,
-        };
-
-        global.io.to(`tech_${nextCandidate.technicianId}`).emit('booking:dispatch_ringing', ringingPayload);
-        global.io.to(`tech_${nextCandidate.technicianId}`).emit('TECHNICIAN_BOOKING_REQUEST', ringingPayload);
-        if (nextCandidate.phone) {
-          global.io.to(`tech_${nextCandidate.phone}`).emit('booking:dispatch_ringing', ringingPayload);
-          global.io.to(`tech_${nextCandidate.phone}`).emit('TECHNICIAN_BOOKING_REQUEST', ringingPayload);
-        }
-      }
-    }
-  }
-}
-
-/**
- * GET /api/v1/technicians/dispatch/pending
- * GET /api/v1/dispatch/proposals/pending
- * GET /api/v1/dispatch/pending
- * Returns active pending proposal for the authenticated technician
- */
-const getPendingDispatchRequests = async (req, res) => {
+const getTechniciansAvailability = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.user?.sub || req.headers['x-technician-id'] || req.query.technicianId;
-    if (!technicianId) {
-      return res.status(401).json({ success: false, error: 'Technician identity required' });
+    const {
+      technicianId,
+      latitude,
+      longitude,
+      serviceId,
+      serviceName,
+      category,
+      scheduleDate,
+      scheduleSlot,
+      bookingMode = 'INSTANT',
+      radiusKm = 15,
+    } = req.query;
+
+    if (technicianId) {
+      const schedule = automaticDispatchEngine.getTechnicianAvailability(technicianId);
+      const profile = inMemoryTechProfiles.get(technicianId) || null;
+      return res.json({
+        success: true,
+        technicianId,
+        isOnline: Boolean(profile?.isOnline ?? profile?.is_online),
+        availabilityStatus: profile?.availabilityStatus || profile?.availability_status || 'AVAILABLE',
+        schedule,
+      });
     }
 
-    const now = new Date();
-
-    // 1. Check in-memory store
-    for (const [id, proposal] of activeDispatchStore.entries()) {
-      const isMatch = (
-        proposal.technicianId === technicianId ||
-        proposal.technicianId === 'ALL' ||
-        !proposal.technicianId ||
-        proposal.phone === technicianId ||
-        (Array.isArray(proposal.candidatesQueue) && proposal.candidatesQueue.some(c => (c.technicianId || c.id) === technicianId))
-      );
-
-      if (isMatch && proposal.status === 'PENDING' && new Date(proposal.expiresAt) > now) {
-        const remainingSeconds = Math.max(0, Math.round((new Date(proposal.expiresAt).getTime() - now.getTime()) / 1000));
-        return res.json({
-          success: true,
-          hasPending: true,
-          proposal: {
-            ...proposal,
-            remainingSeconds,
+    if (latitude != null && longitude != null) {
+      const { rankedCandidates, excludedDiagnostics } =
+        await automaticDispatchEngine.findAndRankEligibleTechnicians(
+          {
+            serviceId,
+            serviceName,
+            category,
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude),
+            scheduleDate,
+            scheduleSlot,
+            bookingMode,
           },
-          data: {
-            ...proposal,
-            remainingSeconds,
-          },
-        });
-      }
+          parseFloat(radiusKm) || 15
+        );
+
+      return res.json({
+        success: true,
+        availableCount: rankedCandidates.length,
+        radiusKm: parseFloat(radiusKm) || 15,
+        bookingMode,
+        technicians: rankedCandidates.map(c => ({
+          technicianId: c.technicianId,
+          name: c.name,
+          category: c.category,
+          rating: c.rating,
+          completedJobs: c.completedJobs,
+          distanceKm: c.distanceKm,
+          etaMinutes: c.etaMinutes,
+          etaSource: c.etaSource,
+          rankingScore: c.rankingScore,
+        })),
+        excludedCount: excludedDiagnostics.length,
+      });
     }
 
-    // 2. Check PostgreSQL
-    if (postgres.isPgHealthy()) {
-      const pgRes = await postgres.query(
-        `SELECT * FROM dispatch_requests 
-         WHERE (technician_id = $1 OR technician_id = 'ALL') 
-           AND status = 'PENDING' 
-           AND expires_at > NOW() 
-         ORDER BY created_at DESC LIMIT 1`,
-        [technicianId]
-      );
+    // Default: list availability summary of all registered technicians
+    const allTechs = Array.from(inMemoryTechProfiles.values()).map(t => ({
+      technicianId: t.id || t.technicianId,
+      name: t.name || t.fullName,
+      category: t.category,
+      kycStatus: t.kycStatus || t.kyc_status,
+      isOnline: Boolean(t.isOnline ?? t.is_online),
+      availabilityStatus: t.availabilityStatus || t.availability_status || 'AVAILABLE',
+      schedule: automaticDispatchEngine.getTechnicianAvailability(t.id || t.technicianId),
+    }));
 
-      if (pgRes.rows.length > 0) {
-        const row = pgRes.rows[0];
-        const remainingSeconds = Math.max(0, Math.round((new Date(row.expires_at).getTime() - now.getTime()) / 1000));
-        const formatted = {
-          id: row.id,
-          dispatchRequestId: row.id,
-          proposalId: row.id,
-          bookingId: row.booking_id,
-          technicianId: row.technician_id,
-          serviceId: row.service_id,
-          serviceName: row.service_name,
-          serviceType: row.service_name,
-          customerName: row.customer_name,
-          customerAddress: row.customer_address,
-          distanceKm: String(row.distance_km || 1.8),
-          estimatedPayout: String(row.estimated_payout || 350),
-          payout: String(row.estimated_payout || 350),
-          totalAmount: String(row.total_amount || 499),
-          status: row.status,
-          createdAt: row.created_at,
-          expiresAt: row.expires_at,
-          timeoutSeconds: 30,
-          remainingSeconds,
-        };
+    return res.json({
+      success: true,
+      count: allTechs.length,
+      technicians: allTechs,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
 
-        return res.json({
-          success: true,
-          hasPending: true,
-          proposal: formatted,
-          data: formatted,
+/**
+ * POST /api/v1/technicians/availability
+ * Updates working hours & unavailable windows for a technician.
+ */
+const updateTechnicianAvailability = async (req, res) => {
+  try {
+    const authUserId = req.user?.id;
+    const userRole = String(req.user?.role || '').toUpperCase();
+    const targetTechId =
+      userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
+        ? req.body.technicianId || authUserId
+        : authUserId;
+
+    if (!targetTechId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Technician identity required' });
+    }
+
+    const scheduleList = Array.isArray(req.body.schedule)
+      ? req.body.schedule
+      : [req.body];
+
+    const saved = await automaticDispatchEngine.setTechnicianAvailability(targetTechId, scheduleList);
+    return res.json({
+      success: true,
+      technicianId: targetTechId,
+      schedule: saved,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * GET /api/v1/dispatch/:bookingId/status
+ */
+const getDispatchStatus = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const statusData = automaticDispatchEngine.getBookingDispatchStatus(bookingId);
+    if (!statusData) {
+      return res.status(404).json({ success: false, error: 'Booking dispatch status not found' });
+    }
+
+    // Security check: Customer can only inspect their own booking status (unless Admin or assigned Technician)
+    if (req.user) {
+      const role = String(req.user.role || '').toUpperCase();
+      const booking = bookingsStore.getBookingById(bookingId);
+      if (
+        role === 'CUSTOMER' &&
+        booking &&
+        booking.customerId &&
+        String(booking.customerId) !== String(req.user.id)
+      ) {
+        return res.status(403).json({
+          success: false,
+          error: 'Forbidden: You cannot inspect another customer booking dispatch status',
         });
       }
     }
 
     return res.json({
       success: true,
-      hasPending: false,
-      proposal: null,
-      data: null,
-      message: 'No pending dispatch proposals found.',
+      data: statusData,
+      ...statusData,
     });
   } catch (error) {
-    console.error('❌ Error fetching pending dispatch:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
 /**
- * GET /api/v1/technicians/dispatch/:id
+ * GET /api/v1/technician/offers (and legacy /api/v1/dispatch/pending)
+ */
+const getTechnicianOffers = async (req, res) => {
+  try {
+    const technicianId = req.user?.id || req.query.technicianId;
+    if (!technicianId) {
+      return res.json({ success: true, hasPending: false, offers: [], proposal: null });
+    }
+
+    // If req.user is present and is a TECHNICIAN, enforce they can only query their own offers
+    if (
+      req.user &&
+      String(req.user.role || '').toUpperCase() === 'TECHNICIAN' &&
+      req.query.technicianId &&
+      String(req.query.technicianId) !== String(req.user.id)
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Cannot view dispatch offers for another technician',
+      });
+    }
+
+    const activeOffers = automaticDispatchEngine.getTechnicianActiveOffers(technicianId);
+    const topOffer = activeOffers[0] || null;
+
+    return res.json({
+      success: true,
+      hasPending: activeOffers.length > 0,
+      count: activeOffers.length,
+      offers: activeOffers,
+      proposal: topOffer
+        ? {
+            proposalId: topOffer.id,
+            offerId: topOffer.id,
+            dispatchRequestId: topOffer.id,
+            bookingId: topOffer.bookingId,
+            serviceName: topOffer.serviceName,
+            serviceType: topOffer.serviceName,
+            approximateCustomerArea: topOffer.approximateArea,
+            customerAddress: topOffer.approximateArea,
+            customerName: 'Verified Customer',
+            distanceKm: topOffer.distanceKm,
+            estimatedTravelMinutes: topOffer.etaMinutes,
+            appointmentTime: topOffer.appointmentTime,
+            expectedEarning: topOffer.expectedEarning,
+            payout: topOffer.expectedEarning,
+            totalAmount: topOffer.totalAmount,
+            remainingSeconds: topOffer.remainingSeconds,
+            timeoutSeconds: topOffer.remainingSeconds,
+            expiresAt: topOffer.expiresAt,
+            attemptNumber: topOffer.attemptNumber,
+          }
+        : null,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
  * GET /api/v1/dispatch/proposals/:id
  */
 const getDispatchRequestById = async (req, res) => {
   try {
     const { id } = req.params;
-    let proposal = activeDispatchStore.get(id);
-
-    if (!proposal && postgres.isPgHealthy()) {
-      const pgRes = await postgres.query('SELECT * FROM dispatch_requests WHERE id = $1 OR booking_id = $1', [id]);
-      if (pgRes.rows.length > 0) {
-        const row = pgRes.rows[0];
-        proposal = {
-          id: row.id,
-          dispatchRequestId: row.id,
-          proposalId: row.id,
-          bookingId: row.booking_id,
-          technicianId: row.technician_id,
-          serviceName: row.service_name,
-          customerName: row.customer_name,
-          customerAddress: row.customer_address,
-          distanceKm: String(row.distance_km),
-          payout: String(row.estimated_payout),
-          status: row.status,
-          expiresAt: row.expires_at,
-        };
-      }
+    const offer = automaticDispatchEngine.dispatchOffersStore.get(id);
+    if (!offer) {
+      return res.status(404).json({ success: false, error: 'Dispatch offer not found' });
     }
-
-    if (!proposal) {
-      return res.status(404).json({ success: false, error: 'Dispatch request not found' });
-    }
-
-    return res.json({ success: true, data: proposal, proposal });
+    return res.json({ success: true, data: offer, proposal: offer });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
 /**
- * POST /api/v1/technicians/dispatch/:id/accept
- * POST /api/v1/dispatch/proposals/:id/accept
- * Atomic Acceptance of Dispatch Request
+ * POST /api/v1/dispatch/:bookingId/start
  */
-const acceptDispatchRequest = async (req, res) => {
+const startDispatch = async (req, res) => {
   try {
-    const targetId = req.params.id;
-    const technicianId = req.user?.id || req.user?.sub || req.headers['x-technician-id'] || req.body.technicianId;
+    const { bookingId } = req.params;
+    const booking = bookingsStore.getBookingById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' });
+    }
+
+    // Ownership check if Customer
+    if (req.user) {
+      const role = String(req.user.role || '').toUpperCase();
+      if (role === 'CUSTOMER' && booking.customerId && String(booking.customerId) !== String(req.user.id)) {
+        return res.status(403).json({ success: false, error: 'Forbidden: Cannot start dispatch for another customer booking' });
+      }
+      if (role === 'TECHNICIAN') {
+        return res.status(403).json({ success: false, error: 'Forbidden: Technicians cannot trigger booking dispatch' });
+      }
+    }
+
+    const session = await automaticDispatchEngine.startDispatchForBooking(booking, {
+      bookingMode: req.body.bookingMode || booking.bookingMode || 'INSTANT',
+      offerTimeoutSeconds: req.body.offerTimeoutSeconds,
+      radiiKm: req.body.radiiKm,
+      actorId: req.user?.id || 'SYSTEM',
+      actorRole: req.user?.role || 'SYSTEM',
+      forceRestart: Boolean(req.body.forceRestart),
+      forceAuto: true,
+    });
+
+    return res.json({
+      success: true,
+      message: 'Automatic technician dispatch started',
+      data: session,
+      session,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * POST /api/v1/dispatch/offers/:offerId/accept
+ * (Also handles legacy /api/v1/dispatch/proposals/:id/accept)
+ */
+const acceptDispatchOffer = async (req, res) => {
+  try {
+    const offerOrBookingId = req.params.offerId || req.params.id;
+    const technicianId = req.user?.id || req.body?.technicianId;
 
     if (!technicianId) {
-      return res.status(401).json({ success: false, error: 'Unauthorized: valid technician identifier required' });
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authenticated technician identity required' });
     }
 
-    console.log(`[DISPATCH] REQUEST_ACCEPTED_ATTEMPT id=${targetId} tech=${technicianId}`);
-
-    // Retrieve proposal if exists
-    let proposal = activeDispatchStore.get(targetId);
-    let bookingId = proposal?.bookingId || targetId;
-
-    // 1. Fetch technician profile
-    let techName = 'Verified Partner';
-    let techPhone = '';
-    let techRating = 4.85;
-    let techAvatar = '';
-    let techLat = 22.5726;
-    let techLng = 88.3639;
-
-    if (postgres.isPgHealthy()) {
-      const tpRes = await postgres.query(
-        `SELECT * FROM technician_profiles WHERE id::text = $1 OR technician_id = $1 OR phone = $1`,
-        [technicianId]
-      );
-      if (tpRes.rows.length > 0) {
-        const row = tpRes.rows[0];
-        techName = row.full_name || techName;
-        techPhone = row.phone || techPhone;
-        techRating = parseFloat(row.rating) || techRating;
-        if (row.current_latitude && row.current_longitude) {
-          techLat = parseFloat(row.current_latitude);
-          techLng = parseFloat(row.current_longitude);
-        }
-      }
+    if (req.user && String(req.user.role || '').toUpperCase() === 'CUSTOMER') {
+      return res.status(403).json({ success: false, error: 'Forbidden: Customers cannot accept technician dispatch offers' });
     }
 
-    // 2. ATOMIC ACCEPTANCE TRANSACTION IN POSTGRESQL
-    let bookingAssigned = null;
+    const result = await automaticDispatchEngine.acceptOffer(offerOrBookingId, technicianId);
 
-    if (postgres.isPgHealthy()) {
-      // Find matching booking
-      const bookRes = await postgres.query(
-        `UPDATE bookings 
-         SET technician_id = $1, status = 'ACCEPTED', updated_at = NOW() 
-         WHERE (id = $2 OR booking_code = $2) 
-           AND (technician_id IS NULL OR technician_id = $1)
-           AND status IN ('CONFIRMED', 'PENDING', 'TECHNICIAN_REQUESTED')
-         RETURNING *`,
-        [technicianId, bookingId]
-      );
-
-      if (bookRes.rows.length === 0) {
-        // Check if already assigned
-        const checkRes = await postgres.query(
-          `SELECT * FROM bookings WHERE id = $1 OR booking_code = $1`,
-          [bookingId]
-        );
-        if (checkRes.rows.length > 0 && checkRes.rows[0].technician_id !== technicianId) {
-          console.log(`[DISPATCH] CONFLICT id=${targetId} booking=${bookingId} already assigned to ${checkRes.rows[0].technician_id}`);
-          return res.status(409).json({
-            success: false,
-            error: 'This booking has already been assigned to another partner.',
-            code: 'BOOKING_ALREADY_ASSIGNED',
-          });
-        }
-      } else {
-        bookingAssigned = bookRes.rows[0];
-      }
-
-      // Mark technician as BUSY
-      await postgres.query(
-        `UPDATE technician_profiles SET availability_status = 'BUSY', updated_at = NOW() WHERE id::text = $1 OR technician_id = $1 OR phone = $1`,
-        [technicianId]
-      );
-
-      // Update dispatch_requests table
-      await postgres.query(
-        `UPDATE dispatch_requests SET status = 'ACCEPTED', responded_at = NOW() WHERE (id = $1 OR booking_id = $2) AND technician_id = $3`,
-        [targetId, bookingId, technicianId]
-      ).catch(() => {});
-
-      // Cancel all other pending requests for this booking
-      await postgres.query(
-        `UPDATE dispatch_requests SET status = 'CANCELLED', responded_at = NOW() WHERE booking_id = $1 AND id != $2 AND status = 'PENDING'`,
-        [bookingId, targetId]
-      ).catch(() => {});
-    }
-
-    // In-Memory store update
-    if (proposal) {
-      proposal.status = 'ACCEPTED';
-      proposal.respondedAt = new Date().toISOString();
-      activeDispatchStore.set(targetId, proposal);
-    }
-
-    let memoryBooking = bookingsStore.getBookingById(bookingId);
-    if (memoryBooking) {
-      if (memoryBooking.technicianId && memoryBooking.technicianId !== technicianId && memoryBooking.status === 'ACCEPTED') {
-        return res.status(409).json({
-          success: false,
-          error: 'This booking has already been assigned to another partner.',
-          code: 'BOOKING_ALREADY_ASSIGNED',
-        });
-      }
-      memoryBooking.technicianId = technicianId;
-      memoryBooking.technicianName = techName;
-      memoryBooking.technician = techName;
-      memoryBooking.technicianPhone = techPhone;
-      memoryBooking.status = 'ACCEPTED';
-      memoryBooking.updatedAt = new Date().toISOString();
-      bookingsStore.assignTechnician(bookingId, technicianId, techName, techPhone, memoryBooking.category, techRating, techAvatar);
-    }
-
-    const startOtp = memoryBooking?.startOtp || bookingAssigned?.start_otp || '4829';
-    const custLat = parseFloat(memoryBooking?.latitude || bookingAssigned?.latitude || 22.5726);
-    const custLng = parseFloat(memoryBooking?.longitude || bookingAssigned?.longitude || 88.3639);
-    const distanceKm = calculateHaversineDistanceKm(custLat, custLng, techLat, techLng);
-
-    const technicianDetailsPayload = {
-      bookingId,
-      bookingCode: memoryBooking?.bookingCode || bookingAssigned?.booking_code || bookingId,
-      status: 'ACCEPTED',
+    return res.status(200).json({
+      success: true,
+      message: 'Booking offer accepted and atomically assigned',
+      bookingId: result.booking?.id || result.offer.bookingId,
+      offerId: result.offer.id,
       technicianId,
-      technicianName: techName,
-      technicianPhone: techPhone,
-      technicianRating: techRating,
-      technicianAvatar: techAvatar,
-      technicianLatitude: techLat,
-      technicianLongitude: techLng,
-      distanceKm: distanceKm.toFixed(1),
-      etaMinutes: Math.max(2, Math.round((distanceKm / 25) * 60)),
-      startOtp,
-    };
+      data: result.assignment,
+      booking: result.booking,
+    });
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
 
-    console.log(`[DISPATCH] TECHNICIAN_ASSIGNED booking=${bookingId} tech=${technicianId} (${techName})`);
+/**
+ * POST /api/v1/dispatch/offers/:offerId/reject
+ * (Also handles legacy /api/v1/dispatch/proposals/:id/decline)
+ */
+const rejectDispatchOffer = async (req, res) => {
+  try {
+    const offerOrBookingId = req.params.offerId || req.params.id;
+    const technicianId = req.user?.id || req.body?.technicianId;
+    const reason = req.body?.reason || 'REJECTED_BY_TECHNICIAN';
 
-    // 3. BROADCAST REAL-TIME NOTIFICATIONS
-    if (global.io) {
-      const custId = memoryBooking?.customerId || bookingAssigned?.customer_id;
-      if (custId) {
-        global.io.to(`cust_${custId}`).emit('booking:technician_assigned', technicianDetailsPayload);
-        global.io.to(`cust_${custId}`).emit('booking:confirmed', technicianDetailsPayload);
-        global.io.to(`cust_${custId}`).emit('job:partner_location', {
-          technicianId,
-          latitude: techLat,
-          longitude: techLng,
-          speed: 15,
-          heading: 45,
-          timestamp: Date.now(),
-        });
+    if (!technicianId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authenticated technician identity required' });
+    }
+
+    const offer = await automaticDispatchEngine.rejectOffer(offerOrBookingId, technicianId, reason);
+    return res.status(200).json({
+      success: true,
+      message: 'Offer rejected; cascading to next eligible technician',
+      offerId: offer.id,
+      bookingId: offer.bookingId,
+      status: offer.status,
+    });
+  } catch (error) {
+    const code = error.statusCode || 500;
+    return res.status(code).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * POST /api/v1/dispatch/:bookingId/retry
+ */
+const retryDispatch = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const booking = bookingsStore.getBookingById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, error: 'Booking not found' });
+    }
+
+    if (req.user) {
+      const role = String(req.user.role || '').toUpperCase();
+      if (role === 'CUSTOMER' && booking.customerId && String(booking.customerId) !== String(req.user.id)) {
+        return res.status(403).json({ success: false, error: 'Forbidden: Cannot retry dispatch for another customer booking' });
       }
-
-      // Claimed notification to other technicians (stops their audio & closes popups)
-      global.io.emit('booking:claimed', {
-        bookingId,
-        claimedByTechnicianId: technicianId,
-        message: 'This job has been claimed by another partner.',
-      });
-
-      global.io.emit('job:status_update', {
-        bookingId,
-        status: 'ASSIGNED',
-        technician: technicianDetailsPayload,
-      });
+      if (role === 'TECHNICIAN') {
+        return res.status(403).json({ success: false, error: 'Forbidden: Technicians cannot retry booking dispatch' });
+      }
     }
 
-    // 4. Real FCM to Customer
-    const custId = memoryBooking?.customerId || bookingAssigned?.customer_id;
-    if (custId) {
-      await notificationService.sendToUser(custId, {
-        title: '✅ Technician Assigned!',
-        body: `${techName} (${distanceKm.toFixed(1)} km away) is on the way. Service Start OTP is ${startOtp}.`,
-        data: {
-          bookingId,
-          technicianId,
-          technicianName: techName,
-          startOtp,
-          status: 'ACCEPTED',
-        },
-      }).catch(() => {});
-    }
+    const session = await automaticDispatchEngine.startDispatchForBooking(booking, {
+      bookingMode: req.body?.bookingMode || booking.bookingMode || 'INSTANT',
+      offerTimeoutSeconds: req.body?.offerTimeoutSeconds,
+      radiiKm: req.body?.radiiKm,
+      actorId: req.user?.id || 'CUSTOMER',
+      actorRole: req.user?.role || 'CUSTOMER',
+      forceRestart: true,
+      forceAuto: true,
+    });
 
     return res.json({
       success: true,
-      message: 'Job accepted successfully! Navigate to customer address.',
-      data: {
-        bookingId,
-        status: 'ACCEPTED',
-        technicianId,
-        startOtp,
-        booking: memoryBooking || bookingAssigned,
-      },
+      message: 'Dispatch search restarted from initial radius',
+      data: session,
+      session,
     });
   } catch (error) {
-    console.error('❌ Accept Dispatch Error:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
 /**
- * POST /api/v1/technicians/dispatch/:id/decline
- * POST /api/v1/dispatch/proposals/:id/decline
- * Decline Proposal & Trigger Cascading Re-dispatch
+ * POST /api/v1/dispatch/:bookingId/manual-assign
+ * Admin-only manual assignment / reassignment with full audit logging.
  */
-const declineDispatchRequest = async (req, res) => {
+const manualAssignDispatch = async (req, res) => {
   try {
-    const targetId = req.params.id;
-    const technicianId = req.user?.id || req.user?.sub || req.headers['x-technician-id'] || req.body.technicianId;
+    const { bookingId } = req.params;
+    const { technicianId, reason } = req.body;
 
-    console.log(`[DISPATCH] REQUEST_DECLINED id=${targetId} tech=${technicianId}`);
-
-    let proposal = activeDispatchStore.get(targetId);
-
-    if (proposal) {
-      proposal.status = 'DECLINED';
-      proposal.respondedAt = new Date().toISOString();
-      activeDispatchStore.set(targetId, proposal);
+    if (!technicianId) {
+      return res.status(400).json({ success: false, error: 'technicianId is required for manual assignment' });
     }
 
-    if (postgres.isPgHealthy()) {
-      await postgres.query(
-        `UPDATE dispatch_requests SET status = 'DECLINED', responded_at = NOW() WHERE id = $1 OR (booking_id = $1 AND technician_id = $2)`,
-        [targetId, technicianId]
-      ).catch(() => {});
-    }
-
-    // Cascade to next candidate if available
-    if (proposal && Array.isArray(proposal.candidatesQueue) && proposal.candidatesQueue.length > 0) {
-      const nextCandidate = proposal.candidatesQueue.shift();
-      console.log(`[DISPATCH] CASCADING after decline to next candidate tech=${nextCandidate.technicianId} for booking=${proposal.bookingId}`);
-
-      const newProposal = await registerDispatchRequest({
-        bookingId: proposal.bookingId,
-        technicianId: nextCandidate.technicianId,
-        serviceId: proposal.serviceId,
-        serviceName: proposal.serviceName,
-        customerName: proposal.customerName,
-        customerAddress: proposal.customerAddress,
-        distanceKm: nextCandidate.distanceKm || '2.5',
-        estimatedPayout: proposal.estimatedPayout,
-        totalAmount: proposal.totalAmount,
-        timeoutSeconds: 30,
-        candidatesQueue: proposal.candidatesQueue,
-      });
-
-      if (global.io) {
-        const ringingPayload = {
-          event: 'TECHNICIAN_BOOKING_REQUEST',
-          type: 'NEW_JOB_ALERT',
-          dispatchRequestId: newProposal.id,
-          proposalId: newProposal.id,
-          bookingId: newProposal.bookingId,
-          serviceId: newProposal.serviceId,
-          serviceName: newProposal.serviceName,
-          serviceType: newProposal.serviceName,
-          customerName: newProposal.customerName,
-          customerAddress: newProposal.customerAddress,
-          distanceKm: String(newProposal.distanceKm),
-          estimatedEarning: parseFloat(newProposal.estimatedPayout),
-          payout: String(newProposal.estimatedPayout),
-          totalAmount: parseFloat(newProposal.totalAmount),
-          timeoutSeconds: 30,
-          createdAt: newProposal.createdAt,
-          expiresAt: newProposal.expiresAt,
-          playRingtone: true,
-          vibrate: true,
-        };
-
-        global.io.to(`tech_${nextCandidate.technicianId}`).emit('booking:dispatch_ringing', ringingPayload);
-        global.io.to(`tech_${nextCandidate.technicianId}`).emit('TECHNICIAN_BOOKING_REQUEST', ringingPayload);
-        if (nextCandidate.phone) {
-          global.io.to(`tech_${nextCandidate.phone}`).emit('booking:dispatch_ringing', ringingPayload);
-          global.io.to(`tech_${nextCandidate.phone}`).emit('TECHNICIAN_BOOKING_REQUEST', ringingPayload);
-        }
-      }
-    }
+    const result = await automaticDispatchEngine.manualAssignBooking(bookingId, technicianId, {
+      id: req.user?.id || 'admin',
+      role: req.user?.role || 'ADMIN',
+      reason: reason || 'ADMIN_MANUAL_ASSIGNMENT',
+    });
 
     return res.json({
       success: true,
-      message: 'Proposal declined. Forwarding request to next available partner.',
+      message: result.isReassignment
+        ? 'Booking manually reassigned to technician and audited'
+        : 'Booking manually assigned to technician and audited',
+      data: result,
     });
   } catch (error) {
-    console.error('❌ Decline Dispatch Error:', error);
+    const code = error.statusCode || 500;
+    return res.status(code).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * GET /api/v1/admin/dispatch/live
+ */
+const getAdminLiveDispatch = async (req, res) => {
+  try {
+    const overview = automaticDispatchEngine.getLiveAdminDispatchOverview();
+    return res.json({
+      success: true,
+      data: overview,
+      ...overview,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * GET /api/v1/admin/dispatch/:bookingId/history
+ */
+const getAdminDispatchHistory = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const history = automaticDispatchEngine.getBookingDispatchHistory(bookingId);
+    return res.json({
+      success: true,
+      data: history,
+      ...history,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * PUT /api/v1/admin/dispatch/config
+ */
+const updateAdminDispatchConfig = async (req, res) => {
+  try {
+    const updated = automaticDispatchEngine.updateDispatchConfig(
+      req.body || {},
+      req.user?.id || 'admin',
+      req.user?.role || 'ADMIN'
+    );
+    return res.json({
+      success: true,
+      message: 'Dispatch engine configuration updated',
+      config: updated,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/**
+ * GET /api/v1/technicians/slots & GET /api/v1/bookings/available-slots
+ * Phase 2: Backend-authoritative real-time slot availability engine
+ */
+const getAvailableSlots = async (req, res) => {
+  try {
+    const {
+      serviceId,
+      serviceName,
+      category,
+      latitude,
+      longitude,
+      date,
+      scheduleDate,
+      durationMinutes = 60,
+      radiusKm = 15,
+    } = req.query;
+
+    const result = await automaticDispatchEngine.getAvailableTimeSlots({
+      serviceId,
+      serviceName,
+      category,
+      latitude: latitude != null ? parseFloat(latitude) : 22.5726,
+      longitude: longitude != null ? parseFloat(longitude) : 88.3639,
+      date: date || scheduleDate || new Date().toISOString().split('T')[0],
+      durationMinutes: parseInt(durationMinutes, 10) || 60,
+      radiusKm: parseFloat(radiusKm) || 15,
+    });
+
+    return res.json({
+      success: true,
+      data: result.slots,
+      ...result,
+    });
+  } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
 
 module.exports = {
-  registerDispatchRequest,
-  getPendingDispatchRequests,
+  getTechniciansAvailability,
+  updateTechnicianAvailability,
+  getAvailableSlots,
+  getDispatchStatus,
+  getTechnicianOffers,
+  getPendingDispatchRequests: getTechnicianOffers,
   getDispatchRequestById,
-  acceptDispatchRequest,
-  declineDispatchRequest,
+  startDispatch,
+  acceptDispatchOffer,
+  acceptDispatchRequest: acceptDispatchOffer,
+  rejectDispatchOffer,
+  declineDispatchRequest: rejectDispatchOffer,
+  retryDispatch,
+  manualAssignDispatch,
+  getAdminLiveDispatch,
+  getAdminDispatchHistory,
+  updateAdminDispatchConfig,
 };

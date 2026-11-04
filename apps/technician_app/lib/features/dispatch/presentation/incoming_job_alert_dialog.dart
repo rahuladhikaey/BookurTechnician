@@ -140,14 +140,21 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
       final targetId = widget.proposalId.isNotEmpty ? widget.proposalId : widget.bookingId;
       try {
         await dio.post(
-          '${AppConfig.apiBaseUrl}/dispatch/proposals/$targetId/decline',
-          data: {'reason': 'DECLINED_BY_PARTNER'},
+          '${AppConfig.apiBaseUrl}/dispatch/offers/$targetId/reject',
+          data: {'reason': 'REJECTED_BY_TECHNICIAN'},
         );
       } catch (_) {
-        await dio.post(
-          '${AppConfig.apiBaseUrl}/technician/dispatch/$targetId/decline',
-          data: {'reason': 'DECLINED_BY_PARTNER'},
-        );
+        try {
+          await dio.post(
+            '${AppConfig.apiBaseUrl}/dispatch/proposals/$targetId/decline',
+            data: {'reason': 'DECLINED_BY_PARTNER'},
+          );
+        } catch (_) {
+          await dio.post(
+            '${AppConfig.apiBaseUrl}/technician/dispatch/$targetId/decline',
+            data: {'reason': 'DECLINED_BY_PARTNER'},
+          );
+        }
       }
     } catch (e) {
       debugPrint('[IncomingJobAlert] Decline error: $e');
@@ -172,12 +179,16 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
       
       Response? response;
       try {
-        response = await dio.post('${AppConfig.apiBaseUrl}/dispatch/proposals/$targetId/accept');
+        response = await dio.post('${AppConfig.apiBaseUrl}/dispatch/offers/$targetId/accept');
       } catch (e) {
         try {
-          response = await dio.post('${AppConfig.apiBaseUrl}/technician/dispatch/$targetId/accept');
+          response = await dio.post('${AppConfig.apiBaseUrl}/dispatch/proposals/$targetId/accept');
         } catch (_) {
-          response = await dio.post('${AppConfig.apiBaseUrl}/bookings/${widget.bookingId}/accept');
+          try {
+            response = await dio.post('${AppConfig.apiBaseUrl}/technician/dispatch/$targetId/accept');
+          } catch (_) {
+            response = await dio.post('${AppConfig.apiBaseUrl}/bookings/${widget.bookingId}/accept');
+          }
         }
       }
 
@@ -270,19 +281,24 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
     return PopScope(
       canPop: false, // Prevent accidental back button dismissal
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xF5102A63), // Deep Navy Full-Screen Overlay
         body: SafeArea(
           child: Center(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: const Color(0xFF173B8F), // Royal Blue Background (#173B8F)
                 borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: const Color(0xFF3B82F6).withAlpha(102), width: 1.5),
+                border: Border.all(
+                  color: _remainingSeconds <= 10
+                      ? const Color(0xFFD64545)
+                      : const Color(0xFFFFC928),
+                  width: 2.0,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF3B82F6).withAlpha(64),
+                    color: const Color(0xFF102A63).withAlpha(140),
                     blurRadius: 30,
                     spreadRadius: 4,
                   ),
@@ -291,32 +307,39 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 1. Blinking NEW JOB REQUEST Banner
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ScaleTransition(
-                        scale: _pulseAnimation,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEF4444),
-                            shape: BoxShape.circle,
+                  // 1. NEW BOOKING REQUEST Banner (Bright Yellow #FFC928)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFC928),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ScaleTransition(
+                          scale: _pulseAnimation,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFD64545),
+                              shape: BoxShape.circle,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'NEW SERVICE REQUEST',
-                        style: TextStyle(
-                          color: Color(0xFF60A5FA),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
+                        const SizedBox(width: 8),
+                        const Text(
+                          'NEW SERVICE BOOKING REQUEST',
+                          style: TextStyle(
+                            color: Color(0xFF102A63),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
 
@@ -327,30 +350,30 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                       ScaleTransition(
                         scale: _pulseAnimation,
                         child: Container(
-                          width: 140,
-                          height: 140,
+                          width: 132,
+                          height: 132,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFF3B82F6).withAlpha(31),
+                            color: const Color(0xFFFFC928).withAlpha(36),
                           ),
                         ),
                       ),
                       SizedBox(
-                        width: 120,
-                        height: 120,
+                        width: 112,
+                        height: 112,
                         child: CircularProgressIndicator(
                           value: progress,
                           strokeWidth: 8,
-                          backgroundColor: const Color(0xFF1E293B),
+                          backgroundColor: const Color(0xFF102A63),
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            progress > 0.3 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                            progress > 0.3 ? const Color(0xFFFFC928) : const Color(0xFFD64545),
                           ),
                         ),
                       ),
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.notifications_active, color: Color(0xFFFBBF24), size: 30),
+                          const Icon(Icons.notifications_active, color: Color(0xFFFFC928), size: 28),
                           const SizedBox(height: 4),
                           Text(
                             '${_remainingSeconds}s',
@@ -364,65 +387,21 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-
-                  // 3. Expected Payout Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF059669), Color(0xFF10B981)],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF10B981).withAlpha(77),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'Estimated Payout: ',
-                          style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        Text(
-                          '₹${widget.payout}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 20),
 
-                  // 4. Job Details Card
+                  // 3. Pure White Booking Info Card (#FFFFFF)
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFF334155)),
+                      border: Border.all(color: const Color(0xFFE4E9F1)),
                     ),
                     child: Column(
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF3B82F6).withAlpha(38),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.handyman_rounded, color: Color(0xFF60A5FA), size: 24),
-                            ),
-                            const SizedBox(width: 14),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,7 +409,7 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                                   Text(
                                     widget.serviceType,
                                     style: const TextStyle(
-                                      color: Colors.white,
+                                      color: Color(0xFF202938),
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
                                     ),
@@ -439,33 +418,48 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${widget.distanceKm} km away from your location',
+                                    '${widget.distanceKm} km away • Est. 60 mins',
                                     style: const TextStyle(
-                                      color: Color(0xFF34D399),
+                                      color: Color(0xFF173B8F),
                                       fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEAF7F0),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '₹${widget.payout}',
+                                style: const TextStyle(
+                                  color: Color(0xFF18864B),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        const Divider(color: Color(0xFF334155), height: 1),
+                        const Divider(color: Color(0xFFE4E9F1), height: 1),
                         const SizedBox(height: 12),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.location_on, color: Color(0xFFEF4444), size: 18),
+                            const Icon(Icons.location_on, color: Color(0xFFD64545), size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 widget.customerAddress,
                                 style: const TextStyle(
-                                  color: Color(0xFF94A3B8),
+                                  color: Color(0xFF202938),
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
@@ -476,70 +470,63 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                       ],
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 22),
 
-                  // 5. Action Buttons (Decline & Accept)
-                  Row(
-                    children: [
-                      // Decline Button
-                      Expanded(
-                        flex: 1,
-                        child: OutlinedButton(
-                          onPressed: _isProcessing ? null : _handleDecline,
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          ),
-                          child: const Text(
-                            'Decline',
-                            style: TextStyle(
-                              color: Color(0xFFEF4444),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
+                  // 4. Primary Yellow ACCEPT BOOKING + Secondary REJECT Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _isProcessing ? null : _handleAccept,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFC928), // Bright Yellow (#FFC928)
+                        foregroundColor: const Color(0xFF102A63), // Deep Navy (#102A63)
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 4,
                       ),
-                      const SizedBox(width: 14),
-
-                      // Accept Button
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton(
-                          onPressed: _isProcessing ? null : _handleAccept,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 8,
-                            shadowColor: const Color(0xFF10B981).withAlpha(128),
-                          ),
-                          child: _isProcessing
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                                )
-                              : const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.check_circle_outline, size: 22),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'ACCEPT JOB',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ],
+                      child: _isProcessing
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(color: Color(0xFF102A63), strokeWidth: 2.5),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check_circle_rounded, size: 22, color: Color(0xFF102A63)),
+                                SizedBox(width: 8),
+                                Text(
+                                  'ACCEPT BOOKING',
+                                  style: TextStyle(
+                                    color: Color(0xFF102A63),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
+                              ],
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: _isProcessing ? null : _handleDecline,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFEDF3FF), width: 1.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: const Text(
+                        'REJECT',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),

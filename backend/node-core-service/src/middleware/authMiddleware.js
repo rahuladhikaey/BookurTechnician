@@ -114,7 +114,7 @@ const requireRole = (...roles) => {
       return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
     }
     const userRole = String(req.user.role).toUpperCase();
-    if (!normalizedRoles.includes(userRole) && userRole !== 'ADMIN') {
+    if (!normalizedRoles.includes(userRole) && userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
       return res.status(403).json({
         success: false,
         error: `Forbidden: Requires one of [${roles.join(', ')}] permissions`,
@@ -128,7 +128,8 @@ const requireRole = (...roles) => {
  * Strict Admin-Only Guard
  */
 const requireAdminRole = (req, res, next) => {
-  if (!req.user || String(req.user.role).toUpperCase() !== 'ADMIN') {
+  const userRole = String(req.user?.role || '').toUpperCase();
+  if (!req.user || (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN')) {
     return res.status(403).json({
       success: false,
       error: 'Forbidden: Administrative authorization required',
@@ -142,6 +143,7 @@ module.exports = {
   optionalAuth,
   requireRole,
   requireAdminRole,
+  resolveUserFromToken,
   JWT_SECRET,
 };
 

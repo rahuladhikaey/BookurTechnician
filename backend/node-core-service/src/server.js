@@ -126,47 +126,149 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Socket.io Real-Time Event Handlers
+const { resolveUserFromToken } = require('./middleware/authMiddleware');
+const automaticDispatchEngine = require('./services/automaticDispatchEngine');
+
+// Socket.io Real-Time Event Handlers with Authenticated Room Ownership (Section 18 & 21)
+io.use(async (socket, next) => {
+  try {
+    const rawToken =
+      socket.handshake?.auth?.token ||
+      (socket.handshake?.headers?.authorization || '').replace(/^Bearer\s+/i, '') ||
+      socket.handshake?.query?.token;
+
+    if (rawToken) {
+      const resolved = await resolveUserFromToken(rawToken, { headers: socket.handshake?.headers || {} });
+      if (resolved && !resolved.error) {
+        socket.user = resolved;
+      }
+    }
+  } catch (_) {}
+  next();
+});
+
+function isAuthorizedToJoinRoom(socket, roomName) {
+  if (!roomName || typeof roomName !== 'string') return false;
+  const user = socket.user;
+  const role = String(user?.role || '').toUpperCase();
+
+  if (roomName === 'admin_dispatch') {
+    return role === 'ADMIN' || role === 'SUPER_ADMIN';
+  }
+  if (roomName.startsWith('tech_')) {
+    const targetTechId = roomName.replace(/^tech_/, '');
+    if (user) {
+      if (role === 'ADMIN' || role === 'SUPER_ADMIN') return true;
+      if (role !== 'TECHNICIAN') return false;
+      return String(user.id) === String(targetTechId) || String(user.phone) === String(targetTechId);
+    }
+    return true;
+  }
+  if (roomName.startsWith('cust_')) {
+    const targetCustId = roomName.replace(/^cust_/, '');
+    if (user) {
+      if (role === 'ADMIN' || role === 'SUPER_ADMIN') return true;
+      if (role !== 'CUSTOMER') return false;
+      return String(user.id) === String(targetCustId);
+    }
+    return true;
+  }
+  if (roomName.startsWith('booking_') || roomName.startsWith('job_')) {
+    const bookingId = roomName.replace(/^(booking_|job_)/, '');
+    if (user && role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
+      const booking = bookingsStore.getBookingById(bookingId);
+      if (booking) {
+        if (role === 'CUSTOMER' && booking.customerId && String(booking.customerId) !== String(user.id)) {
+          return false;
+        }
+        if (role === 'TECHNICIAN' && booking.technicianId && String(booking.technicianId) !== String(user.id)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  return true;
+}
+
 io.on('connection', (socket) => {
   console.log(`🔌 [Socket.io] Client connected: ${socket.id}`);
 
-  // Generic room joining
-  socket.on('join:room', (room) => {
+  // Generic room joining with authorization check
+  socket.on('join:room', (room, ack) => {
     if (room) {
+      if (!isAuthorizedToJoinRoom(socket, room)) {
+        const errPayload = { success: false, error: `Forbidden: Unauthorized to join room ${room}` };
+        socket.emit('auth_error', errPayload);
+        if (typeof ack === 'function') ack(errPayload);
+        return;
+      }
+      if (String(room).startsWith('tech_')) {
+        socket.joinedTechnicianId = String(room).replace(/^tech_/, '');
+      }
       socket.join(room);
+      if (typeof ack === 'function') ack({ success: true, room });
       console.log(`📡 [Socket.io] Client ${socket.id} joined room: ${room}`);
     }
   });
 
   // Technician joins category and personal rooms
-  socket.on('technician:join', ({ technicianId, phone, category }) => {
-    if (technicianId) socket.join(`tech_${technicianId}`);
-    if (phone) socket.join(`tech_${phone}`);
+  socket.on('technician:join', ({ technicianId, phone, category } = {}, ack) => {
+    const targetTechId = technicianId || socket.user?.id;
+    if (targetTechId && !isAuthorizedToJoinRoom(socket, `tech_${targetTechId}`)) {
+      const errPayload = { success: false, error: 'Forbidden: Cannot join another technician room' };
+      socket.emit('auth_error', errPayload);
+      if (typeof ack === 'function') ack(errPayload);
+      return;
+    }
+    if (targetTechId) {
+      socket.joinedTechnicianId = targetTechId;
+      socket.join(`tech_${targetTechId}`);
+    }
+    if (phone && (!socket.user || String(socket.user.phone) === String(phone))) {
+      socket.join(`tech_${phone}`);
+    }
     if (category) {
       const normCat = category.toLowerCase().replace(/^category_/, '').replace(/^cat_/, '');
       socket.join(`category_${normCat}`);
     }
-    socket.join('global_dispatch');
-    console.log(`👷 Technician ${technicianId || phone} joined live dispatch room.`);
+    if (typeof ack === 'function') ack({ success: true, room: `tech_${targetTechId}` });
+    console.log(`👷 Technician ${targetTechId || phone} joined live dispatch room.`);
   });
 
   // Customer joins personal room
-  socket.on('customer:join', ({ customerId }) => {
-    if (customerId) socket.join(`cust_${customerId}`);
-    console.log(`👤 Customer ${customerId} joined tracking room.`);
+  socket.on('customer:join', ({ customerId } = {}, ack) => {
+    const targetCustId = customerId || socket.user?.id;
+    if (targetCustId && !isAuthorizedToJoinRoom(socket, `cust_${targetCustId}`)) {
+      const errPayload = { success: false, error: 'Forbidden: Cannot join another customer room' };
+      socket.emit('auth_error', errPayload);
+      if (typeof ack === 'function') ack(errPayload);
+      return;
+    }
+    if (targetCustId) socket.join(`cust_${targetCustId}`);
+    if (typeof ack === 'function') ack({ success: true, room: `cust_${targetCustId}` });
+    console.log(`👤 Customer ${targetCustId} joined tracking room.`);
   });
 
   // Join booking specific room for real-time tracking
-  socket.on('job:join', ({ bookingId }) => {
+  socket.on('job:join', ({ bookingId } = {}, ack) => {
     if (bookingId) {
+      if (!isAuthorizedToJoinRoom(socket, `booking_${bookingId}`)) {
+        const errPayload = { success: false, error: 'Forbidden: Not authorized for this booking room' };
+        socket.emit('auth_error', errPayload);
+        if (typeof ack === 'function') ack(errPayload);
+        return;
+      }
       socket.join(`booking_${bookingId}`);
+      socket.join(`job_${bookingId}`);
+      if (typeof ack === 'function') ack({ success: true, room: `booking_${bookingId}` });
       console.log(`📦 Client joined live booking tracking room: booking_${bookingId}`);
     }
   });
 
-  const handleLocationStream = async ({ technicianId, category = 'electrician', longitude, latitude, speed, heading, bookingId }) => {
+  const handleLocationStream = async ({ technicianId, category = 'electrician', longitude, latitude, speed, heading, bookingId } = {}) => {
     if (longitude !== undefined && latitude !== undefined) {
-      const techId = technicianId || socket.handshake?.auth?.technicianId;
+      const techId = socket.user?.role === 'TECHNICIAN' ? socket.user.id : (technicianId || socket.joinedTechnicianId || socket.handshake?.auth?.technicianId);
       if (!techId) return;
       const normCat = String(category || 'electrician').toLowerCase().replace(/^cat_/, '');
       const parsedLng = parseFloat(longitude);
@@ -179,30 +281,22 @@ io.on('connection', (socket) => {
         await geoAdd('tech_geo:all', parsedLng, parsedLat, techId);
       } catch (_) {}
 
-      // Update in PostgreSQL PostGIS
-      if (isPgHealthy()) {
-        try {
-          const { query } = require('./config/postgres');
-          await query(`
-            UPDATE technician_profiles
-            SET current_latitude = $1,
-                current_longitude = $2,
-                location = ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
-                last_location_update = NOW(),
-                is_online = true,
-                updated_at = NOW()
-            WHERE technician_id = $3 OR id = $3 OR phone = $3;
-          `, [parsedLat, parsedLng, techId]);
-        } catch (_) {}
-      }
+      // Persist & emit to authorized rooms via Automatic Dispatch Engine (Section 12 & 18)
+      try {
+        await automaticDispatchEngine.recordTechnicianLocationUpdate({
+          technicianId: techId,
+          latitude: parsedLat,
+          longitude: parsedLng,
+          speed: parsedSpeed,
+          heading: parsedHeading,
+          bookingId: bookingId || null,
+        });
+      } catch (_) {}
 
-      // Update in centralized live bookings store
       let activeBookingId = bookingId || null;
       let customerId = null;
-
       try {
-        bookingsStore.updateTechnicianLocation(techId, parsedLat, parsedLng, parsedSpeed, parsedHeading);
-        const activeBooking = bookingsStore.findActiveBookingForTechnician(techId);
+        const activeBooking = bookingsStore.findActiveBookingForTechnician?.(techId);
         if (activeBooking) {
           if (!activeBookingId) activeBookingId = activeBooking.id;
           customerId = activeBooking.customerId;
@@ -224,10 +318,12 @@ io.on('connection', (socket) => {
       io.to('admin_dispatch').emit('technician:location:admin', locationPayload);
 
       if (activeBookingId) {
+        io.to(`booking_${activeBookingId}`).emit('booking:partner:location', locationPayload);
         io.to(`booking_${activeBookingId}`).emit('job:partner_location', locationPayload);
         io.to(`booking_${activeBookingId}`).emit('telemetry', locationPayload);
       }
       if (customerId) {
+        io.to(`cust_${customerId}`).emit('booking:partner:location', locationPayload);
         io.to(`cust_${customerId}`).emit('job:partner_location', locationPayload);
         io.to(`cust_${customerId}`).emit('telemetry', locationPayload);
       }
@@ -264,6 +360,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    const techId = socket.joinedTechnicianId || (socket.user?.role === 'TECHNICIAN' ? socket.user.id : null);
+    if (techId) {
+      const room = io.sockets.adapter.rooms.get(`tech_${techId}`);
+      if (!room || room.size === 0) {
+        automaticDispatchEngine.handleTechnicianOffline(techId, 'SOCKET_DISCONNECTED').catch(() => {});
+      }
+    }
     console.log(`🔌 [Socket.io] Client disconnected: ${socket.id}`);
   });
 });
@@ -285,6 +388,7 @@ const startServer = async () => {
     bookingsStore.hydrateFromFirestore(),
     hydrateTechniciansFromFirestore(),
     firestoreSync.syncCatalogToFirestore(),
+    automaticDispatchEngine.recoverActiveDispatchSessions(),
   ]).catch(() => {});
 
   server.listen(PORT, () => {
@@ -295,6 +399,11 @@ const startServer = async () => {
     console.log(`=======================================================`);
   });
 };
-startServer();
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, server, io, startServer };
 
 
