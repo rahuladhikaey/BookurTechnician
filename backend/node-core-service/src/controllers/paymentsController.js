@@ -4,8 +4,8 @@ const postgres = require('../config/postgres');
 const bookingsStore = require('../config/bookingsStore');
 const firebase = require('../config/firebase');
 
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie';
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '5LUjZ94LMDnjwlLyB9cUU5cb';
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
 const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || RAZORPAY_KEY_SECRET;
 
 /**
@@ -86,14 +86,10 @@ const createOrder = async (req, res) => {
     }
 
     if (!razorpayOrderId) {
-      if (process.env.NODE_ENV === 'production') {
-        return res.status(503).json({
-          success: false,
-          error: 'Razorpay gateway unavailable or credentials missing. Cannot generate production order.'
-        });
-      }
-      razorpayOrderId = `order_dev_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
-      console.log(`ℹ️ [Razorpay DEV] Sandbox order fallback: ${razorpayOrderId}`);
+      return res.status(503).json({
+        success: false,
+        error: 'Razorpay gateway unavailable or credentials missing. Cannot generate payment order.'
+      });
     }
 
     // 3. Persist order ID on booking record

@@ -79,7 +79,7 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(bookingProvider);
-    final categories = state.categories.isNotEmpty ? state.categories : MockData.categoriesList;
+    final categories = state.categories;
 
     // Collect all services along with their parent category and subcategory info
     final List<_ServiceWithContext> allContextualServices = [];

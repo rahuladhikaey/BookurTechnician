@@ -115,12 +115,6 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
     } catch (e) {
       debugPrint('[Razorpay] Order creation note: $e');
     }
-
-    if (_razorpayOrderId == null || _razorpayOrderId!.isEmpty) {
-      setState(() {
-        _razorpayOrderId = 'order_rzp_${widget.bookingCode}';
-      });
-    }
   }
 
   void _showTimeoutDialog() {
@@ -154,7 +148,17 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
     final name = userProfile.fullName.isNotEmpty ? userProfile.fullName : 'Customer';
     final key = (_razorpayKeyId != null && _razorpayKeyId!.isNotEmpty)
         ? _razorpayKeyId!
-        : 'rzp_test_ShRpqbs6hVT6Ie';
+        : const String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: '');
+
+    if (key.isEmpty || _razorpayOrderId == null || _razorpayOrderId!.isEmpty) {
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to initialize payment gateway order. Please check your connection and retry.'),
+        ),
+      );
+      return;
+    }
 
     final options = <String, dynamic>{
       'key': key,
@@ -210,9 +214,8 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
         verified = true;
       }
     } catch (e) {
-      debugPrint('[Razorpay] Signature verification network note: $e');
-      // If backend verification fails or in test/fallback mode, confirm locally
-      verified = true;
+      debugPrint('[Razorpay] Signature verification network error: $e');
+      verified = false;
     }
 
     if (!mounted) return;

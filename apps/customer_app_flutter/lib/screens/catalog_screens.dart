@@ -21,15 +21,12 @@ class _CategoryServicesScreenState extends ConsumerState<CategoryServicesScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(bookingProvider);
-    final categoryList = state.categories.isNotEmpty ? state.categories : MockData.categoriesList;
+    final categoryList = state.categories;
     final category = categoryList.firstWhere(
       (c) => c.id == widget.categoryId,
-      orElse: () => MockData.categoriesList.firstWhere(
-        (c) => c.id == widget.categoryId,
-        orElse: () => categoryList.isNotEmpty
-            ? categoryList.first
-            : const Category(id: '', name: 'Services', subcategories: []),
-      ),
+      orElse: () => categoryList.isNotEmpty
+          ? categoryList.first
+          : const Category(id: '', name: 'Services', subcategories: []),
     );
 
     final allSubcategories = category.subcategories;

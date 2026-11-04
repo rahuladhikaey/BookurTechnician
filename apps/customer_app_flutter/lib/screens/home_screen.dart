@@ -131,7 +131,7 @@ class _HomeBody extends ConsumerWidget {
                 TextButton(
                   onPressed: () => _showAllCategoriesSheet(
                     context,
-                    state.categories.isNotEmpty ? state.categories : MockData.categoriesList,
+                    state.categories,
                   ),
                   child: const Text(
                     'See All',
@@ -147,7 +147,42 @@ class _HomeBody extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Builder(
               builder: (context) {
-                final displayCategories = state.categories.isNotEmpty ? state.categories : MockData.categoriesList;
+                final displayCategories = state.categories;
+                if (displayCategories.isEmpty) {
+                  if (state.isCatalogLoading) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 28),
+                      child: Center(
+                        child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5),
+                      ),
+                    );
+                  }
+                  return Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: kBorderColor),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.cloud_off_rounded, color: kSecondaryText, size: 32),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Unable to load data. Please check your connection and retry.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 13, color: kSecondaryText, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => ref.read(bookingProvider.notifier).loadCatalog(),
+                          icon: const Icon(Icons.refresh_rounded, size: 18, color: kBrandPrimary),
+                          label: const Text('Retry', style: TextStyle(color: kBrandPrimary, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
                 return GridView.builder(
                   shrinkWrap: true,
@@ -186,9 +221,7 @@ class _HomeBody extends ConsumerWidget {
 
           // 5. Book Ur Service's Section (Curated service cards)
           BookUrServicesSection(
-            services: state.categories.isNotEmpty
-                ? state.categories.expand((c) => c.subcategories.expand((s) => s.services)).toList()
-                : MockData.categoriesList.expand((c) => c.subcategories.expand((s) => s.services)).toList(),
+            services: state.categories.expand((c) => c.subcategories.expand((s) => s.services)).toList(),
           ),
 
           const SizedBox(height: 80),
@@ -663,9 +696,7 @@ class _RotatingSearchBarState extends ConsumerState<RotatingSearchBar> {
 // ─── Live Service Search Modal Bottom Sheet ─────────────────────────────────
 void _showLiveServiceSearchSheet(BuildContext context, WidgetRef ref) {
   final state = ref.read(bookingProvider);
-  final allServices = state.categories.isNotEmpty
-      ? state.categories.expand((c) => c.subcategories.expand((s) => s.services)).toList()
-      : MockData.categoriesList.expand((c) => c.subcategories.expand((s) => s.services)).toList();
+  final allServices = state.categories.expand((c) => c.subcategories.expand((s) => s.services)).toList();
 
   showModalBottomSheet(
     context: context,

@@ -585,7 +585,19 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
     final key = (razorpayKeyId != null && razorpayKeyId.isNotEmpty)
         ? razorpayKeyId
-        : 'rzp_test_ShRpqbs6hVT6Ie';
+        : const String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: '');
+
+    if (key.isEmpty || razorpayOrderId == null || razorpayOrderId.isEmpty) {
+      if (mounted) {
+        setState(() => _isProcessingPayment = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to initialize payment gateway order. Please check your connection and retry.'),
+          ),
+        );
+      }
+      return;
+    }
 
     final phone = state.profile.phone;
     final email = state.profile.email;
@@ -610,7 +622,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       }
     };
 
-    if (razorpayOrderId != null && razorpayOrderId.startsWith('order_')) {
+    if (razorpayOrderId.startsWith('order_')) {
       options['order_id'] = razorpayOrderId;
     }
 
@@ -632,22 +644,35 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final orderId = response.orderId ?? _currentRazorpayOrderId ?? '';
     final signature = response.signature ?? '';
 
-    // Verify signature on backend if available
-    if (paymentId.isNotEmpty && orderId.isNotEmpty) {
+    bool verified = false;
+    if (paymentId.isNotEmpty && orderId.isNotEmpty && signature.isNotEmpty) {
       try {
-        await ApiClient.post('/payments/verify-signature', {
+        final verifyRes = await ApiClient.post('/payments/verify-signature', {
           'bookingId': _currentBookingId,
           'razorpayOrderId': orderId,
           'razorpayPaymentId': paymentId,
           'razorpaySignature': signature,
         });
+        if (verifyRes.statusCode == 200) {
+          verified = true;
+        }
       } catch (e) {
-        debugPrint('[Razorpay Verification note]: $e');
+        debugPrint('[Razorpay Verification error]: $e');
+        verified = false;
       }
     }
 
     if (!mounted) return;
     setState(() => _isProcessingPayment = false);
+
+    if (!verified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payment signature verification failed on server. Booking was not confirmed as paid.'),
+        ),
+      );
+      return;
+    }
 
     // Confirm booking in local provider and save to DB
     final scheduleParts = (_currentSchedule ?? '').split('•');

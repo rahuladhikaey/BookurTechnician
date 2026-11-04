@@ -214,9 +214,7 @@ class AiAssistantService {
   // ─── HANDLERS ───
 
   static ChatMessage _handleOurServicesQuery(AppState state) {
-    final categories = state.categories.isNotEmpty
-        ? state.categories
-        : MockData.categoriesList;
+    final categories = state.categories;
 
     final buffer = StringBuffer();
     buffer.writeln("BookurTechnician provides doorstep technical and home services.\n");
