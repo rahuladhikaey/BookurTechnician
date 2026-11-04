@@ -1495,7 +1495,7 @@ export default function TechniciansManager({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Ramesh Kumar"
+                    placeholder="Enter full name"
                     style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', marginTop: '4px' }}
                     value={newTechForm.name}
                     onChange={e => setNewTechForm({ ...newTechForm, name: e.target.value })}
@@ -1507,7 +1507,7 @@ export default function TechniciansManager({
                     type="tel"
                     required
                     maxLength={10}
-                    placeholder="e.g. 9876543210"
+                    placeholder="Enter 10-digit mobile number"
                     style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border-color)', borderRadius: '6px', marginTop: '4px' }}
                     value={newTechForm.phone}
                     onChange={e => setNewTechForm({ ...newTechForm, phone: e.target.value })}

@@ -182,11 +182,11 @@ class FirestoreRestClient {
 
       if (cleanPath.contains('/auth/verify-otp') ||
           cleanPath.contains('/auth/login')) {
-        final phone = body?['phone']?.toString() ?? '+919876543210';
-        final email = body?['email']?.toString() ?? 'customer@bookurtechnician.com';
+        final phone = body?['phone']?.toString() ?? '';
+        final email = body?['email']?.toString() ?? '';
         final name = body?['name']?.toString() ??
             body?['fullName']?.toString() ??
-            'Valued Customer';
+            'Customer';
         final userId =
             'cust_${phone.replaceAll(RegExp(r'\D'), '').isEmpty ? DateTime.now().millisecondsSinceEpoch : phone.replaceAll(RegExp(r'\D'), '')}';
         final userDoc = {

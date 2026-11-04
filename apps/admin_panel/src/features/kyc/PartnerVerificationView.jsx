@@ -456,7 +456,7 @@ export default function PartnerVerificationView() {
                         <span>📱</span>
                         <div>
                           <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>UPI Number / Payout Handle</div>
-                          <div style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{selectedPartner.upiId || '9876543210@upi'}</div>
+                          <div style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{selectedPartner.upiId || 'Not configured'}</div>
                         </div>
                       </div>
                       <span className="badge badge-completed">✓ ACTIVE</span>

@@ -323,7 +323,7 @@ class _RadarDispatchScreenState extends State<RadarDispatchScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Rajesh Sharma',
+                                  'Assigned Technician',
                                   style: TextStyle(
                                     color: AppColors.pureWhite,
                                     fontSize: 17,
@@ -340,7 +340,7 @@ class _RadarDispatchScreenState extends State<RadarDispatchScreen>
                                     ),
                                     SizedBox(width: 4),
                                     Text(
-                                      '4.92 (480+ Jobs) • 1.4 km away',
+                                      'Verified Partner • Live GPS Active',
                                       style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 12,
@@ -367,10 +367,10 @@ class _RadarDispatchScreenState extends State<RadarDispatchScreen>
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const LiveTrackingScreen(
-                                  bookingId: 'BK-99824',
-                                  technicianName: 'Rajesh Sharma',
-                                  serviceName: 'Emergency Electrical Repair',
+                                builder: (_) => LiveTrackingScreen(
+                                  bookingId: widget.serviceName,
+                                  technicianName: 'Assigned Technician',
+                                  serviceName: widget.serviceName,
                                 ),
                               ),
                             );

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function AuditLogs() {
+export default function AuditLogs({ logs = [] }) {
   return (
     <div>
       <h3>Audit Logs & Operational History</h3>
@@ -14,30 +14,22 @@ export default function AuditLogs() {
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>13:40:05</td>
-            <td>Technician OTP</td>
-            <td>Server API validated arrival OTP 4821 for Ramesh (BT102938)</td>
-            <td>Ramesh Kumar (Tech)</td>
-          </tr>
-          <tr>
-            <td>13:20:12</td>
-            <td>Payments Gateway</td>
-            <td>UPI Transaction ID UPI839201 paid ₹399 for fan installation</td>
-            <td>Rahul Customer</td>
-          </tr>
-          <tr>
-            <td>12:45:00</td>
-            <td>KYC Checks</td>
-            <td>Technician partner Ramesh Kumar uploaded driver license files</td>
-            <td>System Automator</td>
-          </tr>
-          <tr>
-            <td>11:02:14</td>
-            <td>Rescheduling</td>
-            <td>Booking BT102938 status marked FORWARDED (next-day delay request)</td>
-            <td>Ramesh Kumar (Tech)</td>
-          </tr>
+          {logs.length === 0 ? (
+            <tr>
+              <td colSpan="4" style={{ textAlign: 'center', color: '#64748B', padding: '24px' }}>
+                No audit events recorded yet. Live operational actions will appear here automatically.
+              </td>
+            </tr>
+          ) : (
+            logs.map((log, idx) => (
+              <tr key={log.id || idx}>
+                <td>{log.timestamp || 'Live'}</td>
+                <td>{log.module || 'System'}</td>
+                <td>{log.action || ''}</td>
+                <td>{log.operator || 'Admin'}</td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>

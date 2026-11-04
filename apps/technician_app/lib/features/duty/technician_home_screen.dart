@@ -353,31 +353,6 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
 
             const Spacer(),
 
-            // Test Incoming Job Overlay Trigger Button
-            if (_isOnline)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: TextButton.icon(
-                  onPressed: () {
-                    IncomingJobAlertOverlay.show(
-                      context: context,
-                      proposalId: 'prop_991',
-                      bookingId: 'BK-99824',
-                      serviceType: 'Emergency Switchboard Repair',
-                      customerName: 'Aarav Gupta',
-                      customerAddress: 'B-402, Green Glen Heights, Sector 4',
-                      distanceKm: '1.4',
-                      payout: '450',
-                    );
-                  },
-                  icon: const Icon(Icons.ring_volume_rounded, color: TechColors.electricGold, size: 18),
-                  label: const Text(
-                    'Simulate Incoming Job Alert',
-                    style: TextStyle(color: TechColors.electricGold, fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-
             // Bottom Status Message
             Container(
               margin: const EdgeInsets.all(20),

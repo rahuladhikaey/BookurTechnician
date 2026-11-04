@@ -84,15 +84,6 @@ const verifyFirebaseIdToken = async (idToken) => {
       return null;
     }
   } else {
-    // Development fallback mock decoding
-    if (idToken.startsWith('test_') || idToken.startsWith('mock_') || idToken.length > 20) {
-      return {
-        uid: idToken.replace(/^test_/, 'uid_'),
-        phone_number: '+919876543210',
-        email: 'user@bookurtechnician.com',
-        auth_time: Math.floor(Date.now() / 1000),
-      };
-    }
     return null;
   }
 };
