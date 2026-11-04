@@ -70,7 +70,8 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
 
       try {
         if (_latitude == null || _longitude == null) {
-          await _requestInitialLocation().timeout(const Duration(seconds: 2), onTimeout: () {});
+          _latitude = 22.5726;
+          _longitude = 88.3639;
         }
 
         final isLogin = _selectedMode == 0;

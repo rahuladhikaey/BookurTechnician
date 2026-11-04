@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/security/secure_storage.dart';
 import '../../onboarding/data/skill_service.dart';
 import '../../onboarding/domain/skill_models.dart';
 import '../../onboarding/presentation/skill_selection_page.dart';
@@ -24,7 +25,39 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
 
   Future<void> _loadSkills() async {
     setState(() => _isLoading = true);
-    final profile = await _skillService.fetchMySkillProfile();
+    var profile = await _skillService.fetchMySkillProfile();
+    try {
+      final storage = SecureStorage();
+      final details = await storage.getUserDetails();
+      final realName = details['name'];
+      final realUserId = await storage.getUserId();
+
+      if (profile != null) {
+        final nameToUse = (profile.fullName.isNotEmpty && profile.fullName != 'Partner Technician')
+            ? profile.fullName
+            : ((realName != null && realName.isNotEmpty) ? realName : 'Partner Technician');
+        
+        final idToUse = (profile.technicianId.isNotEmpty && profile.technicianId != 'BT-PARTNER')
+            ? profile.technicianId
+            : ((realUserId != null && realUserId.isNotEmpty) ? realUserId : 'tech_partner_01');
+
+        final codeToUse = 'BT-${idToUse.replaceAll(RegExp(r'\D'), '').padLeft(6, '0').substring(0, 6)}';
+
+        profile = TechnicianSkillProfileModel(
+          technicianId: idToUse,
+          technicianCode: codeToUse,
+          fullName: nameToUse,
+          rating: profile.rating,
+          totalRatingsCount: profile.totalRatingsCount,
+          totalJobsCompleted: profile.totalJobsCompleted,
+          skills: profile.skills,
+          totalSkillsCount: profile.totalSkillsCount,
+          verifiedSkillsCount: profile.verifiedSkillsCount,
+          pendingSkillsCount: profile.pendingSkillsCount,
+        );
+      }
+    } catch (_) {}
+
     if (mounted) {
       setState(() {
         _profile = profile;
@@ -423,7 +456,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${item.categoryName} • ${item.experienceYears} ${item.experienceYears == 1 ? "yr" : "yrs"} experience',
+                      '${item.categoryName.isNotEmpty ? "${item.categoryName} • " : ""}${item.experienceYears} ${item.experienceYears == 1 ? "yr" : "yrs"} experience',
                       style: const TextStyle(
                         fontSize: 11.5,
                         color: Color(0xFF64748B),

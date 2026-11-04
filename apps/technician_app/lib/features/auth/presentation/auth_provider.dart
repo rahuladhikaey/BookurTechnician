@@ -156,14 +156,21 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       payload['phone'] = normalizedPhone;
     }
 
-    // Attempt backend candidates with fast 1.5s timeout for snappy failover
+    // Attempt backend candidates with fast 1200ms timeout for snappy failover
     final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(milliseconds: 1500),
-      receiveTimeout: const Duration(milliseconds: 1500),
+      connectTimeout: const Duration(milliseconds: 1200),
+      receiveTimeout: const Duration(milliseconds: 1200),
       contentType: Headers.jsonContentType,
     ));
 
-    for (final baseUrl in AppConfig.candidateBaseUrls) {
+    final routableCandidates = AppConfig.candidateBaseUrls.where((u) {
+      if (kReleaseMode && (u.contains('192.168.') || u.contains('10.0.2.2'))) {
+        return false;
+      }
+      return true;
+    }).take(2).toList();
+
+    for (final baseUrl in routableCandidates) {
       try {
         final endpoint = isResend ? '$baseUrl/auth/resend-otp' : '$baseUrl/auth/request-otp';
         var response = await dio.post(endpoint, data: payload);
@@ -290,14 +297,21 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     }
 
     final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(milliseconds: 2000),
-      receiveTimeout: const Duration(milliseconds: 2000),
+      connectTimeout: const Duration(milliseconds: 1500),
+      receiveTimeout: const Duration(milliseconds: 1500),
       contentType: Headers.jsonContentType,
     ));
 
     String? lastErrorMsg;
 
-    for (final baseUrl in AppConfig.candidateBaseUrls) {
+    final routableCandidates = AppConfig.candidateBaseUrls.where((u) {
+      if (kReleaseMode && (u.contains('192.168.') || u.contains('10.0.2.2'))) {
+        return false;
+      }
+      return true;
+    }).take(2).toList();
+
+    for (final baseUrl in routableCandidates) {
       try {
         final response = await dio.post('$baseUrl/auth/verify-otp', data: payload);
         if (response.statusCode == 200 || response.statusCode == 201) {

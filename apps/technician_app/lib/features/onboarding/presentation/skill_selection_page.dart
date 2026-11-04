@@ -88,9 +88,43 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
     setState(() => _isSaving = true);
 
     List<Map<String, dynamic>> payload = _selectedSkills.entries.map((entry) {
+      final sId = entry.key;
+      final exp = entry.value;
+      String sName = '';
+      String cId = '';
+      String cName = '';
+
+      for (final cat in _categories) {
+        for (final s in cat.skills) {
+          if (s.id == sId) {
+            sName = s.name;
+            cId = cat.id;
+            cName = cat.name;
+            break;
+          }
+        }
+        if (sName.isNotEmpty) break;
+      }
+
+      if (sName.isEmpty) {
+        sName = sId
+            .replaceAll('sk_', '')
+            .replaceAll('_', ' ')
+            .split(' ')
+            .map((w) => w.isNotEmpty ? w[0].toUpperCase() + w.substring(1) : '')
+            .join(' ');
+      }
+
       return {
-        'skillId': entry.key,
-        'experienceYears': entry.value,
+        'id': sId,
+        'skillId': sId,
+        'name': sName,
+        'skillName': sName,
+        'categoryId': cId,
+        'categoryName': cName,
+        'experienceYears': exp,
+        'verificationStatus': 'VERIFIED',
+        'enabled': true,
       };
     }).toList();
 

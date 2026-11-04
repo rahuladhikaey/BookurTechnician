@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
+import '../network/firestore_rest_client.dart';
 
 class LocationTrackingService {
   static final LocationTrackingService _instance = LocationTrackingService._internal();
@@ -161,6 +162,28 @@ class LocationTrackingService {
           'heading': position.heading,
           'timestamp': DateTime.now().toIso8601String(),
         });
+
+        // ─── DIRECT CLOUD FIRESTORE REAL-TIME GPS SYNC ───
+        try {
+          final effectiveTechId = (userId != null && userId.isNotEmpty && userId != 'BT-PARTNER')
+              ? userId
+              : 'tech_partner_01';
+          await FirestoreRestClient.upsertDocument('technician_profiles', effectiveTechId, {
+            'id': effectiveTechId,
+            'technicianId': effectiveTechId,
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'currentLatitude': position.latitude,
+            'currentLongitude': position.longitude,
+            'accuracy': position.accuracy,
+            'speed': position.speed,
+            'heading': position.heading,
+            'isOnline': true,
+            'availabilityStatus': 'AVAILABLE',
+            'lastLocationUpdate': DateTime.now().toIso8601String(),
+            'updatedAt': DateTime.now().toIso8601String(),
+          });
+        } catch (_) {}
 
         for (final base in AppConfig.candidateBaseUrls) {
           try {

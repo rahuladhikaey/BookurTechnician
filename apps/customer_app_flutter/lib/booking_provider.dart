@@ -10,6 +10,7 @@ import 'models.dart';
 import 'models/customer_profile_models.dart';
 import 'models/nearby_technician.dart';
 import 'services/api_client.dart';
+import 'services/firestore_rest_client.dart';
 
 // ─── App State ───────────────────────────────────────────────────────────────
 
@@ -365,6 +366,38 @@ class BookingNotifier extends StateNotifier<AppState> {
         }
       }
 
+      // Direct Cloud Firestore Spatial Fallback (Zero Server Latency)
+      try {
+        final fbResponse = await FirestoreRestClient.handleRequest('GET', endpoint);
+        if (fbResponse.statusCode == 200) {
+          final data = json.decode(fbResponse.body);
+          final servicesList = (data['services'] ?? data['data']) as List<dynamic>? ?? [];
+          final Map<String, int> counts = {};
+
+          for (final item in servicesList) {
+            if (item is Map<String, dynamic>) {
+              final sId = item['serviceId']?.toString() ?? '';
+              final count = (item['availableTechnicianCount'] as num?)?.toInt() ?? 0;
+              if (sId.isNotEmpty) {
+                counts[sId] = count;
+              }
+            }
+          }
+
+          state = state.copyWith(
+            serviceAvailabilityCounts: counts,
+            isAvailabilityLoading: false,
+            lastAvailabilityFetchTime: DateTime.now(),
+            lastAvailabilityLatitude: targetLat,
+            lastAvailabilityLongitude: targetLng,
+          );
+          debugPrint('📍 [Nearby Availability] Loaded live 15km counts for ${counts.length} services via Cloud Firestore');
+          return;
+        }
+      } catch (fbErr) {
+        debugPrint('⚠️ [Nearby Availability] Firestore fallback warning: $fbErr');
+      }
+
       state = state.copyWith(isAvailabilityLoading: false);
     } catch (e) {
       debugPrint('⚠️ [Nearby Availability] Fetch error: $e');
@@ -403,6 +436,29 @@ class BookingNotifier extends StateNotifier<AppState> {
         }
       } catch (_) {}
     }
+
+    try {
+      final fbResponse = await FirestoreRestClient.handleRequest('GET', '/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15&serviceId=$serviceId');
+      if (fbResponse.statusCode == 200) {
+        final data = json.decode(fbResponse.body);
+        final servicesList = (data['services'] ?? data['data']) as List<dynamic>? ?? [];
+        for (final item in servicesList) {
+          if (item is Map<String, dynamic> && item['serviceId'] == serviceId) {
+            final count = (item['availableTechnicianCount'] as num?)?.toInt() ?? 0;
+            final updatedCounts = Map<String, int>.from(state.serviceAvailabilityCounts);
+            updatedCounts[serviceId] = count;
+            state = state.copyWith(
+              serviceAvailabilityCounts: updatedCounts,
+              lastAvailabilityFetchTime: DateTime.now(),
+              lastAvailabilityLatitude: targetLat,
+              lastAvailabilityLongitude: targetLng,
+            );
+            return count;
+          }
+        }
+      }
+    } catch (_) {}
+
     return null;
   }
 
@@ -498,6 +554,22 @@ class BookingNotifier extends StateNotifier<AppState> {
       } catch (candidateErr) {
         debugPrint('⚠️ [Nearby Technicians] Candidate $base warning: $candidateErr');
       }
+    }
+
+    // Direct Cloud Firestore Spatial Roster Fallback (15 KM Radius Scan)
+    try {
+      final queryStr = queryParams.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
+      final fbResponse = await FirestoreRestClient.handleRequest('GET', '/catalog/technicians/nearby?$queryStr');
+      if (fbResponse.statusCode == 200) {
+        final data = json.decode(fbResponse.body);
+        if (data is Map<String, dynamic>) {
+          final result = NearbyTechniciansResult.fromJson(data);
+          debugPrint('📍 [Nearby Technicians] Discovered ${result.technicians.length} online technicians via Cloud Firestore');
+          return result;
+        }
+      }
+    } catch (fbErr) {
+      debugPrint('⚠️ [Nearby Technicians] Firestore fallback error: $fbErr');
     }
 
     return null;

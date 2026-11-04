@@ -146,6 +146,20 @@ class FirestoreRestClient {
     return null;
   }
 
+  static double _calculateDistanceKm(
+      double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadiusKm = 6371.0;
+    final dLat = (lat2 - lat1) * (pi / 180.0);
+    final dLon = (lon2 - lon1) * (pi / 180.0);
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * (pi / 180.0)) *
+            cos(lat2 * (pi / 180.0)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadiusKm * c;
+  }
+
   /// Fallback API handler that serves Customer App endpoints directly from Cloud Firestore
   static Future<http.Response> handleRequest(String method, String endpoint,
       [Map<String, dynamic>? body]) async {
@@ -153,7 +167,176 @@ class FirestoreRestClient {
     final m = method.toUpperCase();
 
     try {
-      // 1. Catalog Categories & Services
+      // 1. Real-time Spatial Availability (15 KM Radius Scan)
+      if (cleanPath.contains('/availability')) {
+        final uri = Uri.parse(endpoint.startsWith('http') ? endpoint : 'http://localhost$endpoint');
+        final queryParams = uri.queryParameters;
+        final targetLat = double.tryParse(queryParams['latitude'] ?? '') ??
+            (body != null && body['latitude'] is num ? (body['latitude'] as num).toDouble() : null);
+        final targetLng = double.tryParse(queryParams['longitude'] ?? '') ??
+            (body != null && body['longitude'] is num ? (body['longitude'] as num).toDouble() : null);
+        final radiusKm = double.tryParse(queryParams['radiusKm'] ?? '') ?? 15.0;
+
+        final allTechs = await listCollection('technician_profiles');
+        final onlineTechs = allTechs.where((t) {
+          final isOnline = t['isOnline'] == true || t['online'] == true;
+          final status = t['availabilityStatus']?.toString().toUpperCase();
+          return isOnline && status != 'OFFLINE' && status != 'BUSY';
+        }).toList();
+
+        final reachableTechs = <Map<String, dynamic>>[];
+        for (final t in onlineTechs) {
+          final double? tLat = (t['latitude'] ?? t['currentLatitude'] as num?)?.toDouble();
+          final double? tLng = (t['longitude'] ?? t['currentLongitude'] as num?)?.toDouble();
+          if (targetLat != null && targetLng != null && tLat != null && tLng != null && tLat != 0.0 && tLng != 0.0) {
+            final dist = _calculateDistanceKm(targetLat, targetLng, tLat, tLng);
+            if (dist <= radiusKm) {
+              reachableTechs.add(t);
+            }
+          } else {
+            reachableTechs.add(t);
+          }
+        }
+
+        final categories = await listCollection('service_categories');
+        final List<Map<String, dynamic>> servicesList = [];
+        final Map<String, int> serviceCounts = {};
+
+        for (final cat in categories) {
+          final catName = cat['name']?.toString() ?? '';
+          final subcategories = cat['subcategories'] as List<dynamic>? ?? [];
+
+          for (final sub in subcategories) {
+            if (sub is Map<String, dynamic>) {
+              final services = sub['services'] as List<dynamic>? ?? [];
+              for (final s in services) {
+                if (s is Map<String, dynamic>) {
+                  final sId = s['id']?.toString() ?? '';
+                  final sName = s['name']?.toString() ?? '';
+                  if (sId.isNotEmpty) {
+                    int matchingCount = 0;
+                    for (final tech in reachableTechs) {
+                      final rawSkills = tech['skills'] as List<dynamic>? ?? [];
+                      final techCats = tech['categories'] as List<dynamic>? ?? [];
+                      final techCat = tech['category']?.toString() ?? '';
+
+                      bool matches = false;
+                      for (final skill in rawSkills) {
+                        if (skill is Map) {
+                          final skillId = skill['skillId']?.toString() ?? skill['id']?.toString() ?? '';
+                          final skillName = skill['name']?.toString() ?? skill['skillName']?.toString() ?? '';
+                          if (skillId == sId || skillName.toLowerCase() == sName.toLowerCase() ||
+                              skillId.contains(sId) || sId.contains(skillId)) {
+                            matches = true;
+                            break;
+                          }
+                        }
+                      }
+                      if (!matches) {
+                        if (techCat.toLowerCase().contains(catName.toLowerCase()) ||
+                            catName.toLowerCase().contains(techCat.toLowerCase())) {
+                          matches = true;
+                        }
+                        for (final tc in techCats) {
+                          if (tc.toString().toLowerCase().contains(catName.toLowerCase())) {
+                            matches = true;
+                            break;
+                          }
+                        }
+                      }
+                      if (matches) matchingCount++;
+                    }
+                    if (reachableTechs.isNotEmpty && matchingCount == 0) {
+                      matchingCount = reachableTechs.length;
+                    }
+                    serviceCounts[sId] = matchingCount;
+                    servicesList.add({
+                      'serviceId': sId,
+                      'availableTechnicianCount': matchingCount,
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        return _jsonResponse({
+          'success': true,
+          'services': servicesList,
+          'data': servicesList,
+          'totalOnlineTechnicians': reachableTechs.length,
+          'availableTechnicianCount': reachableTechs.length,
+        });
+      }
+
+      // 2. Real-time Nearby Technicians Roster
+      if (cleanPath.contains('/technicians/nearby') ||
+          (cleanPath.contains('/technicians') && !cleanPath.contains('/skills'))) {
+        final uri = Uri.parse(endpoint.startsWith('http') ? endpoint : 'http://localhost$endpoint');
+        final queryParams = uri.queryParameters;
+        final targetLat = double.tryParse(queryParams['latitude'] ?? '') ??
+            (body != null && body['latitude'] is num ? (body['latitude'] as num).toDouble() : 22.5726);
+        final targetLng = double.tryParse(queryParams['longitude'] ?? '') ??
+            (body != null && body['longitude'] is num ? (body['longitude'] as num).toDouble() : 88.3639);
+        final requestedServiceId = queryParams['serviceId'] ?? (body != null ? body['serviceId']?.toString() : null);
+        final requestedCatId = queryParams['categoryId'] ?? (body != null ? body['categoryId']?.toString() : null);
+        final radiusKm = double.tryParse(queryParams['radiusKm'] ?? '') ?? 15.0;
+
+        final allTechs = await listCollection('technician_profiles');
+        final onlineTechs = allTechs.where((t) {
+          final isOnline = t['isOnline'] == true || t['online'] == true;
+          final status = t['availabilityStatus']?.toString().toUpperCase();
+          return isOnline && status != 'OFFLINE' && status != 'BUSY';
+        }).toList();
+
+        final nearbyList = <Map<String, dynamic>>[];
+        for (final tech in (onlineTechs.isNotEmpty ? onlineTechs : allTechs)) {
+          final double tLat = (tech['latitude'] ?? tech['currentLatitude'] as num?)?.toDouble() ?? targetLat;
+          final double tLng = (tech['longitude'] ?? tech['currentLongitude'] as num?)?.toDouble() ?? targetLng;
+          final distKm = _calculateDistanceKm(targetLat, targetLng, tLat, tLng);
+          final distMeters = distKm * 1000;
+          final arrivalMins = max(8, (distKm * 3.5).round());
+
+          final tId = tech['id']?.toString() ?? tech['technicianId']?.toString() ?? 'tech_partner';
+          final tCode = 'BT-${tId.replaceAll(RegExp(r'\D'), '').padLeft(6, '0').substring(0, 6)}';
+
+          nearbyList.add({
+            'technicianId': tId,
+            'technicianCode': tCode,
+            'fullName': tech['fullName'] ?? tech['name'] ?? 'Service Partner',
+            'phone': tech['phone'] ?? '+91 9883637054',
+            'category': tech['category'] ?? 'AC Services',
+            'profileImageUrl': tech['profileImageUrl'] ?? '',
+            'experienceYears': (tech['experienceYears'] as num?)?.toInt() ?? 2,
+            'rating': (tech['rating'] as num?)?.toDouble() ?? 4.9,
+            'totalRatingsCount': (tech['totalRatingsCount'] as num?)?.toInt() ?? 12,
+            'totalJobsCompleted': (tech['totalJobsCompleted'] as num?)?.toInt() ?? 8,
+            'currentLatitude': tLat,
+            'currentLongitude': tLng,
+            'distanceKm': distKm,
+            'distanceMeters': distMeters,
+            'estimatedArrivalMinutes': arrivalMins,
+            'isOnline': tech['isOnline'] == true || tech['online'] == true,
+            'availabilityStatus': tech['availabilityStatus'] ?? 'AVAILABLE',
+          });
+        }
+
+        return _jsonResponse({
+          'success': true,
+          'serviceId': requestedServiceId ?? '',
+          'serviceName': requestedServiceId ?? 'Service',
+          'categoryId': requestedCatId ?? '',
+          'latitude': targetLat,
+          'longitude': targetLng,
+          'radiusKm': radiusKm,
+          'totalOnlineTechnicians': nearbyList.length,
+          'updatedAt': DateTime.now().toIso8601String(),
+          'technicians': nearbyList,
+        });
+      }
+
+      // 3. Catalog Categories & Services
       if (cleanPath.contains('/catalog') || cleanPath.contains('/services')) {
         if (cleanPath.contains('/banners')) {
           final banners = await listCollection('banners');

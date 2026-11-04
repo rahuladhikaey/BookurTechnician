@@ -203,8 +203,182 @@ class FirestoreRestClient {
       );
     }
 
-    // 2. Catalog / Skills Hierarchy
-    if (cleanPath.contains('/catalog') || cleanPath.contains('/skills')) {
+    // 2. Skills Management (Bulk Save, Fetch, Toggle)
+    if (cleanPath.contains('/skills') && !cleanPath.contains('/catalog')) {
+      final techId = body['technicianId']?.toString() ??
+          options.headers['x-technician-id']?.toString() ??
+          options.queryParameters['technicianId']?.toString() ??
+          'BT-PARTNER';
+
+      // 2A. Save or bulk update skills
+      if (m == 'POST' || m == 'PUT' || m == 'PATCH') {
+        final rawSkills = body['skills'] is List ? body['skills'] as List : [];
+        final cats = await listCollection('service_categories');
+
+        final enrichedSkills = <Map<String, dynamic>>[];
+        final Set<String> declaredCategories = {};
+
+        for (final s in rawSkills) {
+          final sMap = s is Map ? Map<String, dynamic>.from(s) : <String, dynamic>{};
+          final sId = sMap['skillId']?.toString() ?? sMap['id']?.toString() ?? '';
+          int exp = 2;
+          if (sMap['experienceYears'] is num) {
+            exp = (sMap['experienceYears'] as num).toInt();
+          }
+
+          String sName = sMap['name']?.toString() ?? sMap['skillName']?.toString() ?? '';
+          String cId = sMap['categoryId']?.toString() ?? '';
+          String cName = sMap['categoryName']?.toString() ?? '';
+
+          for (final cat in cats) {
+            final subcategories = cat['subcategories'] as List<dynamic>? ?? [];
+            for (final sub in subcategories) {
+              if (sub is Map<String, dynamic>) {
+                final services = sub['services'] as List<dynamic>? ?? [];
+                for (final s in services) {
+                  if (s is Map &&
+                      (s['id'] == sId ||
+                          s['name'] == sId ||
+                          s['skillId'] == sId ||
+                          s['serviceId'] == sId)) {
+                    sName = s['name']?.toString() ?? sName;
+                    cId = cat['id']?.toString() ?? cId;
+                    cName = cat['name']?.toString() ?? cName;
+                    break;
+                  }
+                }
+              }
+            }
+            final subList = cat['services'] is List
+                ? cat['services'] as List
+                : (cat['skills'] is List ? cat['skills'] as List : []);
+            for (final sub in subList) {
+              if (sub is Map &&
+                  (sub['id'] == sId ||
+                      sub['skillId'] == sId ||
+                      sub['serviceId'] == sId ||
+                      sub['name'] == sId)) {
+                sName = sub['name']?.toString() ?? sub['title']?.toString() ?? sName;
+                cId = cat['id']?.toString() ?? cId;
+                cName = cat['name']?.toString() ?? cName;
+                break;
+              }
+            }
+          }
+
+          if (sName.isEmpty) {
+            sName = sId
+                .replaceAll('sk_', '')
+                .replaceAll('_', ' ')
+                .split(' ')
+                .map((w) => w.isNotEmpty ? w[0].toUpperCase() + w.substring(1) : '')
+                .join(' ');
+          }
+          if (cName.isNotEmpty) declaredCategories.add(cName);
+
+          enrichedSkills.add({
+            'id': sId,
+            'skillId': sId,
+            'skillName': sName,
+            'name': sName,
+            'categoryId': cId,
+            'categoryName': cName,
+            'experienceYears': exp,
+            'verificationStatus': 'VERIFIED',
+            'enabled': sMap['enabled'] != false,
+          });
+        }
+
+        final existingDocs = await listCollection('technician_profiles');
+        final existingDoc = existingDocs.firstWhere(
+          (d) => d['id'] == techId || d['technicianId'] == techId,
+          orElse: () => <String, dynamic>{},
+        );
+
+        final primaryCategory = declaredCategories.isNotEmpty
+            ? declaredCategories.first
+            : (existingDoc['category'] ?? 'AC Services');
+
+        final updateData = {
+          ...existingDoc,
+          'id': techId,
+          'technicianId': techId,
+          'skills': enrichedSkills,
+          'categories': declaredCategories.toList(),
+          'category': primaryCategory,
+          'totalSkillsCount': enrichedSkills.length,
+          'verifiedSkillsCount': enrichedSkills.length,
+          'pendingSkillsCount': 0,
+          'isOnline': existingDoc['isOnline'] ?? true,
+          'availabilityStatus': existingDoc['availabilityStatus'] ?? 'AVAILABLE',
+          'updatedAt': DateTime.now().toIso8601String(),
+        };
+
+        await upsertDocument('technician_profiles', techId, updateData);
+
+        final profileResp = {
+          'technicianId': techId,
+          'technicianCode': 'BT-${techId.replaceAll(RegExp(r'\D'), '').padLeft(6, '0').substring(0, 6)}',
+          'fullName': existingDoc['fullName'] ?? existingDoc['name'] ?? 'Partner Technician',
+          'rating': (existingDoc['rating'] as num?)?.toDouble() ?? 4.9,
+          'totalRatingsCount': (existingDoc['totalRatingsCount'] as num?)?.toInt() ?? 0,
+          'totalJobsCompleted': (existingDoc['totalJobsCompleted'] as num?)?.toInt() ?? 0,
+          'skills': enrichedSkills,
+          'totalSkillsCount': enrichedSkills.length,
+          'verifiedSkillsCount': enrichedSkills.length,
+          'pendingSkillsCount': 0,
+        };
+
+        return Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'success': true,
+            'message': 'Skills saved successfully',
+            'data': profileResp,
+            'profile': profileResp,
+            'skills': enrichedSkills,
+          },
+        );
+      }
+
+      // 2B. Fetch technician declared skills
+      final existingDocs = await listCollection('technician_profiles');
+      final techDoc = existingDocs.firstWhere(
+        (d) => d['id'] == techId || d['technicianId'] == techId,
+        orElse: () => (existingDocs.isNotEmpty && (techId == 'BT-PARTNER' || techId.isEmpty))
+            ? existingDocs.first
+            : <String, dynamic>{},
+      );
+
+      final rawSkills = techDoc['skills'] is List ? techDoc['skills'] as List : [];
+      final profileResp = {
+        'technicianId': techId,
+        'technicianCode': 'BT-${techId.replaceAll(RegExp(r'\D'), '').padLeft(6, '0').substring(0, 6)}',
+        'fullName': techDoc['fullName'] ?? techDoc['name'] ?? 'Partner Technician',
+        'rating': (techDoc['rating'] as num?)?.toDouble() ?? 4.9,
+        'totalRatingsCount': (techDoc['totalRatingsCount'] as num?)?.toInt() ?? 0,
+        'totalJobsCompleted': (techDoc['totalJobsCompleted'] as num?)?.toInt() ?? 0,
+        'skills': rawSkills,
+        'totalSkillsCount': rawSkills.length,
+        'verifiedSkillsCount': rawSkills.length,
+        'pendingSkillsCount': 0,
+      };
+
+      return Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {
+          'success': true,
+          'data': profileResp,
+          'profile': profileResp,
+          'skills': rawSkills,
+        },
+      );
+    }
+
+    // 3. Catalog / Categories Hierarchy
+    if (cleanPath.contains('/catalog')) {
       final cats = await listCollection('service_categories');
       return Response(
         requestOptions: options,
@@ -217,7 +391,66 @@ class FirestoreRestClient {
       );
     }
 
-    // 3. Technician Profile & Jobs
+    // 4. Technician Profile, Online Duty Status & GPS Location
+    if (cleanPath.contains('/technician') || cleanPath.contains('/online-status') || cleanPath.contains('/location')) {
+      final techId = body['technicianId']?.toString() ??
+          options.headers['x-technician-id']?.toString() ??
+          'tech_partner_01';
+
+      if ((m == 'POST' || m == 'PUT' || m == 'PATCH') && body.isNotEmpty) {
+        final existingDocs = await listCollection('technician_profiles');
+        final existingDoc = existingDocs.firstWhere(
+          (d) => d['id'] == techId || d['technicianId'] == techId,
+          orElse: () => <String, dynamic>{},
+        );
+
+        final updateData = {
+          ...existingDoc,
+          'id': techId,
+          'technicianId': techId,
+          ...body,
+          if (body.containsKey('isOnline')) 'isOnline': body['isOnline'] == true,
+          if (body.containsKey('online')) 'isOnline': body['online'] == true,
+          if (body.containsKey('availabilityStatus')) 'availabilityStatus': body['availabilityStatus'],
+          if (body.containsKey('latitude') && body['latitude'] != null) ...{
+            'latitude': (body['latitude'] as num).toDouble(),
+            'currentLatitude': (body['latitude'] as num).toDouble(),
+          },
+          if (body.containsKey('longitude') && body['longitude'] != null) ...{
+            'longitude': (body['longitude'] as num).toDouble(),
+            'currentLongitude': (body['longitude'] as num).toDouble(),
+          },
+          'lastLocationUpdate': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        };
+
+        final saved = await upsertDocument('technician_profiles', techId, updateData) ?? updateData;
+        return Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {'success': true, 'data': saved, 'profile': saved, 'technician': saved},
+        );
+      }
+
+      final techs = await listCollection('technician_profiles');
+      final matchedTech = techs.firstWhere(
+        (t) => t['id'] == techId || t['technicianId'] == techId,
+        orElse: () => techs.isNotEmpty ? techs.first : {},
+      );
+
+      return Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {
+          'success': true,
+          'data': matchedTech,
+          'technicians': techs,
+          'technician': matchedTech,
+        },
+      );
+    }
+
+    // 5. Bookings & Jobs
     if (cleanPath.contains('/bookings') || cleanPath.contains('/jobs')) {
       final bookings = await listCollection('bookings');
       return Response(
@@ -228,31 +461,6 @@ class FirestoreRestClient {
           'bookings': bookings,
           'jobs': bookings,
           'data': bookings,
-        },
-      );
-    }
-
-    if (cleanPath.contains('/technician')) {
-      if ((m == 'POST' || m == 'PUT' || m == 'PATCH') && body.isNotEmpty) {
-        final techId = body['technicianId']?.toString() ??
-            body['id']?.toString() ??
-            'tech_partner_01';
-        final saved =
-            await upsertDocument('technician_profiles', techId, body) ?? body;
-        return Response(
-          requestOptions: options,
-          statusCode: 200,
-          data: {'success': true, 'data': saved, 'profile': saved},
-        );
-      }
-      final techs = await listCollection('technician_profiles');
-      return Response(
-        requestOptions: options,
-        statusCode: 200,
-        data: {
-          'success': true,
-          'data': techs.isNotEmpty ? techs.first : {},
-          'technicians': techs,
         },
       );
     }

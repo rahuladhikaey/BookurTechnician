@@ -10,6 +10,7 @@ import '../../../core/security/secure_storage.dart';
 import '../../../core/services/location_tracking_service.dart';
 import '../../../core/services/gps_permission_helper.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/network/firestore_rest_client.dart';
 
 enum ActiveJobStep {
   accepted,
@@ -289,34 +290,63 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
   Future<bool> toggleOnline(bool val, {BuildContext? context}) async {
     HapticFeedback.mediumImpact();
 
-    if (val) {
-      // Automatically fetch current device GPS location upon going online (with prompt dialogs if needed)
-      final success = await fetchAndUpdateLocation(context: context, showPromptDialogs: true);
-      if (!success) {
-        state = state.copyWith(isOnline: false);
-        await LocationTrackingService().stopTracking();
-        return false;
+    var savedUserId = await SecureStorage().getUserId();
+    if (savedUserId == null || savedUserId.isEmpty || savedUserId == 'BT-PARTNER') {
+      final userDetails = await SecureStorage().getUserDetails();
+      final phone = userDetails['phone'];
+      final email = userDetails['email'];
+      if (phone != null && phone.isNotEmpty) {
+        savedUserId = 'tech_${phone.replaceAll(RegExp(r'\D'), '')}';
+      } else if (email != null && email.isNotEmpty) {
+        savedUserId = 'tech_${email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+      } else {
+        savedUserId = 'tech_partner_01';
       }
+      await SecureStorage().saveUserId(savedUserId);
+    }
 
-      state = state.copyWith(isOnline: true);
+    if (val) {
+      // Attempt fresh GPS fix, but fallback to cached/default coords if indoors
+      await fetchAndUpdateLocation(showPromptDialogs: false);
+
+      final lat = state.currentLatitude ?? 22.5726;
+      final lng = state.currentLongitude ?? 88.3639;
+
+      state = state.copyWith(
+        isOnline: true,
+        currentLatitude: lat,
+        currentLongitude: lng,
+      );
       await LocationTrackingService().startTracking();
 
       try {
-        final savedUserId = await SecureStorage().getUserId();
         final userDetails = await SecureStorage().getUserDetails();
-        if (savedUserId != null && savedUserId.isNotEmpty) {
-          TechnicianSocketService().connect(
-            technicianId: savedUserId,
-            phone: userDetails['phone'],
-            category: userDetails['category'] ?? 'electrician',
-          );
-        }
+        TechnicianSocketService().connect(
+          technicianId: savedUserId,
+          phone: userDetails['phone'] ?? '',
+          category: userDetails['category'] ?? 'AC Services',
+        );
       } catch (e) {
         debugPrint('Socket connect on toggleOnline warning: $e');
       }
 
       try {
-        final savedUserId = await SecureStorage().getUserId();
+        await FirestoreRestClient.upsertDocument('technician_profiles', savedUserId, {
+          'id': savedUserId,
+          'technicianId': savedUserId,
+          'isOnline': true,
+          'online': true,
+          'availabilityStatus': 'AVAILABLE',
+          'latitude': lat,
+          'longitude': lng,
+          'currentLatitude': lat,
+          'currentLongitude': lng,
+          'lastLocationUpdate': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+      } catch (_) {}
+
+      try {
         final dioClient = DioClient(SecureStorage());
         await dioClient.dio.post(
           '/technician/online-status',
@@ -324,12 +354,15 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
             'isOnline': true,
             'online': true,
             'availabilityStatus': 'AVAILABLE',
-            'latitude': state.currentLatitude,
-            'longitude': state.currentLongitude,
-            if (savedUserId != null && savedUserId.isNotEmpty) 'technicianId': savedUserId,
+            'latitude': lat,
+            'longitude': lng,
+            'currentLatitude': lat,
+            'currentLongitude': lng,
+            'technicianId': savedUserId,
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           options: Options(headers: {
-            if (savedUserId != null && savedUserId.isNotEmpty) 'x-technician-id': savedUserId,
+            'x-technician-id': savedUserId,
           }),
         );
       } catch (e) {
@@ -342,7 +375,18 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       await LocationTrackingService().stopTracking();
       rejectProposal();
       try {
-        final savedUserId = await SecureStorage().getUserId();
+        await FirestoreRestClient.upsertDocument('technician_profiles', savedUserId, {
+          'id': savedUserId,
+          'technicianId': savedUserId,
+          'isOnline': false,
+          'online': false,
+          'availabilityStatus': 'OFFLINE',
+          'lastLocationUpdate': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+      } catch (_) {}
+
+      try {
         final dioClient = DioClient(SecureStorage());
         await dioClient.dio.post(
           '/technician/online-status',
@@ -350,10 +394,11 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
             'isOnline': false,
             'online': false,
             'availabilityStatus': 'OFFLINE',
-            if (savedUserId != null && savedUserId.isNotEmpty) 'technicianId': savedUserId,
+            'technicianId': savedUserId,
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           options: Options(headers: {
-            if (savedUserId != null && savedUserId.isNotEmpty) 'x-technician-id': savedUserId,
+            'x-technician-id': savedUserId,
           }),
         );
       } catch (e) {

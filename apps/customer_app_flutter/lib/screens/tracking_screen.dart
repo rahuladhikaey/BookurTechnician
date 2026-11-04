@@ -12,6 +12,7 @@ import '../config/app_config.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../services/api_client.dart';
+import '../services/firestore_rest_client.dart';
 
 
 class LatLngTween extends Tween<LatLng> {
@@ -182,6 +183,39 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
       }
     } catch (e) {
       debugPrint('Live tracking polling note: $e');
+      // Direct Cloud Firestore Real-Time Tracking Fallback
+      try {
+        final doc = await FirestoreRestClient.getDocument('bookings', widget.bookingId);
+        if (doc != null && mounted) {
+          setState(() {
+            _remoteBookingData = Map<String, dynamic>.from(doc);
+            if (doc['startOtp'] != null) _liveStartOtp = doc['startOtp'].toString();
+            if (doc['endOtp'] != null) _liveEndOtp = doc['endOtp'].toString();
+
+            final num? cLat = (doc['latitude'] ?? doc['customerLatitude']) as num?;
+            final num? cLng = (doc['longitude'] ?? doc['customerLongitude']) as num?;
+            if (cLat != null && cLng != null && (cLat != 0.0 || cLng != 0.0)) {
+              _customerLocation = LatLng(cLat.toDouble(), cLng.toDouble());
+            }
+          });
+
+          final techId = doc['technicianId']?.toString() ?? doc['technician']?['id']?.toString();
+          if (techId != null && techId.isNotEmpty) {
+            final techDoc = await FirestoreRestClient.getDocument('technician_profiles', techId);
+            if (techDoc != null && mounted) {
+              final double? lat = (techDoc['latitude'] ?? techDoc['currentLatitude'] as num?)?.toDouble();
+              final double? lng = (techDoc['longitude'] ?? techDoc['currentLongitude'] as num?)?.toDouble();
+              if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+                _onTechnicianLocationReceived(
+                  LatLng(lat, lng),
+                  (techDoc['heading'] as num?)?.toDouble() ?? 0.0,
+                  (techDoc['speed'] as num?)?.toDouble() ?? 5.0,
+                );
+              }
+            }
+          }
+        }
+      } catch (_) {}
     }
   }
 
