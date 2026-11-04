@@ -11,6 +11,7 @@
  * 8. Aggregated Single & Multi Service Availability APIs
  */
 
+process.env.DISABLE_FIRESTORE_SYNC = 'true';
 const { resolveServiceIdsFromSkill, doesTechnicianMatchService, getSkillSynonymsForService } = require('../src/services/catalogSkillMapper');
 const postgresSpatialScanner = require('../src/services/postgresSpatialScanner');
 const { getFlattenedServices } = require('../src/config/masterCatalog');

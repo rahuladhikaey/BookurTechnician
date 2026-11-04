@@ -4,11 +4,7 @@ export default function LocationsManager({ auditLogAction }) {
   const [subTab, setSubTab] = useState('cities');
   
   // Operating Cities States
-  const [cities, setCities] = useState([
-    { id: 1, name: 'Kolkata', state: 'West Bengal', status: 'Active', pincodes: '700001, 700091, 700156' },
-    { id: 2, name: 'Bengaluru', state: 'Karnataka', status: 'Active', pincodes: '560001, 560102, 560087' },
-    { id: 3, name: 'Delhi NCR', state: 'Delhi', status: 'Inactive', pincodes: '110001, 110020' }
-  ]);
+  const [cities, setCities] = useState([]);
 
   const [newCity, setNewCity] = useState({ name: '', state: '', status: 'Active', pincodes: '' });
 

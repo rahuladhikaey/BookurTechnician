@@ -105,6 +105,17 @@ export async function firestoreDelete(collection, docId) {
   return true;
 }
 
+export async function firestoreClearCollection(collection) {
+  const docs = await firestoreList(collection, 300);
+  await Promise.all(
+    docs.map(d => {
+      const id = d.id || d.bookingCode || d.customerId || d.technicianId || d.offerId;
+      return id ? firestoreDelete(collection, id) : Promise.resolve();
+    })
+  );
+  return true;
+}
+
 /**
  * Handle API endpoint directly via Cloud Firestore when backend server is unreachable
  */
@@ -176,11 +187,14 @@ export async function handleFirestoreFallback(endpoint, method = 'GET', body = n
         todayRevenue: Math.round(totalRevenue),
         platformCommission: Math.round(totalRevenue * 0.15),
         totalCustomers: customers.length,
-        activeTechnicians: technicians.filter(t => t.isOnline || t.kycStatus === 'VERIFIED').length || technicians.length,
+        activeTechnicians: technicians.filter(t => t.isOnline).length,
+        verifiedTechnicians: technicians.filter(t => t.kycStatus === 'VERIFIED').length,
+        onlineTechnicians: technicians.filter(t => t.isOnline).length,
+        totalTechnicians: technicians.length,
         totalServices: services.length,
         totalCategories: categories.length,
-        customerSatisfactionRate: '99.2%',
-        averageEtaMinutes: 15,
+        customerSatisfactionRate: completed > 0 ? '99.2%' : '0%',
+        averageEtaMinutes: completed > 0 ? 15 : 0,
       },
     };
   }
@@ -241,6 +255,11 @@ export async function handleFirestoreFallback(endpoint, method = 'GET', body = n
       bookings.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       return { success: true, data: bookings };
     }
+    if (m === 'DELETE') {
+      await firestoreClearCollection('bookings');
+      await firestoreClearCollection('dispatch_offers');
+      return { success: true, message: 'All bookings cleared' };
+    }
     if (m === 'POST' && body) {
       const id = body.id || `BK-${Math.floor(100000 + Math.random() * 900000)}`;
       const saved = await firestoreUpsert('bookings', id, {
@@ -288,6 +307,10 @@ export async function handleFirestoreFallback(endpoint, method = 'GET', body = n
       const customers = await firestoreList('customers');
       return { success: true, data: customers };
     }
+    if (m === 'DELETE') {
+      await firestoreClearCollection('customers');
+      return { success: true, message: 'All customers cleared' };
+    }
   }
   if (cleanPath.startsWith('/admin/customers/') && m === 'DELETE') {
     const id = cleanPath.split('/').pop();
@@ -300,6 +323,10 @@ export async function handleFirestoreFallback(endpoint, method = 'GET', body = n
     if (m === 'GET') {
       const techs = await firestoreList('technician_profiles');
       return { success: true, data: techs };
+    }
+    if (m === 'DELETE') {
+      await firestoreClearCollection('technician_profiles');
+      return { success: true, message: 'All technicians cleared' };
     }
     if (m === 'POST' && body) {
       const id = body.id || body.technicianId || `tech_${Date.now().toString(36)}`;

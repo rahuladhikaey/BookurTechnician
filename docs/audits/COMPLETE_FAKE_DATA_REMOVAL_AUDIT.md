@@ -62,3 +62,4 @@ The following constants were inspected and verified as **legitimate static syste
 | **Firebase Admin SDK / FCM Deduplication** | **PASS (API/Logic)** | Synthetic FCM tokens rejected (`400 Bad Request`); duplicate `(userId, offerId)` push delivery suppressed |
 | **Physical Dual-Android Device Hardware Test** | **NOT VERIFIED** | `adb devices -l` reports `0` physical Android devices attached to workstation |
 | **Live Production Razorpay Bank Settlement** | **BLOCKED** | Requires live production `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` environment variables on deployment host |
+

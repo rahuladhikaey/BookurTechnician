@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Pool } = require('pg');
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres.hgjvwddlwofzpdurvpzd:Rahul%402005%40%23@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require';
+const DATABASE_URL = process.env.DATABASE_URL || '';
 
 const pool = new Pool({
   connectionString: DATABASE_URL.replace(/[?&]sslmode=[^&]+/, ''),

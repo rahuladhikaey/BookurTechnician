@@ -64,6 +64,7 @@ function clearAllTechniciansStore() {
   inMemoryTechProfiles.clear();
   inMemoryDocs.clear();
   inMemorySkills.clear();
+  firestoreSync.clearCollection('technician_profiles').catch(() => {});
   return true;
 }
 

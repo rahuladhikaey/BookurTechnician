@@ -77,6 +77,7 @@ function docToPlainObject(doc) {
  * Upsert a document into Cloud Firestore (uses Admin SDK first, falls back to REST API)
  */
 async function upsertDocument(collection, docId, data) {
+  if (process.env.DISABLE_FIRESTORE_SYNC === 'true' || process.env.NODE_ENV === 'test') return false;
   if (!collection || !docId || !data) return false;
   const cleanId = String(docId).replace(/[^a-zA-Z0-9_-]/g, '_');
 
@@ -118,6 +119,7 @@ async function upsertDocument(collection, docId, data) {
  * Delete a document from Cloud Firestore
  */
 async function removeDocument(collection, docId) {
+  if (process.env.DISABLE_FIRESTORE_SYNC === 'true' || process.env.NODE_ENV === 'test') return false;
   if (!collection || !docId) return false;
   const cleanId = String(docId).replace(/[^a-zA-Z0-9_-]/g, '_');
 
@@ -214,12 +216,35 @@ async function syncCatalogToFirestore() {
   }
 }
 
+/**
+ * Delete all documents in a collection from Cloud Firestore
+ */
+async function clearCollection(collection) {
+  if (process.env.DISABLE_FIRESTORE_SYNC === 'true' || process.env.NODE_ENV === 'test') return 0;
+  if (!collection) return 0;
+  try {
+    const docs = await listDocuments(collection, 300);
+    let deleted = 0;
+    for (const d of docs) {
+      const docId = d.id || d.bookingCode || d.customerId || d.technicianId || d.offerId;
+      if (docId) {
+        const ok = await removeDocument(collection, docId);
+        if (ok) deleted++;
+      }
+    }
+    return deleted;
+  } catch (_) {
+    return 0;
+  }
+}
+
 module.exports = {
   PROJECT_ID,
   FIRESTORE_REST_BASE,
   upsertDocument,
   removeDocument,
   listDocuments,
+  clearCollection,
   syncCatalogToFirestore,
 };
 

@@ -5,6 +5,7 @@
 // Socket Room Auth, GPS Privacy, Geofence + EmailJS OTP, Restart Recovery & Admin Audit.
 // ============================================================================
 
+process.env.DISABLE_FIRESTORE_SYNC = 'true';
 const assert = require('assert');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');

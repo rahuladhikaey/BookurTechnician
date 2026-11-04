@@ -3,8 +3,8 @@ const { Pool } = require('pg');
 const mongoose = require('mongoose');
 const MongoTechnicianProfile = require('../src/models/MongoTechnicianProfile');
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres.hgjvwddlwofzpdurvpzd:Rahul%402005%40%23@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require';
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://server:Rahul%402005%40%23@prod-db.j8loxfl.mongodb.net/bookurtechnician_prod?retryWrites=true&w=majority&appName=prod-db';
+const DATABASE_URL = process.env.DATABASE_URL || '';
+const MONGO_URI = process.env.MONGO_URI || '';
 
 const pool = new Pool({
   connectionString: DATABASE_URL.replace(/[?&]sslmode=[^&]+/, ''),

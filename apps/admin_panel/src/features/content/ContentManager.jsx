@@ -4,10 +4,7 @@ export default function ContentManager({ globalContent, setGlobalContent, auditL
   const [subTab, setSubTab] = useState('banners');
   
   // Home Banner States
-  const [banners, setBanners] = useState([
-    { id: 1, title: '⚡ Monsoon AC Cleaning Special', imageUrl: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=500', actionUrl: 'bookurtech://ac_cleaning' },
-    { id: 2, title: '🔌 Safe Electrical Assembly Checks', imageUrl: 'https://images.unsplash.com/photo-1581094288338-2314dddb7eed?w=500', actionUrl: 'bookurtech://electrician' }
-  ]);
+  const [banners, setBanners] = useState([]);
 
   const [newBanner, setNewBanner] = useState({ title: '', imageUrl: '', actionUrl: '' });
 

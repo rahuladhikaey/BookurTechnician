@@ -40,7 +40,18 @@ export default function App() {
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
 
-  // ─── STATE INITIALIZATION (INSTANT LOCAL CACHED STATES + LIVE REVALIDATION) ───
+  // ─── STATE INITIALIZATION (CLEAN LAUNCH CACHE VERSION GUARD + LIVE REVALIDATION) ───
+  const CACHE_SCHEMA_VERSION = 'bt_clean_launch_v3';
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('bt_cache_schema_version') !== CACHE_SCHEMA_VERSION) {
+      localStorage.removeItem('bt_cache_stats');
+      localStorage.removeItem('bt_cache_bookings');
+      localStorage.removeItem('bt_cache_customers');
+      localStorage.removeItem('bt_cache_technicians');
+      localStorage.setItem('bt_cache_schema_version', CACHE_SCHEMA_VERSION);
+    }
+  } catch (_) {}
+
   const [stats, setStats] = useState(() => {
     try { return JSON.parse(localStorage.getItem('bt_cache_stats')) || null; } catch (_) { return null; }
   });

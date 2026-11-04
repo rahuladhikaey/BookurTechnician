@@ -48,24 +48,7 @@ function resolveDocUrl(url, docType = '') {
   return CLOUDINARY_DOC_BADGES.SELFIE;
 }
 
-let adminBanners = [
-  {
-    id: 'ban-01',
-    title: '50% OFF on AC Deep Cleaning',
-    subtitle: 'Beat the heat with certified AC experts',
-    imageUrl: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800',
-    targetCategory: 'cat_ac',
-    active: true,
-  },
-  {
-    id: 'ban-02',
-    title: 'Certified Electrician & Wiring',
-    subtitle: 'Fast 15-min arrival with 30-day warranty',
-    imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=800',
-    targetCategory: 'cat_electrical',
-    active: true,
-  },
-];
+let adminBanners = [];
 
 let adminAuditLogs = [
   { id: 'log-01', module: 'System', action: 'Real-time bookings store and catalog synchronization active', timestamp: new Date().toISOString() },

@@ -372,6 +372,8 @@ function deleteBooking(idOrCode) {
  */
 function clearAllBookings() {
   LIVE_BOOKINGS = [];
+  firestoreSync.clearCollection('bookings').catch(() => {});
+  firestoreSync.clearCollection('dispatch_offers').catch(() => {});
   return true;
 }
 
@@ -428,6 +430,7 @@ function deleteCustomer(custId) {
  */
 function clearAllCustomers() {
   LIVE_CUSTOMERS.clear();
+  firestoreSync.clearCollection('customers').catch(() => {});
   return true;
 }
 

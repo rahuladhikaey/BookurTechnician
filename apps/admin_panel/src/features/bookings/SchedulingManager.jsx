@@ -6,7 +6,7 @@ export default function SchedulingManager({ auditLogAction }) {
   const [maxBookingsPerSlot, setMaxBookingsPerSlot] = useState(15);
   const [workingStart, setWorkingStart] = useState('08:00 AM');
   const [workingEnd, setWorkingEnd] = useState('09:00 PM');
-  const [blackoutDates, setBlackoutDates] = useState(['2026-10-02', '2026-12-25']);
+  const [blackoutDates, setBlackoutDates] = useState([]);
   const [newBlackoutDate, setNewBlackoutDate] = useState('');
 
   const activeTimeSlots = [
