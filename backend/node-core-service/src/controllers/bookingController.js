@@ -1260,6 +1260,24 @@ const updateBookingStatus = async (req, res) => {
       });
     }
 
+    // ─── Authorization Check: Ensure caller is authorized participant or admin ───
+    if (req.user) {
+      const userRole = String(req.user.role || '').toUpperCase();
+      const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+      if (!isAdmin) {
+        const custId = booking.customerId || booking.customer_id;
+        const techId = booking.technicianId || booking.technician_id;
+        const isParticipant = (userRole === 'CUSTOMER' && custId && String(custId) === String(req.user.id)) ||
+                              (userRole === 'TECHNICIAN' && techId && String(techId) === String(req.user.id));
+        if (!isParticipant) {
+          return res.status(403).json({
+            success: false,
+            error: 'Forbidden: You are not authorized to modify or cancel this booking.',
+          });
+        }
+      }
+    }
+
     // ─── Cancellation & Automatic Gateway Refund Engine ────────────────────────
     if (status && status.includes('CANCEL')) {
       const reason = req.body.reason || req.body.cancellationReason || 'Cancelled by Customer';
@@ -1275,8 +1293,8 @@ const updateBookingStatus = async (req, res) => {
         refundAmount = Math.max(0, paidAmount - cancellationFee);
 
         const paymentId = booking.razorpayPaymentId;
-        const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_ShRpqbs6hVT6Ie';
-        const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '5LUjZ94LMDnjwlLyB9cUU5cb';
+        const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
+        const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
 
         if (paymentId && !paymentId.startsWith('pay_test_offline') && RAZORPAY_KEY_ID && !RAZORPAY_KEY_ID.includes('placeholder')) {
           try {
@@ -1518,13 +1536,17 @@ const getBookingById = async (req, res) => {
  */
 const getCustomerBookings = async (req, res) => {
   try {
-    const customerId = req.user?.id || req.query.customerId || req.headers['x-user-id'];
+    const userRole = String(req.user?.role || '').toUpperCase();
+    const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+    const customerId = isAdmin ? (req.query.customerId || req.user?.id) : req.user?.id;
+
+    if (!customerId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required to view customer bookings' });
+    }
     let dbBookings = [];
 
     try {
-      const pgRes = customerId
-        ? await postgres.query('SELECT * FROM bookings WHERE customer_id = $1 ORDER BY created_at DESC', [customerId])
-        : await postgres.query('SELECT * FROM bookings ORDER BY created_at DESC LIMIT 50');
+      const pgRes = await postgres.query('SELECT * FROM bookings WHERE customer_id = $1 ORDER BY created_at DESC', [customerId]);
 
       if (pgRes.rows && pgRes.rows.length > 0) {
         dbBookings = pgRes.rows.map(row => ({
@@ -1568,10 +1590,10 @@ const getCustomerBookings = async (req, res) => {
     }
 
     const memList = Array.from(memoryBookings.values()).filter(
-      b => !customerId || b.customerId === customerId
+      b => b.customerId === customerId
     );
     const storeList = bookingsStore.getAllBookings().filter(
-      b => !customerId || b.customerId === customerId
+      b => b.customerId === customerId
     );
 
     // Merge and deduplicate
@@ -1603,33 +1625,28 @@ const getCustomerBookings = async (req, res) => {
  */
 const getTechnicianBookings = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.user?.sub || req.query.technicianId || req.headers['x-technician-id'] || req.headers['x-user-id'];
+    const userRole = String(req.user?.role || '').toUpperCase();
+    const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+    const technicianId = isAdmin ? (req.query.technicianId || req.user?.id) : req.user?.id;
+
+    if (!technicianId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required to view technician jobs' });
+    }
     let dbBookings = [];
 
     // 1. Fetch from PostgreSQL
     if (postgres.isPgHealthy()) {
       try {
-        let pgRes;
-        if (technicianId) {
-          pgRes = await postgres.query(`
-            SELECT b.*, u.full_name as customer_name, u.phone as customer_phone
-            FROM bookings b
-            LEFT JOIN users u ON u.id = b.customer_id
-            WHERE b.technician_id = $1 
-               OR b.technician_id = (SELECT id FROM technician_profiles WHERE technician_id = $1 OR technician_code = $1 OR phone = $1 LIMIT 1)
-               OR (b.technician_id IS NULL AND b.status IN ('CONFIRMED', 'SEARCHING', 'PENDING', 'DISPATCHED'))
-            ORDER BY b.created_at DESC
-            LIMIT 100;
-          `, [technicianId]);
-        } else {
-          pgRes = await postgres.query(`
-            SELECT b.*, u.full_name as customer_name, u.phone as customer_phone
-            FROM bookings b
-            LEFT JOIN users u ON u.id = b.customer_id
-            ORDER BY b.created_at DESC
-            LIMIT 100;
-          `);
-        }
+        const pgRes = await postgres.query(`
+          SELECT b.*, u.full_name as customer_name, u.phone as customer_phone
+          FROM bookings b
+          LEFT JOIN users u ON u.id = b.customer_id
+          WHERE b.technician_id = $1 
+             OR b.technician_id = (SELECT id FROM technician_profiles WHERE technician_id = $1 OR technician_code = $1 OR phone = $1 LIMIT 1)
+             OR (b.technician_id IS NULL AND b.status IN ('CONFIRMED', 'SEARCHING', 'PENDING', 'DISPATCHED'))
+          ORDER BY b.created_at DESC
+          LIMIT 100;
+        `, [technicianId]);
 
         if (pgRes.rows && pgRes.rows.length > 0) {
           dbBookings = pgRes.rows.map(row => {
@@ -1795,6 +1812,26 @@ const getTechnicianBookings = async (req, res) => {
 const deleteBooking = async (req, res) => {
   try {
     const id = req.params.id;
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required to delete booking' });
+    }
+    const role = String(user.role || '').toUpperCase();
+    const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+
+    let booking = bookingsStore.getBookingById(id) || memoryBookings.get(id);
+    if (!booking && postgres.isPgHealthy()) {
+      const pgRes = await postgres.query('SELECT * FROM bookings WHERE id = $1 OR booking_code = $1', [id]);
+      if (pgRes.rows.length > 0) booking = pgRes.rows[0];
+    }
+
+    if (booking && !isAdmin) {
+      const custId = booking.customerId || booking.customer_id;
+      if (custId && String(custId) !== String(user.id)) {
+        return res.status(403).json({ success: false, error: 'Forbidden: You cannot delete another customer booking.' });
+      }
+    }
+
     deleteMemoryBooking(id);
     bookingsStore.deleteBooking(id);
 
@@ -1822,7 +1859,10 @@ const deleteBooking = async (req, res) => {
  */
 const clearCustomerBookings = async (req, res) => {
   try {
-    const customerId = req.user?.id || req.headers['x-user-id'] || req.query.customerId;
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
+    }
+    const customerId = req.user.id;
 
     if (customerId) {
       for (const [key, b] of memoryBookings.entries()) {

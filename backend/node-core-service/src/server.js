@@ -28,8 +28,14 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const dispatchRoutes = require('./routes/dispatchRoutes');
 const customerRoutes = require('./routes/customerRoutes');
 
+const { securityHeaders, sanitizeInputs, apiRateLimiter, authRateLimiter } = require('./middleware/securityMiddleware');
+
 const app = express();
 const server = http.createServer(app);
+
+// Enterprise HTTP Security Headers (OWASP API Security) & Input Sanitization
+app.use(securityHeaders);
+app.use(sanitizeInputs);
 
 // Socket.io initialization with CORS & production resilience
 const io = new Server(server, {
@@ -86,30 +92,31 @@ if (resolvedAdminPath) {
   console.log(`💻 [Admin UI] Serving production dashboard from ${resolvedAdminPath}`);
 }
 
-// API Routes
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/customer', customerRoutes);
-app.use('/api/v1/bookings', bookingRoutes);
-app.use('/api/v1/technicians', technicianRoutes);
-app.use('/api/v1/technician', technicianRoutes);
-app.use('/api/v1/admin', adminRoutes);
-app.use('/api/v1/catalog', catalogRoutes);
-app.use('/api/v1/services', catalogRoutes);
-app.use('/api/v1/ai', aiRoutes);
-app.use('/api/v1/payments', paymentRoutes);
-app.use('/api/v1/dispatch', dispatchRoutes);
+// API Routes with Rate Limiting
+app.use('/api/v1/auth', authRateLimiter, authRoutes);
+app.use('/api/auth', authRateLimiter, authRoutes);
+
+app.use('/api/v1/customer', apiRateLimiter, customerRoutes);
+app.use('/api/v1/bookings', apiRateLimiter, bookingRoutes);
+app.use('/api/v1/technicians', apiRateLimiter, technicianRoutes);
+app.use('/api/v1/technician', apiRateLimiter, technicianRoutes);
+app.use('/api/v1/admin', apiRateLimiter, adminRoutes);
+app.use('/api/v1/catalog', apiRateLimiter, catalogRoutes);
+app.use('/api/v1/services', apiRateLimiter, catalogRoutes);
+app.use('/api/v1/ai', apiRateLimiter, aiRoutes);
+app.use('/api/v1/payments', apiRateLimiter, paymentRoutes);
+app.use('/api/v1/dispatch', apiRateLimiter, dispatchRoutes);
 
 // Fallback compatible route alias
-app.use('/api/customer', customerRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/catalog', catalogRoutes);
-app.use('/api/services', catalogRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/technicians', technicianRoutes);
-app.use('/api/technician', technicianRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/dispatch', dispatchRoutes);
+app.use('/api/customer', apiRateLimiter, customerRoutes);
+app.use('/api/bookings', apiRateLimiter, bookingRoutes);
+app.use('/api/admin', apiRateLimiter, adminRoutes);
+app.use('/api/catalog', apiRateLimiter, catalogRoutes);
+app.use('/api/services', apiRateLimiter, catalogRoutes);
+app.use('/api/technicians', apiRateLimiter, technicianRoutes);
+app.use('/api/technician', apiRateLimiter, technicianRoutes);
+app.use('/api/payments', apiRateLimiter, paymentRoutes);
+app.use('/api/dispatch', apiRateLimiter, dispatchRoutes);
 
 // Comprehensive Health Check
 app.get('/health', (req, res) => {
@@ -152,43 +159,52 @@ function isAuthorizedToJoinRoom(socket, roomName) {
   const user = socket.user;
   const role = String(user?.role || '').toUpperCase();
 
-  if (roomName === 'admin_dispatch') {
+  // Public category announcement rooms
+  if (roomName.startsWith('category_')) {
+    return true;
+  }
+
+  // Admin rooms require authenticated ADMIN or SUPER_ADMIN
+  if (roomName === 'admin_dispatch' || roomName.startsWith('admin_')) {
     return role === 'ADMIN' || role === 'SUPER_ADMIN';
   }
+
+  // Technician personal rooms require authenticated technician matching ID or Admin
   if (roomName.startsWith('tech_')) {
+    if (!user) return false;
+    if (role === 'ADMIN' || role === 'SUPER_ADMIN') return true;
+    if (role !== 'TECHNICIAN') return false;
     const targetTechId = roomName.replace(/^tech_/, '');
-    if (user) {
-      if (role === 'ADMIN' || role === 'SUPER_ADMIN') return true;
-      if (role !== 'TECHNICIAN') return false;
-      return String(user.id) === String(targetTechId) || String(user.phone) === String(targetTechId);
-    }
-    return true;
+    return String(user.id) === String(targetTechId) || String(user.phone) === String(targetTechId);
   }
+
+  // Customer personal rooms require authenticated customer matching ID or Admin
   if (roomName.startsWith('cust_')) {
+    if (!user) return false;
+    if (role === 'ADMIN' || role === 'SUPER_ADMIN') return true;
+    if (role !== 'CUSTOMER') return false;
     const targetCustId = roomName.replace(/^cust_/, '');
-    if (user) {
-      if (role === 'ADMIN' || role === 'SUPER_ADMIN') return true;
-      if (role !== 'CUSTOMER') return false;
-      return String(user.id) === String(targetCustId);
-    }
-    return true;
+    return String(user.id) === String(targetCustId);
   }
+
+  // Booking/Job specific tracking rooms require authenticated participant or Admin
   if (roomName.startsWith('booking_') || roomName.startsWith('job_')) {
+    if (!user) return false;
+    if (role === 'ADMIN' || role === 'SUPER_ADMIN') return true;
     const bookingId = roomName.replace(/^(booking_|job_)/, '');
-    if (user && role !== 'ADMIN' && role !== 'SUPER_ADMIN') {
-      const booking = bookingsStore.getBookingById(bookingId);
-      if (booking) {
-        if (role === 'CUSTOMER' && booking.customerId && String(booking.customerId) !== String(user.id)) {
-          return false;
-        }
-        if (role === 'TECHNICIAN' && booking.technicianId && String(booking.technicianId) !== String(user.id)) {
-          return false;
-        }
+    const booking = bookingsStore.getBookingById(bookingId);
+    if (booking) {
+      if (role === 'CUSTOMER' && booking.customerId && String(booking.customerId) !== String(user.id)) {
+        return false;
+      }
+      if (role === 'TECHNICIAN' && booking.technicianId && String(booking.technicianId) !== String(user.id)) {
+        return false;
       }
     }
     return true;
   }
-  return true;
+
+  return !!user;
 }
 
 io.on('connection', (socket) => {

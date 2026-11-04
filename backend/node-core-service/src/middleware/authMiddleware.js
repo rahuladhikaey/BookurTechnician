@@ -125,14 +125,81 @@ const requireRole = (...roles) => {
 };
 
 /**
- * Strict Admin-Only Guard
+ * Granular Role Constants
+ */
+const ADMIN_ROLES = [
+  'SUPER_ADMIN',
+  'ADMIN',
+  'OPERATIONS_ADMIN',
+  'BOOKING_MANAGER',
+  'VERIFICATION_ADMIN',
+  'FINANCE_ADMIN',
+  'CUSTOMER_SUPPORT',
+  'READ_ONLY_AUDITOR',
+];
+
+/**
+ * Strict Admin-Only Guard (Accepts Super Admin, Admin, and Granular Admin Sub-roles)
  */
 const requireAdminRole = (req, res, next) => {
   const userRole = String(req.user?.role || '').toUpperCase();
-  if (!req.user || (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN')) {
+  if (!req.user || (!ADMIN_ROLES.includes(userRole) && userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN')) {
     return res.status(403).json({
       success: false,
       error: 'Forbidden: Administrative authorization required',
+    });
+  }
+
+  // Prevent Read-Only Auditor from performing state-modifying actions
+  if (userRole === 'READ_ONLY_AUDITOR' && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: Read-Only Auditor is not permitted to perform data modifications.',
+    });
+  }
+
+  next();
+};
+
+/**
+ * Strict Super Admin Guard (Critical infrastructure & configuration operations)
+ */
+const requireSuperAdminRole = (req, res, next) => {
+  const userRole = String(req.user?.role || '').toUpperCase();
+  if (!req.user || userRole !== 'SUPER_ADMIN') {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: Super Administrator authorization strictly required',
+    });
+  }
+  next();
+};
+
+/**
+ * Finance Admin Guard (Payouts, Ledger, Withdrawals)
+ */
+const requireFinanceRole = (req, res, next) => {
+  const userRole = String(req.user?.role || '').toUpperCase();
+  const allowed = ['SUPER_ADMIN', 'ADMIN', 'FINANCE_ADMIN'];
+  if (!req.user || !allowed.includes(userRole)) {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: Finance Administrator authorization required for financial operations',
+    });
+  }
+  next();
+};
+
+/**
+ * Verification Admin Guard (KYC, Document Review, Skill Verification)
+ */
+const requireVerificationRole = (req, res, next) => {
+  const userRole = String(req.user?.role || '').toUpperCase();
+  const allowed = ['SUPER_ADMIN', 'ADMIN', 'OPERATIONS_ADMIN', 'VERIFICATION_ADMIN'];
+  if (!req.user || !allowed.includes(userRole)) {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: Verification Administrator authorization required',
     });
   }
   next();
@@ -143,7 +210,11 @@ module.exports = {
   optionalAuth,
   requireRole,
   requireAdminRole,
+  requireSuperAdminRole,
+  requireFinanceRole,
+  requireVerificationRole,
   resolveUserFromToken,
   JWT_SECRET,
+  ADMIN_ROLES,
 };
 

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prominent Location Data Disclosure — BookurTechnician</title>
+    <style>
+        :root {
+            --primary: #173B8F;
+            --primary-dark: #102A63;
+            --accent: #FFC928;
+            --light-bg: #EDF3FF;
+            --text-main: #0F172A;
+            --text-muted: #475569;
+            --card-border: #E2E8F0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background: #F8FAFC; color: var(--text-main); line-height: 1.6; }
+        header { background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%); color: white; padding: 40px 20px; text-align: center; }
+        header h1 { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+        header p { color: #CBD5E1; font-size: 14px; }
+        .nav-links { display: flex; justify-content: center; gap: 16px; margin-top: 18px; flex-wrap: wrap; }
+        .nav-links a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background: rgba(255,255,255,0.08); }
+        .container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+        .card { background: white; border-radius: 14px; border: 1px solid var(--card-border); padding: 32px; box-shadow: 0 4px 12px rgba(16,42,99,0.04); margin-bottom: 24px; }
+        h2 { color: var(--primary); font-size: 19px; font-weight: 700; margin: 24px 0 12px 0; border-bottom: 2px solid var(--light-bg); padding-bottom: 6px; }
+        p, li { color: var(--text-muted); font-size: 14.5px; margin-bottom: 12px; }
+        ul { padding-left: 20px; margin-bottom: 16px; }
+        li { margin-bottom: 6px; }
+        .callout-box { background: var(--light-bg); border-left: 4px solid var(--primary); padding: 18px; border-radius: 6px; margin: 18px 0; font-size: 14px; }
+        footer { text-align: center; padding: 30px 20px; font-size: 13px; color: #94A3B8; border-top: 1px solid var(--card-border); background: white; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Prominent Location Data Disclosure</h1>
+        <p>Google Play Store &amp; Indus Appstore User Consent Notice</p>
+        <div class="nav-links">
+            <a href="privacy-policy.html">Privacy Policy</a>
+            <a href="terms-and-conditions.html">Terms &amp; Conditions</a>
+            <a href="cancellation-refund.html">Cancellation &amp; Refund Policy</a>
+            <a href="delete-account.html">Account Deletion</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <div class="callout-box">
+                <strong>Prominent In-App &amp; Store Disclosure:</strong> This document explains exactly how and why <strong>BookUrTechnician</strong> (Customer App) and <strong>BookUrTechnician Partner</strong> (Technician App) access, collect, and use device location data, including foreground and background access.
+            </div>
+
+            <h2>1. Customer App Location Access (Foreground Only)</h2>
+            <p>The BookUrTechnician Customer App accesses location data exclusively while the application is in active foreground use:</p>
+            <ul>
+                <li><strong>Service Address Resolution:</strong> Automatically detecting customer coordinates to populate the doorstep service address and verify operational coverage within serviceable city zones.</li>
+                <li><strong>Technician Proximity Calculation:</strong> Calculating the distance to the nearest available domain technician (3 km, 5 km, 10 km, or 15 km) and providing live estimated arrival times.</li>
+                <li><strong>Zero Background Tracking:</strong> The Customer App <em>never</em> requests <code>ACCESS_BACKGROUND_LOCATION</code> and stops accessing GPS coordinates immediately when the app is minimized or closed.</li>
+            </ul>
+
+            <h2>2. Technician App Location Access (Foreground &amp; Background on Duty)</h2>
+            <p>The BookUrTechnician Partner App requires location access (including while the app is in the background or screen locked) <strong>only while the partner has explicitly toggled their status to "ON DUTY"</strong>:</p>
+            <ul>
+                <li><strong>Automatic Nearby Job Matching:</strong> Discovering nearby service requests within the technician's 15 km operational perimeter and delivering real-time siren dispatch alerts.</li>
+                <li><strong>Customer Navigation &amp; Live Tracking:</strong> Transmitting encrypted GPS coordinates to the booked customer during active transit so the customer can track the technician's arrival progress.</li>
+                <li><strong>Doorstep Arrival Verification:</strong> Automated 500-meter arrival geofencing to verify the partner has reached the customer doorstep before enabling Start OTP entry.</li>
+                <li><strong>Immediate Cessation When Off Duty:</strong> When the technician toggles their duty status to "OFFLINE", all foreground service and background location polling ceases immediately.</li>
+            </ul>
+
+            <h2>3. Privacy &amp; Data Protection Safeguards</h2>
+            <ul>
+                <li>Location data is never sold, leased, or shared with advertising networks or third-party marketing brokers.</li>
+                <li>During dispatch proposals, only approximate locality names (e.g. "Salt Lake Sector 5, Kolkata") are presented; exact street addresses are revealed only after a technician accepts the job offer.</li>
+                <li>Location history updates are retained strictly for active transit safety and dispute resolution, and are permanently erased or anonymized upon account deletion.</li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 BookurTechnician Platform. All rights reserved.</p>
+    </footer>
+</body>
+</html>
+

@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const customerController = require('../controllers/customerController');
+const { authenticateToken } = require('../middleware/authMiddleware');
+
+// Enforce mandatory cryptographic authentication across all customer routes
+router.use(authenticateToken);
 
 // Customer Profile
 router.get('/profile', customerController.getProfile);
@@ -18,6 +22,10 @@ router.post('/location', customerController.updateLocation);
 
 // FCM Device Token Registration
 router.post('/fcm-token', customerController.registerFcmToken);
+
+// Account Deletion (Google Play & Indus Appstore Compliance)
+router.post('/account/delete', customerController.deleteAccount);
+router.delete('/account', customerController.deleteAccount);
 
 module.exports = router;
 

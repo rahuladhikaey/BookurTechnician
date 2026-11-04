@@ -4,7 +4,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/socket_service.dart';
-import '../dispatch/presentation/incoming_job_alert_dialog.dart';
 import '../wallet/wallet_screen.dart';
 
 class TechnicianHomeScreen extends StatefulWidget {

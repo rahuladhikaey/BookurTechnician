@@ -229,6 +229,22 @@ class TechnicianProfileService {
     }
     return false;
   }
+
+  /// Request Partner Account Closure & Anonymization (Google Play & Indus Appstore Compliance)
+  Future<Map<String, dynamic>?> requestAccountDeletion({String reason = 'Partner requested account closure'}) async {
+    try {
+      final response = await _dioClient.dio.post('/technician/account/delete', data: {
+        'reason': reason,
+      });
+      if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
+        return response.data is Map<String, dynamic> ? response.data as Map<String, dynamic> : {'success': true};
+      }
+    } catch (e) {
+      debugPrint('[TechnicianProfileService] requestAccountDeletion error: $e');
+      rethrow;
+    }
+    return null;
+  }
 }
 
 class KycDocumentItem {

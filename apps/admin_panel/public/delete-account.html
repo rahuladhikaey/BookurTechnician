@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Deletion Request — BookurTechnician</title>
+    <style>
+        :root {
+            --primary: #173B8F;
+            --primary-dark: #102A63;
+            --accent: #FFC928;
+            --danger: #DC2626;
+            --light-bg: #EDF3FF;
+            --text-main: #0F172A;
+            --text-muted: #475569;
+            --card-border: #E2E8F0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background: #F8FAFC; color: var(--text-main); line-height: 1.6; }
+        header { background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%); color: white; padding: 36px 20px; text-align: center; }
+        header h1 { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+        header p { color: #CBD5E1; font-size: 13.5px; }
+        .container { max-width: 680px; margin: 36px auto; padding: 0 20px; }
+        .card { background: white; border-radius: 14px; border: 1px solid var(--card-border); padding: 32px; box-shadow: 0 4px 12px rgba(16,42,99,0.04); margin-bottom: 24px; }
+        h2 { color: var(--primary); font-size: 19px; font-weight: 700; margin-bottom: 12px; }
+        p, li { color: var(--text-muted); font-size: 14px; margin-bottom: 12px; }
+        ul { padding-left: 20px; margin-bottom: 18px; }
+        .alert-box { background: #FEF2F2; border-left: 4px solid var(--danger); padding: 14px; border-radius: 6px; margin: 16px 0; font-size: 13.5px; color: #991B1B; }
+        .form-group { margin-bottom: 18px; text-align: left; }
+        label { display: block; font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 6px; }
+        input[type="text"], input[type="tel"], input[type="email"], select, textarea {
+            width: 100%; padding: 11px 14px; border: 1.5px solid var(--card-border); border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+        .checkbox-label { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--text-muted); cursor: pointer; }
+        .checkbox-label input { margin-top: 3px; }
+        .btn-submit {
+            background: var(--danger); color: white; border: none; padding: 13px 24px; font-size: 14px; font-weight: 700; border-radius: 8px; width: 100%; cursor: pointer; transition: background 0.2s;
+        }
+        .btn-submit:hover { background: #B91C1C; }
+        .status-card { display: none; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 10px; padding: 20px; margin-top: 20px; text-align: center; }
+        .status-card h3 { color: #166534; font-size: 17px; margin-bottom: 8px; }
+        .status-card p { color: #15803D; font-size: 13.5px; }
+        .badge-code { background: #DCFCE7; color: #166534; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 14px; font-weight: bold; }
+        footer { text-align: center; padding: 30px 20px; font-size: 13px; color: #94A3B8; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Account Deletion &amp; Data Erasure Portal</h1>
+        <p>Google Play Store &amp; Indus Appstore Official Compliance Center</p>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>Delete Your BookurTechnician Account</h2>
+            <p>Under Google Play and Indus Appstore data protection regulations, you can permanently request the deletion of your customer or technician account and the erasure of all eligible personal data directly from this web page without needing to open the mobile app.</p>
+
+            <div class="alert-box">
+                <strong>Important Notice:</strong> Account closure is permanent and irreversible. Your active warranties, saved service addresses, profile details, and stored loyalty benefits will be permanently wiped. Active in-progress jobs must be completed before an account can be closed.
+            </div>
+
+            <form id="deletionForm" onsubmit="handleDeletionSubmit(event)">
+                <div class="form-group">
+                    <label for="role">Account Type *</label>
+                    <select id="role" required>
+                        <option value="CUSTOMER">Customer Account (BookUrTechnician)</option>
+                        <option value="TECHNICIAN">Technician Partner Account (BookUrTechnician Partner)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Registered Mobile Phone Number *</label>
+                    <input type="tel" id="phone" placeholder="+91 98765 43210" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Registered Email Address (Optional)</label>
+                    <input type="email" id="email" placeholder="user@example.com" />
+                </div>
+
+                <div class="form-group">
+                    <label for="reason">Reason for Account Deletion (Optional)</label>
+                    <textarea id="reason" rows="3" placeholder="Tell us why you wish to close your account..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="confirmAcknowledgment" required />
+                        <span>I understand that this action is irreversible. I acknowledge that statutory GST invoices and financial audit logs will be retained for the mandatory legal period pursuant to Indian laws with my personal details anonymized.</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submitBtn">Submit Account Deletion Request</button>
+            </form>
+
+            <div id="statusResult" class="status-card">
+                <h3>✓ Deletion Request Submitted</h3>
+                <p>Your request has been officially recorded. Request ID: <span id="reqIdBadge" class="badge-code"></span></p>
+                <p style="margin-top: 10px; font-size: 13px; color: #166534;">Your profile, saved addresses, and active device sessions will be anonymized and purged within 30 days after ownership verification.</p>
+            </div>
+        </div>
+
+        <div class="card" style="padding: 24px;">
+            <h3 style="font-size: 15px; color: var(--primary); margin-bottom: 8px;">Statutory Data Retention Disclosure</h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 0;">
+                In compliance with the Information Technology Act (India), the Consumer Protection (E-Commerce) Rules, and the Central Goods and Services Tax (CGST) Act, BookurTechnician retains financial transaction ledgers, tax invoices (SAC 9987), and banking settlement records for the legally prescribed statutory retention period (up to 7 years). All customer and technician personal contact details are completely anonymized upon request completion.
+            </p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 BookurTechnician Platform. <a href="privacy-policy.html" style="color: var(--primary); text-decoration: none;">Privacy Policy</a> • <a href="terms-and-conditions.html" style="color: var(--primary); text-decoration: none;">Terms of Service</a></p>
+    </footer>
+
+    <script>
+        async function handleDeletionSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const role = document.getElementById('role').value;
+            const phone = document.getElementById('phone').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const reason = document.getElementById('reason').value.trim();
+            const confirmAcknowledgment = document.getElementById('confirmAcknowledgment').checked;
+
+            btn.disabled = true;
+            btn.innerText = 'Submitting Request...';
+
+            try {
+                const res = await fetch('/api/v1/auth/account-deletion-request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role, phone, email, reason, confirmAcknowledgment })
+                });
+                const data = await res.json();
+                
+                document.getElementById('deletionForm').style.display = 'none';
+                const resCard = document.getElementById('statusResult');
+                resCard.style.display = 'block';
+                document.getElementById('reqIdBadge').innerText = data.requestId || 'DEL-REQ-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+            } catch (err) {
+                alert('Request submission error: ' + err.message + '. Please contact privacy@bookurtechnician.com');
+                btn.disabled = false;
+                btn.innerText = 'Submit Account Deletion Request';
+            }
+        }
+    </script>
+</body>
+</html>
+

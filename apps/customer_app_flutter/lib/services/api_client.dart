@@ -117,7 +117,6 @@ class ApiClient {
 
   static Future<http.Response> get(String endpoint) async {
     String? token = await getAccessToken();
-    Exception? lastException;
 
     for (final base in _candidateBaseUrls) {
       try {
@@ -136,7 +135,6 @@ class ApiClient {
           return response;
         }
       } catch (e) {
-        lastException = e is Exception ? e : Exception(e.toString());
         debugPrint('[ApiClient] GET $base$endpoint failed: $e. Retrying candidate...');
       }
     }
@@ -147,7 +145,6 @@ class ApiClient {
 
   static Future<http.Response> post(String endpoint, Map<String, dynamic> body) async {
     String? token = await getAccessToken();
-    Exception? lastException;
 
     for (final base in _candidateBaseUrls) {
       try {
@@ -174,7 +171,6 @@ class ApiClient {
           return response;
         }
       } catch (e) {
-        lastException = e is Exception ? e : Exception(e.toString());
         debugPrint('[ApiClient] POST $base$endpoint failed: $e. Retrying candidate...');
       }
     }
@@ -185,7 +181,6 @@ class ApiClient {
 
   static Future<http.Response> put(String endpoint, Map<String, dynamic> body) async {
     String? token = await getAccessToken();
-    Exception? lastException;
 
     for (final base in _candidateBaseUrls) {
       try {
@@ -212,7 +207,6 @@ class ApiClient {
           return response;
         }
       } catch (e) {
-        lastException = e is Exception ? e : Exception(e.toString());
         debugPrint('[ApiClient] PUT $base$endpoint failed: $e. Retrying candidate...');
       }
     }
@@ -223,7 +217,6 @@ class ApiClient {
 
   static Future<http.Response> patch(String endpoint, Map<String, dynamic> body) async {
     String? token = await getAccessToken();
-    Exception? lastException;
 
     for (final base in _candidateBaseUrls) {
       try {
@@ -250,7 +243,6 @@ class ApiClient {
           return response;
         }
       } catch (e) {
-        lastException = e is Exception ? e : Exception(e.toString());
         debugPrint('[ApiClient] PATCH $base$endpoint failed: $e. Retrying candidate...');
       }
     }
@@ -261,7 +253,6 @@ class ApiClient {
 
   static Future<http.Response> delete(String endpoint) async {
     String? token = await getAccessToken();
-    Exception? lastException;
 
     for (final base in _candidateBaseUrls) {
       try {
@@ -286,13 +277,36 @@ class ApiClient {
           return response;
         }
       } catch (e) {
-        lastException = e is Exception ? e : Exception(e.toString());
         debugPrint('[ApiClient] DELETE $base$endpoint failed: $e. Retrying candidate...');
       }
     }
 
     debugPrint('🔥 [ApiClient] Serving DELETE $endpoint directly via Firebase Cloud Firestore');
     return FirestoreRestClient.handleRequest('DELETE', endpoint);
+  }
+
+  /// Permanent Account Deletion (Google Play & Indus Appstore Compliance)
+  static Future<Map<String, dynamic>> deleteAccount({String reason = 'User requested account closure'}) async {
+    try {
+      final session = await getUserSession();
+      final userId = session['userId'];
+      final phone = session['phone'];
+      final response = await post('/customer/account/delete', {
+        'userId': userId,
+        'phone': phone,
+        'reason': reason,
+      });
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        await clearTokens();
+        return jsonDecode(response.body);
+      } else {
+        final err = jsonDecode(response.body);
+        throw Exception(err['error'] ?? 'Failed to delete account');
+      }
+    } catch (e) {
+      debugPrint('[ApiClient] deleteAccount error: $e');
+      rethrow;
+    }
   }
 
   static Future<bool> _attemptRefreshToken() async {

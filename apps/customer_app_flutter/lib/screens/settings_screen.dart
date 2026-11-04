@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../booking_provider.dart';
+import '../services/api_client.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -294,17 +295,29 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               setState(() => _isDeleting = true);
-              await Future.delayed(const Duration(milliseconds: 600));
-              await ref.read(bookingProvider.notifier).logoutUser();
-              if (mounted) {
-                setState(() => _isDeleting = false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Your account has been deleted successfully.'),
-                    backgroundColor: Color(0xFF0F172A),
-                  ),
-                );
-                Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+              try {
+                await ApiClient.deleteAccount(reason: 'Customer initiated in-app account deletion');
+                await ref.read(bookingProvider.notifier).logoutUser();
+                if (mounted) {
+                  setState(() => _isDeleting = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Your account and personal data have been deleted successfully.'),
+                      backgroundColor: Color(0xFF0F172A),
+                    ),
+                  );
+                  Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                }
+              } catch (e) {
+                if (mounted) {
+                  setState(() => _isDeleting = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Deletion notice: ${e.toString().replaceAll("Exception: ", "")}'),
+                      backgroundColor: const Color(0xFFDC2626),
+                    ),
+                  );
+                }
               }
             },
             child: const Text('Confirm Delete', style: TextStyle(fontWeight: FontWeight.bold)),

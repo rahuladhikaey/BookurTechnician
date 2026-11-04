@@ -686,6 +686,21 @@ const createCoreTables = async () => {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_booking_audit_logs_booking ON booking_audit_logs(booking_id, created_at ASC);
+
+      -- 22. Account Deletion Requests (Google Play & Indus Appstore Compliance)
+      CREATE TABLE IF NOT EXISTS account_deletion_requests (
+        id VARCHAR(64) PRIMARY KEY,
+        user_id VARCHAR(64),
+        role VARCHAR(30) DEFAULT 'CUSTOMER',
+        phone VARCHAR(30),
+        email VARCHAR(120),
+        reason TEXT,
+        status VARCHAR(30) DEFAULT 'COMPLETED',
+        details JSONB DEFAULT '{}'::jsonb,
+        anonymized_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_account_deletion_requests_user ON account_deletion_requests(user_id, status);
     `);
 
     // Auto-backfill PostGIS geography point if coordinates exist but location is null

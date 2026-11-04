@@ -976,7 +976,18 @@ const updateProfile = async (req, res) => {
  * GET /api/v1/technicians/documents
  */
 const getDocuments = async (req, res) => {
-  const technicianId = req.user?.id || req.query.technicianId || req.params.id;
+  const user = req.user;
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
+  }
+  const role = String(user.role || '').toUpperCase();
+  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const requestedId = req.params.id || req.query.technicianId;
+  const technicianId = isAdmin ? (requestedId || user.id) : user.id;
+
+  if (requestedId && requestedId !== user.id && !isAdmin) {
+    return res.status(403).json({ success: false, error: 'Forbidden: You cannot access KYC documents belonging to another technician.' });
+  }
   if (!technicianId) {
     return res.status(400).json({ success: false, error: 'Technician ID is required' });
   }
@@ -1894,7 +1905,18 @@ const logWorkHeartbeat = async (req, res) => {
  */
 const withdrawEarnings = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.body.technicianId || req.headers['x-technician-id'] || 'tech-default';
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
+    }
+    const role = String(user.role || '').toUpperCase();
+    const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+    const technicianId = user.id;
+
+    if (req.body.technicianId && req.body.technicianId !== technicianId && !isAdmin) {
+      return res.status(403).json({ success: false, error: 'Forbidden: You cannot withdraw funds from another technician wallet.' });
+    }
+
     const amount = parseFloat(req.body.amount);
     const upiId = (req.body.upiId || req.body.upi || '').trim();
     const idempotencyKey = req.body.idempotencyKey || req.headers['idempotency-key'] || `with_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -1941,7 +1963,19 @@ const withdrawEarnings = async (req, res) => {
  */
 const getWalletLedger = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.query.technicianId || req.headers['x-technician-id'] || 'tech-default';
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
+    }
+    const role = String(user.role || '').toUpperCase();
+    const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+    const requestedId = req.query.technicianId;
+    const technicianId = isAdmin ? (requestedId || user.id) : user.id;
+
+    if (requestedId && requestedId !== user.id && !isAdmin) {
+      return res.status(403).json({ success: false, error: 'Forbidden: You cannot inspect another technician wallet ledger.' });
+    }
+
     let balance = await ledgerService.calculateWalletBalance(technicianId);
     let upiId = '';
     let codBalance = 0;
@@ -2297,6 +2331,89 @@ const registerFcmToken = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/v1/technician/account/delete
+ * Google Play & Indus Appstore Compliant Partner Account Closure
+ */
+const deleteAccount = async (req, res) => {
+  try {
+    const techId = req.user?.id || req.body.technicianId || req.body.id || req.headers['x-technician-id'];
+    const phone = req.user?.phone || req.body.phone;
+    const reason = req.body.reason || 'Partner requested account closure';
+
+    if (!techId && !phone) {
+      return res.status(400).json({ success: false, error: 'Technician identification (technicianId or phone) required.' });
+    }
+
+    // Check if technician has an active in-flight booking
+    const allBookings = bookingsStore.getAllBookings();
+    const hasActiveBooking = allBookings.some(b => 
+      (b.technicianId === techId || b.technicianPhone === phone) &&
+      ['ASSIGNED', 'TECHNICIAN_ASSIGNED', 'TECHNICIAN_ON_THE_WAY', 'TECHNICIAN_ARRIVED', 'SERVICE_STARTED', 'IN_PROGRESS'].includes(b.status)
+    );
+
+    if (hasActiveBooking) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete account with an active assigned job in progress. Please complete or transfer ongoing jobs first.'
+      });
+    }
+
+    const deletionId = `DEL-TECH-${uuidv4().slice(0, 8).toUpperCase()}`;
+
+    // 1. PostgreSQL anonymization & closure
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          INSERT INTO account_deletion_requests (id, user_id, role, phone, reason, status, details, anonymized_at)
+          VALUES ($1, $2, 'TECHNICIAN', $3, $4, 'COMPLETED', $5, NOW());
+        `, [deletionId, techId || phone, phone || '', reason, JSON.stringify({ requestedVia: 'TECHNICIAN_APP' })]);
+
+        await postgres.query(`
+          UPDATE technician_profiles
+          SET full_name = 'Former Partner',
+              phone = CONCAT('+91-XXXXXX', RIGHT(COALESCE(phone, '0000'), 4)),
+              account_status = 'DELETED',
+              is_online = false,
+              availability_status = 'OFFLINE',
+              avatar = NULL,
+              live_pic_url = NULL,
+              aadhaar_url = NULL,
+              voter_card_url = NULL,
+              updated_at = NOW()
+          WHERE technician_id = $1 OR id = $1;
+        `, [techId || phone]);
+
+        await postgres.query(`DELETE FROM technician_services WHERE technician_id = $1`, [techId || phone]);
+        await postgres.query(`DELETE FROM technician_kyc_documents WHERE technician_id = $1`, [techId || phone]);
+      } catch (dbErr) {
+        console.warn('⚠️ [TechnicianController] Account deletion PG warning:', dbErr.message);
+      }
+    }
+
+    // 2. Clear from inMemory store
+    const { deleteTechnicianProfile } = require('../config/inMemoryTechStore');
+    if (techId) deleteTechnicianProfile(techId);
+
+    // 3. Invalidate active session/socket if connected
+    if (global.io && techId) {
+      global.io.to(`technician:${techId}`).emit('account:deleted', {
+        message: 'Your partner account has been closed successfully.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Technician partner account successfully closed and personal details anonymized.',
+      deletionId,
+      status: 'COMPLETED',
+      retentionNotice: 'Settled earnings ledger, invoices, and statutory tax transaction records are retained for mandatory legal periods.'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 module.exports = {
   syncLocation,
   toggleOnlineStatus,
@@ -2321,5 +2438,6 @@ module.exports = {
   createAddonCharge,
   rateCustomer,
   registerFcmToken,
+  deleteAccount,
 };
 

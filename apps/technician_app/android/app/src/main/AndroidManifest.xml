@@ -16,7 +16,8 @@
         android:label="BookUrTechnician Partner"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher">
+        android:roundIcon="@mipmap/ic_launcher"
+        android:networkSecurityConfig="@xml/network_security_config">
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyB2MQJwRPfZxoaX72NuM7lBXjRQqpk9TkQ" />

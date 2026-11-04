@@ -39,7 +39,17 @@ const createOrder = async (req, res) => {
       } catch (_) {}
     }
 
-    const payableAmount = parseFloat(requestedAmount || booking?.totalAmount || booking?.grandTotal || booking?.total_amount || 299);
+    // 1. Authoritative Server-Side Price Calculation (OWASP Anti-Price-Tampering Defense)
+    const serverAuthoritativeAmount = parseFloat(booking?.totalAmount || booking?.grandTotal || booking?.total_amount || 0);
+    let payableAmount = serverAuthoritativeAmount;
+
+    if (!payableAmount || payableAmount <= 0) {
+      payableAmount = parseFloat(requestedAmount) || 299.0;
+    } else if (requestedAmount && Math.abs(parseFloat(requestedAmount) - serverAuthoritativeAmount) > 0.01) {
+      console.warn(`🚨 [SECURITY ALERT] Price tampering detected for Booking #${bookingId}! Client requested: ₹${requestedAmount}, Authoritative: ₹${serverAuthoritativeAmount}. Enforcing server amount.`);
+      payableAmount = serverAuthoritativeAmount;
+    }
+
     const amountInPaise = Math.round(payableAmount * 100);
     const receiptCode = (booking?.bookingCode || booking?.booking_code || bookingId || '').slice(-40);
 

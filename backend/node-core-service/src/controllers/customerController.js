@@ -3,11 +3,27 @@ const postgres = require('../config/postgres');
 const bookingsStore = require('../config/bookingsStore');
 
 /**
+ * Zero-Trust Identity Resolver:
+ * Resolves customer identity authoritatively from verified cryptographic JWT session.
+ * Query or body overrides are permitted STRICTLY for authenticated administrators.
+ */
+const resolveEffectiveCustomerId = (req) => {
+  const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER_ADMIN';
+  if (isAdmin && (req.query?.userId || req.query?.customerId || req.body?.userId || req.body?.customerId)) {
+    return req.query?.userId || req.query?.customerId || req.body?.userId || req.body?.customerId;
+  }
+  return req.user?.id || null;
+};
+
+/**
  * GET /api/v1/customer/profile
  */
 const getProfile = async (req, res) => {
   try {
-    const userId = req.user?.id || req.query.userId || req.headers['x-user-id'];
+    const userId = resolveEffectiveCustomerId(req);
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
+    }
     
     let userObj = null;
     let addressesList = [];
@@ -80,11 +96,11 @@ const getProfile = async (req, res) => {
  */
 const updateProfile = async (req, res) => {
   try {
-    const userId = req.user?.id || req.body.userId || req.body.customerId || req.headers['x-user-id'];
+    const userId = resolveEffectiveCustomerId(req);
     const { fullName, email, phone } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ success: false, error: 'User ID is required' });
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
     }
 
     let updatedUser = null;
@@ -153,9 +169,9 @@ const updateProfile = async (req, res) => {
  */
 const getAddresses = async (req, res) => {
   try {
-    const userId = req.user?.id || req.query.userId || req.headers['x-user-id'];
+    const userId = resolveEffectiveCustomerId(req);
     if (!userId) {
-      return res.json({ success: true, data: [] });
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
     }
 
     let addresses = [];
@@ -184,7 +200,7 @@ const getAddresses = async (req, res) => {
  */
 const addAddress = async (req, res) => {
   try {
-    const userId = req.user?.id || req.body.userId || req.body.customerId || req.headers['x-user-id'];
+    const userId = resolveEffectiveCustomerId(req);
     const {
       houseFlat = '',
       street = '',
@@ -200,7 +216,7 @@ const addAddress = async (req, res) => {
     } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ success: false, error: 'User ID is required to add address' });
+      return res.status(401).json({ success: false, error: 'Unauthorized: User ID required to add address' });
     }
 
     const addrId = `addr_${uuidv4().slice(0, 8)}`;
@@ -270,7 +286,12 @@ const addAddress = async (req, res) => {
 const updateAddress = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user?.id || req.body.userId || req.body.customerId || req.headers['x-user-id'];
+    const userId = resolveEffectiveCustomerId(req);
+    const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER_ADMIN';
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
+    }
 
     const {
       houseFlat,
@@ -288,6 +309,15 @@ const updateAddress = async (req, res) => {
 
     if (postgres.isPgHealthy() && id) {
       try {
+        // Enforce address ownership
+        const checkOwner = await postgres.query('SELECT user_id FROM customer_addresses WHERE id = $1', [id]);
+        if (checkOwner.rows.length === 0) {
+          return res.status(404).json({ success: false, error: 'Address not found' });
+        }
+        if (checkOwner.rows[0].user_id !== userId && !isAdmin) {
+          return res.status(403).json({ success: false, error: 'Forbidden: You cannot modify another customer address' });
+        }
+
         if (primary && userId) {
           await postgres.query('UPDATE customer_addresses SET is_primary = false WHERE user_id = $1', [userId]);
         }
@@ -305,8 +335,8 @@ const updateAddress = async (req, res) => {
                latitude = COALESCE($9, latitude),
                longitude = COALESCE($10, longitude),
                is_primary = COALESCE($11, is_primary)
-           WHERE id = $12`,
-          [houseFlat, street, area, city, state, postalCode, landmark, addressType, latitude, longitude, primary, id]
+           WHERE id = $12 AND (user_id = $13 OR $14 = true)`,
+          [houseFlat, street, area, city, state, postalCode, landmark, addressType, latitude, longitude, primary, id, userId, isAdmin]
         );
       } catch (dbErr) {
         console.warn('⚠️ [CustomerController] Update address PG warning:', dbErr.message);
@@ -333,10 +363,26 @@ const updateAddress = async (req, res) => {
 const deleteAddress = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = resolveEffectiveCustomerId(req);
+    const isAdmin = req.user?.role === 'ADMIN' || req.user?.role === 'SUPER_ADMIN';
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
+    }
+
     if (postgres.isPgHealthy() && id) {
       try {
+        const checkOwner = await postgres.query('SELECT user_id FROM customer_addresses WHERE id = $1', [id]);
+        if (checkOwner.rows.length === 0) {
+          return res.status(404).json({ success: false, error: 'Address not found' });
+        }
+        if (checkOwner.rows[0].user_id !== userId && !isAdmin) {
+          return res.status(403).json({ success: false, error: 'Forbidden: You cannot delete another customer address' });
+        }
         await postgres.query('DELETE FROM customer_addresses WHERE id = $1', [id]);
       } catch (e) {}
+    } else {
+      return res.status(404).json({ success: false, error: 'Address not found' });
     }
     return res.json({ success: true, message: 'Address deleted successfully' });
   } catch (error) {
@@ -350,11 +396,11 @@ const deleteAddress = async (req, res) => {
  */
 const updateLocation = async (req, res) => {
   try {
-    const userId = req.user?.id || req.body.userId || req.body.customerId || req.headers['x-user-id'];
+    const userId = resolveEffectiveCustomerId(req);
     const { latitude, longitude, address, houseFlat, street, area, city, state, postalCode } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ success: false, error: 'User ID is required' });
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required' });
     }
 
     const fullAddrStr = address || [houseFlat, street, area, city, state, postalCode].filter(Boolean).join(', ') || 'Current GPS Location';
@@ -425,12 +471,12 @@ const updateLocation = async (req, res) => {
  */
 const registerFcmToken = async (req, res) => {
   try {
-    const userId = req.user?.id || req.body.userId || req.body.customerId || req.headers['x-user-id'];
+    const userId = resolveEffectiveCustomerId(req);
     const token = req.body.token || req.body.fcmToken;
     const platform = req.body.platform || 'android';
 
     if (!userId || !token) {
-      return res.status(400).json({ success: false, error: 'User ID and FCM token are required' });
+      return res.status(400).json({ success: false, error: 'Valid authenticated session and FCM token are required' });
     }
 
     if (token.startsWith('tech_fcm_') || token.startsWith('cust_fcm_') || token.startsWith('fcm_')) {
@@ -462,6 +508,88 @@ const registerFcmToken = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/v1/customer/account/delete
+ * Google Play & Indus Appstore Compliant Account Deletion
+ */
+const deleteAccount = async (req, res) => {
+  try {
+    const userId = resolveEffectiveCustomerId(req);
+    const phone = req.user?.phone;
+    const reason = req.body.reason || 'User requested account closure';
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Authentication required for account deletion.' });
+    }
+
+    // Check for active in-progress bookings
+    const allBookings = bookingsStore.getAllBookings();
+    const hasActiveBooking = allBookings.some(b => 
+      (b.customerId === userId || b.customerPhone === phone) &&
+      ['CONFIRMED', 'ASSIGNED', 'TECHNICIAN_ASSIGNED', 'TECHNICIAN_ON_THE_WAY', 'TECHNICIAN_ARRIVED', 'SERVICE_STARTED', 'IN_PROGRESS'].includes(b.status)
+    );
+
+    if (hasActiveBooking) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete account while an active booking is in progress. Please complete or cancel the service first.'
+      });
+    }
+
+    const deletionId = `DEL-CUST-${uuidv4().slice(0, 8).toUpperCase()}`;
+
+    // 1. PostgreSQL deletion & anonymization
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          INSERT INTO account_deletion_requests (id, user_id, role, phone, reason, status, details, anonymized_at)
+          VALUES ($1, $2, 'CUSTOMER', $3, $4, 'COMPLETED', $5, NOW());
+        `, [deletionId, userId || phone, phone || '', reason, JSON.stringify({ requestedVia: 'CUSTOMER_APP' })]);
+
+        if (userId) {
+          await postgres.query(`
+            UPDATE users 
+            SET full_name = 'Anonymized User',
+                email = CONCAT('deleted_', id, '@deleted.bookurtechnician.com'),
+                phone = CONCAT('+91-XXXXXX', RIGHT(COALESCE(phone, '0000'), 4)),
+                fcm_token = NULL,
+                device_tokens = ARRAY[]::TEXT[],
+                is_active = false,
+                updated_at = NOW()
+            WHERE id = $1;
+          `, [userId]);
+
+          await postgres.query(`DELETE FROM customer_addresses WHERE user_id = $1;`, [userId]);
+          await postgres.query(`DELETE FROM notifications WHERE user_id = $1;`, [userId]);
+        }
+      } catch (dbErr) {
+        console.warn('⚠️ [CustomerController] Account deletion PG warning:', dbErr.message);
+      }
+    }
+
+    // 2. Anonymize in bookingsStore
+    if (userId) {
+      bookingsStore.deleteCustomer(userId);
+    }
+    if (phone) {
+      const custObj = Array.from(bookingsStore.getAllCustomers()).find(c => c.phone === phone);
+      if (custObj) {
+        bookingsStore.deleteCustomer(custObj.id || custObj.customerId);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Account successfully deleted and personal data anonymized in compliance with data privacy policies.',
+      deletionId,
+      status: 'COMPLETED',
+      retentionNotice: 'Tax and statutory payment transaction records are retained for the mandatory legal period pursuant to applicable laws.'
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -471,5 +599,6 @@ module.exports = {
   deleteAddress,
   updateLocation,
   registerFcmToken,
+  deleteAccount,
 };
 

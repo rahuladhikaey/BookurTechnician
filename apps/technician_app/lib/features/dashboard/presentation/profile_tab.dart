@@ -741,12 +741,103 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+
+                    // ═════════════════════════════════════════════════════════
+                    // 4. PRIVACY & ACCOUNT DELETION (PLAY STORE & INDUS COMPLIANCE)
+                    // ═════════════════════════════════════════════════════════
+                    Center(
+                      child: TextButton(
+                        onPressed: () => _confirmTechnicianAccountDeletion(context),
+                        child: const Text(
+                          'Privacy Policy & Delete Partner Account',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF94A3B8),
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                   ],
                 ),
               ),
       ),
     );
+  }
+
+  Future<void> _confirmTechnicianAccountDeletion(BuildContext context) async {
+    final reasonController = TextEditingController();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Partner Account?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This action is irreversible. Your profile, declared skills, and personal contact details will be permanently closed.\n\n'
+              '• Active in-flight jobs must be completed before deletion.\n'
+              '• Outstanding wallet balances will be finalized.\n'
+              '• Legally mandated tax invoices and payment ledgers are retained pursuant to Indian statutory regulations.',
+              style: TextStyle(fontSize: 12.5, color: Color(0xFF475569), height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Reason for closing account (optional)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm Account Deletion'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        await _profileService.requestAccountDeletion(
+          reason: reasonController.text.trim().isNotEmpty ? reasonController.text.trim() : 'Partner requested account closure from app',
+        );
+        await ref.read(authProvider.notifier).logout();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your partner account has been closed and personal data anonymized.'),
+              backgroundColor: Color(0xFF0F172A),
+            ),
+          );
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+            (route) => false,
+          );
+        }
+      } catch (err) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Account closure notice: ${err.toString().replaceAll("Exception: ", "")}'),
+              backgroundColor: const Color(0xFFDC2626),
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildHubCard({

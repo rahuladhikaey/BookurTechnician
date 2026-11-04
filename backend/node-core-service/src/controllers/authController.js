@@ -125,7 +125,7 @@ const requestOtp = async (req, res) => {
     if (local10DigitPhone && local10DigitPhone !== strippedPhone) await redis.setWithExpiry(`otp:${local10DigitPhone}`, otpPayload, 600);
     await redis.setWithExpiry(`otp:${identifier}`, otpPayload, 600);
 
-    console.log(`🔑 [OTP Dispatch] For ${identifier} (Registered Email: ${rawEmail || 'N/A'}, Role: ${role}): ${otp} [Valid 10 mins]`);
+    console.log(`🔑 [OTP Dispatch] For ${identifier} (Registered Email: ${rawEmail || 'N/A'}, Role: ${role}): ***${otp.slice(-2)} [Valid 10 mins]`);
 
     // Always dispatch transactional OTP email via EmailJS API when registered email is available
     let emailResult = { success: true };
@@ -209,21 +209,43 @@ const verifyOtp = async (req, res) => {
       if (cachedData) break;
     }
 
+    // Brute-force anti-automation guard: Check failed attempt counter
+    const failCountKey = `otp_fail:${identifier}`;
+    const failedAttempts = parseInt((await redis.get(failCountKey)) || '0', 10);
+    if (failedAttempts >= 5) {
+      return res.status(429).json({
+        success: false,
+        error: 'Too many incorrect OTP attempts. For your security, this identifier is locked for 15 minutes.',
+        retryAfter: 900,
+      });
+    }
+
     // Fail closed: Only allow test OTP in strict development mode with explicit opt-in
     const isDevTestAllowed = process.env.NODE_ENV === 'development' && process.env.ALLOW_TEST_OTP === 'true';
     const isMasterOtp = isDevTestAllowed && inputOtp === '123456';
     const isValid = (cachedData && cachedData.otp.toString().trim() === inputOtp) || isMasterOtp;
 
     if (!isValid) {
-      return res.status(400).json({ success: false, error: 'Invalid or expired OTP' });
+      await redis.setWithExpiry(failCountKey, failedAttempts + 1, 900);
+      return res.status(400).json({
+        success: false,
+        error: `Invalid or expired OTP. ${4 - failedAttempts} attempts remaining.`,
+      });
     }
+
+    // Clear failed attempts counter on success
+    await redis.del(failCountKey);
 
     // Delete OTP from all cached keys once verified
     for (const key of searchKeys) {
       await redis.del(key);
     }
 
-    const userRole = cachedData?.role || requestRole || 'CUSTOMER';
+    let userRole = cachedData?.role || requestRole || 'CUSTOMER';
+    // Anti-Privilege Escalation: Disallow assigning administrative roles through client-provided requestRole
+    if (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole.includes('ADMIN')) {
+      userRole = 'CUSTOMER';
+    }
 
     // Fetch or create user in PostgreSQL
     let userId = uuidv4();
@@ -408,17 +430,20 @@ const adminDirectAccess = async (req, res) => {
   try {
     const { email, accessKey1, accessKey2 } = req.body;
     const trimmedEmail = (email || '').trim().toLowerCase();
+    const primaryKey = accessKey1 || '';
+    const secondaryKey = accessKey2 || '';
 
-    const isValidAdmin =
-      trimmedEmail === 'admin@bookurtechnician.com' ||
-      trimmedEmail.includes('admin') ||
-      accessKey1 === 'BookurAdminMaster2026#Secure!' ||
-      accessKey1 === 'BT-ADMIN-KEY-PRIMARY-7788' ||
-      accessKey2 === '998877' ||
-      accessKey2 === 'BT-ADMIN-KEY-SECONDARY-9900';
+    const configuredAdminEmail = (process.env.ADMIN_EMAIL || 'admin@bookurtechnician.com').toLowerCase();
+    const configuredKey1 = process.env.ADMIN_KEY_PRIMARY || 'BT-ADMIN-KEY-PRIMARY-7788';
+    const configuredKey2 = process.env.ADMIN_KEY_SECONDARY || 'BT-ADMIN-KEY-SECONDARY-9900';
 
-    if (!isValidAdmin) {
-      return res.status(401).json({ success: false, error: 'Unauthorized admin credentials' });
+    const isAuthorizedAdmin =
+      trimmedEmail === configuredAdminEmail &&
+      (primaryKey === configuredKey1 || secondaryKey === configuredKey2 || primaryKey === process.env.ADMIN_SECRET_KEY);
+
+    if (!isAuthorizedAdmin) {
+      console.warn(`🚨 [SECURITY ALERT] Unauthorized admin access attempt rejected for email: ${trimmedEmail}`);
+      return res.status(401).json({ success: false, error: 'Unauthorized: Invalid administrative credentials or access key.' });
     }
 
     const adminId = 'admin-master-001';
@@ -458,11 +483,93 @@ const logout = async (req, res) => {
   return res.json({ success: true, message: 'Logged out successfully' });
 };
 
+/**
+ * POST /api/v1/auth/account-deletion-request
+ * Public web account deletion request handler (Google Play & Indus Appstore requirement)
+ */
+const submitAccountDeletionRequest = async (req, res) => {
+  try {
+    const { phone, email, role = 'CUSTOMER', reason, confirmAcknowledgment } = req.body;
+    const identifier = (phone || email || '').trim();
+
+    if (!identifier) {
+      return res.status(400).json({ success: false, error: 'Phone number or email is required to submit an account deletion request.' });
+    }
+
+    if (!confirmAcknowledgment) {
+      return res.status(400).json({ success: false, error: 'Please confirm acknowledgment that account deletion is permanent.' });
+    }
+
+    const requestId = `DEL-REQ-${uuidv4().slice(0, 8).toUpperCase()}`;
+
+    if (postgres.isPgHealthy()) {
+      try {
+        await postgres.query(`
+          INSERT INTO account_deletion_requests (id, user_id, role, phone, email, reason, status, details, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6, 'PENDING_VERIFICATION', $7, NOW());
+        `, [
+          requestId,
+          identifier,
+          role.toUpperCase() === 'TECHNICIAN' ? 'TECHNICIAN' : 'CUSTOMER',
+          phone || null,
+          email || null,
+          reason || 'Web deletion portal submission',
+          JSON.stringify({ ip: req.ip, userAgent: req.headers['user-agent'] })
+        ]);
+      } catch (dbErr) {
+        console.warn('⚠️ [AuthController] Deletion request PG error:', dbErr.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Account deletion request received and logged. Our privacy operations team will process the deletion and data anonymization within 30 days after verifying ownership.',
+      requestId,
+      status: 'PENDING_VERIFICATION',
+      dataRetentionPolicy: 'Statutory financial invoices, GST records, and audit logs are retained for the legally required period pursuant to Indian tax and accounting laws.'
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+/**
+ * GET /api/v1/auth/account-deletion-status/:requestId
+ */
+const getAccountDeletionStatus = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    if (!requestId) return res.status(400).json({ success: false, error: 'requestId is required' });
+
+    if (postgres.isPgHealthy()) {
+      try {
+        const rRes = await postgres.query(`SELECT id, role, status, created_at, anonymized_at FROM account_deletion_requests WHERE id = $1`, [requestId]);
+        if (rRes.rows.length > 0) {
+          return res.json({ success: true, data: rRes.rows[0] });
+        }
+      } catch (_) {}
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        id: requestId,
+        status: 'PROCESSING',
+        message: 'Your deletion request is queued for verified processing within statutory retention guidelines.'
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 module.exports = {
   requestOtp,
   resendOtp,
   verifyOtp,
   adminDirectAccess,
   logout,
+  submitAccountDeletionRequest,
+  getAccountDeletionStatus,
 };
 

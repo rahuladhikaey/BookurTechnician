@@ -11,6 +11,10 @@ class AuthInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
     try {
+      final token = await _storage.getToken();
+      if (token != null && token.isNotEmpty) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
       // Direct 100% Firebase Cloud Firestore resolution (zero latency, no Render dependency)
       final fbResp = await FirestoreRestClient.handleDioRequest(options);
       return handler.resolve(fbResp);
