@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
@@ -214,28 +213,19 @@ class SkillService {
       await prefs.setString('cached_technician_skills_$userId', jsonEncode(skillsPayload));
       await prefs.setString('cached_technician_category_$userId', primaryCategory);
       await prefs.setStringList('cached_technician_categories_$userId', declaredCategories.toList());
-      await prefs.setBool('cached_duty_online_$userId', true);
-    } catch (_) {}
-
-    // 2. Obtain current device location (fallback to default 22.5726, 88.3639)
-    double lat = 22.5726;
-    double lng = 88.3639;
-    try {
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 2),
-      );
-      lat = pos.latitude;
-      lng = pos.longitude;
     } catch (_) {}
 
     final nowUtc = DateTime.now().toUtc().toIso8601String();
+    final digits = userId.replaceAll(RegExp(r'\D'), '');
+    final partnerCode = 'BT-${(digits.length >= 6 ? digits.substring(digits.length - 6) : digits.padLeft(6, '0'))}';
 
-    // 3. Direct write to Cloud Firestore with updateMask (Never wipes location or existing fields)
+    // 2. Direct write to Cloud Firestore with updateMask (Strictly updates skills & category only; NEVER modifies GPS coordinates, lastLocationUpdate, or online presence)
     try {
       await FirestoreRestClient.upsertDocument('technician_profiles', userId, {
         'id': userId,
+        'uid': userId,
         'technicianId': userId,
+        'technicianCode': partnerCode,
         'fullName': realName,
         'name': realName,
         'phone': phone,
@@ -246,17 +236,9 @@ class SkillService {
         'totalSkillsCount': skillsPayload.length,
         'verifiedSkillsCount': skillsPayload.length,
         'pendingSkillsCount': 0,
-        'isOnline': true,
-        'online': true,
-        'availabilityStatus': 'AVAILABLE',
-        'latitude': lat,
-        'longitude': lng,
-        'currentLatitude': lat,
-        'currentLongitude': lng,
-        'lastLocationUpdate': nowUtc,
         'updatedAt': nowUtc,
       });
-      debugPrint('✅ [SkillService] Successfully saved ${skillsPayload.length} skills to Cloud Firestore for $userId');
+      debugPrint('✅ [SkillService] Successfully saved ${skillsPayload.length} skills to Cloud Firestore for $userId (GPS/presence untouched)');
     } catch (fsErr) {
       debugPrint('⚠️ [SkillService] Firestore direct skill save notice: $fsErr');
     }
@@ -343,10 +325,6 @@ class SkillService {
         await prefs.setString('cached_technician_skills_$userId', jsonEncode(list));
         await FirestoreRestClient.upsertDocument('technician_profiles', userId, {
           'skills': list,
-          'isOnline': true,
-          'online': true,
-          'availabilityStatus': 'AVAILABLE',
-          'lastLocationUpdate': nowUtc,
           'updatedAt': nowUtc,
         });
       }

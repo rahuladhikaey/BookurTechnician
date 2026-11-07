@@ -52,3 +52,4 @@ The Firebase project `bookmytechnician-53d94` must be upgraded from the free **S
    - Open Customer App $\rightarrow$ Open "AC installation" service.
    - Verify header shows `🟢 1 technician online nearby`.
    - Tap `Book Now (1 Online)` $\rightarrow$ Confirm booking $\rightarrow$ Track live dispatch!
+

@@ -100,3 +100,4 @@ Migrating `bookmytechnician-53d94` to the Firebase Blaze Plan completely resolve
 | **Stage 3 (Scale — 500 Techs, 5,000 Orders)** | 800,000 reads/day | 750,000 reads/day | **$13.50 / month** | **₹1,120 / month** |
 
 *Blaze pricing: \$0.06 per 100,000 reads beyond the daily 50,000 free allotment.*
+

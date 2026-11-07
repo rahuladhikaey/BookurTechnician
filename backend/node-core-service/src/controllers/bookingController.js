@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
 const postgres = require('../config/postgres');
@@ -33,10 +34,10 @@ const deleteMemoryBooking = (id) => {
 };
 
 /**
- * Generate secure 4-digit numeric OTP for Start and End service verification
+ * Generate cryptographically secure 4-digit numeric OTP for Start and End service verification
  */
 const generateServiceOtp = () => {
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  return crypto.randomInt(1000, 10000).toString();
 };
 
 /**
@@ -98,6 +99,7 @@ const scanTechniciansWithin15Km = async (customerLat, customerLng, category, ser
 };
 
 const idempotencyBookingsMap = new Map(); // idempotencyKey -> bookingId
+const technicianAssignmentLocks = new Set(); // technicianId atomic mutex lock
 
 /**
  * POST /api/v1/bookings
@@ -112,15 +114,13 @@ const createBooking = async (req, res) => {
       const existingId = idempotencyBookingsMap.get(`${customerId}:${idempotencyKey}`);
       const existingBooking = memoryBookings.get(existingId) || bookingsStore.getBookingById(existingId);
       if (existingBooking) {
-        const automaticDispatchEngine = require('../services/automaticDispatchEngine');
-        return res.status(200).json({
-          success: true,
+        return res.status(409).json({
+          success: false,
+          error: 'Duplicate booking request detected: An active booking already exists for this idempotency key.',
+          code: 'DUPLICATE_BOOKING',
           idempotentReplay: true,
-          message: 'Idempotent replay: Returning existing booking',
-          data: existingBooking,
+          existingBookingId: existingId,
           booking: existingBooking,
-          dispatchSession: automaticDispatchEngine.getBookingDispatchStatus(existingId),
-          startOtp: existingBooking.startOtp,
         });
       }
     }
@@ -169,28 +169,44 @@ const createBooking = async (req, res) => {
     const finalGstTax = authoritativeGstTax;
     const finalAmount = calculatedGrandTotal;
 
-    // Double-Booking Check: Prevent simultaneous booking of the same technician & slot
-    if (req.body.technicianId && scheduleDate && scheduleSlot && postgres.isPgHealthy()) {
-      const conflictRes = await postgres.query(`
-        SELECT id, booking_code, status 
-        FROM bookings 
-        WHERE technician_id = $1 
-          AND schedule_slot = $2 
-          AND (scheduled_time::date = $3::date OR created_at::date = $3::date)
-          AND status IN ('ACCEPTED', 'DISPATCHED', 'TECHNICIAN_ARRIVED', 'IN_PROGRESS', 'COMPLETION_PENDING')
-      `, [req.body.technicianId, scheduleSlot, scheduleDate]);
-
-      if (conflictRes.rows.length > 0) {
+    // Double-Booking & Atomic Pre-Assignment Check
+    const requestedTechId = req.body.technicianId ? String(req.body.technicianId).trim() : null;
+    let lockedTechId = null;
+    if (requestedTechId) {
+      if (technicianAssignmentLocks.has(requestedTechId)) {
         return res.status(409).json({
           success: false,
-          error: 'Double booking conflict: Selected technician is already booked for this time window.',
-          conflictBookingId: conflictRes.rows[0].id
+          error: 'Concurrency conflict: Selected technician is currently being assigned to another booking.',
+          code: 'TECHNICIAN_BUSY_CONFLICT',
         });
       }
+      technicianAssignmentLocks.add(requestedTechId);
+      lockedTechId = requestedTechId;
     }
 
+    try {
+      if (requestedTechId && scheduleDate && scheduleSlot && postgres.isPgHealthy()) {
+        const conflictRes = await postgres.query(`
+          SELECT id, booking_code, status 
+          FROM bookings 
+          WHERE technician_id = $1 
+            AND schedule_slot = $2 
+            AND (scheduled_time::date = $3::date OR created_at::date = $3::date)
+            AND status IN ('ACCEPTED', 'ASSIGNED', 'DISPATCHED', 'TECHNICIAN_ARRIVED', 'IN_PROGRESS', 'COMPLETION_PENDING')
+        `, [requestedTechId, scheduleSlot, scheduleDate]);
+
+        if (conflictRes.rows.length > 0) {
+          return res.status(409).json({
+            success: false,
+            error: 'Double booking conflict: Selected technician is already booked for this time window.',
+            code: 'TECHNICIAN_BUSY_CONFLICT',
+            conflictBookingId: conflictRes.rows[0].id
+          });
+        }
+      }
+
     const bookingId = req.body.id || req.body.bookingId || uuidv4();
-    const bookingCode = req.body.bookingCode || (bookingId.startsWith('BK-') ? bookingId : `BK-${Math.floor(100000 + Math.random() * 900000)}`);
+    const bookingCode = req.body.bookingCode || (bookingId.startsWith('BK-') ? bookingId : `BK-${crypto.randomInt(100000, 1000000)}`);
 
     // Generate secure 4-digit Start OTP and End OTP
     const startOtp = req.body.startOtp || req.body.otpCode || generateServiceOtp();
@@ -201,38 +217,71 @@ const createBooking = async (req, res) => {
 
     const custLat = (rawLat != null && !isNaN(parseFloat(rawLat)) && parseFloat(rawLat) !== 0) ? parseFloat(rawLat) : 23.2500; // Default fallback to Nadia/WB region if omitted
     const custLng = (rawLng != null && !isNaN(parseFloat(rawLng)) && parseFloat(rawLng) !== 0) ? parseFloat(rawLng) : 88.5500;
+    const customerEmail = req.body.customerEmail || req.body.email || req.user?.email || '';
+    const bookingMode = String(req.body.bookingMode || 'INSTANT').toUpperCase();
 
-    // 1. Scan for candidate technicians within 15 km radius
-    let nearbyTechnicians = await scanTechniciansWithin15Km(custLat, custLng, category, serviceId);
+    // Authoritative Pre-Assignment Eligibility & Atomic Verification (Phase 4.1)
+    const automaticDispatchEngine = require('../services/automaticDispatchEngine');
+    const eligibilityScan = await automaticDispatchEngine.findAndRankEligibleTechnicians(
+      {
+        bookingId,
+        serviceId,
+        serviceName,
+        category,
+        latitude: custLat,
+        longitude: custLng,
+        scheduleDate: scheduleDate || (scheduledTime ? new Date(scheduledTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+        scheduleSlot: scheduleSlot || '3:00 PM – 4:00 PM',
+        bookingMode,
+      },
+      15
+    );
 
-    // Robust Fallback: If 15km spatial query returns 0 candidates (e.g. fresh coordinates or testing), find online/active technicians
-    if (!nearbyTechnicians || nearbyTechnicians.length === 0) {
-      console.log('🔄 [Geo Scan Fallback] No spatial match within 15km, finding all online/active domain technicians...');
-      if (postgres.isPgHealthy()) {
-        try {
-          const pgOnline = await postgres.query(`
-            SELECT id, full_name, phone, rating, jobs_completed, is_online, latitude, longitude
-            FROM technician_profiles
-            WHERE is_online = true OR is_approved = true
-            ORDER BY is_online DESC, updated_at DESC
-            LIMIT 10
-          `);
-          if (pgOnline.rows.length > 0) {
-            nearbyTechnicians = pgOnline.rows.map(r => ({
-              technicianId: r.id,
-              id: r.id,
-              name: r.full_name,
-              phone: r.phone,
-              distanceKm: calculateHaversineDistanceKm(custLat, custLng, r.latitude, r.longitude) || 2.1,
-              rating: parseFloat(r.rating) || 4.85,
-              totalJobsCompleted: parseInt(r.jobs_completed || 20, 10),
-            }));
-          }
-        } catch (err) {
-          console.warn('Fallback PG query failed:', err.message);
+    if (req.body.requireImmediateAssignment === true || requestedTechId) {
+      let targetCandidate = requestedTechId
+        ? eligibilityScan.rankedCandidates.find(c => String(c.technicianId) === requestedTechId)
+        : eligibilityScan.rankedCandidates[0];
+
+      if (!targetCandidate) {
+        // Determine exact diagnostic failure code from excludedDiagnostics
+        const diagList = requestedTechId
+          ? eligibilityScan.excludedDiagnostics.filter(d => String(d.technicianId) === requestedTechId)
+          : eligibilityScan.excludedDiagnostics;
+        const allReasons = diagList.flatMap(d => d.reasons || []);
+
+        let failureCode = 'NO_TECHNICIAN_ONLINE';
+        let failureMessage = 'No verified online technician is currently available for this service.';
+
+        if (allReasons.some(r => r.includes('ACTIVE_ONGOING_BOOKING') || r.includes('OVERLAPPING_TIME_SLOT') || r.includes('ASSIGNED_SESSION') || r.includes('HOLDING_ACTIVE_OFFER') || r.includes('TECHNICIAN_STATUS_BUSY'))) {
+          failureCode = 'TECHNICIAN_BUSY_CONFLICT';
+          failureMessage = 'Selected or nearby technician is already assigned to another active booking.';
+        } else if (allReasons.some(r => r.includes('TECHNICIAN_OFFLINE'))) {
+          failureCode = 'TECHNICIAN_WENT_OFFLINE';
+          failureMessage = 'Technician went offline prior to booking confirmation.';
+        } else if (allReasons.some(r => r.includes('STALE_GPS_COORDINATES') || r.includes('INVALID_OR_MISSING_GPS_COORDINATES'))) {
+          failureCode = 'STALE_LOCATION';
+          failureMessage = 'Technician GPS heartbeat is stale (>10 minutes old) or unavailable.';
+        } else if (allReasons.some(r => r.includes('OUTSIDE_SEARCH_RADIUS') || r.includes('OUTSIDE_TECHNICIAN_SERVICE_RADIUS'))) {
+          failureCode = 'OUT_OF_RADIUS';
+          failureMessage = 'No qualified technician is within the 15 km service radius.';
+        } else if (allReasons.some(r => r.includes('SKILL') || r.includes('CATEGORY_MISMATCH'))) {
+          failureCode = 'SKILL_MISMATCH';
+          failureMessage = 'Online technicians do not have the required verified service skill enabled.';
         }
+
+        return res.status(409).json({
+          success: false,
+          error: failureMessage,
+          code: failureCode,
+          diagnostics: diagList,
+        });
       }
     }
+
+    // 1. Scan for candidate technicians within 15 km radius
+    let nearbyTechnicians = eligibilityScan.rankedCandidates.length > 0
+      ? eligibilityScan.rankedCandidates
+      : await scanTechniciansWithin15Km(custLat, custLng, category, serviceId);
 
     // 2. Call Python AI Matchmaker service to rank best technicians
     let rankedTechnicians = [];
@@ -267,9 +316,6 @@ const createBooking = async (req, res) => {
         rating: parseFloat(t.rating) || 4.8,
       }));
     }
-
-    const customerEmail = req.body.customerEmail || req.body.email || req.user?.email || '';
-    const bookingMode = String(req.body.bookingMode || 'INSTANT').toUpperCase();
 
     const bookingRecord = {
       id: bookingId,
@@ -373,7 +419,6 @@ const createBooking = async (req, res) => {
       idempotencyBookingsMap.set(`${customerId}:${idempotencyKey}`, bookingId);
     }
 
-    const automaticDispatchEngine = require('../services/automaticDispatchEngine');
     const dispatchSession = await automaticDispatchEngine.startDispatchForBooking(bookingRecord, {
       bookingMode,
       offerTimeoutSeconds: req.body.offerTimeoutSeconds,
@@ -381,6 +426,37 @@ const createBooking = async (req, res) => {
       actorId: customerId,
       actorRole: 'CUSTOMER',
     });
+
+    if (req.body.requireImmediateAssignment === true || requestedTechId) {
+      const winnerTechId = requestedTechId || eligibilityScan.rankedCandidates[0]?.technicianId;
+      if (winnerTechId) {
+        if (!lockedTechId) {
+          if (technicianAssignmentLocks.has(String(winnerTechId))) {
+            return res.status(409).json({
+              success: false,
+              error: 'Concurrency conflict: Selected technician is already being assigned to another booking.',
+              code: 'TECHNICIAN_BUSY_CONFLICT',
+            });
+          }
+          technicianAssignmentLocks.add(String(winnerTechId));
+          lockedTechId = String(winnerTechId);
+        }
+        try {
+          const accepted = await automaticDispatchEngine.acceptOffer(bookingId, String(winnerTechId));
+          if (accepted?.booking) {
+            Object.assign(bookingRecord, accepted.booking);
+          }
+        } catch (assignErr) {
+          bookingsStore.updateBookingStatus(bookingId, 'CANCELLED', { failureReason: assignErr.message });
+          memoryBookings.delete(bookingId);
+          return res.status(assignErr.statusCode || 409).json({
+            success: false,
+            error: assignErr.message || 'Atomic assignment conflict',
+            code: 'TECHNICIAN_BUSY_CONFLICT',
+          });
+        }
+      }
+    }
 
     return res.status(201).json({
       success: true,
@@ -391,6 +467,11 @@ const createBooking = async (req, res) => {
       startOtp, // Returned to customer
       matchedTechniciansCount: nearbyTechnicians.length,
     });
+    } finally {
+      if (lockedTechId) {
+        technicianAssignmentLocks.delete(lockedTechId);
+      }
+    }
   } catch (error) {
     console.error('❌ Create Booking Error:', error);
     return res.status(500).json({ success: false, error: error.message });

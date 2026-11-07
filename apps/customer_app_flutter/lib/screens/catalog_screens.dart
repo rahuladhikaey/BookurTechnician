@@ -604,12 +604,14 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
     final isRefreshing = state.isServiceRefreshing(service.id);
 
     String subtitleText = 'No partners online in 15 km with matching skills right now.';
-    if (hasTechs) {
+    if (hasTechs && state.isAvailabilityCached) {
+      subtitleText = 'Cached status shown • Live server verification required before booking';
+    } else if (hasTechs) {
       subtitleText = 'Automated nearest technician dispatch upon booking confirmation';
     } else if (aState == ServiceAvailabilityState.networkError) {
       subtitleText = 'Unable to connect to server. Tap Reload to retry.';
     } else if (aState == ServiceAvailabilityState.quotaExceeded) {
-      subtitleText = 'Firebase daily quota reached (Spark Plan). Upgrade to Blaze plan in Console.';
+      subtitleText = 'Server rate limit (HTTP 429) or database quota reached. Tap Reload to retry.';
     } else if (aState == ServiceAvailabilityState.locationUnavailable) {
       subtitleText = 'Please enable GPS location to detect local partners.';
     } else if (aState == ServiceAvailabilityState.checkingAvailability) {
@@ -1754,16 +1756,55 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                       );
 
                                   if (!ctx.mounted) return;
-                                  Navigator.pop(modalCtx); // Close sheet
+                                  setModalState(() => isProcessing = false);
 
-                                  final targetBookingId = booked?.id ?? code;
+                                  if (booked == null) {
+                                    final errState = ref.read(bookingProvider);
+                                    final errCode = errState.bookingErrorCode ?? 'BOOKING_REJECTED';
+                                    final errMsg = errState.bookingError ?? 'Unable to assign a verified technician right now.';
+                                    Navigator.pop(modalCtx);
+                                    if (!context.mounted) return;
+                                    showDialog(
+                                      context: context,
+                                      builder: (dCtx) => AlertDialog(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        title: Row(
+                                          children: [
+                                            const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444)),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'Booking Not Confirmed ($errCode)',
+                                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        content: Text(
+                                          errMsg,
+                                          style: const TextStyle(fontSize: 13, color: kSecondaryText, height: 1.4),
+                                        ),
+                                        actions: [
+                                          ElevatedButton(
+                                            onPressed: () => Navigator.pop(dCtx),
+                                            style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
+                                            child: const Text('OK'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  Navigator.pop(modalCtx); // Close sheet
+                                  if (!context.mounted) return;
 
                                   // Direct Dispatch to Live Tracking Page (100% Real GPS & PostGIS Stream)
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => BookingTrackingScreen(
-                                        bookingId: targetBookingId,
+                                        bookingId: booked.id,
                                       ),
                                     ),
                                   );
@@ -1810,16 +1851,55 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                       );
 
                                   if (!ctx.mounted) return;
-                                  Navigator.pop(modalCtx); // Close sheet
+                                  setModalState(() => isProcessing = false);
 
-                                  final targetBookingId = booked?.id ?? code;
+                                  if (booked == null) {
+                                    final errState = ref.read(bookingProvider);
+                                    final errCode = errState.bookingErrorCode ?? 'BOOKING_REJECTED';
+                                    final errMsg = errState.bookingError ?? 'Unable to assign a verified technician right now.';
+                                    Navigator.pop(modalCtx);
+                                    if (!context.mounted) return;
+                                    showDialog(
+                                      context: context,
+                                      builder: (dCtx) => AlertDialog(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        title: Row(
+                                          children: [
+                                            const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444)),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'Booking Not Confirmed ($errCode)',
+                                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        content: Text(
+                                          errMsg,
+                                          style: const TextStyle(fontSize: 13, color: kSecondaryText, height: 1.4),
+                                        ),
+                                        actions: [
+                                          ElevatedButton(
+                                            onPressed: () => Navigator.pop(dCtx),
+                                            style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
+                                            child: const Text('OK'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  Navigator.pop(modalCtx); // Close sheet
+                                  if (!context.mounted) return;
 
                                   // Direct Dispatch to Live Tracking Page (100% Real GPS & PostGIS Stream)
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => BookingTrackingScreen(
-                                        bookingId: targetBookingId,
+                                        bookingId: booked.id,
                                       ),
                                     ),
                                   );

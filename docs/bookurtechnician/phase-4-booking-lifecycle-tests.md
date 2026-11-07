@@ -132,3 +132,4 @@ sequenceDiagram
   - Booking transitions to `COMPLETED`.
   - Tech 1's profile resets to `availabilityStatus: 'AVAILABLE'`.
   - Customer App re-scan shows `1 technician online nearby` again.
+

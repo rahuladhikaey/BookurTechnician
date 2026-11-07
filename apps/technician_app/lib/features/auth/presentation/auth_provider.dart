@@ -6,7 +6,6 @@ import '../../../core/network/dio_client.dart';
 import '../../../core/network/firestore_rest_client.dart';
 import '../../../core/security/secure_storage.dart';
 import '../../../core/config/app_config.dart';
-import '../../../core/network/email_service.dart';
 import '../domain/auth_repository.dart';
 import '../../../core/network/api_result.dart';
 import '../../../core/services/socket_service.dart';
@@ -64,9 +63,8 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
   late final DioClient _dioClient;
   final SecureStorage _secureStorage;
-  String? _lastGeneratedOtp;
 
-  AuthNotifier({SecureStorage? storage}) 
+  AuthNotifier({SecureStorage? storage})
       : _secureStorage = storage ?? SecureStorage(),
         super(AuthState()) {
     _dioClient = DioClient(_secureStorage);
@@ -78,7 +76,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       final cachedToken = await _secureStorage.getToken();
       final userDetails = await _secureStorage.getUserDetails();
       final savedAge = int.tryParse(userDetails['age'] ?? '');
-      
+
       if (cachedToken != null && cachedToken.isNotEmpty) {
         final savedUserId = await _secureStorage.getUserId();
         state = AuthState(
@@ -104,16 +102,22 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
   }
 
   String _deriveNameFromEmail(String email) {
-
     if (email.isEmpty || !email.contains('@')) return 'Partner Technician';
     try {
       final prefix = email.split('@').first;
-      final cleaned = prefix.replaceAll(RegExp(r'\d+$'), '').replaceAll(RegExp(r'[._\-+]'), ' ').trim();
+      final cleaned = prefix
+          .replaceAll(RegExp(r'\d+$'), '')
+          .replaceAll(RegExp(r'[._\-+]'), ' ')
+          .trim();
       if (cleaned.isEmpty) return prefix;
-      return cleaned.split(RegExp(r'\s+')).map((w) {
-        if (w.isEmpty) return '';
-        return w[0].toUpperCase() + (w.length > 1 ? w.substring(1).toLowerCase() : '');
-      }).join(' ');
+      return cleaned
+          .split(RegExp(r'\s+'))
+          .map((w) {
+            if (w.isEmpty) return '';
+            return w[0].toUpperCase() +
+                (w.length > 1 ? w.substring(1).toLowerCase() : '');
+          })
+          .join(' ');
     } catch (_) {
       return 'Partner Technician';
     }
@@ -128,13 +132,15 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     bool isResend = false,
   }) async {
     state = state.copyWith(status: AuthStatus.authenticating);
-    
+
     final normalizedEmail = email.trim().toLowerCase();
     final normalizedPhone = (phone ?? '').trim();
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    
+
     if (!emailRegex.hasMatch(normalizedEmail)) {
-      state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: 'Please enter a valid email address');
+      state = state.copyWith(
+          status: AuthStatus.unauthenticated,
+          errorMessage: 'Please enter a valid email address');
       return const ApiFailure('Please enter a valid email address');
     }
 
@@ -143,10 +149,12 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         : _deriveNameFromEmail(normalizedEmail);
 
     final digits = normalizedPhone.replaceAll(RegExp(r'\D'), '');
-    final effectiveTechId = 'tech_${digits.isNotEmpty ? digits : normalizedEmail.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+    final internalUid =
+        'uid_tech_${digits.isNotEmpty ? digits : normalizedEmail.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+    final partnerCode =
+        'BT-${(digits.length >= 6 ? digits.substring(digits.length - 6) : internalUid.hashCode.abs().toString().padLeft(6, '0').substring(0, 6))}';
 
-    // Persist identity immediately into SecureStorage so technician never defaults to BT-PARTNER
-    await _secureStorage.saveUserId(effectiveTechId);
+    await _secureStorage.saveUserId(internalUid);
     await _secureStorage.saveUserDetails(
       name: candidateName,
       age: age?.toString(),
@@ -154,42 +162,42 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       email: normalizedEmail,
     );
 
-    // Fast-path: Dispatch EmailJS OTP directly and reliably (sub-2s delivery)
-    final generatedOtp = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
-    _lastGeneratedOtp = generatedOtp;
+    // Request OTP via authoritative server-side challenge engine (enforces 3/10m rate limit & SHA-256 hash)
+    final challengeRes = await FirestoreRestClient.requestOtpChallenge(
+      identifier: normalizedEmail,
+      email: normalizedEmail,
+      phone: normalizedPhone,
+      fullName: candidateName,
+      role: 'TECHNICIAN',
+    );
 
-    try {
-      debugPrint('📧 [AuthNotifier] Dispatching direct EmailJS OTP to $normalizedEmail...');
-      await EmailService.sendOtpEmail(
-        email: normalizedEmail,
-        otp: generatedOtp,
-        role: 'Technician',
-        name: candidateName,
-      );
-
-      // Async Firestore profile record creation
-      FirestoreRestClient.upsertDocument('technician_profiles', effectiveTechId, {
-        'id': effectiveTechId,
-        'technicianId': effectiveTechId,
-        'email': normalizedEmail,
-        'phone': normalizedPhone,
-        'fullName': candidateName,
-        'name': candidateName,
-        'age': age,
-        'category': 'AC Services',
-        'accountStatus': 'Pending_Verification',
-        'isOnline': true,
-        'online': true,
-        'availabilityStatus': 'AVAILABLE',
-        'latitude': 22.5726,
-        'longitude': 88.3639,
-        'lastLocationUpdate': DateTime.now().toUtc().toIso8601String(),
-        'updatedAt': DateTime.now().toUtc().toIso8601String(),
-        'createdAt': DateTime.now().toUtc().toIso8601String(),
-      }).catchError((_) => null);
-    } catch (fallbackErr) {
-      debugPrint('⚠️ Direct OTP fallback warning: $fallbackErr');
+    if (challengeRes['success'] != true) {
+      final errMsg = challengeRes['error']?.toString() ??
+          'Unable to send OTP. Please try again.';
+      state = state.copyWith(
+          status: AuthStatus.unauthenticated, errorMessage: errMsg);
+      return ApiFailure(errMsg);
     }
+
+    // Async Firestore profile record creation (with distinct internal UID vs BT-XXXXXX partner code)
+    FirestoreRestClient.upsertDocument('technician_profiles', internalUid, {
+      'id': internalUid,
+      'uid': internalUid,
+      'technicianId': internalUid,
+      'technicianCode': partnerCode,
+      'email': normalizedEmail,
+      'phone': normalizedPhone,
+      'fullName': candidateName,
+      'name': candidateName,
+      'age': age,
+      'category': 'AC Services',
+      'accountStatus': 'Pending_Verification',
+      'isOnline': false,
+      'online': false,
+      'availabilityStatus': 'OFFLINE',
+      'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+    }).catchError((_) => null);
 
     state = state.copyWith(
       status: AuthStatus.otpSent,
@@ -212,11 +220,13 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     double? longitude,
   }) async {
     state = state.copyWith(status: AuthStatus.authenticating);
-    
+
     final targetEmail = (email ?? state.email ?? '').trim().toLowerCase();
     final targetPhone = (phone ?? state.phone ?? '').trim();
     final targetOtp = code.trim();
-    final targetName = (fullName ?? state.fullName ?? _deriveNameFromEmail(targetEmail)).trim();
+    final targetName =
+        (fullName ?? state.fullName ?? _deriveNameFromEmail(targetEmail))
+            .trim();
     final targetAge = age ?? state.age;
 
     // Capture location if not provided
@@ -225,8 +235,10 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     if (currentLat == null || currentLng == null) {
       try {
         final hasPermission = await Geolocator.checkPermission();
-        if (hasPermission == LocationPermission.always || hasPermission == LocationPermission.whileInUse) {
-          final pos = await Geolocator.getCurrentPosition(timeLimit: const Duration(seconds: 3));
+        if (hasPermission == LocationPermission.always ||
+            hasPermission == LocationPermission.whileInUse) {
+          final pos = await Geolocator.getCurrentPosition(
+              timeLimit: const Duration(seconds: 3));
           currentLat = pos.latitude;
           currentLng = pos.longitude;
         }
@@ -264,12 +276,16 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
     for (final baseUrl in routableCandidates) {
       try {
-        final response = await dio.post('$baseUrl/auth/verify-otp', data: payload);
+        final response =
+            await dio.post('$baseUrl/auth/verify-otp', data: payload);
         if (response.statusCode == 200 || response.statusCode == 201) {
           final resData = response.data;
-          final nestedData = (resData is Map<String, dynamic> && resData['data'] is Map<String, dynamic>)
+          final nestedData = (resData is Map<String, dynamic> &&
+                  resData['data'] is Map<String, dynamic>)
               ? resData['data'] as Map<String, dynamic>
-              : (resData is Map<String, dynamic> ? resData : <String, dynamic>{});
+              : (resData is Map<String, dynamic>
+                  ? resData
+                  : <String, dynamic>{});
 
           final accessToken = nestedData['accessToken']?.toString() ??
               nestedData['token']?.toString() ??
@@ -283,12 +299,17 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
           Map<String, dynamic>? userMap;
           if (nestedData['user'] is Map<String, dynamic>) {
             userMap = nestedData['user'] as Map<String, dynamic>;
-          } else if (resData is Map<String, dynamic> && resData['user'] is Map<String, dynamic>) {
+          } else if (resData is Map<String, dynamic> &&
+              resData['user'] is Map<String, dynamic>) {
             userMap = resData['user'] as Map<String, dynamic>;
           }
 
-          final userId = userMap?['id']?.toString() ?? (targetPhone.isNotEmpty ? targetPhone : targetEmail);
-          final nameFromBackend = userMap?['fullName']?.toString() ?? userMap?['name']?.toString() ?? targetName;
+          final userId = userMap?['uid']?.toString() ??
+              userMap?['id']?.toString() ??
+              (targetPhone.isNotEmpty ? targetPhone : targetEmail);
+          final nameFromBackend = userMap?['fullName']?.toString() ??
+              userMap?['name']?.toString() ??
+              targetName;
 
           await _secureStorage.saveToken(accessToken);
           if (refreshToken != null) {
@@ -338,7 +359,8 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         if (e is DioException) {
           if (e.response?.data is Map) {
             final errorMap = e.response!.data as Map;
-            final errorMsg = errorMap['error']?.toString() ?? errorMap['message']?.toString();
+            final errorMsg = errorMap['error']?.toString() ??
+                errorMap['message']?.toString();
             if (errorMsg != null && errorMsg.isNotEmpty) {
               lastErrorMsg = errorMsg;
             }
@@ -347,17 +369,28 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       }
     }
 
-    // Direct Firebase / Email OTP Fallback Verification
-    final isOtpValid = (_lastGeneratedOtp != null && targetOtp == _lastGeneratedOtp) ||
-        targetOtp == '123456';
+    // Authoritative Server-Grade Challenge Verification (Zero '123456' backdoors)
+    final identifier = targetEmail.isNotEmpty ? targetEmail : targetPhone;
+    final verifyChallengeRes = await FirestoreRestClient.verifyOtpChallenge(
+      identifier: identifier,
+      code: targetOtp,
+    );
 
-    if (isOtpValid || (lastErrorMsg == null && targetOtp.length == 6)) {
-      final techId = 'tech_${targetPhone.replaceAll(RegExp(r'\D'), '').isEmpty ? DateTime.now().millisecondsSinceEpoch : targetPhone.replaceAll(RegExp(r'\D'), '')}';
-      final fallbackToken = 'jwt_token_tech_${DateTime.now().millisecondsSinceEpoch}';
+    if (verifyChallengeRes['success'] == true) {
+      final digits = targetPhone.replaceAll(RegExp(r'\D'), '');
+      final internalUid =
+          'uid_tech_${digits.isNotEmpty ? digits : targetEmail.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
+      final partnerCode =
+          'BT-${(digits.length >= 6 ? digits.substring(digits.length - 6) : internalUid.hashCode.abs().toString().padLeft(6, '0').substring(0, 6))}';
+      final fallbackToken =
+          'jwt_token_tech_${DateTime.now().millisecondsSinceEpoch}';
 
-      final techDoc = {
-        'id': techId,
-        'technicianId': techId,
+      final nowUtc = DateTime.now().toUtc().toIso8601String();
+      final techDoc = <String, dynamic>{
+        'id': internalUid,
+        'uid': internalUid,
+        'technicianId': internalUid,
+        'technicianCode': partnerCode,
         'fullName': targetName,
         'name': targetName,
         'phone': targetPhone,
@@ -371,20 +404,23 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         'availabilityStatus': 'AVAILABLE',
         'rating': 4.9,
         'walletBalance': 0,
-        'latitude': currentLat ?? 22.5726,
-        'longitude': currentLng ?? 88.3639,
-        'currentLatitude': currentLat ?? 22.5726,
-        'currentLongitude': currentLng ?? 88.3639,
-        'lastLocationUpdate': DateTime.now().toUtc().toIso8601String(),
-        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        if (currentLat != null && currentLng != null) ...{
+          'latitude': currentLat,
+          'longitude': currentLng,
+          'currentLatitude': currentLat,
+          'currentLongitude': currentLng,
+          'lastLocationUpdate': nowUtc,
+        },
+        'updatedAt': nowUtc,
       };
 
       try {
-        await FirestoreRestClient.upsertDocument('technician_profiles', techId, techDoc);
+        await FirestoreRestClient.upsertDocument(
+            'technician_profiles', internalUid, techDoc);
       } catch (_) {}
 
       await _secureStorage.saveToken(fallbackToken);
-      await _secureStorage.saveUserId(techId);
+      await _secureStorage.saveUserId(internalUid);
       await _secureStorage.saveUserDetails(
         name: targetName,
         age: targetAge?.toString(),
@@ -406,8 +442,11 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       return ApiSuccess(fallbackToken);
     }
 
-    final errorMsg = lastErrorMsg ?? 'Verification failed. Please check the 6-digit OTP code entered.';
-    state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: errorMsg);
+    final errorMsg = verifyChallengeRes['error']?.toString() ??
+        lastErrorMsg ??
+        'Verification failed. Please check the 6-digit OTP code entered.';
+    state = state.copyWith(
+        status: AuthStatus.unauthenticated, errorMessage: errorMsg);
     return ApiFailure(errorMsg);
   }
 
@@ -433,7 +472,9 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     try {
       final payload = <String, dynamic>{};
       if (fullName != null) payload['fullName'] = fullName;
-      if (profileImageUrl != null) payload['profileImageUrl'] = profileImageUrl;
+      if (profileImageUrl != null) {
+        payload['profileImageUrl'] = profileImageUrl;
+      }
       if (upiId != null) payload['upiId'] = upiId;
 
       await _dioClient.dio.put('/technician/profile', data: payload);
@@ -446,7 +487,8 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     try {
       final refreshToken = await _secureStorage.getRefreshToken();
       if (refreshToken != null) {
-        await _dioClient.dio.post('/auth/logout', data: {'refreshToken': refreshToken});
+        await _dioClient.dio
+            .post('/auth/logout', data: {'refreshToken': refreshToken});
       }
     } catch (_) {}
 
@@ -458,4 +500,3 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier();
 });
-

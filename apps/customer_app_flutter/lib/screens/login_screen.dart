@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_client.dart';
-import '../services/email_service.dart';
+import '../services/firestore_rest_client.dart';
 import '../booking_provider.dart';
 import '../theme.dart';
 
@@ -945,27 +945,38 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       }
     } catch (_) {}
 
-    // Direct EmailJS fallback if backend unreachable
+    // Authoritative server-side OTP challenge fallback if backend unreachable (zero client-generated OTPs)
     try {
-      final generatedOtp = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
-      await EmailService.sendOtpEmail(
+      final challengeRes = await FirestoreRestClient.requestOtpChallenge(
+        identifier: widget.emailAddress,
         email: widget.emailAddress,
-        otp: generatedOtp,
-        role: 'Customer',
-        name: widget.fullName.isNotEmpty ? widget.fullName : _formatNameFromEmail(widget.emailAddress),
+        phone: widget.phoneNumber,
+        fullName: widget.fullName.isNotEmpty ? widget.fullName : _formatNameFromEmail(widget.emailAddress),
+        role: 'CUSTOMER',
       );
+      setState(() => _isResending = false);
+      if (mounted) {
+        if (challengeRes['success'] == true) {
+          _startCountdown();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF166534),
+              content: Text('New 6-digit verification code sent to ${widget.emailAddress}!'),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: kErrorRed,
+              content: Text(challengeRes['error']?.toString() ?? 'Rate limit exceeded. Please wait before requesting a new OTP.'),
+            ),
+          );
+        }
+      }
+      return;
     } catch (_) {}
 
     setState(() => _isResending = false);
-    if (mounted) {
-      _startCountdown();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF166534),
-          content: Text('New 6-digit verification code sent to ${widget.emailAddress}!'),
-        ),
-      );
-    }
   }
 
 

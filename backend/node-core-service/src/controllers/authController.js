@@ -15,10 +15,14 @@ const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET || 'super_refresh_jwt_ke
 const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'BookurAdminMaster2026#Secure!';
 
 /**
- * Generate 6-Digit OTP
+ * Generate cryptographically secure 6-Digit OTP
  */
 const generateOtp = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
+};
+
+const hashOtp = (otp) => {
+  return crypto.createHash('sha256').update(String(otp).trim()).digest('hex');
 };
 
 /**
@@ -30,7 +34,19 @@ const requestOtp = async (req, res) => {
     const identifier = (phone || email || '').trim().toLowerCase();
 
     if (!identifier) {
-      return res.status(400).json({ success: false, error: 'Phone number or email is required' });
+      return res.status(400).json({ success: false, error: 'Phone number or email is required', code: 'MISSING_IDENTIFIER' });
+    }
+
+    // Enforce OTP request rate limiting: max 3 requests per 10 minutes (600s) per identifier
+    const rateLimitKey = `otp_rate:${identifier}`;
+    const currentRequests = parseInt((await redis.get(rateLimitKey)) || '0', 10);
+    if (currentRequests >= 3) {
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded: Maximum 3 OTP requests allowed within 10 minutes. Please wait before requesting a new OTP.',
+        code: 'OTP_RATE_LIMIT_EXCEEDED',
+        retryAfter: 600,
+      });
     }
 
     // Check user existence in PostgreSQL
@@ -72,14 +88,12 @@ const requestOtp = async (req, res) => {
       }
     }
 
-    // Production-grade cryptographically secure 6-digit OTP
-    const isExplicitDevTestAccount = process.env.NODE_ENV === 'development' && 
-      process.env.ALLOW_TEST_OTP === 'true' && 
-      (identifier.includes('9999999999') || identifier.includes('testaccount'));
+    // Production-grade cryptographically secure 6-digit OTP (no hardcoded '123456' backdoors)
+    const otp = generateOtp();
+    const otpHash = hashOtp(otp);
 
-    const otp = isExplicitDevTestAccount 
-      ? '123456' 
-      : crypto.randomInt(100000, 1000000).toString();
+    // Increment OTP request rate limiter (10-minute window)
+    await redis.setWithExpiry(rateLimitKey, currentRequests + 1, 600);
 
     const candidateName = (fullName || name || '').trim();
     const resolvedName = candidateName || existingUser?.full_name || (email ? deriveNameFromEmail(email) : (phone ? `User-${phone.slice(-4)}` : 'Customer'));
@@ -108,17 +122,18 @@ const requestOtp = async (req, res) => {
     const local10DigitPhone = strippedPhone.length >= 10 ? strippedPhone.slice(-10) : strippedPhone;
 
     const otpPayload = { 
-      otp, 
+      otpHash, 
       role, 
       name: resolvedName, 
       fullName: resolvedName,
       purpose: purpose || (existingUser ? 'LOGIN' : 'REGISTER'), 
       phone: rawPhone || null, 
       email: rawEmail || null, 
-      requestedAt: Date.now() 
+      requestedAt: Date.now(),
+      expiresAt: Date.now() + 600 * 1000,
     };
 
-    // Cache in Redis under all possible identifier aliases for 10 minutes (600s)
+    // Cache SHA-256 hashed OTP in Redis under all possible identifier aliases for 10 minutes (600s)
     if (rawEmail) await redis.setWithExpiry(`otp:${rawEmail}`, otpPayload, 600);
     if (rawPhone) await redis.setWithExpiry(`otp:${rawPhone.toLowerCase()}`, otpPayload, 600);
     if (strippedPhone && strippedPhone !== rawPhone) await redis.setWithExpiry(`otp:${strippedPhone}`, otpPayload, 600);
@@ -160,7 +175,7 @@ const requestOtp = async (req, res) => {
       identifier,
       name: resolvedName,
       emailSent: emailResult.success !== false,
-      debugOtp: (process.env.NODE_ENV === 'development' && process.env.ALLOW_TEST_OTP === 'true') ? otp : undefined,
+      expiresInSeconds: 600,
     });
   } catch (error) {
     console.error('❌ Request OTP Error:', error);
@@ -216,20 +231,46 @@ const verifyOtp = async (req, res) => {
       return res.status(429).json({
         success: false,
         error: 'Too many incorrect OTP attempts. For your security, this identifier is locked for 15 minutes.',
+        code: 'OTP_ATTEMPT_LIMIT_EXCEEDED',
         retryAfter: 900,
       });
     }
 
-    // Fail closed: Only allow test OTP in strict development mode with explicit opt-in
-    const isDevTestAllowed = process.env.NODE_ENV === 'development' && process.env.ALLOW_TEST_OTP === 'true';
-    const isMasterOtp = isDevTestAllowed && inputOtp === '123456';
-    const isValid = (cachedData && cachedData.otp.toString().trim() === inputOtp) || isMasterOtp;
+    if (!cachedData) {
+      await redis.setWithExpiry(failCountKey, failedAttempts + 1, 900);
+      return res.status(400).json({
+        success: false,
+        error: 'OTP has expired or was not requested. Please request a new OTP.',
+        code: 'OTP_EXPIRED',
+      });
+    }
+
+    if (cachedData.expiresAt && Date.now() > Number(cachedData.expiresAt)) {
+      for (const key of searchKeys) {
+        await redis.del(key);
+      }
+      return res.status(400).json({
+        success: false,
+        error: 'OTP has expired. Please request a new OTP.',
+        code: 'OTP_EXPIRED',
+      });
+    }
+
+    // Timing-safe SHA-256 hash comparison (zero hardcoded '123456' master OTP backdoors)
+    const inputOtpHash = hashOtp(inputOtp);
+    const storedHash = cachedData.otpHash || (cachedData.otp ? hashOtp(cachedData.otp) : '');
+    let isValid = false;
+    if (storedHash && inputOtpHash.length === storedHash.length) {
+      isValid = crypto.timingSafeEqual(Buffer.from(inputOtpHash, 'hex'), Buffer.from(storedHash, 'hex'));
+    }
 
     if (!isValid) {
       await redis.setWithExpiry(failCountKey, failedAttempts + 1, 900);
       return res.status(400).json({
         success: false,
-        error: `Invalid or expired OTP. ${4 - failedAttempts} attempts remaining.`,
+        error: `Invalid OTP. ${Math.max(0, 4 - failedAttempts)} attempts remaining.`,
+        code: 'INVALID_OTP',
+        attemptsRemaining: Math.max(0, 4 - failedAttempts),
       });
     }
 
@@ -314,6 +355,7 @@ const verifyOtp = async (req, res) => {
     }
 
     // If Technician, ensure profile in PostgreSQL, MongoDB & notify admin
+    const partnerCode = `BT-${String(userId).replace(/\D/g, '').padStart(6, '0').slice(-6)}`;
     if (userRole === 'TECHNICIAN') {
       const techPhone = finalPhone || phone || identifier;
       const techEmail = finalEmail || email || identifier;
@@ -321,7 +363,6 @@ const verifyOtp = async (req, res) => {
       // 1. Persist to PostgreSQL technician_profiles
       if (postgres.isPgHealthy()) {
         try {
-          const techCode = `BT-TECH-${String(userId).slice(-6).toUpperCase()}`;
           await postgres.query(`
             INSERT INTO technician_profiles (
               id, technician_id, technician_code, full_name, phone, category,
@@ -332,7 +373,7 @@ const verifyOtp = async (req, res) => {
             SET full_name = EXCLUDED.full_name,
                 phone = EXCLUDED.phone,
                 updated_at = NOW();
-          `, [userId, techCode, userName, techPhone]);
+          `, [userId, partnerCode, userName, techPhone]);
         } catch (tpErr) {
           console.warn('⚠️ [Postgres] Technician profile registration insert warning:', tpErr.message);
         }
@@ -344,6 +385,7 @@ const verifyOtp = async (req, res) => {
           { technicianId: userId },
           {
             technicianId: userId,
+            technicianCode: partnerCode,
             fullName: userName,
             phone: techPhone,
             email: techEmail,
@@ -360,7 +402,9 @@ const verifyOtp = async (req, res) => {
       try {
         setTechnicianProfile(userId, {
           id: userId,
+          uid: userId,
           technicianId: userId,
+          technicianCode: partnerCode,
           fullName: userName,
           name: userName,
           phone: techPhone,
@@ -376,26 +420,30 @@ const verifyOtp = async (req, res) => {
       if (global.io) {
         global.io.emit('admin:technician_registered', {
           id: userId,
+          uid: userId,
           technicianId: userId,
+          technicianCode: partnerCode,
           fullName: userName,
           phone: techPhone,
           email: techEmail,
           isOnline: false,
           joinedAt: new Date().toISOString(),
         });
-        global.io.emit('technicians:updated', { action: 'REGISTERED', technicianId: userId });
+        global.io.emit('technicians:updated', { action: 'REGISTERED', technicianId: userId, technicianCode: partnerCode });
       }
     }
 
     // Sign JWT Tokens
-    const tokenPayload = { id: userId, phone: finalPhone || phone, email: finalEmail || email, role: userRole, name: userName };
+    const tokenPayload = { id: userId, uid: userId, technicianCode: userRole === 'TECHNICIAN' ? partnerCode : undefined, phone: finalPhone || phone, email: finalEmail || email, role: userRole, name: userName };
     const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '7d' });
     const refreshToken = jwt.sign(tokenPayload, REFRESH_SECRET, { expiresIn: '30d' });
 
     const userObj = {
       id: userId,
+      uid: userId,
       customerId: userId,
       technicianId: userId,
+      technicianCode: userRole === 'TECHNICIAN' ? partnerCode : undefined,
       phone: finalPhone || phone,
       email: finalEmail || email,
       name: userName,
@@ -571,5 +619,7 @@ module.exports = {
   logout,
   submitAccountDeletionRequest,
   getAccountDeletionStatus,
+  generateOtp,
+  hashOtp,
 };
 

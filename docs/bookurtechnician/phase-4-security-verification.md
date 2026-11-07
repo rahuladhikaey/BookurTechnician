@@ -91,3 +91,4 @@ service cloud.firestore {
      Service prices in booking orders are derived directly from the authoritative catalog definition (`service.price`), never from client-editable text fields.
 2. **Booking ID Idempotency:**
    - Every booking generation produces a cryptographically pseudo-random code `BT-${random}` and timestamped identifier `bkg_${timestamp}` preventing replay or collision attacks.
+

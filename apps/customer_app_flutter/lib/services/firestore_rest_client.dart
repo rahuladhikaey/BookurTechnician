@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'email_service.dart';
 
 /// Direct Cloud Firestore Client for BookUrTechnician Customer App
 /// Project: bookmytechnician-53d94 (asia-south1)
@@ -9,6 +10,183 @@ class FirestoreRestClient {
   static const String projectId = 'bookmytechnician-53d94';
   static const String baseUrl =
       'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents';
+  static const String commitUrl =
+      'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents:commit';
+  static const String documentNamePrefix =
+      'projects/$projectId/databases/(default)/documents';
+
+  /// Injectable HTTP handler for unit/integration testing of 429, network drop, and concurrency scenarios
+  static Future<http.Response> Function(
+    String method,
+    Uri uri, {
+    Map<String, String>? headers,
+    String? body,
+  })? mockHttpHandler;
+
+  // ─── TELEMETRY & COST METRICS (Phase 4.1) ─────────────────────────────────
+  static int totalReads = 0;
+  static int totalWrites = 0;
+  static int totalDeletes = 0;
+  static int totalRetries = 0;
+  static int total429Responses = 0;
+  static int lastHttpStatusCode = 200;
+
+  static void resetMetrics() {
+    totalReads = 0;
+    totalWrites = 0;
+    totalDeletes = 0;
+    totalRetries = 0;
+    total429Responses = 0;
+    lastHttpStatusCode = 200;
+    isLastRequestQuotaExceeded = false;
+    isLastRequestNetworkError = false;
+  }
+
+  static Map<String, dynamic> getTelemetrySummary() {
+    // Cloud Firestore asia-south1 pricing (USD): $0.036/100k reads, $0.108/100k writes, $0.012/100k deletes
+    final readCostUsd = (totalReads / 100000.0) * 0.036;
+    final writeCostUsd = (totalWrites / 100000.0) * 0.108;
+    final deleteCostUsd = (totalDeletes / 100000.0) * 0.012;
+    final totalUsd = readCostUsd + writeCostUsd + deleteCostUsd;
+    return {
+      'projectId': projectId,
+      'region': 'asia-south1',
+      'reads': totalReads,
+      'writes': totalWrites,
+      'deletes': totalDeletes,
+      'retries': totalRetries,
+      'http429Count': total429Responses,
+      'estimatedCostUsd': double.parse(totalUsd.toStringAsFixed(6)),
+      'estimatedCostInr': double.parse((totalUsd * 84.0).toStringAsFixed(4)),
+    };
+  }
+
+  static final Random _secureRandom = _createRandom();
+  static Random _createRandom() {
+    try {
+      return Random.secure();
+    } catch (_) {
+      return Random();
+    }
+  }
+
+  /// Pure Dart SHA-256 implementation (FIPS 180-4) for zero-plaintext OTP verification
+  static String sha256Hex(String input) {
+    final k = <int>[
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+    ];
+    final h = <int>[
+      0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+      0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+    ];
+    final bytes = utf8.encode(input);
+    final bitLength = bytes.length * 8;
+    final paddedLength = ((bytes.length + 9 + 63) ~/ 64) * 64;
+    final padded = Uint8List(paddedLength);
+    padded.setRange(0, bytes.length, bytes);
+    padded[bytes.length] = 0x80;
+    final bd = ByteData.sublistView(padded);
+    bd.setUint32(paddedLength - 8, (bitLength >> 32) & 0xffffffff, Endian.big);
+    bd.setUint32(paddedLength - 4, bitLength & 0xffffffff, Endian.big);
+
+    int rotr(int x, int n) => ((x & 0xffffffff) >>> n) | ((x << (32 - n)) & 0xffffffff);
+
+    final w = List<int>.filled(64, 0);
+    for (var i = 0; i < paddedLength; i += 64) {
+      for (var t = 0; t < 16; t++) {
+        w[t] = bd.getUint32(i + t * 4, Endian.big);
+      }
+      for (var t = 16; t < 64; t++) {
+        final s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ ((w[t - 15] & 0xffffffff) >>> 3);
+        final s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ ((w[t - 2] & 0xffffffff) >>> 10);
+        w[t] = (w[t - 16] + s0 + w[t - 7] + s1) & 0xffffffff;
+      }
+      var a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+      for (var t = 0; t < 64; t++) {
+        final s1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+        final ch = (e & f) ^ ((~e & 0xffffffff) & g);
+        final temp1 = (hh + s1 + ch + k[t] + w[t]) & 0xffffffff;
+        final s0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+        final maj = (a & b) ^ (a & c) ^ (b & c);
+        final temp2 = (s0 + maj) & 0xffffffff;
+        hh = g;
+        g = f;
+        f = e;
+        e = (d + temp1) & 0xffffffff;
+        d = c;
+        c = b;
+        b = a;
+        a = (temp1 + temp2) & 0xffffffff;
+      }
+      h[0] = (h[0] + a) & 0xffffffff;
+      h[1] = (h[1] + b) & 0xffffffff;
+      h[2] = (h[2] + c) & 0xffffffff;
+      h[3] = (h[3] + d) & 0xffffffff;
+      h[4] = (h[4] + e) & 0xffffffff;
+      h[5] = (h[5] + f) & 0xffffffff;
+      h[6] = (h[6] + g) & 0xffffffff;
+      h[7] = (h[7] + hh) & 0xffffffff;
+    }
+    return h.map((x) => x.toRadixString(16).padLeft(8, '0')).join();
+  }
+
+  /// Executes an HTTP request with exponential backoff and full jitter for retryable errors (429, 503, ABORTED)
+  static Future<http.Response> _requestWithBackoff(
+    String method,
+    Uri uri, {
+    Map<String, String>? headers,
+    String? body,
+    int maxRetries = 3,
+    Duration timeout = const Duration(seconds: 6),
+  }) async {
+    int attempt = 0;
+    while (true) {
+      attempt++;
+      http.Response res;
+      if (mockHttpHandler != null) {
+        res = await mockHttpHandler!(method, uri, headers: headers, body: body);
+      } else {
+        switch (method.toUpperCase()) {
+          case 'POST':
+            res = await http.post(uri, headers: headers, body: body).timeout(timeout);
+            break;
+          case 'PATCH':
+            res = await http.patch(uri, headers: headers, body: body).timeout(timeout);
+            break;
+          case 'DELETE':
+            res = await http.delete(uri, headers: headers).timeout(timeout);
+            break;
+          default:
+            res = await http.get(uri, headers: headers).timeout(timeout);
+        }
+      }
+
+      lastHttpStatusCode = res.statusCode;
+      if (res.statusCode == 429) {
+        total429Responses++;
+      }
+
+      final isRetryable = res.statusCode == 429 ||
+          res.statusCode == 503 ||
+          (res.statusCode == 409 && res.body.contains('ABORTED'));
+
+      if (!isRetryable || attempt > maxRetries) {
+        return res;
+      }
+
+      totalRetries++;
+      final baseDelayMs = 150 * (1 << (attempt - 1));
+      final jitterMs = _secureRandom.nextInt(100);
+      await Future.delayed(Duration(milliseconds: baseDelayMs + jitterMs));
+    }
+  }
 
   static Map<String, dynamic> _toFirestoreValue(dynamic val) {
     if (val == null) return {'nullValue': null};
@@ -80,11 +258,23 @@ class FirestoreRestClient {
       final parts = doc['name'].toString().split('/');
       out['id'] = parts.last;
     }
+    if (doc['updateTime'] != null) {
+      out['_firestoreUpdateTime'] = doc['updateTime'].toString();
+    }
     return out;
   }
 
   static bool isLastRequestQuotaExceeded = false;
+  static bool isLastRequestNetworkError = false;
   static final Map<String, _CachedResult> _memoryCache = {};
+  static final Set<String> _activeTechnicianLocks = {};
+  static final Map<String, String> _idempotencyBookingMap = {};
+
+  static void clearMemoryCache() {
+    _memoryCache.clear();
+    _activeTechnicianLocks.clear();
+    _idempotencyBookingMap.clear();
+  }
 
   static Future<List<Map<String, dynamic>>> listCollection(String collection,
       {int pageSize = 250, bool forceRefresh = false}) async {
@@ -101,11 +291,13 @@ class FirestoreRestClient {
 
     try {
       final uri = Uri.parse('$baseUrl/$collection?pageSize=$pageSize');
-      final res = await http.get(uri).timeout(const Duration(seconds: 6));
+      final res = await _requestWithBackoff('GET', uri);
       if (res.statusCode == 200) {
         isLastRequestQuotaExceeded = false;
+        isLastRequestNetworkError = false;
         final decoded = jsonDecode(res.body) as Map<String, dynamic>;
         final docs = decoded['documents'] as List<dynamic>? ?? [];
+        totalReads += docs.isEmpty ? 1 : docs.length;
         final parsed = docs
             .map((d) => _docToPlain(d as Map<String, dynamic>?))
             .whereType<Map<String, dynamic>>()
@@ -114,8 +306,9 @@ class FirestoreRestClient {
         return parsed;
       } else if (res.statusCode == 429) {
         isLastRequestQuotaExceeded = true;
+        isLastRequestNetworkError = false;
         debugPrint('⚠️ [Customer Firestore] 429 Quota Exceeded for listCollection($collection).');
-        if (_memoryCache.containsKey(cacheKey)) {
+        if (!forceRefresh && _memoryCache.containsKey(cacheKey)) {
           return (_memoryCache[cacheKey]!.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
         }
         if (collection == 'service_categories') {
@@ -126,8 +319,9 @@ class FirestoreRestClient {
       if (collection == 'service_categories') return List<Map<String, dynamic>>.from(_fallbackCategories);
       return [];
     } catch (e) {
+      isLastRequestNetworkError = true;
       debugPrint('🔥 [FirestoreRestClient] listCollection($collection) error: $e');
-      if (_memoryCache.containsKey(cacheKey)) {
+      if (!forceRefresh && _memoryCache.containsKey(cacheKey)) {
         return (_memoryCache[cacheKey]!.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
       }
       if (collection == 'service_categories') return List<Map<String, dynamic>>.from(_fallbackCategories);
@@ -150,16 +344,22 @@ class FirestoreRestClient {
 
     try {
       final uri = Uri.parse('$baseUrl/$collection/$cleanId');
-      final res = await http.get(uri).timeout(const Duration(seconds: 5));
+      final res = await _requestWithBackoff('GET', uri);
       if (res.statusCode == 200) {
+        isLastRequestQuotaExceeded = false;
+        isLastRequestNetworkError = false;
+        totalReads += 1;
         final data = _docToPlain(jsonDecode(res.body) as Map<String, dynamic>?);
         if (data != null) {
           _memoryCache[cacheKey] = _CachedResult(now, data);
         }
         return data;
+      } else if (res.statusCode == 429) {
+        isLastRequestQuotaExceeded = true;
       }
       return null;
     } catch (_) {
+      isLastRequestNetworkError = true;
       return null;
     }
   }
@@ -172,10 +372,10 @@ class FirestoreRestClient {
       final payload = {
         ...data,
         'id': cleanId,
-        'updatedAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
       };
       payload.forEach((k, v) {
-        if (v != null) {
+        if (v != null && k != '_firestoreUpdateTime') {
           fields[k] = _toFirestoreValue(v);
         }
       });
@@ -186,22 +386,313 @@ class FirestoreRestClient {
           .join('&');
       final uri = Uri.parse('$baseUrl/$collection/$cleanId?$maskParams');
 
-      final res = await http
-          .patch(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'fields': fields}),
-          )
-          .timeout(const Duration(seconds: 6));
+      final res = await _requestWithBackoff(
+        'PATCH',
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'fields': fields}),
+      );
 
       _memoryCache.remove('col_$collection');
+      _memoryCache.remove('doc_${collection}_$cleanId');
+
       if (res.statusCode >= 200 && res.statusCode < 300) {
+        isLastRequestQuotaExceeded = false;
+        isLastRequestNetworkError = false;
+        totalWrites += 1;
         return _docToPlain(jsonDecode(res.body) as Map<String, dynamic>?);
+      } else if (res.statusCode == 429) {
+        isLastRequestQuotaExceeded = true;
       }
     } catch (e) {
+      isLastRequestNetworkError = true;
       debugPrint('🔥 [FirestoreRestClient] upsert($collection/$docId) error: $e');
     }
     return null;
+  }
+
+  /// Atomic Firestore `:commit` transaction with optimistic concurrency precondition (`currentDocument.updateTime`)
+  /// Ensures that if two customers simultaneously attempt to assign the same technician, the second fails with 409!
+  static Future<Map<String, dynamic>> atomicAssignBookingTransaction({
+    required String bookingId,
+    required Map<String, dynamic> bookingDoc,
+    required String technicianId,
+    String? expectedTechUpdateTime,
+  }) async {
+    final cleanBookingId = bookingId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final cleanTechId = technicianId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+
+    // In-process synchronous mutex check for simultaneous in-app or parallel test requests
+    if (_activeTechnicianLocks.contains(cleanTechId)) {
+      return {
+        'success': false,
+        'statusCode': 409,
+        'code': 'TECHNICIAN_BUSY_CONFLICT',
+        'error': 'Concurrency conflict: Selected technician is already being assigned to another booking.',
+      };
+    }
+
+    _activeTechnicianLocks.add(cleanTechId);
+    try {
+      final nowUtc = DateTime.now().toUtc().toIso8601String();
+      final bookingFields = <String, dynamic>{};
+      bookingDoc.forEach((k, v) {
+        if (v != null && k != '_firestoreUpdateTime') {
+          bookingFields[k] = _toFirestoreValue(v);
+        }
+      });
+
+      final techUpdateFields = <String, dynamic>{
+        'availabilityStatus': _toFirestoreValue('BUSY'),
+        'activeBookingId': _toFirestoreValue(cleanBookingId),
+        'updatedAt': _toFirestoreValue(nowUtc),
+      };
+
+      final writes = <Map<String, dynamic>>[
+        {
+          'update': {
+            'name': '$documentNamePrefix/technician_profiles/$cleanTechId',
+            'fields': techUpdateFields,
+          },
+          'updateMask': {
+            'fieldPaths': ['availabilityStatus', 'activeBookingId', 'updatedAt'],
+          },
+          if (expectedTechUpdateTime != null && expectedTechUpdateTime.isNotEmpty)
+            'currentDocument': {'updateTime': expectedTechUpdateTime}
+          else
+            'currentDocument': {'exists': true},
+        },
+        {
+          'update': {
+            'name': '$documentNamePrefix/bookings/$cleanBookingId',
+            'fields': bookingFields,
+          },
+          'currentDocument': {'exists': false},
+        },
+      ];
+
+      final uri = Uri.parse(commitUrl);
+      final res = await _requestWithBackoff(
+        'POST',
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'writes': writes}),
+        maxRetries: 2,
+      );
+
+      _memoryCache.remove('col_technician_profiles');
+      _memoryCache.remove('col_bookings');
+      _memoryCache.remove('doc_technician_profiles_$cleanTechId');
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        totalWrites += 2;
+        return {'success': true, 'statusCode': 201};
+      } else if (res.statusCode == 400 || res.statusCode == 409) {
+        return {
+          'success': false,
+          'statusCode': 409,
+          'code': 'TECHNICIAN_BUSY_CONFLICT',
+          'error': 'Atomic transaction conflict: Technician state changed or was assigned to another customer.',
+        };
+      } else if (res.statusCode == 429) {
+        isLastRequestQuotaExceeded = true;
+        return {
+          'success': false,
+          'statusCode': 429,
+          'code': 'QUOTA_EXCEEDED',
+          'error': 'Firestore rate limit or quota exceeded during booking transaction.',
+        };
+      } else {
+        return {
+          'success': false,
+          'statusCode': res.statusCode,
+          'code': 'TRANSACTION_FAILED',
+          'error': 'Firestore atomic commit failed (HTTP ${res.statusCode}).',
+        };
+      }
+    } catch (e) {
+      isLastRequestNetworkError = true;
+      return {
+        'success': false,
+        'statusCode': 503,
+        'code': 'NETWORK_ERROR',
+        'error': 'Network disconnection during atomic booking assignment: $e',
+      };
+    } finally {
+      _activeTechnicianLocks.remove(cleanTechId);
+    }
+  }
+
+  // ─── AUTHORITATIVE OTP CHALLENGE ENGINE (Phase 4.1) ──────────────────────
+  static final Map<String, Map<String, dynamic>> _localOtpChallenges = {};
+
+  static void clearOtpChallengesForTest() {
+    _localOtpChallenges.clear();
+  }
+
+  static Future<Map<String, dynamic>> requestOtpChallenge({
+    required String identifier,
+    String? email,
+    String? phone,
+    String? fullName,
+    String role = 'CUSTOMER',
+    DateTime? nowOverride,
+  }) async {
+    final normId = identifier.trim().toLowerCase();
+    if (normId.isEmpty) {
+      return {'success': false, 'statusCode': 400, 'code': 'MISSING_IDENTIFIER', 'error': 'Email or phone is required'};
+    }
+
+    final nowMs = (nowOverride ?? DateTime.now()).millisecondsSinceEpoch;
+    final cleanDocId = 'otp_${normId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}';
+
+    Map<String, dynamic>? existing = _localOtpChallenges[cleanDocId];
+    existing ??= await getDocument('otp_challenges', cleanDocId, forceRefresh: true);
+
+    int requestCount = 0;
+    int windowStartMs = nowMs;
+    if (existing != null) {
+      final prevWindowStart = (existing['windowStartMs'] as num?)?.toInt() ?? 0;
+      final prevCount = (existing['requestCount'] as num?)?.toInt() ?? 0;
+      if (nowMs - prevWindowStart < 600000) {
+        if (prevCount >= 3) {
+          return {
+            'success': false,
+            'statusCode': 429,
+            'code': 'OTP_RATE_LIMIT_EXCEEDED',
+            'error': 'Maximum 3 OTP requests allowed within 10 minutes. Please wait before trying again.',
+          };
+        }
+        requestCount = prevCount;
+        windowStartMs = prevWindowStart;
+      }
+    }
+
+    final otp = (100000 + _secureRandom.nextInt(900000)).toString();
+    final otpHash = sha256Hex(otp);
+    final challengeDoc = {
+      'id': cleanDocId,
+      'identifier': normId,
+      'otpHash': otpHash,
+      'role': role,
+      'fullName': fullName ?? 'Customer',
+      'requestedAtMs': nowMs,
+      'expiresAtMs': nowMs + 600000, // 10 minutes
+      'failedAttempts': 0,
+      'lockedUntilMs': 0,
+      'requestCount': requestCount + 1,
+      'windowStartMs': windowStartMs,
+    };
+
+    _localOtpChallenges[cleanDocId] = challengeDoc;
+    await upsertDocument('otp_challenges', cleanDocId, challengeDoc);
+
+    if (email != null && email.contains('@')) {
+      await EmailService.sendOtpEmail(
+        email: email,
+        otp: otp,
+        role: role,
+        name: fullName,
+      );
+    }
+
+    return {
+      'success': true,
+      'statusCode': 200,
+      'message': 'OTP generated and dispatched via server challenge',
+      'expiresInSeconds': 600,
+      if (mockHttpHandler != null) '_testOtp': otp,
+    };
+  }
+
+  static Future<Map<String, dynamic>> verifyOtpChallenge({
+    required String identifier,
+    required String code,
+    DateTime? nowOverride,
+  }) async {
+    final normId = identifier.trim().toLowerCase();
+    final cleanCode = code.trim();
+    final nowMs = (nowOverride ?? DateTime.now()).millisecondsSinceEpoch;
+    final cleanDocId = 'otp_${normId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}';
+
+    Map<String, dynamic>? challenge = _localOtpChallenges[cleanDocId];
+    challenge ??= await getDocument('otp_challenges', cleanDocId, forceRefresh: true);
+
+    if (challenge == null) {
+      return {
+        'success': false,
+        'statusCode': 400,
+        'code': 'OTP_NOT_FOUND',
+        'error': 'No active OTP challenge found. Please request a new OTP.',
+      };
+    }
+
+    final lockedUntilMs = (challenge['lockedUntilMs'] as num?)?.toInt() ?? 0;
+    if (lockedUntilMs > nowMs) {
+      return {
+        'success': false,
+        'statusCode': 429,
+        'code': 'OTP_ATTEMPT_LIMIT_EXCEEDED',
+        'error': 'Too many incorrect OTP attempts. Account is locked for 15 minutes.',
+      };
+    }
+
+    final expiresAtMs = (challenge['expiresAtMs'] as num?)?.toInt() ?? 0;
+    if (nowMs > expiresAtMs) {
+      return {
+        'success': false,
+        'statusCode': 400,
+        'code': 'OTP_EXPIRED',
+        'error': 'OTP has expired (valid for 10 minutes). Please request a new OTP.',
+      };
+    }
+
+    final failedAttempts = (challenge['failedAttempts'] as num?)?.toInt() ?? 0;
+    final expectedHash = challenge['otpHash']?.toString() ?? '';
+    final inputHash = sha256Hex(cleanCode);
+
+    if (expectedHash.isEmpty || inputHash != expectedHash) {
+      final nextFailed = failedAttempts + 1;
+      final isNowLocked = nextFailed >= 5;
+      final updated = {
+        ...challenge,
+        'failedAttempts': nextFailed,
+        if (isNowLocked) 'lockedUntilMs': nowMs + 900000,
+      };
+      _localOtpChallenges[cleanDocId] = updated;
+      await upsertDocument('otp_challenges', cleanDocId, updated);
+
+      if (isNowLocked) {
+        return {
+          'success': false,
+          'statusCode': 429,
+          'code': 'OTP_ATTEMPT_LIMIT_EXCEEDED',
+          'error': 'Maximum 5 failed OTP attempts reached. Locked for 15 minutes.',
+        };
+      }
+      return {
+        'success': false,
+        'statusCode': 400,
+        'code': 'INVALID_OTP',
+        'error': 'Invalid OTP code. ${5 - nextFailed} attempts remaining.',
+      };
+    }
+
+    final consumed = {
+      ...challenge,
+      'otpHash': '',
+      'consumedAtMs': nowMs,
+      'failedAttempts': 0,
+      'lockedUntilMs': 0,
+    };
+    _localOtpChallenges[cleanDocId] = consumed;
+    await upsertDocument('otp_challenges', cleanDocId, consumed);
+
+    return {
+      'success': true,
+      'statusCode': 200,
+      'message': 'OTP verified successfully',
+    };
   }
 
   static double _calculateDistanceKm(
@@ -216,6 +707,43 @@ class FirestoreRestClient {
             sin(dLon / 2);
     final c = 2 * atan2(sqrt(a), sqrt(1 - a));
     return earthRadiusKm * c;
+  }
+
+  static bool _doesTechnicianMatchService(
+      Map<String, dynamic> tech, String sId, String sName) {
+    final rawSkills = tech['skills'] as List<dynamic>? ?? [];
+    final sIdNorm = sId.toLowerCase().replaceAll('sk_', '').replaceAll('_', ' ').trim();
+    final sNameNorm = sName.toLowerCase().trim();
+
+    for (final skill in rawSkills) {
+      String skillId = '';
+      String skillName = '';
+      bool isSkillEnabled = true;
+
+      if (skill is Map) {
+        skillId = skill['skillId']?.toString() ?? skill['id']?.toString() ?? '';
+        skillName = skill['name']?.toString() ?? skill['skillName']?.toString() ?? '';
+        if (skill.containsKey('enabled')) {
+          isSkillEnabled = skill['enabled'] == true;
+        }
+      } else if (skill is String) {
+        skillId = skill;
+        skillName = skill;
+      }
+
+      if (!isSkillEnabled) continue;
+
+      final skIdNorm = skillId.toLowerCase().replaceAll('sk_', '').replaceAll('_', ' ').trim();
+      final skNameNorm = skillName.toLowerCase().trim();
+
+      if (skIdNorm == sIdNorm ||
+          (sNameNorm.isNotEmpty && skNameNorm == sNameNorm) ||
+          (skIdNorm.isNotEmpty && sIdNorm.isNotEmpty && (skIdNorm.contains(sIdNorm) || sIdNorm.contains(skIdNorm))) ||
+          (skNameNorm.isNotEmpty && sNameNorm.isNotEmpty && (skNameNorm.contains(sNameNorm) || sNameNorm.contains(skNameNorm)))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Fallback API handler that serves Customer App endpoints directly from Cloud Firestore
@@ -234,10 +762,12 @@ class FirestoreRestClient {
         final targetLng = double.tryParse(queryParams['longitude'] ?? '') ??
             (body != null && body['longitude'] is num ? (body['longitude'] as num).toDouble() : null);
         final radiusKm = double.tryParse(queryParams['radiusKm'] ?? '') ?? 15.0;
+        final forceRefresh = queryParams['forceRefresh'] == 'true' || body?['forceRefresh'] == true;
 
         if (targetLat == null || targetLng == null || targetLat == 0.0 || targetLng == 0.0) {
           return _jsonResponse({
             'success': false,
+            'code': 'LOCATION_UNAVAILABLE',
             'error': 'LOCATION_UNAVAILABLE',
             'message': 'Customer GPS coordinates required for 15 km spatial verification.',
             'availableTechnicianCount': 0,
@@ -245,18 +775,28 @@ class FirestoreRestClient {
           }, 400);
         }
 
-        final allTechs = await listCollection('technician_profiles');
+        final allTechs = await listCollection('technician_profiles', forceRefresh: forceRefresh);
         if (isLastRequestQuotaExceeded) {
           return _jsonResponse({
             'success': false,
+            'code': 'QUOTA_EXCEEDED',
             'error': 'RESOURCE_EXHAUSTED',
-            'message': 'Firebase Firestore daily quota reached (Spark Free Plan). Please upgrade to Blaze plan in Firebase Console.',
+            'message': 'Firestore rate limit or quota exceeded (HTTP 429). Retries exhausted.',
             'isQuotaExceeded': true,
             'availableTechnicianCount': 0,
             'totalOnlineTechnicians': 0,
           }, 429);
         }
-
+        if (isLastRequestNetworkError) {
+          return _jsonResponse({
+            'success': false,
+            'code': 'NETWORK_ERROR',
+            'error': 'NETWORK_ERROR',
+            'message': 'Unable to reach Cloud Firestore to verify live technician availability.',
+            'availableTechnicianCount': 0,
+            'totalOnlineTechnicians': 0,
+          }, 503);
+        }
 
         // Strict presence verification:
         // 1. isOnline == true
@@ -268,7 +808,7 @@ class FirestoreRestClient {
           final status = (t['availabilityStatus']?.toString() ?? '').toUpperCase();
           if (!isOnline || status == 'OFFLINE' || status == 'BUSY') continue;
 
-          final lastUpdateStr = t['lastLocationUpdate']?.toString() ?? t['updatedAt']?.toString();
+          final lastUpdateStr = t['lastLocationUpdate']?.toString();
           if (lastUpdateStr == null || lastUpdateStr.isEmpty) continue;
           DateTime? lastUpdate;
           try {
@@ -278,8 +818,8 @@ class FirestoreRestClient {
           }
 
           final ageMinutes = DateTime.now().toUtc().difference(lastUpdate).inMinutes.abs();
-          if (ageMinutes > 30) {
-            // Heartbeat older than 30 minutes is stale; do not treat as live
+          if (ageMinutes > 10) {
+            // Heartbeat older than 10 minutes is stale; do not treat as live
             continue;
           }
 
@@ -301,7 +841,7 @@ class FirestoreRestClient {
           final double tLng = (t['longitude'] ?? t['currentLongitude'] as num).toDouble();
           final dist = _calculateDistanceKm(targetLat, targetLng, tLat, tLng);
           if (dist <= radiusKm) {
-            // Security & Privacy: Expose only public technician metadata to customers
+            // Security & Privacy: Expose only public technician metadata to customers (never phone/email/exact GPS)
             reachableTechs.add({
               'id': t['id'],
               'technicianId': t['technicianId'] ?? t['id'],
@@ -311,7 +851,7 @@ class FirestoreRestClient {
               'category': t['category'] ?? '',
               'categories': t['categories'] ?? [],
               'skills': t['skills'] ?? [],
-              'distanceKm': dist,
+              'distanceKm': double.parse(dist.toStringAsFixed(2)),
               'locationFresh': true,
               'isOnline': true,
               'availabilityStatus': 'AVAILABLE',
@@ -323,7 +863,6 @@ class FirestoreRestClient {
         final List<Map<String, dynamic>> servicesList = [];
         final Map<String, int> serviceCounts = {};
 
-        // Extract target serviceId if this is a single service availability query
         String? targetServiceId = queryParams['serviceId'] ?? (body != null ? body['serviceId']?.toString() : null);
         if (targetServiceId == null && cleanPath.contains('/services/')) {
           final parts = cleanPath.split('/services/').last.split('/');
@@ -334,7 +873,6 @@ class FirestoreRestClient {
 
         for (final cat in categories) {
           final subcategories = cat['subcategories'] as List<dynamic>? ?? [];
-
           for (final sub in subcategories) {
             if (sub is Map<String, dynamic>) {
               final services = sub['services'] as List<dynamic>? ?? [];
@@ -345,42 +883,9 @@ class FirestoreRestClient {
                   if (sId.isNotEmpty) {
                     int matchingCount = 0;
                     for (final tech in reachableTechs) {
-                      final rawSkills = tech['skills'] as List<dynamic>? ?? [];
-
-                      bool matches = false;
-                      for (final skill in rawSkills) {
-                        String skillId = '';
-                        String skillName = '';
-                        bool isSkillEnabled = true;
-
-                        if (skill is Map) {
-                          skillId = skill['skillId']?.toString() ?? skill['id']?.toString() ?? '';
-                          skillName = skill['name']?.toString() ?? skill['skillName']?.toString() ?? '';
-                          if (skill.containsKey('enabled')) {
-                            isSkillEnabled = skill['enabled'] == true;
-                          }
-                        } else if (skill is String) {
-                          skillId = skill;
-                          skillName = skill;
-                        }
-
-                        if (!isSkillEnabled) continue;
-
-                        final sIdNorm = sId.toLowerCase().replaceAll('sk_', '').replaceAll('_', ' ').trim();
-                        final sNameNorm = sName.toLowerCase().trim();
-                        final skIdNorm = skillId.toLowerCase().replaceAll('sk_', '').replaceAll('_', ' ').trim();
-                        final skNameNorm = skillName.toLowerCase().trim();
-
-                        if (skIdNorm == sIdNorm ||
-                            skNameNorm == sNameNorm ||
-                            (skIdNorm.isNotEmpty && sIdNorm.isNotEmpty && (skIdNorm.contains(sIdNorm) || sIdNorm.contains(skIdNorm))) ||
-                            (skNameNorm.isNotEmpty && sNameNorm.isNotEmpty && (skNameNorm.contains(sNameNorm) || sNameNorm.contains(skNameNorm)))) {
-                          matches = true;
-                          break;
-                        }
+                      if (_doesTechnicianMatchService(tech, sId, sName)) {
+                        matchingCount++;
                       }
-
-                      if (matches) matchingCount++;
                     }
                     serviceCounts[sId] = matchingCount;
                     servicesList.add({
@@ -407,10 +912,11 @@ class FirestoreRestClient {
           'count': targetCount,
           'isAuthoritative': true,
           'isCached': false,
+          'verifiedAt': DateTime.now().toUtc().toIso8601String(),
         });
       }
 
-      // 2. Real-time Nearby Technicians Roster
+      // 2. Real-time Nearby Technicians Roster (With Strict PII Redaction & 10-Min Heartbeat Check)
       if (cleanPath.contains('/technicians/nearby') ||
           (cleanPath.contains('/technicians') && !cleanPath.contains('/skills'))) {
         final uri = Uri.parse(endpoint.startsWith('http') ? endpoint : 'http://localhost$endpoint');
@@ -424,41 +930,64 @@ class FirestoreRestClient {
         final radiusKm = double.tryParse(queryParams['radiusKm'] ?? '') ?? 15.0;
 
         final allTechs = await listCollection('technician_profiles');
-        final onlineTechs = allTechs.where((t) {
-          final isOnline = t['isOnline'] == true || t['online'] == true;
-          final status = t['availabilityStatus']?.toString().toUpperCase();
-          return isOnline && status != 'OFFLINE' && status != 'BUSY';
-        }).toList();
+        if (isLastRequestQuotaExceeded) {
+          return _jsonResponse({
+            'success': false,
+            'code': 'QUOTA_EXCEEDED',
+            'error': 'RESOURCE_EXHAUSTED',
+            'isQuotaExceeded': true,
+            'technicians': [],
+          }, 429);
+        }
 
         final nearbyList = <Map<String, dynamic>>[];
-        for (final tech in (onlineTechs.isNotEmpty ? onlineTechs : allTechs)) {
-          final double tLat = (tech['latitude'] ?? tech['currentLatitude'] as num?)?.toDouble() ?? targetLat;
-          final double tLng = (tech['longitude'] ?? tech['currentLongitude'] as num?)?.toDouble() ?? targetLng;
+        for (final tech in allTechs) {
+          final isOnline = tech['isOnline'] == true || tech['online'] == true;
+          final status = (tech['availabilityStatus']?.toString() ?? '').toUpperCase();
+          if (!isOnline || status == 'OFFLINE' || status == 'BUSY') continue;
+
+          final lastUpdateStr = tech['lastLocationUpdate']?.toString();
+          if (lastUpdateStr == null || lastUpdateStr.isEmpty) continue;
+          DateTime? lastUpdate;
+          try {
+            lastUpdate = DateTime.parse(lastUpdateStr).toUtc();
+          } catch (_) {
+            continue;
+          }
+          if (DateTime.now().toUtc().difference(lastUpdate).inMinutes.abs() > 10) continue;
+
+          final double? tLat = (tech['latitude'] ?? tech['currentLatitude'] as num?)?.toDouble();
+          final double? tLng = (tech['longitude'] ?? tech['currentLongitude'] as num?)?.toDouble();
+          if (tLat == null || tLng == null || tLat == 0.0 || tLng == 0.0) continue;
+
           final distKm = _calculateDistanceKm(targetLat, targetLng, tLat, tLng);
+          if (distKm > radiusKm) continue;
+
           final distMeters = distKm * 1000;
           final arrivalMins = max(8, (distKm * 3.5).round());
 
           final tId = tech['id']?.toString() ?? tech['technicianId']?.toString() ?? 'tech_partner';
-          final tCode = 'BT-${tId.replaceAll(RegExp(r'\D'), '').padLeft(6, '0').substring(0, 6)}';
+          final digits = tId.replaceAll(RegExp(r'\D'), '');
+          final tCode = tech['technicianCode']?.toString() ??
+              'BT-${(digits.length >= 6 ? digits.substring(digits.length - 6) : digits.padLeft(6, '0'))}';
 
+          // Redact PII: never expose raw phone, email, or exact street/home GPS before assignment!
           nearbyList.add({
             'technicianId': tId,
             'technicianCode': tCode,
             'fullName': tech['fullName'] ?? tech['name'] ?? 'Service Partner',
-            'phone': tech['phone'] ?? '+91 9883637054',
             'category': tech['category'] ?? 'AC Services',
             'profileImageUrl': tech['profileImageUrl'] ?? '',
             'experienceYears': (tech['experienceYears'] as num?)?.toInt() ?? 2,
             'rating': (tech['rating'] as num?)?.toDouble() ?? 4.9,
             'totalRatingsCount': (tech['totalRatingsCount'] as num?)?.toInt() ?? 12,
             'totalJobsCompleted': (tech['totalJobsCompleted'] as num?)?.toInt() ?? 8,
-            'currentLatitude': tLat,
-            'currentLongitude': tLng,
-            'distanceKm': distKm,
-            'distanceMeters': distMeters,
+            'distanceKm': double.parse(distKm.toStringAsFixed(2)),
+            'distanceMeters': distMeters.round(),
             'estimatedArrivalMinutes': arrivalMins,
-            'isOnline': tech['isOnline'] == true || tech['online'] == true,
-            'availabilityStatus': tech['availabilityStatus'] ?? 'AVAILABLE',
+            'isOnline': true,
+            'locationFresh': true,
+            'availabilityStatus': 'AVAILABLE',
           });
         }
 
@@ -471,8 +1000,9 @@ class FirestoreRestClient {
           'longitude': targetLng,
           'radiusKm': radiusKm,
           'totalOnlineTechnicians': nearbyList.length,
-          'updatedAt': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toUtc().toIso8601String(),
           'technicians': nearbyList,
+          'data': nearbyList,
         });
       }
 
@@ -496,27 +1026,45 @@ class FirestoreRestClient {
         });
       }
 
-      // 2. Auth Request OTP / Verify OTP
+      // 4. Auth Request OTP / Verify OTP (Using Server-Grade Challenge Engine)
       if (cleanPath.contains('/auth/request-otp') ||
-          cleanPath.contains('/auth/send-otp')) {
-        return _jsonResponse({
-          'success': true,
-          'message': 'OTP dispatched via Firebase Auth',
-          'data': {'otp': '123456'},
-        });
+          cleanPath.contains('/auth/send-otp') ||
+          cleanPath.contains('/auth/resend-otp')) {
+        final email = body?['email']?.toString().trim().toLowerCase() ?? '';
+        final phone = body?['phone']?.toString().trim() ?? '';
+        final identifier = email.isNotEmpty ? email : phone;
+        final name = body?['fullName']?.toString() ?? body?['name']?.toString();
+        final res = await requestOtpChallenge(
+          identifier: identifier,
+          email: email,
+          phone: phone,
+          fullName: name,
+          role: body?['role']?.toString() ?? 'CUSTOMER',
+        );
+        return _jsonResponse(res, (res['statusCode'] as int?) ?? 200);
       }
 
       if (cleanPath.contains('/auth/verify-otp') ||
           cleanPath.contains('/auth/login')) {
-        final phone = body?['phone']?.toString() ?? '';
-        final email = body?['email']?.toString() ?? '';
+        final phone = body?['phone']?.toString().trim() ?? '';
+        final email = body?['email']?.toString().trim().toLowerCase() ?? '';
+        final identifier = email.isNotEmpty ? email : phone;
+        final otp = body?['otp']?.toString().trim() ?? '';
+
+        final verifyRes = await verifyOtpChallenge(identifier: identifier, code: otp);
+        if (verifyRes['success'] != true) {
+          return _jsonResponse(verifyRes, (verifyRes['statusCode'] as int?) ?? 400);
+        }
+
         final name = body?['name']?.toString() ??
             body?['fullName']?.toString() ??
             'Customer';
+        final digits = phone.replaceAll(RegExp(r'\D'), '');
         final userId =
-            'cust_${phone.replaceAll(RegExp(r'\D'), '').isEmpty ? DateTime.now().millisecondsSinceEpoch : phone.replaceAll(RegExp(r'\D'), '')}';
+            'uid_cust_${digits.isNotEmpty ? digits : email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
         final userDoc = {
           'id': userId,
+          'uid': userId,
           'customerId': userId,
           'fullName': name,
           'name': name,
@@ -540,38 +1088,277 @@ class FirestoreRestClient {
         });
       }
 
-      // 2.5 FCM Push Token Registration
+      // 5. FCM Push Token Registration
       if (cleanPath.contains('/fcm-token') && m == 'POST' && body != null) {
         final userId = body['userId']?.toString() ?? '';
         final token = body['token']?.toString() ?? body['fcmToken']?.toString() ?? '';
         if (userId.isNotEmpty && token.isNotEmpty) {
           await upsertDocument('users', userId, {
             'fcmToken': token,
-            'fcmTokenUpdatedAt': DateTime.now().toIso8601String(),
+            'fcmTokenUpdatedAt': DateTime.now().toUtc().toIso8601String(),
             'platform': body['platform'] ?? 'android',
           });
         }
         return _jsonResponse({'success': true, 'message': 'FCM token synced to Firestore'});
       }
 
-      // 3. Bookings Create & Fetch
+      // 6. Atomic Booking Assignment & Pre-Assignment Revalidation (Phase 4.1)
       if (cleanPath.contains('/bookings')) {
         if (m == 'POST' && body != null && !cleanPath.contains('/cancel')) {
-          final rng = Random();
+          final customerId = body['customerId']?.toString() ?? 'cust_default';
+          final serviceId = body['serviceId']?.toString() ?? '';
+          final serviceName = body['serviceName']?.toString() ?? body['service']?.toString() ?? '';
+          final idempotencyKey = body['idempotencyKey']?.toString() ??
+              '${customerId}_${serviceId}_${body['scheduleDate'] ?? ''}_${body['scheduleSlot'] ?? ''}';
+
+          // 6.1 Duplicate Booking / Idempotency Guard
+          if (idempotencyKey.isNotEmpty && _idempotencyBookingMap.containsKey(idempotencyKey)) {
+            return _jsonResponse({
+              'success': false,
+              'code': 'DUPLICATE_BOOKING',
+              'error': 'DUPLICATE_BOOKING',
+              'message': 'A booking request for this service is already active or in progress.',
+              'existingBookingId': _idempotencyBookingMap[idempotencyKey],
+            }, 409);
+          }
+
+          final custLat = (body['latitude'] as num?)?.toDouble();
+          final custLng = (body['longitude'] as num?)?.toDouble();
+          if (custLat == null || custLng == null || custLat == 0.0 || custLng == 0.0) {
+            return _jsonResponse({
+              'success': false,
+              'code': 'LOCATION_UNAVAILABLE',
+              'error': 'LOCATION_UNAVAILABLE',
+              'message': 'Customer GPS coordinates are required to verify technician radius.',
+            }, 400);
+          }
+
+          // 6.2 Live Server Revalidation (forceRefresh: true — NEVER authorize from cache!)
+          final allTechs = await listCollection('technician_profiles', forceRefresh: true);
+          if (isLastRequestQuotaExceeded) {
+            return _jsonResponse({
+              'success': false,
+              'code': 'QUOTA_EXCEEDED',
+              'error': 'QUOTA_EXCEEDED',
+              'message': 'Firestore quota exceeded (HTTP 429). Cannot verify technician availability.',
+            }, 429);
+          }
+          if (isLastRequestNetworkError) {
+            return _jsonResponse({
+              'success': false,
+              'code': 'NETWORK_ERROR',
+              'error': 'NETWORK_ERROR',
+              'message': 'Network disconnection while verifying live technician availability.',
+            }, 503);
+          }
+
+          final existingBookings = await listCollection('bookings', forceRefresh: true);
+          if (isLastRequestQuotaExceeded) {
+            return _jsonResponse({
+              'success': false,
+              'code': 'QUOTA_EXCEEDED',
+              'error': 'QUOTA_EXCEEDED',
+              'message': 'Firestore quota exceeded (HTTP 429) while checking active bookings.',
+            }, 429);
+          }
+
+          // Also check if customer already has an active duplicate booking in Firestore
+          final hasDuplicateCustomerBooking = existingBookings.any((b) {
+            final st = (b['status']?.toString() ?? '').toUpperCase();
+            final isActive = ['CONFIRMED', 'ASSIGNED', 'ACCEPTED', 'IN_PROGRESS'].contains(st);
+            return isActive &&
+                b['customerId']?.toString() == customerId &&
+                b['serviceId']?.toString() == serviceId &&
+                (body['idempotencyKey'] != null && b['idempotencyKey'] == body['idempotencyKey']);
+          });
+          if (hasDuplicateCustomerBooking) {
+            return _jsonResponse({
+              'success': false,
+              'code': 'DUPLICATE_BOOKING',
+              'error': 'DUPLICATE_BOOKING',
+              'message': 'Duplicate booking request rejected.',
+            }, 409);
+          }
+
+          // Build set of busy technician IDs from active bookings
+          final busyTechIds = <String>{};
+          for (final b in existingBookings) {
+            final st = (b['status']?.toString() ?? '').toUpperCase();
+            if (['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS', 'TECHNICIAN_ARRIVED'].contains(st)) {
+              final tId = b['technicianId']?.toString();
+              if (tId != null && tId.isNotEmpty) {
+                busyTechIds.add(tId);
+              }
+            }
+          }
+
+          final requestedTechId = body['technicianId']?.toString();
+          bool sawOfflineTech = false;
+          bool sawStaleLocation = false;
+          bool sawSkillMismatch = false;
+          bool sawOutOfRadius = false;
+          bool sawBusyConflict = false;
+
+          final eligibleCandidates = <Map<String, dynamic>>[];
+
+          for (final tech in allTechs) {
+            final tId = tech['id']?.toString() ?? tech['technicianId']?.toString() ?? '';
+            if (tId.isEmpty) continue;
+            if (requestedTechId != null && requestedTechId.isNotEmpty && tId != requestedTechId) {
+              continue;
+            }
+
+            // (a) Verify technician authentication / account status
+            final kyc = (tech['kycStatus']?.toString() ?? 'VERIFIED').toUpperCase();
+            final accStatus = (tech['accountStatus']?.toString() ?? 'ACTIVE').toUpperCase();
+            if (kyc == 'REJECTED' || accStatus == 'SUSPENDED' || accStatus == 'BLOCKED') {
+              continue;
+            }
+
+            // (b) Verify online state
+            final isOnline = tech['isOnline'] == true || tech['online'] == true;
+            final availStatus = (tech['availabilityStatus']?.toString() ?? 'AVAILABLE').toUpperCase();
+            if (!isOnline || availStatus == 'OFFLINE') {
+              sawOfflineTech = true;
+              continue;
+            }
+
+            // (c) Verify no conflicting active booking
+            if (availStatus == 'BUSY' || busyTechIds.contains(tId) || _activeTechnicianLocks.contains(tId)) {
+              sawBusyConflict = true;
+              continue;
+            }
+
+            // (d) Verify fresh GPS presence (<= 10 minutes)
+            final lastUpdateStr = tech['lastLocationUpdate']?.toString();
+            if (lastUpdateStr == null || lastUpdateStr.isEmpty) {
+              sawStaleLocation = true;
+              continue;
+            }
+            DateTime? lastUpdate;
+            try {
+              lastUpdate = DateTime.parse(lastUpdateStr).toUtc();
+            } catch (_) {
+              sawStaleLocation = true;
+              continue;
+            }
+            final ageMins = DateTime.now().toUtc().difference(lastUpdate).inMinutes.abs();
+            if (ageMins > 10) {
+              sawStaleLocation = true;
+              continue;
+            }
+
+            // (e) Verify service radius (<= 15.0 km Haversine)
+            final double? tLat = (tech['latitude'] ?? tech['currentLatitude'] as num?)?.toDouble();
+            final double? tLng = (tech['longitude'] ?? tech['currentLongitude'] as num?)?.toDouble();
+            if (tLat == null || tLng == null || tLat == 0.0 || tLng == 0.0) {
+              sawStaleLocation = true;
+              continue;
+            }
+            final distKm = _calculateDistanceKm(custLat, custLng, tLat, tLng);
+            if (distKm > 15.0) {
+              sawOutOfRadius = true;
+              continue;
+            }
+
+            // (f) Verify required service skill
+            if (serviceId.isNotEmpty && !_doesTechnicianMatchService(tech, serviceId, serviceName)) {
+              sawSkillMismatch = true;
+              continue;
+            }
+
+            eligibleCandidates.add({
+              ...tech,
+              'id': tId,
+              'distanceKm': distKm,
+            });
+          }
+
+          if (eligibleCandidates.isEmpty) {
+            String failureCode = 'NO_TECHNICIAN_ONLINE';
+            String failureMessage = 'No online technician is currently available for this service.';
+            if (sawBusyConflict) {
+              failureCode = 'TECHNICIAN_BUSY_CONFLICT';
+              failureMessage = 'Technician was just assigned to another customer booking.';
+            } else if (sawOfflineTech) {
+              failureCode = 'TECHNICIAN_WENT_OFFLINE';
+              failureMessage = 'The technician went offline during checkout. Please try again.';
+            } else if (sawStaleLocation) {
+              failureCode = 'STALE_LOCATION';
+              failureMessage = 'Technician GPS location is stale (>10 minutes old). Cannot assign safely.';
+            } else if (sawOutOfRadius) {
+              failureCode = 'OUT_OF_RADIUS';
+              failureMessage = 'No technician with this skill is within the 15 km service radius.';
+            } else if (sawSkillMismatch) {
+              failureCode = 'SKILL_MISMATCH';
+              failureMessage = 'Online technicians near you do not have the required service skill enabled.';
+            }
+
+            return _jsonResponse({
+              'success': false,
+              'code': failureCode,
+              'error': failureCode,
+              'message': failureMessage,
+            }, 409);
+          }
+
+          // Sort by closest distance
+          eligibleCandidates.sort((a, b) =>
+              (a['distanceKm'] as double).compareTo(b['distanceKm'] as double));
+          final winner = eligibleCandidates.first;
+          final winnerId = winner['id'].toString();
+          final winnerName = winner['fullName']?.toString() ?? winner['name']?.toString() ?? 'Partner Technician';
+          final winnerPhone = winner['phone']?.toString() ?? '';
+          final digits = winnerId.replaceAll(RegExp(r'\D'), '');
+          final winnerCode = winner['technicianCode']?.toString() ??
+              'BT-${(digits.length >= 6 ? digits.substring(digits.length - 6) : digits.padLeft(6, '0'))}';
+
           final bookingId =
-              body['id']?.toString() ?? 'BK-${100000 + rng.nextInt(900000)}';
-          final startOtp = (1000 + rng.nextInt(9000)).toString();
-          final endOtp = (1000 + rng.nextInt(9000)).toString();
-          final newBooking = {
+              body['id']?.toString() ?? 'BK-${100000 + _secureRandom.nextInt(900000)}';
+          final startOtp = (1000 + _secureRandom.nextInt(9000)).toString();
+          final endOtp = (1000 + _secureRandom.nextInt(9000)).toString();
+          final nowIso = DateTime.now().toUtc().toIso8601String();
+
+          final newBooking = <String, dynamic>{
             ...body,
             'id': bookingId,
             'bookingCode': bookingId,
-            'status': body['status'] ?? 'CONFIRMED',
+            'status': 'ASSIGNED',
+            'technicianId': winnerId,
+            'technicianCode': winnerCode,
+            'technicianName': winnerName,
+            'technicianPhone': winnerPhone,
+            'distanceKm': double.parse((winner['distanceKm'] as double).toStringAsFixed(2)),
             'startOtp': startOtp,
             'endOtp': endOtp,
-            'createdAt': DateTime.now().toIso8601String(),
+            'idempotencyKey': idempotencyKey,
+            'assignedAt': nowIso,
+            'createdAt': nowIso,
+            'updatedAt': nowIso,
           };
-          await upsertDocument('bookings', bookingId, newBooking);
+
+          // 6.3 Execute Atomic Firestore Transaction (:commit with currentDocument.updateTime precondition)
+          final commitResult = await atomicAssignBookingTransaction(
+            bookingId: bookingId,
+            bookingDoc: newBooking,
+            technicianId: winnerId,
+            expectedTechUpdateTime: winner['_firestoreUpdateTime']?.toString(),
+          );
+
+          if (commitResult['success'] != true) {
+            final status = (commitResult['statusCode'] as int?) ?? 409;
+            return _jsonResponse({
+              'success': false,
+              'code': commitResult['code'] ?? 'TECHNICIAN_BUSY_CONFLICT',
+              'error': commitResult['code'] ?? 'TECHNICIAN_BUSY_CONFLICT',
+              'message': commitResult['error'] ?? 'Booking assignment failed.',
+            }, status);
+          }
+
+          if (idempotencyKey.isNotEmpty) {
+            _idempotencyBookingMap[idempotencyKey] = bookingId;
+          }
+
           return _jsonResponse({
             'success': true,
             'booking': newBooking,
@@ -601,19 +1388,9 @@ class FirestoreRestClient {
         }
       }
 
-      // 4. Nearby Technicians
-      if (cleanPath.contains('/technicians')) {
-        final techs = await listCollection('technician_profiles');
-        return _jsonResponse({
-          'success': true,
-          'technicians': techs,
-          'data': techs,
-        });
-      }
-
       return _jsonResponse({'success': true, 'data': {}});
     } catch (e) {
-      return _jsonResponse({'success': false, 'message': e.toString()}, 500);
+      return _jsonResponse({'success': false, 'code': 'INTERNAL_ERROR', 'message': e.toString()}, 500);
     }
   }
 

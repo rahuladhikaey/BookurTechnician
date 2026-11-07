@@ -61,6 +61,11 @@ class AppState {
   final DateTime? lastAvailabilityFetchTime;
   final double? lastAvailabilityLatitude;
   final double? lastAvailabilityLongitude;
+  final bool isAvailabilityCached;
+  final DateTime? availabilityCachedAt;
+  final bool isCategoriesCached;
+  final String? bookingError;
+  final String? bookingErrorCode;
 
   const AppState({
     this.isGuest = true,
@@ -100,6 +105,11 @@ class AppState {
     this.lastAvailabilityFetchTime,
     this.lastAvailabilityLatitude,
     this.lastAvailabilityLongitude,
+    this.isAvailabilityCached = false,
+    this.availabilityCachedAt,
+    this.isCategoriesCached = false,
+    this.bookingError,
+    this.bookingErrorCode,
   });
 
   // Convenience getters
@@ -129,6 +139,10 @@ class AppState {
 
   String getServiceAvailabilityText(String serviceId) {
     final aState = getServiceAvailabilityState(serviceId);
+    if (isAvailabilityCached && aState == ServiceAvailabilityState.available) {
+      final count = getServiceAvailabilityCount(serviceId);
+      return 'Cached ($count online) • Verifying live...';
+    }
     switch (aState) {
       case ServiceAvailabilityState.checkingAvailability:
         return 'Scanning nearby verified technicians...';
@@ -148,6 +162,13 @@ class AppState {
 
   bool isServiceAvailable(String serviceId) {
     return getServiceAvailabilityState(serviceId) == ServiceAvailabilityState.available;
+  }
+
+  /// Cached availability must NEVER be used alone to authorize a booking
+  bool isServiceLiveConfirmedAvailable(String serviceId) {
+    return !isAvailabilityCached &&
+        getServiceAvailabilityState(serviceId) == ServiceAvailabilityState.available &&
+        getServiceAvailabilityCount(serviceId) > 0;
   }
 
   AppState copyWith({
@@ -192,6 +213,12 @@ class AppState {
     DateTime? lastAvailabilityFetchTime,
     double? lastAvailabilityLatitude,
     double? lastAvailabilityLongitude,
+    bool? isAvailabilityCached,
+    DateTime? availabilityCachedAt,
+    bool? isCategoriesCached,
+    String? bookingError,
+    String? bookingErrorCode,
+    bool clearBookingError = false,
   }) {
     return AppState(
       isGuest: isGuest ?? this.isGuest,
@@ -231,6 +258,11 @@ class AppState {
       lastAvailabilityFetchTime: lastAvailabilityFetchTime ?? this.lastAvailabilityFetchTime,
       lastAvailabilityLatitude: lastAvailabilityLatitude ?? this.lastAvailabilityLatitude,
       lastAvailabilityLongitude: lastAvailabilityLongitude ?? this.lastAvailabilityLongitude,
+      isAvailabilityCached: isAvailabilityCached ?? this.isAvailabilityCached,
+      availabilityCachedAt: availabilityCachedAt ?? this.availabilityCachedAt,
+      isCategoriesCached: isCategoriesCached ?? this.isCategoriesCached,
+      bookingError: clearBookingError ? null : (bookingError ?? this.bookingError),
+      bookingErrorCode: clearBookingError ? null : (bookingErrorCode ?? this.bookingErrorCode),
     );
   }
 }
@@ -258,12 +290,85 @@ class BookingNotifier extends StateNotifier<AppState> {
   /// Initialize application session: restore persisted login state & real GPS location
   Future<void> initAppSession() async {
     await restoreSession();
+    await restoreCachedCatalogAndAvailability();
     await _loadLocalBookings();
     loadCatalog();
     loadBanners();
     loadBookingHistory();
     autoAcquireGpsLocation();
     _initSocketListener();
+  }
+
+  /// Restore cached categories and availability from SharedPreferences on app restart,
+  /// explicitly tagging them as cached (`isAvailabilityCached: true`) so they are NEVER
+  /// treated as live server-confirmed availability or used alone to authorize a booking.
+  Future<void> restoreCachedCatalogAndAvailability() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawCats = prefs.getString('bt_cached_categories_v1');
+      List<Category>? restoredCategories;
+      if (rawCats != null && rawCats.isNotEmpty) {
+        final decoded = jsonDecode(rawCats);
+        if (decoded is List) {
+          restoredCategories = decoded
+              .whereType<Map<String, dynamic>>()
+              .map((c) => Category.fromJson(c))
+              .toList();
+        }
+      }
+
+      final rawAvail = prefs.getString('bt_cached_availability_v1');
+      Map<String, int>? restoredCounts;
+      Map<String, ServiceAvailabilityState>? restoredStates;
+      DateTime? cachedAt;
+      if (rawAvail != null && rawAvail.isNotEmpty) {
+        final decoded = jsonDecode(rawAvail);
+        if (decoded is Map<String, dynamic>) {
+          final countsMap = decoded['counts'] as Map<String, dynamic>? ?? {};
+          cachedAt = decoded['cachedAt'] != null
+              ? DateTime.tryParse(decoded['cachedAt'].toString())
+              : null;
+          restoredCounts = {};
+          restoredStates = {};
+          countsMap.forEach((k, v) {
+            final c = (v as num?)?.toInt() ?? 0;
+            restoredCounts![k] = c;
+            restoredStates![k] = c > 0
+                ? ServiceAvailabilityState.available
+                : ServiceAvailabilityState.noTechniciansAvailable;
+          });
+        }
+      }
+
+      if ((restoredCategories != null && restoredCategories.isNotEmpty) ||
+          (restoredCounts != null && restoredCounts.isNotEmpty)) {
+        state = state.copyWith(
+          categories: (restoredCategories != null && restoredCategories.isNotEmpty)
+              ? restoredCategories
+              : state.categories,
+          isCategoriesCached: restoredCategories != null && restoredCategories.isNotEmpty,
+          serviceAvailabilityCounts: restoredCounts ?? state.serviceAvailabilityCounts,
+          serviceAvailabilityStates: restoredStates ?? state.serviceAvailabilityStates,
+          isAvailabilityCached: restoredCounts != null && restoredCounts.isNotEmpty,
+          availabilityCachedAt: cachedAt,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error restoring cached catalog/availability: $e');
+    }
+  }
+
+  Future<void> _persistAvailabilityCache(Map<String, int> counts) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'bt_cached_availability_v1',
+        jsonEncode({
+          'counts': counts,
+          'cachedAt': DateTime.now().toUtc().toIso8601String(),
+        }),
+      );
+    } catch (_) {}
   }
 
   io.Socket? _notificationSocket;
@@ -348,13 +453,15 @@ class BookingNotifier extends StateNotifier<AppState> {
   }
 
   /// Real 15 KM Nearby Technician Spatial Availability API Client
-  Future<void> fetchNearbyAvailability({double? lat, double? lng}) async {
+  Future<void> fetchNearbyAvailability({double? lat, double? lng, bool forceRefresh = false}) async {
     final targetLat = lat ?? state.selectedLatitude ?? 22.5726;
     final targetLng = lng ?? state.selectedLongitude ?? 88.3639;
 
     // ⚡ Quota Protection: Cooldown threshold (15s) prevents rapid consecutive collection scans
     final lastFetch = state.lastAvailabilityFetchTime;
-    if (lastFetch != null &&
+    if (!forceRefresh &&
+        !state.isAvailabilityCached &&
+        lastFetch != null &&
         DateTime.now().difference(lastFetch).inSeconds < 15 &&
         state.lastAvailabilityLatitude == targetLat &&
         state.lastAvailabilityLongitude == targetLng &&
@@ -365,7 +472,8 @@ class BookingNotifier extends StateNotifier<AppState> {
 
     try {
       state = state.copyWith(isAvailabilityLoading: true);
-      final endpoint = '/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15';
+      final forceQuery = forceRefresh ? '&forceRefresh=true' : '';
+      final endpoint = '/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15$forceQuery';
 
       for (final base in _availabilityCandidates) {
         try {
@@ -394,14 +502,18 @@ class BookingNotifier extends StateNotifier<AppState> {
               }
             }
 
+            final now = DateTime.now();
             state = state.copyWith(
               serviceAvailabilityCounts: counts,
               serviceAvailabilityStates: states,
               isAvailabilityLoading: false,
-              lastAvailabilityFetchTime: DateTime.now(),
+              isAvailabilityCached: false,
+              availabilityCachedAt: now,
+              lastAvailabilityFetchTime: now,
               lastAvailabilityLatitude: targetLat,
               lastAvailabilityLongitude: targetLng,
             );
+            await _persistAvailabilityCache(counts);
             debugPrint('📍 [Nearby Availability] Loaded live 15km counts for ${counts.length} services at [$targetLat, $targetLng] via $base');
             return;
           }
@@ -432,14 +544,18 @@ class BookingNotifier extends StateNotifier<AppState> {
             }
           }
 
+          final now = DateTime.now();
           state = state.copyWith(
             serviceAvailabilityCounts: counts,
             serviceAvailabilityStates: states,
             isAvailabilityLoading: false,
-            lastAvailabilityFetchTime: DateTime.now(),
+            isAvailabilityCached: false,
+            availabilityCachedAt: now,
+            lastAvailabilityFetchTime: now,
             lastAvailabilityLatitude: targetLat,
             lastAvailabilityLongitude: targetLng,
           );
+          await _persistAvailabilityCache(counts);
           debugPrint('📍 [Nearby Availability] Loaded live 15km counts for ${counts.length} services via Cloud Firestore');
           return;
         } else if (fbResponse.statusCode == 429) {
@@ -474,13 +590,14 @@ class BookingNotifier extends StateNotifier<AppState> {
   }
 
   /// Real 15 KM Single Service Availability Fetcher
-  Future<int?> fetchSingleServiceAvailability(String serviceId, {double? lat, double? lng}) async {
+  Future<int?> fetchSingleServiceAvailability(String serviceId, {double? lat, double? lng, bool forceRefresh = false}) async {
     final targetLat = lat ?? state.selectedLatitude ?? 22.5726;
     final targetLng = lng ?? state.selectedLongitude ?? 88.3639;
+    final forceQuery = forceRefresh ? '&forceRefresh=true' : '';
 
     for (final base in _availabilityCandidates) {
       try {
-        final fullUrl = _cleanUrl(base, '/services/$serviceId/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15&force=true');
+        final fullUrl = _cleanUrl(base, '/services/$serviceId/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15&force=true$forceQuery');
         final response = await http.get(
           Uri.parse(fullUrl),
           headers: {'Content-Type': 'application/json'},
@@ -495,13 +612,17 @@ class BookingNotifier extends StateNotifier<AppState> {
           updatedStates[serviceId] = count > 0 
               ? ServiceAvailabilityState.available 
               : ServiceAvailabilityState.noTechniciansAvailable;
+          final now = DateTime.now();
           state = state.copyWith(
             serviceAvailabilityCounts: updatedCounts,
             serviceAvailabilityStates: updatedStates,
-            lastAvailabilityFetchTime: DateTime.now(),
+            isAvailabilityCached: false,
+            availabilityCachedAt: now,
+            lastAvailabilityFetchTime: now,
             lastAvailabilityLatitude: targetLat,
             lastAvailabilityLongitude: targetLng,
           );
+          await _persistAvailabilityCache(updatedCounts);
           debugPrint('📍 [Service Availability] Service $serviceId count: $count via $base');
           return count;
         }
@@ -509,7 +630,7 @@ class BookingNotifier extends StateNotifier<AppState> {
     }
 
     try {
-      final fbResponse = await FirestoreRestClient.handleRequest('GET', '/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15&serviceId=$serviceId');
+      final fbResponse = await FirestoreRestClient.handleRequest('GET', '/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15&serviceId=$serviceId$forceQuery');
       if (fbResponse.statusCode == 200) {
         final data = json.decode(fbResponse.body);
         int count = 0;
@@ -533,25 +654,37 @@ class BookingNotifier extends StateNotifier<AppState> {
           updatedStates[serviceId] = count > 0 
               ? ServiceAvailabilityState.available 
               : ServiceAvailabilityState.noTechniciansAvailable;
+          final now = DateTime.now();
           state = state.copyWith(
             serviceAvailabilityCounts: updatedCounts,
             serviceAvailabilityStates: updatedStates,
-            lastAvailabilityFetchTime: DateTime.now(),
+            isAvailabilityCached: false,
+            availabilityCachedAt: now,
+            lastAvailabilityFetchTime: now,
             lastAvailabilityLatitude: targetLat,
             lastAvailabilityLongitude: targetLng,
           );
+          await _persistAvailabilityCache(updatedCounts);
           return count;
         }
       } else if (fbResponse.statusCode == 429) {
         final updatedStates = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
         updatedStates[serviceId] = ServiceAvailabilityState.quotaExceeded;
-        state = state.copyWith(serviceAvailabilityStates: updatedStates);
+        state = state.copyWith(
+          serviceAvailabilityStates: updatedStates,
+          bookingErrorCode: 'QUOTA_EXCEEDED',
+          bookingError: 'Service availability check rate-limited (HTTP 429). Please retry shortly.',
+        );
         return null;
       }
     } catch (_) {
       final updatedStates = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
       updatedStates[serviceId] = ServiceAvailabilityState.networkError;
-      state = state.copyWith(serviceAvailabilityStates: updatedStates);
+      state = state.copyWith(
+        serviceAvailabilityStates: updatedStates,
+        bookingErrorCode: 'NETWORK_ERROR',
+        bookingError: 'Network error while verifying live technician availability.',
+      );
     }
 
     return null;
@@ -1357,7 +1490,12 @@ class BookingNotifier extends StateNotifier<AppState> {
           state = state.copyWith(
             categories: categories,
             isCatalogLoading: false,
+            isCategoriesCached: false,
           );
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('bt_cached_categories_v1', jsonEncode(list));
+          } catch (_) {}
           fetchNearbyAvailability();
           return;
         }
@@ -1560,16 +1698,47 @@ class BookingNotifier extends StateNotifier<AppState> {
     String paymentMethod = 'ONLINE',
     String? customBookingCode,
     String? customBookingId,
+    String? idempotencyKey,
   }) async {
     if (state.cartItems.isEmpty) return null;
 
     final services = [...state.cartItems];
+    final primaryAddr = state.profile.primaryAddress;
+    final fullAddr = state.address.isNotEmpty && state.address != 'Fetching live address...'
+        ? state.address
+        : (primaryAddr?.formattedAddress ?? '');
+    final lat = state.selectedLatitude ?? primaryAddr?.latitude ?? 22.5726;
+    final lng = state.selectedLongitude ?? primaryAddr?.longitude ?? 88.3639;
 
-    // Option B Strict Real-Time Block: Reject if any service has 0 online technicians
-    final hasUnavailableService = services.any((s) => state.getServiceAvailabilityCount(s.id) == 0);
-    if (hasUnavailableService) {
-      debugPrint('[Option B Strict Block]: Cannot confirm order - one or more services have 0 online technicians within 15 km');
-      return null;
+    // Phase 4.1 Cache & Live Revalidation Safety:
+    // Never authorize a booking from cached availability alone. Always revalidate live before assignment.
+    for (final s in services) {
+      final liveCount = await fetchSingleServiceAvailability(
+        s.id,
+        lat: lat,
+        lng: lng,
+        forceRefresh: true,
+      );
+      if (liveCount == null) {
+        final sState = state.getServiceAvailabilityState(s.id);
+        final errCode = sState == ServiceAvailabilityState.quotaExceeded
+            ? 'QUOTA_EXCEEDED'
+            : 'NETWORK_ERROR';
+        state = state.copyWith(
+          bookingErrorCode: errCode,
+          bookingError: errCode == 'QUOTA_EXCEEDED'
+              ? 'Server rate limit (429) reached while verifying live technician availability.'
+              : 'Network connection error while verifying live technician availability.',
+        );
+        return null;
+      }
+      if (liveCount <= 0) {
+        state = state.copyWith(
+          bookingErrorCode: 'TECHNICIAN_WENT_OFFLINE',
+          bookingError: 'No online technician with fresh GPS is currently available for ${s.name}.',
+        );
+        return null;
+      }
     }
 
     final firstService = services.first;
@@ -1579,41 +1748,18 @@ class BookingNotifier extends StateNotifier<AppState> {
     final totalGst = state.gstTax > 0 ? state.gstTax : (totalBase * 0.18);
     final totalGrand = state.grandTotal > 0 ? state.grandTotal : (totalBase + totalVisit + totalGst);
 
-    final primaryAddr = state.profile.primaryAddress;
-    final fullAddr = state.address.isNotEmpty && state.address != 'Fetching live address...'
-        ? state.address
-        : (primaryAddr?.formattedAddress ?? '');
-    final lat = state.selectedLatitude ?? primaryAddr?.latitude;
-    final lng = state.selectedLongitude ?? primaryAddr?.longitude;
     final code = customBookingCode ?? 'BT-${10000000 + (DateTime.now().millisecondsSinceEpoch % 90000000)}';
     final bookingId = customBookingId ?? 'bkg_${DateTime.now().millisecondsSinceEpoch}';
-    final startOtp = (1000 + (DateTime.now().millisecondsSinceEpoch % 9000)).toString();
+    final idemKey = idempotencyKey ?? bookingId;
     final scheduleDateStr = date == 'Tomorrow'
         ? DateTime.now().add(const Duration(days: 1)).toIso8601String().split('T').first
         : (date.isEmpty ? 'Today' : date);
-
-    // Initial local booking object
-    Booking liveBooking = Booking(
-      id: code,
-      services: services,
-      date: scheduleDateStr,
-      timeSlot: slot.isNotEmpty ? slot : '3:00 PM – 4:00 PM',
-      status: BookingStatus.confirmed,
-      baseCost: totalBase,
-      visitFee: totalVisit,
-      discount: state.discount,
-      gstTax: totalGst,
-      grandTotal: totalGrand,
-      address: fullAddr,
-      technicianName: 'Assigning Verified Expert...',
-      technicianPhone: '',
-      otpCode: startOtp,
-    );
 
     try {
       final payload = {
         'id': bookingId,
         'bookingCode': code,
+        'idempotencyKey': idemKey,
         'customerId': state.profile.customerId,
         'customerName': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
         'customer': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
@@ -1646,32 +1792,56 @@ class BookingNotifier extends StateNotifier<AppState> {
         final decoded = jsonDecode(res.body);
         final data = decoded['data'] ?? decoded['booking'];
         if (data != null && data is Map<String, dynamic>) {
-          liveBooking = Booking.fromJson(data);
+          final liveBooking = Booking.fromJson(data);
+          final updatedHistory = [
+            liveBooking,
+            ...state.bookingHistory.where((b) => b.id != liveBooking.id && b.id != code),
+          ];
+
+          state = state.copyWith(
+            activeBooking: liveBooking,
+            bookingHistory: updatedHistory,
+            cartItems: [],
+            baseCost: 0,
+            visitFee: 49,
+            discount: 0,
+            gstTax: 0,
+            grandTotal: 0,
+            bookingError: null,
+            bookingErrorCode: null,
+          );
+
+          await _saveBookingsLocally();
+          return liveBooking;
         }
       }
+
+      // Server rejected booking (e.g. 409 conflict, offline, stale GPS, duplicate, 429 quota)
+      String errCode = 'BOOKING_REJECTED';
+      String errMsg = 'Unable to assign technician. Please try again.';
+      try {
+        final decoded = jsonDecode(res.body);
+        if (decoded is Map) {
+          errCode = (decoded['code'] ?? decoded['error'] ?? errCode).toString();
+          errMsg = (decoded['message'] ?? decoded['error'] ?? errMsg).toString();
+        }
+      } catch (_) {}
+      if (res.statusCode == 429) {
+        errCode = 'QUOTA_EXCEEDED';
+      }
+      state = state.copyWith(
+        bookingErrorCode: errCode,
+        bookingError: errMsg,
+      );
+      return null;
     } catch (e) {
-      debugPrint('Backend sync note (offline/local fallback saved): $e');
+      debugPrint('Order booking failed due to network error: $e');
+      state = state.copyWith(
+        bookingErrorCode: 'NETWORK_ERROR',
+        bookingError: 'Network disconnection during booking. Your order was not placed.',
+      );
+      return null;
     }
-
-    // Deduplicate and prepend to booking history
-    final updatedHistory = [
-      liveBooking,
-      ...state.bookingHistory.where((b) => b.id != liveBooking.id && b.id != code),
-    ];
-
-    state = state.copyWith(
-      activeBooking: liveBooking,
-      bookingHistory: updatedHistory,
-      cartItems: [],
-      baseCost: 0,
-      visitFee: 49,
-      discount: 0,
-      gstTax: 0,
-      grandTotal: 0,
-    );
-
-    await _saveBookingsLocally();
-    return liveBooking;
   }
 
   Future<Booking?> confirmDirectServiceBooking({
@@ -1681,53 +1851,64 @@ class BookingNotifier extends StateNotifier<AppState> {
     String paymentMethod = 'ONLINE',
     String? customBookingCode,
     String? customBookingId,
+    String? idempotencyKey,
   }) async {
-    // Option B Strict Real-Time Block: Reject if service has 0 online technicians
-    if (state.getServiceAvailabilityCount(service.id) == 0) {
-      debugPrint('[Option B Strict Block]: Cannot confirm direct booking - service has 0 online technicians within 15 km');
+    final primaryAddr = state.profile.primaryAddress;
+    final fullAddr = state.address.isNotEmpty && state.address != 'Fetching live address...'
+        ? state.address
+        : (primaryAddr?.formattedAddress ?? '');
+    final lat = state.selectedLatitude ?? primaryAddr?.latitude ?? 22.5726;
+    final lng = state.selectedLongitude ?? primaryAddr?.longitude ?? 88.3639;
+
+    // Phase 4.1 Cache & Live Revalidation Safety:
+    // Never authorize a booking from cached availability alone. Revalidate live immediately before assignment.
+    final liveCount = await fetchSingleServiceAvailability(
+      service.id,
+      lat: lat,
+      lng: lng,
+      forceRefresh: true,
+    );
+
+    if (liveCount == null) {
+      final sState = state.getServiceAvailabilityState(service.id);
+      final errCode = sState == ServiceAvailabilityState.quotaExceeded
+          ? 'QUOTA_EXCEEDED'
+          : 'NETWORK_ERROR';
+      state = state.copyWith(
+        bookingErrorCode: errCode,
+        bookingError: errCode == 'QUOTA_EXCEEDED'
+            ? 'Server rate limit (429) reached while verifying live technician availability.'
+            : 'Network connection error while verifying live technician availability.',
+      );
       return null;
     }
 
-    final services = [service];
+    if (liveCount <= 0) {
+      debugPrint('[Phase 4.1 Strict Block]: Live revalidation returned 0 online technicians for ${service.id}');
+      state = state.copyWith(
+        bookingErrorCode: 'TECHNICIAN_WENT_OFFLINE',
+        bookingError: 'Technician went offline or is no longer available within 15 km.',
+      );
+      return null;
+    }
+
     final totalBase = service.price;
     final totalVisit = 0.0;
     final totalGst = (totalBase * 0.18);
     final totalGrand = (totalBase + totalVisit + totalGst);
 
-    final primaryAddr = state.profile.primaryAddress;
-    final fullAddr = state.address.isNotEmpty && state.address != 'Fetching live address...'
-        ? state.address
-        : (primaryAddr?.formattedAddress ?? '');
-    final lat = state.selectedLatitude ?? primaryAddr?.latitude;
-    final lng = state.selectedLongitude ?? primaryAddr?.longitude;
     final code = customBookingCode ?? 'BT-${10000000 + (DateTime.now().millisecondsSinceEpoch % 90000000)}';
     final bookingId = customBookingId ?? 'bkg_${DateTime.now().millisecondsSinceEpoch}';
-    final startOtp = (1000 + (DateTime.now().millisecondsSinceEpoch % 9000)).toString();
+    final idemKey = idempotencyKey ?? bookingId;
     final scheduleDateStr = date == 'Tomorrow'
         ? DateTime.now().add(const Duration(days: 1)).toIso8601String().split('T').first
         : (date.isEmpty ? 'Today' : date);
-
-    Booking liveBooking = Booking(
-      id: code,
-      services: services,
-      date: scheduleDateStr,
-      timeSlot: slot.isNotEmpty ? slot : '3:00 PM – 4:00 PM',
-      status: BookingStatus.confirmed,
-      baseCost: totalBase,
-      visitFee: totalVisit,
-      discount: 0.0,
-      gstTax: totalGst,
-      grandTotal: totalGrand,
-      address: fullAddr,
-      technicianName: 'Assigning Verified Expert...',
-      technicianPhone: '',
-      otpCode: startOtp,
-    );
 
     try {
       final payload = {
         'id': bookingId,
         'bookingCode': code,
+        'idempotencyKey': idemKey,
         'customerId': state.profile.customerId,
         'customerName': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
         'customer': state.profile.fullName.isNotEmpty ? state.profile.fullName : 'Customer',
@@ -1762,20 +1943,44 @@ class BookingNotifier extends StateNotifier<AppState> {
         final decoded = jsonDecode(res.body);
         final data = decoded['data'] ?? decoded['booking'];
         if (data != null && data is Map<String, dynamic>) {
-          liveBooking = Booking.fromJson(data);
+          final liveBooking = Booking.fromJson(data);
+          state = state.copyWith(
+            activeBooking: liveBooking,
+            bookingHistory: [liveBooking, ...state.bookingHistory],
+            bookingError: null,
+            bookingErrorCode: null,
+          );
+          await _saveBookingsLocally();
+          return liveBooking;
         }
       }
+
+      // Server rejected booking (e.g. 409 conflict, offline, stale GPS, duplicate, 429 quota)
+      String errCode = 'BOOKING_REJECTED';
+      String errMsg = 'Unable to assign technician. Please try again.';
+      try {
+        final decoded = jsonDecode(res.body);
+        if (decoded is Map) {
+          errCode = (decoded['code'] ?? decoded['error'] ?? errCode).toString();
+          errMsg = (decoded['message'] ?? decoded['error'] ?? errMsg).toString();
+        }
+      } catch (_) {}
+      if (res.statusCode == 429) {
+        errCode = 'QUOTA_EXCEEDED';
+      }
+      state = state.copyWith(
+        bookingErrorCode: errCode,
+        bookingError: errMsg,
+      );
+      return null;
     } catch (e) {
       debugPrint('Direct booking backend error: $e');
+      state = state.copyWith(
+        bookingErrorCode: 'NETWORK_ERROR',
+        bookingError: 'Network disconnection during booking. Your booking was not placed.',
+      );
+      return null;
     }
-
-    state = state.copyWith(
-      activeBooking: liveBooking,
-      bookingHistory: [liveBooking, ...state.bookingHistory],
-    );
-
-    await _saveBookingsLocally();
-    return liveBooking;
   }
 
   Future<void> loadBookingHistory() async {
