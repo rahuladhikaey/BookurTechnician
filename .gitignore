@@ -1,8 +1,9 @@
 # ─── Large Binary & Build Outputs (GitHub 100MB Limit) ─────────────────────────
 bin/
 build_outputs/
-BookurTechnician/
-BookurTechnician-main/
+/BookurTechnician/
+/BookurTechnician-main/
+!docs/bookurtechnician/
 *.zip
 *.apk
 *.aab

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../config/app_config.dart';
 import '../network/dio_client.dart';
+import '../network/firestore_rest_client.dart';
+import '../security/secure_storage.dart';
 import 'audio_alert_service.dart';
 import 'booking_request_manager.dart';
 
@@ -117,12 +119,23 @@ class NotificationService {
     }
   }
 
-  /// Syncs FCM token to Spring Boot / Node.js backend
+  /// Syncs FCM token to Firestore and Backend
   Future<void> syncTokenWithBackend({String? token}) async {
     try {
       final fcmToken = token ?? await _fcm.getToken();
       if (fcmToken != null && fcmToken.isNotEmpty) {
-        debugPrint('[FCM] Registering Token with Backend: $fcmToken');
+        debugPrint('[FCM] Registering Token with Backend and Cloud Firestore: $fcmToken');
+        
+        // 1. Direct Cloud Firestore persistence into technician profile
+        final userId = await SecureStorage().getUserId();
+        if (userId != null && userId.isNotEmpty && userId != 'BT-PARTNER') {
+          FirestoreRestClient.upsertDocument('technician_profiles', userId, {
+            'fcmToken': fcmToken,
+            'fcmTokenUpdatedAt': DateTime.now().toIso8601String(),
+          }).catchError((_) => null);
+        }
+
+        // 2. Candidate backend endpoint
         final dio = DioClient().dio;
         await dio.post(
           '${AppConfig.apiBaseUrl}/technician/fcm-token',

@@ -341,8 +341,8 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
           'longitude': lng,
           'currentLatitude': lat,
           'currentLongitude': lng,
-          'lastLocationUpdate': DateTime.now().toIso8601String(),
-          'updatedAt': DateTime.now().toIso8601String(),
+          'lastLocationUpdate': DateTime.now().toUtc().toIso8601String(),
+          'updatedAt': DateTime.now().toUtc().toIso8601String(),
         });
       } catch (_) {}
 
@@ -381,8 +381,8 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
           'isOnline': false,
           'online': false,
           'availabilityStatus': 'OFFLINE',
-          'lastLocationUpdate': DateTime.now().toIso8601String(),
-          'updatedAt': DateTime.now().toIso8601String(),
+          'lastLocationUpdate': DateTime.now().toUtc().toIso8601String(),
+          'updatedAt': DateTime.now().toUtc().toIso8601String(),
         });
       } catch (_) {}
 

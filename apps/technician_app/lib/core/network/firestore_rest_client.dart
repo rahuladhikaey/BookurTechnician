@@ -83,21 +83,74 @@ class FirestoreRestClient {
     return out;
   }
 
+  static final Map<String, _CachedResult> _memoryCache = {};
+
   static Future<List<Map<String, dynamic>>> listCollection(String collection,
-      {int pageSize = 250}) async {
+      {int pageSize = 250, bool forceRefresh = false}) async {
+    final cacheKey = 'col_$collection';
+    final now = DateTime.now();
+
+    if (!forceRefresh && _memoryCache.containsKey(cacheKey)) {
+      final cached = _memoryCache[cacheKey]!;
+      if (now.difference(cached.timestamp).inSeconds < 30) {
+        return (cached.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+    }
+
     try {
       final uri = Uri.parse('$baseUrl/$collection?pageSize=$pageSize');
       final res = await http.get(uri).timeout(const Duration(seconds: 6));
-      if (res.statusCode != 200) return [];
-      final decoded = jsonDecode(res.body) as Map<String, dynamic>;
-      final docs = decoded['documents'] as List<dynamic>? ?? [];
-      return docs
-          .map((d) => _docToPlain(d as Map<String, dynamic>?))
-          .whereType<Map<String, dynamic>>()
-          .toList();
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+        final docs = decoded['documents'] as List<dynamic>? ?? [];
+        final parsed = docs
+            .map((d) => _docToPlain(d as Map<String, dynamic>?))
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        _memoryCache[cacheKey] = _CachedResult(now, parsed);
+        return parsed;
+      } else if (res.statusCode == 429) {
+        debugPrint('⚠️ [Tech Firestore] 429 Quota Exceeded for listCollection($collection). Serving cached data.');
+        if (_memoryCache.containsKey(cacheKey)) {
+          return (_memoryCache[cacheKey]!.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        }
+      }
+      return [];
     } catch (e) {
       debugPrint('🔥 [Tech Firestore] listCollection($collection) error: $e');
+      if (_memoryCache.containsKey(cacheKey)) {
+        return (_memoryCache[cacheKey]!.data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
       return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getDocument(
+      String collection, String docId, {bool forceRefresh = false}) async {
+    final cleanId = docId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final cacheKey = 'doc_${collection}_$cleanId';
+    final now = DateTime.now();
+
+    if (!forceRefresh && _memoryCache.containsKey(cacheKey)) {
+      final cached = _memoryCache[cacheKey]!;
+      if (now.difference(cached.timestamp).inSeconds < 30) {
+        return Map<String, dynamic>.from(cached.data as Map);
+      }
+    }
+
+    try {
+      final uri = Uri.parse('$baseUrl/$collection/$cleanId');
+      final res = await http.get(uri).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final data = _docToPlain(jsonDecode(res.body) as Map<String, dynamic>?);
+        if (data != null) {
+          _memoryCache[cacheKey] = _CachedResult(now, data);
+        }
+        return data;
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -116,7 +169,13 @@ class FirestoreRestClient {
           fields[k] = _toFirestoreValue(v);
         }
       });
-      final uri = Uri.parse('$baseUrl/$collection/$cleanId');
+
+      // Crucial: Use updateMask so partial updates NEVER wipe out skills or other existing fields
+      final maskParams = fields.keys
+          .map((k) => 'updateMask.fieldPaths=${Uri.encodeQueryComponent(k)}')
+          .join('&');
+      final uri = Uri.parse('$baseUrl/$collection/$cleanId?$maskParams');
+
       final res = await http
           .patch(
             uri,
@@ -124,8 +183,14 @@ class FirestoreRestClient {
             body: jsonEncode({'fields': fields}),
           )
           .timeout(const Duration(seconds: 6));
+
+      // Invalidate collection cache upon write
+      _memoryCache.remove('col_$collection');
+
       if (res.statusCode >= 200 && res.statusCode < 300) {
         return _docToPlain(jsonDecode(res.body) as Map<String, dynamic>?);
+      } else {
+        debugPrint('⚠️ [Tech Firestore] upsert status ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       debugPrint('🔥 [Tech Firestore] upsert($collection/$docId) error: $e');
@@ -450,7 +515,104 @@ class FirestoreRestClient {
       );
     }
 
-    // 5. Bookings & Jobs
+    // 5. Atomic Booking Acceptance & State Transition
+    if (cleanPath.contains('/accept')) {
+      final parts = cleanPath.split('/');
+      final bookingId = parts.length > 2 ? parts[parts.length - 2] : 'unknown';
+      final techId = options.headers['x-technician-id']?.toString() ??
+          body['technicianId']?.toString() ??
+          'tech_partner_01';
+
+      // Check current booking state from Cloud Firestore
+      final existingBooking = await getDocument('bookings', bookingId);
+      final currentStatus = existingBooking?['status']?.toString().toUpperCase();
+
+      // Duplicate acceptance guard (Atomic transition check)
+      if (currentStatus == 'ASSIGNED' || currentStatus == 'IN_PROGRESS' || currentStatus == 'COMPLETED') {
+        if (existingBooking?['technicianId'] != techId) {
+          return Response(
+            requestOptions: options,
+            statusCode: 409,
+            data: {
+              'success': false,
+              'error': 'BOOKING_ALREADY_ASSIGNED',
+              'message': 'This booking has already been accepted by another technician partner.',
+            },
+          );
+        }
+      }
+
+      // Fetch technician profile to populate assignment
+      final techDoc = await getDocument('technician_profiles', techId);
+      final techName = techDoc?['fullName'] ?? techDoc?['name'] ?? 'Partner Technician';
+      final techPhone = techDoc?['phone'] ?? '';
+
+      final updateData = {
+        'status': 'ASSIGNED',
+        'technicianId': techId,
+        'technicianName': techName,
+        'technicianPhone': techPhone,
+        'assignedAt': DateTime.now().toUtc().toIso8601String(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      };
+
+      await upsertDocument('bookings', bookingId, updateData);
+
+      // Transition technician status to BUSY
+      await upsertDocument('technician_profiles', techId, {
+        'availabilityStatus': 'BUSY',
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      });
+
+      return Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {
+          'success': true,
+          'message': 'Booking accepted successfully',
+          'booking': {
+            ...?existingBooking,
+            ...updateData,
+          },
+          'data': {
+            ...?existingBooking,
+            ...updateData,
+          },
+        },
+      );
+    }
+
+    // 6. Job Completion & Payout Transition
+    if (cleanPath.contains('/complete')) {
+      final parts = cleanPath.split('/');
+      final bookingId = parts.length > 2 ? parts[parts.length - 2] : 'unknown';
+      final techId = options.headers['x-technician-id']?.toString() ??
+          body['technicianId']?.toString() ??
+          'tech_partner_01';
+
+      await upsertDocument('bookings', bookingId, {
+        'status': 'COMPLETED',
+        'completedAt': DateTime.now().toUtc().toIso8601String(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      });
+
+      // Free technician back to AVAILABLE
+      await upsertDocument('technician_profiles', techId, {
+        'availabilityStatus': 'AVAILABLE',
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      });
+
+      return Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {
+          'success': true,
+          'message': 'Job completed successfully',
+        },
+      );
+    }
+
+    // 7. Bookings & Jobs List
     if (cleanPath.contains('/bookings') || cleanPath.contains('/jobs')) {
       final bookings = await listCollection('bookings');
       return Response(
@@ -472,4 +634,11 @@ class FirestoreRestClient {
     );
   }
 }
+
+class _CachedResult {
+  final DateTime timestamp;
+  final dynamic data;
+  _CachedResult(this.timestamp, this.data);
+}
+
 

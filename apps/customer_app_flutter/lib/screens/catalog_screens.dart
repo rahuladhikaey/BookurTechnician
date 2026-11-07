@@ -354,7 +354,6 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(bookingProvider.notifier).fetchSingleServiceAvailability(widget.serviceId);
-      ref.read(bookingProvider.notifier).fetchNearbyAvailability();
     });
   }
 
@@ -599,11 +598,23 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
 
   Widget _buildNearbyTechniciansSection(BuildContext context, WidgetRef ref, ServiceItem service) {
     final state = ref.watch(bookingProvider);
-    final hasLoc = state.hasValidLocation;
-    final count = state.getServiceAvailabilityCount(service.id);
-    final hasTechs = hasLoc && count > 0;
+    final aState = state.getServiceAvailabilityState(service.id);
+    final hasTechs = aState == ServiceAvailabilityState.available;
     final availText = state.getServiceAvailabilityText(service.id);
     final isRefreshing = state.isServiceRefreshing(service.id);
+
+    String subtitleText = 'No partners online in 15 km with matching skills right now.';
+    if (hasTechs) {
+      subtitleText = 'Automated nearest technician dispatch upon booking confirmation';
+    } else if (aState == ServiceAvailabilityState.networkError) {
+      subtitleText = 'Unable to connect to server. Tap Reload to retry.';
+    } else if (aState == ServiceAvailabilityState.quotaExceeded) {
+      subtitleText = 'Firebase daily quota reached (Spark Plan). Upgrade to Blaze plan in Console.';
+    } else if (aState == ServiceAvailabilityState.locationUnavailable) {
+      subtitleText = 'Please enable GPS location to detect local partners.';
+    } else if (aState == ServiceAvailabilityState.checkingAvailability) {
+      subtitleText = 'Scanning 15 km radius for certified partners...';
+    }
 
     return Container(
       width: double.infinity,
@@ -674,9 +685,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  hasTechs
-                      ? 'Automated nearest technician dispatch upon booking confirmation'
-                      : 'Real-time PostGIS radius scan active (15 km)',
+                  subtitleText,
                   style: TextStyle(
                     fontSize: 11,
                     color: hasTechs ? const Color(0xFF047857) : const Color(0xFF64748B),
@@ -1240,7 +1249,8 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
     bool inCart,
   ) {
     final appState = ref.watch(bookingProvider);
-    final isServiceAvailable = appState.getServiceAvailabilityCount(service.id) > 0;
+    final aState = appState.getServiceAvailabilityState(service.id);
+    final isServiceAvailable = aState == ServiceAvailabilityState.available;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1368,7 +1378,17 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
               child: Row(
                 children: [
                   Text(
-                    isServiceAvailable ? 'Book Now' : 'Unavailable (0 Online)',
+                    isServiceAvailable
+                        ? 'Book Now'
+                        : (aState == ServiceAvailabilityState.networkError
+                            ? 'Connection Error'
+                            : (aState == ServiceAvailabilityState.quotaExceeded
+                                ? 'Database Limit Reached'
+                                : (aState == ServiceAvailabilityState.checkingAvailability
+                                    ? 'Checking...'
+                                    : (aState == ServiceAvailabilityState.locationUnavailable
+                                        ? 'Turn On GPS'
+                                        : 'Unavailable (0 Online)')))),
                     style: const TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,

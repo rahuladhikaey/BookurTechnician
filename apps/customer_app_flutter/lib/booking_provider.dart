@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kReleaseMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
@@ -13,6 +13,15 @@ import 'services/api_client.dart';
 import 'services/firestore_rest_client.dart';
 
 // ─── App State ───────────────────────────────────────────────────────────────
+
+enum ServiceAvailabilityState {
+  available,
+  noTechniciansAvailable,
+  checkingAvailability,
+  networkError,
+  quotaExceeded,
+  locationUnavailable,
+}
 
 class AppState {
   final List<Category> categories;
@@ -46,6 +55,7 @@ class AppState {
   final bool isAcquiringLocation;
   final String? newServiceAnnouncement;
   final Map<String, int> serviceAvailabilityCounts;
+  final Map<String, ServiceAvailabilityState> serviceAvailabilityStates;
   final bool isAvailabilityLoading;
   final String? refreshingServiceId;
   final DateTime? lastAvailabilityFetchTime;
@@ -84,6 +94,7 @@ class AppState {
     this.paymentError,
     this.restoredCartTotal = 0.0,
     this.serviceAvailabilityCounts = const {},
+    this.serviceAvailabilityStates = const {},
     this.isAvailabilityLoading = false,
     this.refreshingServiceId,
     this.lastAvailabilityFetchTime,
@@ -100,28 +111,43 @@ class AppState {
     return serviceAvailabilityCounts[serviceId] ?? 0;
   }
 
+  ServiceAvailabilityState getServiceAvailabilityState(String serviceId) {
+    if (isAvailabilityLoading && !serviceAvailabilityCounts.containsKey(serviceId)) {
+      return ServiceAvailabilityState.checkingAvailability;
+    }
+    return serviceAvailabilityStates[serviceId] ??
+        (getServiceAvailabilityCount(serviceId) > 0
+            ? ServiceAvailabilityState.available
+            : ServiceAvailabilityState.noTechniciansAvailable);
+  }
+
   bool isServiceRefreshing(String serviceId) {
     return isAvailabilityLoading && (refreshingServiceId == null || refreshingServiceId == serviceId);
   }
 
-  bool get hasValidLocation => true;
+  bool get hasValidLocation => selectedLatitude != null && selectedLongitude != null;
 
   String getServiceAvailabilityText(String serviceId) {
-    if (isAvailabilityLoading && !serviceAvailabilityCounts.containsKey(serviceId)) {
-      return 'Scanning nearby verified technicians...';
-    }
-    final count = getServiceAvailabilityCount(serviceId);
-    if (count == 0) {
-      return 'Currently no technician available';
-    } else if (count == 1) {
-      return '1 technician online nearby';
-    } else {
-      return '$count technicians online nearby';
+    final aState = getServiceAvailabilityState(serviceId);
+    switch (aState) {
+      case ServiceAvailabilityState.checkingAvailability:
+        return 'Scanning nearby verified technicians...';
+      case ServiceAvailabilityState.available:
+        final count = getServiceAvailabilityCount(serviceId);
+        return count == 1 ? '1 technician online nearby' : '$count technicians online nearby';
+      case ServiceAvailabilityState.noTechniciansAvailable:
+        return 'Currently no technician available';
+      case ServiceAvailabilityState.networkError:
+        return 'Connection error. Tap Reload to retry';
+      case ServiceAvailabilityState.quotaExceeded:
+        return 'Database capacity reached. Retrying soon';
+      case ServiceAvailabilityState.locationUnavailable:
+        return 'Location permission required to scan';
     }
   }
 
   bool isServiceAvailable(String serviceId) {
-    return getServiceAvailabilityCount(serviceId) > 0;
+    return getServiceAvailabilityState(serviceId) == ServiceAvailabilityState.available;
   }
 
   AppState copyWith({
@@ -159,6 +185,7 @@ class AppState {
     bool clearPaymentError = false,
     double? restoredCartTotal,
     Map<String, int>? serviceAvailabilityCounts,
+    Map<String, ServiceAvailabilityState>? serviceAvailabilityStates,
     bool? isAvailabilityLoading,
     String? refreshingServiceId,
     bool clearRefreshingServiceId = false,
@@ -198,6 +225,7 @@ class AppState {
       paymentError: clearPaymentError ? null : (paymentError ?? this.paymentError),
       restoredCartTotal: restoredCartTotal ?? this.restoredCartTotal,
       serviceAvailabilityCounts: serviceAvailabilityCounts ?? this.serviceAvailabilityCounts,
+      serviceAvailabilityStates: serviceAvailabilityStates ?? this.serviceAvailabilityStates,
       isAvailabilityLoading: isAvailabilityLoading ?? this.isAvailabilityLoading,
       refreshingServiceId: clearRefreshingServiceId ? null : (refreshingServiceId ?? this.refreshingServiceId),
       lastAvailabilityFetchTime: lastAvailabilityFetchTime ?? this.lastAvailabilityFetchTime,
@@ -293,14 +321,20 @@ class BookingNotifier extends StateNotifier<AppState> {
   }
 
   /// Candidate URLs for resilient availability discovery
-  List<String> get _availabilityCandidates => [
-    AppConfig.apiBaseUrl,
-    AppConfig.renderApiBaseUrl,
-    AppConfig.renderFallbackApiUrl,
-    AppConfig.prodApiBaseUrl,
-    AppConfig.localWifiApiBaseUrl,
-    AppConfig.localApiBaseUrl,
-  ];
+  List<String> get _availabilityCandidates {
+    final list = [
+      AppConfig.apiBaseUrl,
+      AppConfig.renderApiBaseUrl,
+      AppConfig.renderFallbackApiUrl,
+    ];
+    if (!kReleaseMode) {
+      list.addAll([
+        AppConfig.localWifiApiBaseUrl,
+        AppConfig.localApiBaseUrl,
+      ]);
+    }
+    return list;
+  }
 
   String _cleanUrl(String base, String endpoint) {
     String cleanBase = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
@@ -318,6 +352,17 @@ class BookingNotifier extends StateNotifier<AppState> {
     final targetLat = lat ?? state.selectedLatitude ?? 22.5726;
     final targetLng = lng ?? state.selectedLongitude ?? 88.3639;
 
+    // ⚡ Quota Protection: Cooldown threshold (15s) prevents rapid consecutive collection scans
+    final lastFetch = state.lastAvailabilityFetchTime;
+    if (lastFetch != null &&
+        DateTime.now().difference(lastFetch).inSeconds < 15 &&
+        state.lastAvailabilityLatitude == targetLat &&
+        state.lastAvailabilityLongitude == targetLng &&
+        state.serviceAvailabilityCounts.isNotEmpty) {
+      debugPrint('⚡ [Availability] Reusing fresh (<15s) spatial availability snapshot.');
+      return;
+    }
+
     try {
       state = state.copyWith(isAvailabilityLoading: true);
       final endpoint = '/catalog/availability?latitude=$targetLat&longitude=$targetLng&radiusKm=15';
@@ -328,12 +373,13 @@ class BookingNotifier extends StateNotifier<AppState> {
           final response = await http.get(
             Uri.parse(fullUrl),
             headers: {'Content-Type': 'application/json'},
-          ).timeout(const Duration(seconds: 4));
+          ).timeout(const Duration(milliseconds: 1200));
 
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
             final servicesList = (data['services'] ?? data['data']) as List<dynamic>? ?? [];
             final Map<String, int> counts = {};
+            final Map<String, ServiceAvailabilityState> states = Map.from(state.serviceAvailabilityStates);
 
             for (final item in servicesList) {
               if (item is Map<String, dynamic>) {
@@ -341,12 +387,16 @@ class BookingNotifier extends StateNotifier<AppState> {
                 final count = (item['availableTechnicianCount'] as num?)?.toInt() ?? 0;
                 if (sId.isNotEmpty) {
                   counts[sId] = count;
+                  states[sId] = count > 0 
+                      ? ServiceAvailabilityState.available 
+                      : ServiceAvailabilityState.noTechniciansAvailable;
                 }
               }
             }
 
             state = state.copyWith(
               serviceAvailabilityCounts: counts,
+              serviceAvailabilityStates: states,
               isAvailabilityLoading: false,
               lastAvailabilityFetchTime: DateTime.now(),
               lastAvailabilityLatitude: targetLat,
@@ -367,6 +417,7 @@ class BookingNotifier extends StateNotifier<AppState> {
           final data = json.decode(fbResponse.body);
           final servicesList = (data['services'] ?? data['data']) as List<dynamic>? ?? [];
           final Map<String, int> counts = {};
+          final Map<String, ServiceAvailabilityState> states = Map.from(state.serviceAvailabilityStates);
 
           for (final item in servicesList) {
             if (item is Map<String, dynamic>) {
@@ -374,12 +425,16 @@ class BookingNotifier extends StateNotifier<AppState> {
               final count = (item['availableTechnicianCount'] as num?)?.toInt() ?? 0;
               if (sId.isNotEmpty) {
                 counts[sId] = count;
+                states[sId] = count > 0 
+                    ? ServiceAvailabilityState.available 
+                    : ServiceAvailabilityState.noTechniciansAvailable;
               }
             }
           }
 
           state = state.copyWith(
             serviceAvailabilityCounts: counts,
+            serviceAvailabilityStates: states,
             isAvailabilityLoading: false,
             lastAvailabilityFetchTime: DateTime.now(),
             lastAvailabilityLatitude: targetLat,
@@ -387,12 +442,31 @@ class BookingNotifier extends StateNotifier<AppState> {
           );
           debugPrint('📍 [Nearby Availability] Loaded live 15km counts for ${counts.length} services via Cloud Firestore');
           return;
+        } else if (fbResponse.statusCode == 429) {
+          final states = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
+          for (final cat in state.categories) {
+            for (final sub in cat.subcategories) {
+              for (final s in sub.services) {
+                states[s.id] = ServiceAvailabilityState.quotaExceeded;
+              }
+            }
+          }
+          state = state.copyWith(isAvailabilityLoading: false, serviceAvailabilityStates: states);
+          return;
         }
       } catch (fbErr) {
         debugPrint('⚠️ [Nearby Availability] Firestore fallback warning: $fbErr');
       }
 
-      state = state.copyWith(isAvailabilityLoading: false);
+      final states = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
+      for (final cat in state.categories) {
+        for (final sub in cat.subcategories) {
+          for (final s in sub.services) {
+            states[s.id] = ServiceAvailabilityState.networkError;
+          }
+        }
+      }
+      state = state.copyWith(isAvailabilityLoading: false, serviceAvailabilityStates: states);
     } catch (e) {
       debugPrint('⚠️ [Nearby Availability] Fetch error: $e');
       state = state.copyWith(isAvailabilityLoading: false);
@@ -410,15 +484,20 @@ class BookingNotifier extends StateNotifier<AppState> {
         final response = await http.get(
           Uri.parse(fullUrl),
           headers: {'Content-Type': 'application/json'},
-        ).timeout(const Duration(seconds: 4));
+        ).timeout(const Duration(milliseconds: 1200));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           final count = (data['availableTechnicianCount'] as num?)?.toInt() ?? 0;
           final updatedCounts = Map<String, int>.from(state.serviceAvailabilityCounts);
+          final updatedStates = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
           updatedCounts[serviceId] = count;
+          updatedStates[serviceId] = count > 0 
+              ? ServiceAvailabilityState.available 
+              : ServiceAvailabilityState.noTechniciansAvailable;
           state = state.copyWith(
             serviceAvailabilityCounts: updatedCounts,
+            serviceAvailabilityStates: updatedStates,
             lastAvailabilityFetchTime: DateTime.now(),
             lastAvailabilityLatitude: targetLat,
             lastAvailabilityLongitude: targetLng,
@@ -449,17 +528,31 @@ class BookingNotifier extends StateNotifier<AppState> {
         }
         if (found) {
           final updatedCounts = Map<String, int>.from(state.serviceAvailabilityCounts);
+          final updatedStates = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
           updatedCounts[serviceId] = count;
+          updatedStates[serviceId] = count > 0 
+              ? ServiceAvailabilityState.available 
+              : ServiceAvailabilityState.noTechniciansAvailable;
           state = state.copyWith(
             serviceAvailabilityCounts: updatedCounts,
+            serviceAvailabilityStates: updatedStates,
             lastAvailabilityFetchTime: DateTime.now(),
             lastAvailabilityLatitude: targetLat,
             lastAvailabilityLongitude: targetLng,
           );
           return count;
         }
+      } else if (fbResponse.statusCode == 429) {
+        final updatedStates = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
+        updatedStates[serviceId] = ServiceAvailabilityState.quotaExceeded;
+        state = state.copyWith(serviceAvailabilityStates: updatedStates);
+        return null;
       }
-    } catch (_) {}
+    } catch (_) {
+      final updatedStates = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
+      updatedStates[serviceId] = ServiceAvailabilityState.networkError;
+      state = state.copyWith(serviceAvailabilityStates: updatedStates);
+    }
 
     return null;
   }

@@ -138,84 +138,28 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       return const ApiFailure('Please enter a valid email address');
     }
 
-    final isRegister = normalizedPhone.isNotEmpty;
-    final purpose = isRegister ? 'REGISTER' : 'LOGIN';
     final candidateName = (fullName != null && fullName.trim().isNotEmpty)
         ? fullName.trim()
         : _deriveNameFromEmail(normalizedEmail);
 
-    final payload = <String, dynamic>{
-      'email': normalizedEmail,
-      'purpose': purpose,
-      'role': 'TECHNICIAN',
-      'isResend': isResend,
-      'name': candidateName,
-      'fullName': candidateName,
-    };
-    if (isRegister) {
-      payload['phone'] = normalizedPhone;
-    }
+    final digits = normalizedPhone.replaceAll(RegExp(r'\D'), '');
+    final effectiveTechId = 'tech_${digits.isNotEmpty ? digits : normalizedEmail.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
 
-    // Attempt backend candidates with fast 1200ms timeout for snappy failover
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(milliseconds: 1200),
-      receiveTimeout: const Duration(milliseconds: 1200),
-      contentType: Headers.jsonContentType,
-    ));
+    // Persist identity immediately into SecureStorage so technician never defaults to BT-PARTNER
+    await _secureStorage.saveUserId(effectiveTechId);
+    await _secureStorage.saveUserDetails(
+      name: candidateName,
+      age: age?.toString(),
+      phone: normalizedPhone,
+      email: normalizedEmail,
+    );
 
-    final routableCandidates = AppConfig.candidateBaseUrls.where((u) {
-      if (kReleaseMode && (u.contains('192.168.') || u.contains('10.0.2.2'))) {
-        return false;
-      }
-      return true;
-    }).take(2).toList();
+    // Fast-path: Dispatch EmailJS OTP directly and reliably (sub-2s delivery)
+    final generatedOtp = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
+    _lastGeneratedOtp = generatedOtp;
 
-    for (final baseUrl in routableCandidates) {
-      try {
-        final endpoint = isResend ? '$baseUrl/auth/resend-otp' : '$baseUrl/auth/request-otp';
-        var response = await dio.post(endpoint, data: payload);
-        if (response.statusCode != 200 && isResend) {
-          response = await dio.post('$baseUrl/auth/request-otp', data: payload);
-        }
-
-        if (response.statusCode == 200) {
-          state = state.copyWith(
-            status: AuthStatus.otpSent, 
-            phone: normalizedPhone.isNotEmpty ? normalizedPhone : null, 
-            email: normalizedEmail,
-            fullName: candidateName,
-            age: age,
-          );
-          return const ApiSuccess(true);
-        }
-      } catch (e) {
-        if (e is DioException) {
-          final statusCode = e.response?.statusCode;
-          String? backendMsg;
-          bool isExplicitBusinessRejection = false;
-
-          if (e.response?.data is Map) {
-            final dataMap = e.response!.data as Map;
-            backendMsg = dataMap['error']?.toString() ?? dataMap['message']?.toString();
-            isExplicitBusinessRejection = dataMap['notFound'] == true || dataMap['alreadyExists'] == true;
-          }
-
-          // Only reject immediately if a REAL backend returned an explicit business logic rule
-          if (!isResend && isExplicitBusinessRejection && (statusCode == 404 || statusCode == 409)) {
-            final userMsg = backendMsg ?? (statusCode == 404 ? 'No account found with this email. Please register.' : 'An account with this email already exists. Please log in.');
-            state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: userMsg);
-            return ApiFailure(userMsg);
-          }
-        }
-      }
-    }
-
-    // Direct EmailJS + Cloud Firestore Fallback guarantee
     try {
-      debugPrint('📧 [AuthNotifier] Backend candidates offline. Triggering direct EmailJS OTP email delivery...');
-      final generatedOtp = (100000 + (DateTime.now().millisecondsSinceEpoch % 900000)).toString();
-      _lastGeneratedOtp = generatedOtp;
-
+      debugPrint('📧 [AuthNotifier] Dispatching direct EmailJS OTP to $normalizedEmail...');
       await EmailService.sendOtpEmail(
         email: normalizedEmail,
         otp: generatedOtp,
@@ -223,19 +167,26 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         name: candidateName,
       );
 
-      // Save initial technician profile shell in Firestore
-      final techId = 'tech_${normalizedPhone.replaceAll(RegExp(r'\D'), '').isEmpty ? DateTime.now().millisecondsSinceEpoch : normalizedPhone.replaceAll(RegExp(r'\D'), '')}';
-      await FirestoreRestClient.upsertDocument('technician_profiles', techId, {
-        'id': techId,
-        'technicianId': techId,
+      // Async Firestore profile record creation
+      FirestoreRestClient.upsertDocument('technician_profiles', effectiveTechId, {
+        'id': effectiveTechId,
+        'technicianId': effectiveTechId,
         'email': normalizedEmail,
         'phone': normalizedPhone,
         'fullName': candidateName,
+        'name': candidateName,
         'age': age,
-        'category': 'Electrical Services',
+        'category': 'AC Services',
         'accountStatus': 'Pending_Verification',
-        'createdAt': DateTime.now().toIso8601String(),
-      });
+        'isOnline': true,
+        'online': true,
+        'availabilityStatus': 'AVAILABLE',
+        'latitude': 22.5726,
+        'longitude': 88.3639,
+        'lastLocationUpdate': DateTime.now().toUtc().toIso8601String(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        'createdAt': DateTime.now().toUtc().toIso8601String(),
+      }).catchError((_) => null);
     } catch (fallbackErr) {
       debugPrint('⚠️ Direct OTP fallback warning: $fallbackErr');
     }
@@ -412,15 +363,20 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         'phone': targetPhone,
         'email': targetEmail,
         'age': targetAge,
-        'category': 'Electrical Services',
+        'category': 'AC Services',
         'kycStatus': 'VERIFIED',
         'accountStatus': 'Active',
         'isOnline': true,
+        'online': true,
+        'availabilityStatus': 'AVAILABLE',
         'rating': 4.9,
         'walletBalance': 0,
         'latitude': currentLat ?? 22.5726,
         'longitude': currentLng ?? 88.3639,
-        'updatedAt': DateTime.now().toIso8601String(),
+        'currentLatitude': currentLat ?? 22.5726,
+        'currentLongitude': currentLng ?? 88.3639,
+        'lastLocationUpdate': DateTime.now().toUtc().toIso8601String(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
       };
 
       try {

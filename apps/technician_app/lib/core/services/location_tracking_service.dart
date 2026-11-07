@@ -119,18 +119,40 @@ class LocationTrackingService {
       service.stopSelf();
     });
 
-    // ─── 1. REAL-TIME HARDWARE GPS POSITION STREAM (5m filter) ───
+    // ─── 1. REAL-TIME HARDWARE GPS POSITION STREAM (Throttled & Battery-Optimized) ───
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 5,
+      distanceFilter: 30, // Minimum 30 meters movement before event
     );
 
-    Future<void> syncPosition(Position position) async {
+    DateTime? lastSyncTime;
+    Position? lastSyncedPos;
+
+    Future<void> syncPosition(Position position, {bool force = false}) async {
       try {
+        final now = DateTime.now();
+        if (!force && lastSyncTime != null && lastSyncedPos != null) {
+          final elapsedSeconds = now.difference(lastSyncTime!).inSeconds;
+          final distMeters = Geolocator.distanceBetween(
+            lastSyncedPos!.latitude,
+            lastSyncedPos!.longitude,
+            position.latitude,
+            position.longitude,
+          );
+
+          // Throttle: Don't spam writes if moved < 25m and synced less than 60s ago
+          if (distMeters < 25 && elapsedSeconds < 60) {
+            return;
+          }
+        }
+
+        lastSyncTime = now;
+        lastSyncedPos = position;
+
         final prefs = await SharedPreferences.getInstance();
         final token = prefs.getString('auth_token');
         final userId = prefs.getString('user_id');
-        final timeStr = DateFormat('hh:mm:ss a').format(DateTime.now());
+        final timeStr = DateFormat('hh:mm:ss a').format(now);
 
         if (service is AndroidServiceInstance) {
           if (await service.isForegroundService()) {
@@ -149,7 +171,7 @@ class LocationTrackingService {
           'accuracy': position.accuracy,
           'speed': position.speed,
           'heading': position.heading,
-          'timestamp': DateTime.now().toIso8601String(),
+          'timestamp': now.toIso8601String(),
         });
 
         // Sync to backend candidates with real GPS payload & authentication headers
@@ -160,17 +182,15 @@ class LocationTrackingService {
           'accuracy': position.accuracy,
           'speed': position.speed,
           'heading': position.heading,
-          'timestamp': DateTime.now().toIso8601String(),
+          'timestamp': now.toIso8601String(),
         });
 
-        // ─── DIRECT CLOUD FIRESTORE REAL-TIME GPS SYNC ───
+        // ─── DIRECT CLOUD FIRESTORE REAL-TIME GPS SYNC (Preserving Skills & Categories) ───
         try {
           final effectiveTechId = (userId != null && userId.isNotEmpty && userId != 'BT-PARTNER')
               ? userId
               : 'tech_partner_01';
           await FirestoreRestClient.upsertDocument('technician_profiles', effectiveTechId, {
-            'id': effectiveTechId,
-            'technicianId': effectiveTechId,
             'latitude': position.latitude,
             'longitude': position.longitude,
             'currentLatitude': position.latitude,
@@ -179,9 +199,10 @@ class LocationTrackingService {
             'speed': position.speed,
             'heading': position.heading,
             'isOnline': true,
+            'online': true,
             'availabilityStatus': 'AVAILABLE',
-            'lastLocationUpdate': DateTime.now().toIso8601String(),
-            'updatedAt': DateTime.now().toIso8601String(),
+            'lastLocationUpdate': now.toUtc().toIso8601String(),
+            'updatedAt': now.toUtc().toIso8601String(),
           });
         } catch (_) {}
 
@@ -225,14 +246,14 @@ class LocationTrackingService {
       syncPosition(pos);
     });
 
-    // Periodic 15-second heartbeat timer
-    Timer.periodic(const Duration(seconds: 15), (timer) async {
+    // Periodic 3-minute stationary heartbeat timer (prevents quota burn while maintaining online status)
+    Timer.periodic(const Duration(minutes: 3), (timer) async {
       try {
         final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
+          desiredAccuracy: LocationAccuracy.medium,
           timeLimit: const Duration(seconds: 8),
         );
-        await syncPosition(position);
+        await syncPosition(position, force: true);
       } catch (_) {}
     });
   }
