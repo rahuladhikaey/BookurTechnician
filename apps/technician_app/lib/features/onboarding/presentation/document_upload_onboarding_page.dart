@@ -164,6 +164,7 @@ class _DocumentUploadOnboardingPageState
   }
 
   Future<void> _submitDocumentsAndContinue() async {
+    if (_isSubmitting) return; // Prevent duplicate accidental submissions
     if (!_formKey.currentState!.validate()) return;
 
     if (_selfieFile == null) {
@@ -177,8 +178,8 @@ class _DocumentUploadOnboardingPageState
     }
 
     final aadhaarNum = _aadhaarNumberController.text.trim();
-    final voterNum = _voterNumberController.text.trim();
-    final upiId = _upiIdController.text.trim();
+    final voterNum = _voterNumberController.text.trim().toUpperCase();
+    final upiId = _upiIdController.text.trim().toLowerCase();
 
     if (aadhaarNum.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -190,20 +191,20 @@ class _DocumentUploadOnboardingPageState
       return;
     }
 
-    if (voterNum.isEmpty) {
+    if (voterNum.isNotEmpty && !RegExp(r'^[A-Z]{3}[0-9]{7}$').hasMatch(voterNum.replaceAll(RegExp(r'[\s\-]'), ''))) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter your Voter Card ID (EPIC) number.'),
+          content: Text('Invalid Voter ID format. Expected 3 letters followed by 7 digits (e.g. ABC1234567).'),
           backgroundColor: SemanticColors.error,
         ),
       );
       return;
     }
 
-    if (upiId.isEmpty) {
+    if (upiId.isEmpty || !RegExp(r'^[a-zA-Z0-9._\-]{2,256}@[a-zA-Z]{2,64}$').hasMatch(upiId)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter your UPI Number / ID for fast weekly payouts.'),
+          content: Text('Please enter a valid UPI ID (e.g. 9876543210@upi or name@okhdfcbank).'),
           backgroundColor: SemanticColors.error,
         ),
       );
@@ -227,7 +228,7 @@ class _DocumentUploadOnboardingPageState
         if (uploaded != null) aadhaarUrl = uploaded;
       }
 
-      // 3. Upload Voter Card to Cloudinary CDN
+      // 3. Upload Voter Card to Cloudinary CDN (if provided)
       String voterUrl = 'https://res.cloudinary.com/p1ish280/image/upload/v1788799176/u6zexc12ymd5l5szgrhn.svg';
       if (_voterCardFile != null) {
         final uploaded = await CloudinaryUploadService.uploadImageFile(_voterCardFile!, folder: 'kyc_voter');
@@ -249,12 +250,14 @@ class _DocumentUploadOnboardingPageState
         maskedNumber: aadhaarNum,
       );
 
-      // 3. Submit Voter Card Document
-      await _profileService.submitKycDocument(
-        documentType: 'VOTER_CARD',
-        fileUrl: voterUrl,
-        maskedNumber: voterNum,
-      );
+      // 3. Submit Voter Card Document (optional)
+      if (voterNum.isNotEmpty || _voterCardFile != null) {
+        await _profileService.submitKycDocument(
+          documentType: 'VOTER_CARD',
+          fileUrl: voterUrl,
+          maskedNumber: voterNum.isNotEmpty ? voterNum : 'OPTIONAL_VOTER_CARD',
+        );
+      }
 
       // 4. Update UPI Payout ID
       await _profileService.updateProfile(upiId: upiId, profileImageUrl: selfieUrl);
@@ -264,7 +267,7 @@ class _DocumentUploadOnboardingPageState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: SemanticColors.success,
-            content: Text('All documents (Selfie, Aadhaar, Voter) uploaded! Next, select your skills.'),
+            content: Text('Saved to server! Documents & UPI verified. Next, select your skills.'),
           ),
         );
 
@@ -282,7 +285,7 @@ class _DocumentUploadOnboardingPageState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: SemanticColors.error,
-            content: Text('Submission error: $e'),
+            content: Text('Failed to save: $e'),
           ),
         );
       }
@@ -296,7 +299,7 @@ class _DocumentUploadOnboardingPageState
       appBar: AppBar(
         title: const Text('Partner Verification (KYC)'),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0F172A),
+        foregroundColor: const Color(0xFF222222),
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
@@ -324,14 +327,14 @@ class _DocumentUploadOnboardingPageState
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF222222),
                   letterSpacing: -0.4,
                 ),
               ),
               const SizedBox(height: 6),
               const Text(
                 'Submit clear documents (Max 10 MB per file). Aadhaar Card, Voter Card, and UPI Payout ID are required for account activation.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
+                style: TextStyle(fontSize: 13, color: Color(0xFF77716C), height: 1.4),
               ),
               // ─── 1. LIVE PHOTO / SELFIE SECTION ───
               _buildSectionCard(
@@ -416,23 +419,27 @@ class _DocumentUploadOnboardingPageState
               ),
               const SizedBox(height: 20),
 
-              // ─── 3. VOTER CARD SECTION ───
+              // ─── 3. VOTER CARD SECTION (OPTIONAL) ───
               _buildSectionCard(
                 icon: Icons.how_to_vote_outlined,
-                title: '🗳️ Voter Card ID (EPIC)',
-                subtitle: 'Enter Voter Card EPIC Number and upload card photo (Max 10 MB)',
+                title: '🗳️ Voter Card ID (EPIC) (Optional)',
+                subtitle: 'Optional: Enter Voter Card EPIC Number and upload card photo (Max 10 MB)',
                 children: [
                   TextFormField(
                     controller: _voterNumberController,
                     textCapitalization: TextCapitalization.characters,
                     decoration: const InputDecoration(
-                      labelText: 'Voter Card ID Number (EPIC) *',
+                      labelText: 'Voter Card ID Number (EPIC) (Optional)',
                       hintText: 'e.g. WBD1234567',
                       prefixIcon: Icon(Icons.credit_card),
                       border: OutlineInputBorder(),
                     ),
                     validator: (val) {
-                      if (val == null || val.trim().isEmpty) return 'Voter card number is required';
+                      if (val == null || val.trim().isEmpty) return null;
+                      final cleaned = val.trim().toUpperCase().replaceAll(RegExp(r'[\s\-]'), '');
+                      if (!RegExp(r'^[A-Z]{3}[0-9]{7}$').hasMatch(cleaned)) {
+                        return 'Use valid EPIC format (e.g. ABC1234567)';
+                      }
                       return null;
                     },
                   ),
@@ -482,13 +489,13 @@ class _DocumentUploadOnboardingPageState
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: const Color(0xFFFCF9F6),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(color: const Color(0xFFEEE8E2)),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.lock_outline, color: Color(0xFF059669), size: 20),
+                    Icon(Icons.lock_outline, color: Color(0xFF198754), size: 20),
                     SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -496,12 +503,12 @@ class _DocumentUploadOnboardingPageState
                         children: [
                           Text(
                             '100% Encrypted & Safe Verification',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF222222)),
                           ),
                           SizedBox(height: 2),
                           Text(
                             'Documents are processed strictly under Indian DPDP guidelines and UIDAI masked storage standards.',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            style: TextStyle(fontSize: 11, color: Color(0xFF77716C)),
                           ),
                         ],
                       ),
@@ -536,7 +543,7 @@ class _DocumentUploadOnboardingPageState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -556,12 +563,12 @@ class _DocumentUploadOnboardingPageState
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF0F172A)),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF222222)),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                     ),
                   ],
                 ),
@@ -591,10 +598,10 @@ class _DocumentUploadOnboardingPageState
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
-          color: hasFile ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+          color: hasFile ? const Color(0xFFE8F5E9) : const Color(0xFFFCF9F6),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: hasFile ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1),
+            color: hasFile ? const Color(0xFFE8F5E9) : const Color(0xFFEEE8E2),
             style: BorderStyle.solid,
           ),
         ),
@@ -603,7 +610,7 @@ class _DocumentUploadOnboardingPageState
             Icon(
               hasFile ? Icons.check_circle_rounded : Icons.cloud_upload_outlined,
               size: 26,
-              color: hasFile ? const Color(0xFF16A34A) : AppColors.primary,
+              color: hasFile ? const Color(0xFF198754) : AppColors.primary,
             ),
             const SizedBox(height: 6),
             Text(
@@ -611,7 +618,7 @@ class _DocumentUploadOnboardingPageState
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: hasFile ? FontWeight.bold : FontWeight.w600,
-                color: hasFile ? const Color(0xFF15803D) : const Color(0xFF334155),
+                color: hasFile ? const Color(0xFF198754) : const Color(0xFF222222),
               ),
               textAlign: TextAlign.center,
               maxLines: 1,
@@ -620,7 +627,7 @@ class _DocumentUploadOnboardingPageState
             const SizedBox(height: 2),
             Text(
               hasFile ? 'Tap to change' : 'Max 10 MB',
-              style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+              style: const TextStyle(fontSize: 10, color: Color(0xFF77716C)),
             ),
           ],
         ),
@@ -636,7 +643,7 @@ class _DocumentUploadOnboardingPageState
   }) {
     final color = isActive
         ? AppColors.primary
-        : (isCompleted ? const Color(0xFF16A34A) : const Color(0xFF94A3B8));
+        : (isCompleted ? const Color(0xFF198754) : const Color(0xFF77716C));
 
     return Column(
       children: [
@@ -674,7 +681,7 @@ class _DocumentUploadOnboardingPageState
       child: Container(
         height: 2,
         margin: const EdgeInsets.only(bottom: 16, left: 4, right: 4),
-        color: isCompleted ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
+        color: isCompleted ? const Color(0xFF198754) : const Color(0xFFEEE8E2),
       ),
     );
   }

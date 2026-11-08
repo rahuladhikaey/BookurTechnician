@@ -227,7 +227,7 @@ export default function DispatchManager({ bookings = [], setBookings, technician
                   padding: '12px',
                   marginBottom: '8px',
                   borderRadius: '8px',
-                  border: selectedBookingId === b.id ? '2px solid #2563EB' : '1px solid #E2E8F0',
+                  border: selectedBookingId === b.id ? '2px solid #F46B12' : '1px solid #EEE8E2',
                   cursor: 'pointer',
                 }}
               >
@@ -259,12 +259,12 @@ export default function DispatchManager({ bookings = [], setBookings, technician
 
           {/* Selected Booking Offer & Audit History */}
           {selectedHistory && (
-            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #E2E8F0' }}>
+            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #EEE8E2' }}>
               <h5 style={{ fontSize: '13px', margin: '0 0 8px' }}>
                 Offer & Rejection History for {selectedBookingId} ({selectedHistory.offers?.length || 0} offers)
               </h5>
               {(selectedHistory.offers || []).map(off => (
-                <div key={off.id} style={{ fontSize: '11px', padding: '6px 8px', background: '#F8FAFC', borderRadius: '6px', marginBottom: '4px' }}>
+                <div key={off.id} style={{ fontSize: '11px', padding: '6px 8px', background: '#FCF9F6', borderRadius: '6px', marginBottom: '4px' }}>
                   <strong>#{off.attemptNumber}</strong> Tech: <code>{off.technicianId}</code> • Radius: {off.radiusKm}km • Dist: {off.distanceKm}km • Score: {off.rankingScore} • Status: <strong>{off.status}</strong> {off.rejectionReason ? `(${off.rejectionReason})` : ''}
                 </div>
               ))}
@@ -279,7 +279,7 @@ export default function DispatchManager({ bookings = [], setBookings, technician
           </h4>
           <div className="dispatch-list" style={{ maxHeight: '420px', overflowY: 'auto' }}>
             {activeTechnicians.map(t => (
-              <div key={t.id} className="dispatch-item" style={{ padding: '12px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+              <div key={t.id} className="dispatch-item" style={{ padding: '12px', marginBottom: '8px', borderRadius: '8px', border: '1px solid #EEE8E2' }}>
                 <div className="flex-between">
                   <span style={{ fontWeight: '700', fontSize: '13px' }}>{t.name || t.fullName}</span>
                   <span className="badge badge-success" style={{ fontSize: '10px' }}>Online GPS</span>

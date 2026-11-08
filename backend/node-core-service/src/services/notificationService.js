@@ -181,7 +181,26 @@ async function sendToUser(userId, titleOrPayload, bodyArg, dataArg = {}) {
   };
 }
 
+async function notifyCustomerBookingSubmitted(customerId, bookingId, serviceName) {
+  if (global.io) {
+    global.io.to(`cust_${customerId}`).emit('booking:submitted', { bookingId, serviceName, timestamp: Date.now() });
+  }
+  return sendToUser(customerId, {
+    title: '📋 Booking Request Submitted',
+    body: `Your request for ${serviceName || 'service'} (${bookingId}) is submitted. Searching for the nearest top technician...`,
+    data: {
+      type: 'BOOKING_SUBMITTED',
+      bookingId: String(bookingId),
+      serviceName: String(serviceName || ''),
+    },
+  });
+}
+
 async function notifyCustomerTechnicianAssigned(customerId, bookingId, technicianName, etaText = '15 mins') {
+  if (global.io) {
+    global.io.to(`cust_${customerId}`).emit('booking:technician:assigned', { bookingId, technicianName, etaText, timestamp: Date.now() });
+    global.io.to(`booking_${bookingId}`).emit('booking:technician:assigned', { bookingId, technicianName, etaText, timestamp: Date.now() });
+  }
   return sendToUser(customerId, {
     title: '✅ Technician Assigned!',
     body: `${technicianName} has been assigned to your booking (${bookingId}) and will arrive in ~${etaText}.`,
@@ -194,7 +213,40 @@ async function notifyCustomerTechnicianAssigned(customerId, bookingId, technicia
   });
 }
 
+async function notifyCustomerTechnicianAccepted(customerId, bookingId, technicianName) {
+  if (global.io) {
+    global.io.to(`cust_${customerId}`).emit('booking:technician:accepted', { bookingId, technicianName, timestamp: Date.now() });
+  }
+  return sendToUser(customerId, {
+    title: '👍 Technician Confirmed',
+    body: `${technicianName} has confirmed your booking and is preparing for transit.`,
+    data: {
+      type: 'TECHNICIAN_ACCEPTED',
+      bookingId: String(bookingId),
+      technicianName: String(technicianName),
+    },
+  });
+}
+
+async function notifyCustomerTechnicianEnRoute(customerId, bookingId, technicianName, etaMinutes = 15) {
+  if (global.io) {
+    global.io.to(`cust_${customerId}`).emit('booking:technician:en_route', { bookingId, technicianName, etaMinutes, timestamp: Date.now() });
+  }
+  return sendToUser(customerId, {
+    title: '🚗 Technician En Route',
+    body: `${technicianName} is heading towards your location (ETA ~${etaMinutes} min). Track live in your app.`,
+    data: {
+      type: 'TECHNICIAN_EN_ROUTE',
+      bookingId: String(bookingId),
+      eta: String(etaMinutes),
+    },
+  });
+}
+
 async function notifyCustomerTechnicianArrived(customerId, bookingId, technicianName) {
+  if (global.io) {
+    global.io.to(`cust_${customerId}`).emit('booking:technician:arrived', { bookingId, technicianName, timestamp: Date.now() });
+  }
   return sendToUser(customerId, {
     title: '📍 Technician Arrived',
     body: `${technicianName} has arrived at your location. Share the Start OTP to begin service.`,
@@ -205,7 +257,24 @@ async function notifyCustomerTechnicianArrived(customerId, bookingId, technician
   });
 }
 
+async function notifyCustomerServiceStarted(customerId, bookingId) {
+  if (global.io) {
+    global.io.to(`cust_${customerId}`).emit('booking:started', { bookingId, timestamp: Date.now() });
+  }
+  return sendToUser(customerId, {
+    title: '⚡ Service Started',
+    body: `Service has officially begun for booking ${bookingId}. Track real-time progress in app.`,
+    data: {
+      type: 'SERVICE_STARTED',
+      bookingId: String(bookingId),
+    },
+  });
+}
+
 async function notifyCustomerServiceCompleted(customerId, bookingId, amount) {
+  if (global.io) {
+    global.io.to(`cust_${customerId}`).emit('booking:completed', { bookingId, amount, timestamp: Date.now() });
+  }
   return sendToUser(customerId, {
     title: '🎉 Service Completed',
     body: `Your booking ${bookingId} is complete (Total: ₹${amount}). Thank you for choosing BookurTechnician!`,
@@ -217,11 +286,123 @@ async function notifyCustomerServiceCompleted(customerId, bookingId, amount) {
   });
 }
 
+async function notifyCustomerBookingCancelledOrExpired(customerId, bookingId, reason = 'No technician available') {
+  if (global.io) {
+    global.io.to(`cust_${customerId}`).emit('booking:cancelled', { bookingId, reason, timestamp: Date.now() });
+  }
+  return sendToUser(customerId, {
+    title: '⚠️ Booking Notice',
+    body: `Booking ${bookingId} status update: ${reason}. Tap to view details or retry search.`,
+    data: {
+      type: 'BOOKING_CANCELLED',
+      bookingId: String(bookingId),
+      reason: String(reason),
+    },
+  });
+}
+
+// ─── TECHNICIAN LIFECYCLE NOTIFICATIONS ──────────────────────────────────────
+
+async function notifyTechnicianNewRequest(technicianId, offer = {}) {
+  const offerId = offer.id || offer.offerId;
+  const bookingId = offer.bookingId;
+  const serviceName = offer.serviceName || 'Electrical Service';
+  const payout = offer.technicianPayoutAmount || offer.payout || 399;
+
+  if (global.io) {
+    global.io.to(`tech_${technicianId}`).emit('dispatch:offer:new', offer);
+  }
+
+  return sendToUser(technicianId, {
+    title: '🚨 New Booking Request!',
+    body: `${serviceName} • Earn ₹${payout}. Tap immediately to view and accept.`,
+    isUrgentAlert: true,
+    data: {
+      type: 'DISPATCH_OFFER_NEW',
+      offerId: String(offerId || ''),
+      bookingId: String(bookingId || ''),
+      payout: String(payout),
+      serviceName: String(serviceName),
+    },
+  });
+}
+
+async function notifyTechnicianAcceptedElsewhere(technicianId, bookingId) {
+  if (global.io) {
+    global.io.to(`tech_${technicianId}`).emit('dispatch:offer:cancelled', { bookingId, reason: 'CLAIMED_BY_ANOTHER_TECHNICIAN' });
+    global.io.to(`tech_${technicianId}`).emit('booking:claimed', { bookingId });
+  }
+  return sendToUser(technicianId, {
+    title: 'ℹ️ Booking Accepted Elsewhere',
+    body: `Booking ${bookingId} was accepted by another partner. Staying alert for next job!`,
+    data: {
+      type: 'OFFER_CLAIMED_ELSEWHERE',
+      bookingId: String(bookingId),
+    },
+  });
+}
+
+async function notifyTechnicianOfferExpired(technicianId, bookingId, offerId) {
+  if (global.io) {
+    global.io.to(`tech_${technicianId}`).emit('dispatch:offer:expired', { bookingId, offerId });
+  }
+  return sendToUser(technicianId, {
+    title: '⏳ Request Expired',
+    body: `Booking offer ${bookingId} timed out and has been routed to the next available technician.`,
+    data: {
+      type: 'DISPATCH_OFFER_EXPIRED',
+      bookingId: String(bookingId),
+      offerId: String(offerId || ''),
+    },
+  });
+}
+
+async function notifyTechnicianBookingCancelled(technicianId, bookingId, reason = 'Customer cancelled') {
+  if (global.io) {
+    global.io.to(`tech_${technicianId}`).emit('booking:cancelled', { bookingId, reason });
+  }
+  return sendToUser(technicianId, {
+    title: '🚫 Booking Cancelled',
+    body: `Booking ${bookingId} has been cancelled (${reason}).`,
+    data: {
+      type: 'BOOKING_CANCELLED',
+      bookingId: String(bookingId),
+      reason: String(reason),
+    },
+  });
+}
+
+async function notifyTechnicianBookingUpdate(technicianId, bookingId, updates = {}) {
+  if (global.io) {
+    global.io.to(`tech_${technicianId}`).emit('booking:updated', { bookingId, updates });
+  }
+  return sendToUser(technicianId, {
+    title: '📝 Booking Updated',
+    body: `Booking ${bookingId} details have been updated by customer/support.`,
+    data: {
+      type: 'BOOKING_UPDATED',
+      bookingId: String(bookingId),
+    },
+  });
+}
+
 module.exports = {
   deviceTokens,
   registerToken,
   sendToUser,
+  // Customer lifecycle
+  notifyCustomerBookingSubmitted,
   notifyCustomerTechnicianAssigned,
+  notifyCustomerTechnicianAccepted,
+  notifyCustomerTechnicianEnRoute,
   notifyCustomerTechnicianArrived,
+  notifyCustomerServiceStarted,
   notifyCustomerServiceCompleted,
+  notifyCustomerBookingCancelledOrExpired,
+  // Technician lifecycle
+  notifyTechnicianNewRequest,
+  notifyTechnicianAcceptedElsewhere,
+  notifyTechnicianOfferExpired,
+  notifyTechnicianBookingCancelled,
+  notifyTechnicianBookingUpdate,
 };

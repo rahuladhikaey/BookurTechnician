@@ -114,7 +114,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   prefixText: '₹ ',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
+                  fillColor: const Color(0xFFFCF9F6),
                 ),
               ),
               const SizedBox(height: 14),
@@ -125,7 +125,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   hintText: 'e.g. 9876543210@upi or name@okhdfcbank',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
+                  fillColor: const Color(0xFFFCF9F6),
                 ),
               ),
               const SizedBox(height: 20),
@@ -328,7 +328,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.bolt_rounded, size: 22, color: Color(0xFFFDB813)),
+                              Icon(Icons.bolt_rounded, size: 22, color: Color(0xFFF46B12)),
                               SizedBox(width: 8),
                               Text(
                                 'INSTANT WITHDRAW TO UPI / BANK',

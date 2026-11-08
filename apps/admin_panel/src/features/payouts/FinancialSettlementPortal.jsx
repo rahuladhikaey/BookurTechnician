@@ -160,7 +160,7 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
           right: '24px',
           zIndex: 999,
           padding: '12px 18px',
-          backgroundColor: '#0F172A',
+          backgroundColor: '#F46B12',
           color: '#FFFFFF',
           borderRadius: '8px',
           boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
@@ -182,7 +182,7 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
             width: '42px',
             height: '42px',
             borderRadius: '8px',
-            backgroundColor: '#0F172A',
+            backgroundColor: '#F46B12',
             color: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
@@ -192,10 +192,10 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
             💰
           </div>
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#222222', margin: 0 }}>
               Financial Ledger & Wallet Payout Settlements (UTR)
             </h2>
-            <p style={{ fontSize: '12.5px', color: '#64748B', margin: '2px 0 0' }}>
+            <p style={{ fontSize: '12.5px', color: '#77716C', margin: '2px 0 0' }}>
               Disburse partner earnings, verify unique UTR reference reconciliation, and manage held wallet balances
             </p>
           </div>
@@ -214,37 +214,37 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
       {/* ─── 2. KPI METRIC CARDS ─── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
         <div className="panel" style={{ margin: 0, padding: '16px' }}>
-          <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '700', color: '#77716C', textTransform: 'uppercase', marginBottom: '4px' }}>
             Total Held in Partner Wallets
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '900', color: '#D97706', fontFamily: 'monospace' }}>
+          <div style={{ fontSize: '26px', fontWeight: '900', color: '#E5A126', fontFamily: 'monospace' }}>
             ₹{totalHeldBalance.toLocaleString()}
           </div>
-          <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '4px' }}>
+          <div style={{ fontSize: '11.5px', color: '#77716C', marginTop: '4px' }}>
             {pendingRequestsCount} partners with withdrawable balance
           </div>
         </div>
 
         <div className="panel" style={{ margin: 0, padding: '16px' }}>
-          <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '700', color: '#77716C', textTransform: 'uppercase', marginBottom: '4px' }}>
             Total Payouts Disbursed
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '900', color: '#15803D', fontFamily: 'monospace' }}>
+          <div style={{ fontSize: '26px', fontWeight: '900', color: '#198754', fontFamily: 'monospace' }}>
             ₹{totalDisbursed.toLocaleString()}
           </div>
-          <div style={{ fontSize: '11.5px', color: '#64748B', marginTop: '4px' }}>
+          <div style={{ fontSize: '11.5px', color: '#77716C', marginTop: '4px' }}>
             {transactions.length} settled ledger transactions
           </div>
         </div>
 
         <div className="panel" style={{ margin: 0, padding: '16px' }}>
-          <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '700', color: '#77716C', textTransform: 'uppercase', marginBottom: '4px' }}>
             Reconciliation & UTR SLA
           </div>
-          <div style={{ fontSize: '26px', fontWeight: '900', color: '#0F172A', fontFamily: 'monospace' }}>
+          <div style={{ fontSize: '26px', fontWeight: '900', color: '#222222', fontFamily: 'monospace' }}>
             100%
           </div>
-          <div style={{ fontSize: '11.5px', color: '#15803D', fontWeight: '700', marginTop: '4px' }}>
+          <div style={{ fontSize: '11.5px', color: '#198754', fontWeight: '700', marginTop: '4px' }}>
             ✓ Strict UTR Idempotency Guard Active
           </div>
         </div>
@@ -256,7 +256,7 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
           <div className="panel-title">
             Partner Wallets Ready for Payout Disbursement
           </div>
-          <span style={{ fontSize: '12px', color: '#64748B' }}>
+          <span style={{ fontSize: '12px', color: '#77716C' }}>
             Click 'Process Payout' to disburse via bank IMPS/NEFT or UPI
           </span>
         </div>
@@ -267,7 +267,7 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
               key={tech._id || tech.id}
               style={{
                 backgroundColor: '#FFFFFF',
-                border: '1px solid #E2E8F0',
+                border: '1px solid #EEE8E2',
                 borderRadius: '8px',
                 padding: '16px',
                 display: 'flex',
@@ -277,19 +277,19 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontWeight: '800', fontSize: '14px', color: '#0F172A' }}>{tech.name || tech.fullName}</div>
-                  <div style={{ fontSize: '11.5px', color: '#64748B', fontFamily: 'monospace' }}>
+                  <div style={{ fontWeight: '800', fontSize: '14px', color: '#222222' }}>{tech.name || tech.fullName}</div>
+                  <div style={{ fontSize: '11.5px', color: '#77716C', fontFamily: 'monospace' }}>
                     {tech.technicianCode || 'TECH'} • {tech.phone}
                   </div>
                 </div>
-                <span style={{ fontSize: '18px', fontWeight: '900', color: '#D97706', fontFamily: 'monospace' }}>
+                <span style={{ fontSize: '18px', fontWeight: '900', color: '#E5A126', fontFamily: 'monospace' }}>
                   ₹{tech.walletBalance || 0}
                 </span>
               </div>
 
-              <div style={{ backgroundColor: '#F8FAFC', padding: '8px 10px', borderRadius: '6px', fontSize: '11.5px', color: '#64748B', display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ backgroundColor: '#FCF9F6', padding: '8px 10px', borderRadius: '6px', fontSize: '11.5px', color: '#77716C', display: 'flex', justifyContent: 'space-between' }}>
                 <span>Destination UPI:</span>
-                <span style={{ fontWeight: '700', color: '#0F172A', fontFamily: 'monospace' }}>{tech.upiId || 'Not Configured'}</span>
+                <span style={{ fontWeight: '700', color: '#222222', fontFamily: 'monospace' }}>{tech.upiId || 'Not Configured'}</span>
               </div>
 
               <button
@@ -307,9 +307,9 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
               gridColumn: '1 / -1',
               padding: '36px 16px',
               textAlign: 'center',
-              color: '#94A3B8',
+              color: '#77716C',
               fontSize: '13px',
-              border: '1px dashed #E2E8F0',
+              border: '1px dashed #EEE8E2',
               borderRadius: '8px'
             }}>
               ✓ All partner wallets are reconciled. No pending payout requests.
@@ -320,8 +320,8 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
 
       {/* ─── 4. IMMUTABLE PAYOUT LEDGER TABLE ─── */}
       <div className="panel" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid #E2E8F0' }}>
-          <div style={{ fontWeight: '800', fontSize: '15px', color: '#0F172A' }}>
+        <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid #EEE8E2' }}>
+          <div style={{ fontWeight: '800', fontSize: '15px', color: '#222222' }}>
             Immutable Payout Ledger & Bank UTR Audit Records
           </div>
 
@@ -343,14 +343,14 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Ledger Code</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Partner</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Disbursed Amount</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Payment Method</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Bank UTR Reference</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Disbursed At</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Status</th>
+              <tr style={{ backgroundColor: '#FCF9F6', borderBottom: '1px solid #EEE8E2' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Ledger Code</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Partner</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Disbursed Amount</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Payment Method</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Bank UTR Reference</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Disbursed At</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -361,24 +361,24 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
                   (tx.technicianName || '').toLowerCase().includes(searchQuery.toLowerCase())
                 )
                 .map(tx => (
-                  <tr key={tx._id || tx.id} style={{ borderBottom: '1px solid #E2E8F0' }}>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', color: '#0F172A' }}>
+                  <tr key={tx._id || tx.id} style={{ borderBottom: '1px solid #EEE8E2' }}>
+                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', color: '#222222' }}>
                       {tx.payoutCode || tx.id}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: '700', color: '#0F172A' }}>{tx.technicianName || 'Partner'}</div>
-                      <div style={{ fontSize: '11px', color: '#64748B' }}>{tx.technicianPhone || ''}</div>
+                      <div style={{ fontWeight: '700', color: '#222222' }}>{tx.technicianName || 'Partner'}</div>
+                      <div style={{ fontSize: '11px', color: '#77716C' }}>{tx.technicianPhone || ''}</div>
                     </td>
-                    <td style={{ padding: '12px 16px', fontWeight: '800', color: '#15803D', fontFamily: 'monospace' }}>
+                    <td style={{ padding: '12px 16px', fontWeight: '800', color: '#198754', fontFamily: 'monospace' }}>
                       ₹{tx.amount?.toLocaleString() || 0}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span className="badge badge-info">{tx.paymentMethod || 'UPI'}</span>
                     </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '12px', color: '#0F172A' }}>
+                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '12px', color: '#222222' }}>
                       {tx.utrReference || 'UTR-MOCK-7788'}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#64748B' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#77716C' }}>
                       {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : 'Today'}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
@@ -391,7 +391,7 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
 
               {transactions.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#94A3B8' }}>
+                  <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#77716C' }}>
                     No payout ledger transactions recorded yet.
                   </td>
                 </tr>
@@ -416,7 +416,7 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
 
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {modalError && (
-                <div style={{ padding: '10px 14px', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', borderRadius: '6px', fontSize: '12.5px' }}>
+                <div style={{ padding: '10px 14px', backgroundColor: '#FDECEC', border: '1px solid #FDECEC', color: '#DC3545', borderRadius: '6px', fontSize: '12.5px' }}>
                   ⚠️ {modalError}
                 </div>
               )}

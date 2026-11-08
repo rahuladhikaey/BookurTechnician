@@ -306,7 +306,7 @@ Widget _buildHeaderCard({
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
       gradient: const LinearGradient(
-        colors: [kBrandPrimary, Color(0xFF1D4ED8)],
+        colors: [kBrandPrimary, Color(0xFFF46B12)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),

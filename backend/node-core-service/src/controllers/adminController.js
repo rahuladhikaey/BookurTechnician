@@ -7,6 +7,8 @@ const {
   getMasterCatalog,
   getFlattenedServices,
   getAdminCategories,
+  getCatalogVersion,
+  getCatalogAuditLogs,
   updateServicePricing,
   updateServiceItem,
   createServiceItem,
@@ -15,13 +17,24 @@ const {
   updateCategoryItem,
   deleteCategoryItem,
 } = require('../config/masterCatalog');
+const firestoreSync = require('../config/firestoreSync');
 const bookingsStore = require('../config/bookingsStore');
 const bookingController = require('./bookingController');
 const firebase = require('../config/firebase');
 const {
   inMemoryDocs,
   inMemoryTechProfiles,
+  inMemoryTechPrivate,
+  maskVoterId,
+  maskAadhaar,
+  maskUpiId,
+  resolveCanonicalTechUid,
+  resolveTechnicianCode,
   setTechnicianProfile,
+  setTechnicianPrivateProfile,
+  getTechnicianPrivateProfile,
+  recordTechnicianAuditLog,
+  getTechnicianAuditLogs,
   deleteTechnicianProfile,
   clearAllTechniciansStore,
 } = require('../config/inMemoryTechStore');
@@ -57,32 +70,109 @@ let adminAuditLogs = [
 
 /**
  * GET /api/v1/admin/overview & /api/v1/admin/stats
+ * Authoritative Server-Side Real-Time Metrics & Database Aggregation
  */
 const getOverview = async (req, res) => {
   try {
     const services = getFlattenedServices();
     const categories = getAdminCategories();
-    const liveStats = bookingsStore.getDashboardStats();
-    let activeTechnicians = 0;
+    let stats = null;
 
     if (postgres.isPgHealthy()) {
       try {
-        const techRes = await postgres.query(`SELECT count(*) FROM technician_profiles WHERE is_online = true OR kyc_status = 'VERIFIED';`);
-        activeTechnicians = parseInt(techRes.rows[0]?.count || 0, 10);
-      } catch (e) {}
+        const [totalRes, statusRes, techRes] = await Promise.all([
+          postgres.query(`
+            SELECT 
+              count(*) as total,
+              coalesce(sum(case when status != 'CANCELLED' then total_amount else 0 end), 0) as total_rev,
+              count(distinct customer_id) as total_cust
+            FROM bookings;
+          `),
+          postgres.query(`SELECT status, count(*) as cnt FROM bookings GROUP BY status;`),
+          postgres.query(`
+            SELECT 
+              count(*) as total_tech,
+              count(case when is_online = true then 1 end) as online_tech,
+              count(case when kyc_status = 'VERIFIED' then 1 end) as verified_tech
+            FROM technician_profiles;
+          `),
+        ]);
+
+        const statusMap = {};
+        for (const r of statusRes.rows) {
+          statusMap[String(r.status).toUpperCase()] = parseInt(r.cnt, 10);
+        }
+
+        const totalBookings = parseInt(totalRes.rows[0]?.total || 0, 10);
+        const totalRevenue = parseFloat(totalRes.rows[0]?.total_rev || 0);
+        const totalCustomers = parseInt(totalRes.rows[0]?.total_cust || 0, 10);
+
+        const completedBookings = statusMap['COMPLETED'] || 0;
+        const cancelledBookings = statusMap['CANCELLED'] || 0;
+        const activeDispatches = (statusMap['SEARCHING'] || 0) + (statusMap['OFFERED'] || 0);
+        const pendingBookings = (statusMap['PENDING'] || 0) + (statusMap['SEARCHING'] || 0) + (statusMap['SUBMITTED'] || 0);
+        const assignedBookings = (statusMap['ASSIGNED'] || 0) + (statusMap['TECHNICIAN_ASSIGNED'] || 0) + (statusMap['ACCEPTED'] || 0) + (statusMap['IN_PROGRESS'] || 0) + (statusMap['TECHNICIAN_ON_THE_WAY'] || 0) + (statusMap['TECHNICIAN_ARRIVED'] || 0);
+        const failedDispatches = (statusMap['FAILED'] || 0) + (statusMap['EXPIRED'] || 0);
+        const activeBookings = Math.max(0, totalBookings - completedBookings - cancelledBookings);
+
+        const onlineTechnicians = parseInt(techRes.rows[0]?.online_tech || 0, 10);
+        const verifiedTechnicians = parseInt(techRes.rows[0]?.verified_tech || 0, 10);
+        const totalTechnicians = parseInt(techRes.rows[0]?.total_tech || 0, 10);
+
+        stats = {
+          totalBookings,
+          completedBookings,
+          activeBookings,
+          cancelledBookings,
+          pendingBookings,
+          activeDispatches,
+          assignedBookings,
+          failedDispatches,
+          totalRevenue: Math.round(totalRevenue),
+          todayRevenue: Math.round(totalRevenue),
+          platformCommission: Math.round(totalRevenue * 0.15),
+          totalCustomers,
+          activeTechnicians: onlineTechnicians,
+          onlineTechnicians,
+          verifiedTechnicians,
+          totalTechnicians,
+          totalServices: services.length,
+          totalCategories: categories.length,
+          catalogVersion: getCatalogVersion(),
+        };
+      } catch (pgErr) {
+        console.warn('⚠️ [AdminController] PostgreSQL stats aggregation fallback:', pgErr.message);
+      }
     }
 
-    const data = {
-      ...liveStats,
-      activeTechnicians,
-      totalServices: services.length,
-      totalCategories: categories.length,
-    };
+    if (!stats) {
+      const liveStats = bookingsStore.getDashboardStats();
+      const onlineTechs = Array.from(inMemoryTechProfiles.values()).filter(t => t.isOnline).length;
+      const verifiedTechs = Array.from(inMemoryTechProfiles.values()).filter(t => t.kycStatus === 'VERIFIED').length;
+      const allBookings = bookingsStore.getAllBookings() || [];
+      const assigned = allBookings.filter(b => b.technicianId && !['COMPLETED', 'CANCELLED'].includes(b.status)).length;
+      const activeDispatches = allBookings.filter(b => b.status === 'SEARCHING' || b.status === 'PENDING').length;
+      const failedDispatches = allBookings.filter(b => b.status === 'FAILED' || b.status === 'EXPIRED').length;
+
+      stats = {
+        ...liveStats,
+        activeDispatches,
+        assignedBookings: assigned,
+        failedDispatches,
+        activeTechnicians: onlineTechs,
+        onlineTechnicians: onlineTechs,
+        verifiedTechnicians: verifiedTechs,
+        totalTechnicians: inMemoryTechProfiles.size,
+        totalServices: services.length,
+        totalCategories: categories.length,
+        catalogVersion: getCatalogVersion(),
+      };
+    }
 
     return res.json({
       success: true,
-      data,
-      stats: data,
+      data: stats,
+      stats,
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
@@ -94,7 +184,12 @@ const getOverview = async (req, res) => {
 const getCategories = async (req, res) => {
   try {
     const categories = getAdminCategories();
-    return res.json({ success: true, data: categories, count: categories.length });
+    return res.json({
+      success: true,
+      catalogVersion: getCatalogVersion(),
+      data: categories,
+      count: categories.length,
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -104,26 +199,34 @@ const createCategory = async (req, res) => {
   try {
     const { name, iconUrl, bannerUrl, active = true } = req.body;
     if (!name) return res.status(400).json({ success: false, error: 'Category name is required' });
+    const adminUid = req.user?.id || 'admin_console';
 
     const newCat = createCategoryItem({
       name: name.trim(),
       imageUrl: bannerUrl || iconUrl,
       iconUrl: iconUrl || bannerUrl,
       active: active !== false,
-    });
+      isActive: active !== false,
+    }, adminUid);
+
+    firestoreSync.upsertDocument('service_categories', newCat.id, {
+      ...newCat,
+      catalogVersion: getCatalogVersion(),
+    }).catch(() => {});
 
     adminAuditLogs.unshift({
       id: 'log-' + uuidv4().slice(0, 6),
+      adminUid,
       module: 'Services',
       action: `Created category "${name}" (#${newCat.id})`,
       timestamp: new Date().toISOString(),
     });
 
     if (global.io) {
-      global.io.emit('catalog:updated', { type: 'CATEGORY_CREATED', data: newCat });
+      global.io.emit('catalog:updated', { type: 'CATEGORY_CREATED', catalogVersion: getCatalogVersion(), data: newCat });
     }
 
-    return res.status(201).json({ success: true, data: newCat, category: newCat });
+    return res.status(201).json({ success: true, catalogVersion: getCatalogVersion(), data: newCat, category: newCat });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -132,21 +235,28 @@ const createCategory = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = updateCategoryItem(id, req.body);
+    const adminUid = req.user?.id || 'admin_console';
+    const updated = updateCategoryItem(id, req.body, adminUid);
     if (!updated) return res.status(404).json({ success: false, error: 'Category not found' });
+
+    firestoreSync.upsertDocument('service_categories', updated.id, {
+      ...updated,
+      catalogVersion: getCatalogVersion(),
+    }).catch(() => {});
 
     adminAuditLogs.unshift({
       id: 'log-' + uuidv4().slice(0, 6),
+      adminUid,
       module: 'Services',
       action: `Updated category "${updated.name}" (#${id})`,
       timestamp: new Date().toISOString(),
     });
 
     if (global.io) {
-      global.io.emit('catalog:updated', { type: 'CATEGORY_UPDATED', id, data: updated });
+      global.io.emit('catalog:updated', { type: 'CATEGORY_UPDATED', catalogVersion: getCatalogVersion(), id, data: updated });
     }
 
-    return res.json({ success: true, data: updated });
+    return res.json({ success: true, catalogVersion: getCatalogVersion(), data: updated });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -155,21 +265,25 @@ const updateCategory = async (req, res) => {
 const deleteCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = deleteCategoryItem(id);
+    const adminUid = req.user?.id || 'admin_console';
+    const deleted = deleteCategoryItem(id, adminUid);
     if (!deleted) return res.status(404).json({ success: false, error: 'Category not found' });
+
+    firestoreSync.removeDocument('service_categories', id).catch(() => {});
 
     adminAuditLogs.unshift({
       id: 'log-' + uuidv4().slice(0, 6),
+      adminUid,
       module: 'Services',
       action: `Deleted category #${id}`,
       timestamp: new Date().toISOString(),
     });
 
     if (global.io) {
-      global.io.emit('catalog:updated', { type: 'CATEGORY_DELETED', id });
+      global.io.emit('catalog:updated', { type: 'CATEGORY_DELETED', catalogVersion: getCatalogVersion(), id });
     }
 
-    return res.json({ success: true, message: 'Category deleted successfully' });
+    return res.json({ success: true, catalogVersion: getCatalogVersion(), message: 'Category deleted successfully' });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -179,8 +293,51 @@ const deleteCategory = async (req, res) => {
 
 const getServices = async (req, res) => {
   try {
-    const services = getFlattenedServices();
-    return res.json({ success: true, data: services, count: services.length });
+    const { categoryId, subcategoryId, isActive, active, search, page, limit } = req.query;
+    let services = getFlattenedServices();
+    const totalUnfiltered = services.length;
+
+    if (categoryId && categoryId !== 'all') {
+      services = services.filter(s => s.categoryId === categoryId);
+    }
+    if (subcategoryId && subcategoryId !== 'all') {
+      services = services.filter(s => s.subcategoryId === subcategoryId);
+    }
+    const activeParam = isActive !== undefined ? isActive : active;
+    if (activeParam !== undefined && activeParam !== 'all') {
+      const wantActive = String(activeParam).toLowerCase() === 'true';
+      services = services.filter(s => Boolean(s.isActive) === wantActive);
+    }
+    if (search && String(search).trim()) {
+      const q = String(search).trim().toLowerCase();
+      services = services.filter(s =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.id || '').toLowerCase().includes(q) ||
+        (s.canonicalServiceId || '').toLowerCase().includes(q) ||
+        (s.categoryName || '').toLowerCase().includes(q) ||
+        (s.subcategoryName || '').toLowerCase().includes(q) ||
+        (s.description || '').toLowerCase().includes(q)
+      );
+    }
+
+    const totalFiltered = services.length;
+    let paginated = services;
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    if (!isNaN(pageNum) && pageNum > 0 && !isNaN(limitNum) && limitNum > 0) {
+      const start = (pageNum - 1) * limitNum;
+      paginated = services.slice(start, start + limitNum);
+    }
+
+    return res.json({
+      success: true,
+      catalogVersion: getCatalogVersion(),
+      data: paginated,
+      services: paginated,
+      count: paginated.length,
+      totalFiltered,
+      totalCatalogServices: totalUnfiltered,
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -190,18 +347,25 @@ const createService = async (req, res) => {
   try {
     const serviceName = req.body.name || req.body.title;
     if (!serviceName) return res.status(400).json({ success: false, error: 'Service name is required' });
+    const adminUid = req.user?.id || 'admin_console';
 
-    const newService = createServiceItem(req.body);
+    const newService = createServiceItem(req.body, adminUid);
+
+    firestoreSync.upsertDocument('services', newService.id, {
+      ...newService,
+      catalogVersion: getCatalogVersion(),
+    }).catch(() => {});
 
     adminAuditLogs.unshift({
       id: 'log-' + uuidv4().slice(0, 6),
+      adminUid,
       module: 'Services',
       action: `Created service "${newService.name}" under ${newService.categoryName}: Price ₹${newService.price}`,
       timestamp: new Date().toISOString(),
     });
 
     if (global.io) {
-      global.io.emit('catalog:updated', { type: 'SERVICE_CREATED', data: newService });
+      global.io.emit('catalog:updated', { type: 'SERVICE_CREATED', catalogVersion: getCatalogVersion(), data: newService });
       global.io.emit('notification:new_service', {
         title: '🎉 New Service Available!',
         body: `${newService.name} is now live under ${newService.categoryName || 'Services'}! Book now for ₹${newService.price}`,
@@ -219,7 +383,7 @@ const createService = async (req, res) => {
       data: { type: 'NEW_SERVICE', serviceId: newService.id, categoryId: newService.categoryId },
     }).catch(() => {});
 
-    return res.status(201).json({ success: true, data: newService, service: newService });
+    return res.status(201).json({ success: true, catalogVersion: getCatalogVersion(), data: newService, service: newService });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -228,21 +392,28 @@ const createService = async (req, res) => {
 const updateService = async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = updateServiceItem(id, req.body);
+    const adminUid = req.user?.id || 'admin_console';
+    const updated = updateServiceItem(id, req.body, adminUid);
     if (!updated) return res.status(404).json({ success: false, error: 'Service not found' });
+
+    firestoreSync.upsertDocument('services', updated.id, {
+      ...updated,
+      catalogVersion: getCatalogVersion(),
+    }).catch(() => {});
 
     adminAuditLogs.unshift({
       id: 'log-' + uuidv4().slice(0, 6),
+      adminUid,
       module: 'Services',
       action: `Updated service "${updated.name}" (#${id})`,
       timestamp: new Date().toISOString(),
     });
 
     if (global.io) {
-      global.io.emit('catalog:updated', { type: 'SERVICE_UPDATED', id, data: updated });
+      global.io.emit('catalog:updated', { type: 'SERVICE_UPDATED', catalogVersion: getCatalogVersion(), id, data: updated });
     }
 
-    return res.json({ success: true, data: updated });
+    return res.json({ success: true, catalogVersion: getCatalogVersion(), data: updated });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -251,21 +422,25 @@ const updateService = async (req, res) => {
 const deleteService = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = deleteServiceItem(id);
+    const adminUid = req.user?.id || 'admin_console';
+    const deleted = deleteServiceItem(id, adminUid);
     if (!deleted) return res.status(404).json({ success: false, error: 'Service not found' });
+
+    firestoreSync.removeDocument('services', id).catch(() => {});
 
     adminAuditLogs.unshift({
       id: 'log-' + uuidv4().slice(0, 6),
+      adminUid,
       module: 'Services',
       action: `Deleted service #${id}`,
       timestamp: new Date().toISOString(),
     });
 
     if (global.io) {
-      global.io.emit('catalog:updated', { type: 'SERVICE_DELETED', id });
+      global.io.emit('catalog:updated', { type: 'SERVICE_DELETED', catalogVersion: getCatalogVersion(), id });
     }
 
-    return res.json({ success: true, message: 'Service deleted successfully' });
+    return res.json({ success: true, catalogVersion: getCatalogVersion(), message: 'Service deleted successfully' });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -276,22 +451,30 @@ const deleteService = async (req, res) => {
 const updatePricing = async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = updateServicePricing(id, req.body);
+    const adminUid = req.user?.id || 'admin_console';
+    const updated = updateServicePricing(id, req.body, adminUid);
     if (!updated) return res.status(404).json({ success: false, error: `Service with ID "${id}" not found in catalog` });
+
+    firestoreSync.upsertDocument('services', updated.id, {
+      ...updated,
+      catalogVersion: getCatalogVersion(),
+    }).catch(() => {});
 
     adminAuditLogs.unshift({
       id: 'log-' + uuidv4().slice(0, 6),
+      adminUid,
       module: 'Pricing',
       action: `Updated rate card for "${updated.name}": Price=₹${updated.price}, Offer=₹${updated.offerPrice || updated.price}, BookingFee=₹${updated.bookingCharge}, Payout=₹${updated.technicianPayoutAmount}`,
       timestamp: new Date().toISOString(),
     });
 
     if (global.io) {
-      global.io.emit('catalog:updated', { type: 'PRICING_UPDATED', id, data: updated });
+      global.io.emit('catalog:updated', { type: 'PRICING_UPDATED', catalogVersion: getCatalogVersion(), id, data: updated });
     }
 
     return res.json({
       success: true,
+      catalogVersion: getCatalogVersion(),
       message: `Pricing and rate card updated for "${updated.name}"`,
       data: updated,
     });
@@ -304,7 +487,100 @@ const updatePricing = async (req, res) => {
 
 const getBookings = async (req, res) => {
   try {
-    const bookings = bookingsStore.getAllBookings();
+    let bookings = [];
+    if (postgres.isPgHealthy()) {
+      try {
+        const dbRes = await postgres.query(`
+          SELECT 
+            b.*,
+            u.full_name as cust_name, u.phone as cust_phone, u.email as cust_email,
+            tp.full_name as tech_name, tp.phone_number as tech_phone, tp.technician_code as tech_code
+          FROM bookings b
+          LEFT JOIN users u ON u.id = b.customer_id
+          LEFT JOIN technician_profiles tp ON tp.technician_id = b.technician_id OR tp.id = b.technician_id
+          ORDER BY b.created_at DESC;
+        `);
+        if (dbRes.rows.length > 0) {
+          bookings = dbRes.rows.map(r => ({
+            id: r.id,
+            bookingId: r.id,
+            bookingCode: r.booking_code || r.id,
+            customer: {
+              id: r.customer_id,
+              customerId: r.customer_id,
+              fullName: r.cust_name || 'Customer',
+              phone: r.cust_phone || '',
+              email: r.cust_email || '',
+            },
+            customerName: r.cust_name || 'Customer',
+            customerPhone: r.cust_phone || '',
+            selectedService: {
+              serviceId: r.service_id,
+              canonicalServiceId: r.service_id,
+              serviceName: r.service_name || 'Service',
+              categoryName: r.category || 'Electrical Services',
+            },
+            serviceName: r.service_name || 'Service',
+            category: r.category || 'Electrical Services',
+            status: r.status,
+            dispatchStatus: r.status,
+            notifiedTechnicians: [],
+            assignedTechnician: r.technician_id ? {
+              id: r.technician_id,
+              technicianId: r.technician_id,
+              technicianCode: r.tech_code || `BT-${String(r.technician_id).slice(-6)}`,
+              fullName: r.tech_name || 'Assigned Technician',
+              phone: r.tech_phone || '',
+            } : null,
+            technicianId: r.technician_id,
+            technicianName: r.tech_name,
+            totalAmount: parseFloat(r.total_amount || 0),
+            paymentStatus: r.payment_status || 'PENDING',
+            failureReason: r.failure_reason || null,
+            timeline: [
+              { status: 'CREATED', timestamp: r.created_at },
+              ...(r.updated_at ? [{ status: r.status, timestamp: r.updated_at }] : []),
+            ],
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+          }));
+        }
+      } catch (pgErr) {
+        console.warn('⚠️ [AdminController] PostgreSQL bookings fetch fallback:', pgErr.message);
+      }
+    }
+
+    if (bookings.length === 0) {
+      bookings = (bookingsStore.getAllBookings() || []).map(b => ({
+        ...b,
+        id: b.id || b.bookingId,
+        bookingId: b.id || b.bookingId,
+        customer: b.customer || {
+          id: b.customerId,
+          customerId: b.customerId,
+          fullName: b.customerName || 'Customer',
+          phone: b.customerPhone || '',
+        },
+        selectedService: b.selectedService || {
+          serviceId: b.serviceId,
+          canonicalServiceId: b.canonicalServiceId || b.serviceId,
+          serviceName: b.serviceName,
+          categoryName: b.category,
+        },
+        dispatchStatus: b.dispatchStatus || b.status,
+        notifiedTechnicians: b.notifiedTechnicians || [],
+        assignedTechnician: b.assignedTechnician || (b.technicianId ? {
+          technicianId: b.technicianId,
+          technicianCode: b.technicianCode || `BT-${String(b.technicianId).slice(-6)}`,
+          fullName: b.technicianName || 'Assigned Technician',
+          phone: b.technicianPhone || '',
+        } : null),
+        timeline: b.timeline || [{ status: b.status, timestamp: b.createdAt || new Date().toISOString() }],
+        paymentStatus: b.paymentStatus || 'PENDING',
+        failureReason: b.failureReason || null,
+      }));
+    }
+
     return res.json({ success: true, data: bookings, count: bookings.length });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
@@ -912,20 +1188,54 @@ const getTechnicians = async (req, res) => {
       }
     }
 
-    const techniciansList = Array.from(techMap.values()).map(t => {
+    const searchQ = (req.query.search || '').toString().trim().toLowerCase();
+
+    let techniciansList = Array.from(techMap.values()).map(t => {
+      const uid = resolveCanonicalTechUid(t.uid || t.id || t.technicianId, t.phoneNumber || t.phone);
+      const priv = getTechnicianPrivateProfile(uid) || {};
+      const techCode = resolveTechnicianCode(uid, t.phoneNumber || t.phone, t.technicianCode);
       const isVer = (t.kycStatus || 'PENDING').toUpperCase() === 'VERIFIED' || (t.kycStatus || 'PENDING').toUpperCase() === 'APPROVED';
       const hasAadhaar = t.hasAadhaar !== undefined ? t.hasAadhaar : isVer;
-      const hasVoterCard = t.hasVoterCard !== undefined ? t.hasVoterCard : isVer;
+      const hasVoterCard = t.hasVoterCard !== undefined ? t.hasVoterCard : Boolean(priv.maskedVoterId || t.maskedVoterId);
       const hasLivePic = t.hasLivePic !== undefined ? t.hasLivePic : isVer;
-      const profileCompletion = isVer ? 100 : (t.profileCompletion || (25 + (hasAadhaar ? 25 : 0) + (hasVoterCard ? 25 : 0) + (hasLivePic ? 25 : 0)));
+      const profileCompletion = t.profileCompletionPercentage || (isVer ? 100 : (t.profileCompletion || (25 + (hasAadhaar ? 25 : 0) + (hasVoterCard ? 25 : 0) + (hasLivePic ? 25 : 0))));
       const isProfileComplete = isVer || profileCompletion === 100;
 
       const livePicUrl = resolveDocUrl(t.livePicUrl || t.photo || t.avatar, 'SELFIE');
       const aadhaarUrl = resolveDocUrl(t.aadhaarUrl, 'AADHAAR');
       const voterCardUrl = resolveDocUrl(t.voterCardUrl, 'VOTER_CARD');
 
+      const maskedVoter = priv.maskedVoterId || t.maskedVoterId || maskVoterId(t.voterCardNumber) || '';
+      const maskedAadhaarVal = priv.maskedAadhaar || maskAadhaar(t.aadhaarNumber) || '';
+      const maskedUpiVal = priv.maskedUpiId || t.maskedUpiId || maskUpiId(t.upiId) || '';
+      const skillsList = Array.isArray(t.selectedSkills) && t.selectedSkills.length > 0
+        ? t.selectedSkills
+        : (Array.isArray(t.skills) ? t.skills : []);
+
       return {
         ...t,
+        uid,
+        id: uid,
+        technicianId: uid,
+        technicianCode: techCode,
+        phoneNumber: t.phoneNumber || t.phone || '',
+        phone: t.phone || t.phoneNumber || '',
+        selectedSkills: skillsList,
+        skills: skillsList,
+        serviceArea: t.serviceArea || '15 km radius',
+        onboardingStep: t.onboardingStep || (isVer ? 'ACTIVE' : 'SKILLS_SAVED'),
+        onboardingCompleted: t.onboardingCompleted ?? true,
+        profileCompletionPercentage: profileCompletion,
+        accountStatus: (t.status === 'Suspended' || t.accountStatus === 'SUSPENDED') ? 'SUSPENDED' : 'ACTIVE',
+        voterIdVerificationStatus: priv.voterIdVerificationStatus || t.voterIdVerificationStatus || (maskedVoter ? 'VERIFIED' : 'NOT_SUBMITTED'),
+        maskedVoterId: maskedVoter,
+        voterCardNumber: maskedVoter || 'OPTIONAL',
+        maskedAadhaar: maskedAadhaarVal,
+        aadhaarNumber: maskedAadhaarVal || 'VERIFIED',
+        upiVerificationStatus: priv.upiVerificationStatus || t.upiVerificationStatus || (maskedUpiVal ? 'VERIFIED' : 'NOT_SUBMITTED'),
+        maskedUpiId: maskedUpiVal,
+        // Mask UPI in general list view (full UPI shown only in authorized single-partner inspection)
+        upiId: maskedUpiVal,
         livePicUrl,
         photo: livePicUrl,
         avatar: livePicUrl,
@@ -936,13 +1246,21 @@ const getTechnicians = async (req, res) => {
         hasLivePic,
         profileCompletion,
         isProfileComplete,
-        kycStatus: isVer ? 'VERIFIED' : t.kycStatus,
+        kycStatus: isVer ? 'VERIFIED' : (t.kycStatus || 'PENDING'),
       };
     }).sort((a, b) => {
-      // Online technicians first, then newest
       if (a.isOnline !== b.isOnline) return b.isOnline ? 1 : -1;
       return new Date(b.joinedAt || 0) - new Date(a.joinedAt || 0);
     });
+
+    if (searchQ) {
+      techniciansList = techniciansList.filter(t =>
+        (t.fullName || '').toLowerCase().includes(searchQ) ||
+        (t.phone || '').toLowerCase().includes(searchQ) ||
+        (t.technicianCode || '').toLowerCase().includes(searchQ) ||
+        (t.uid || '').toLowerCase().includes(searchQ)
+      );
+    }
 
     const onlineCount = techniciansList.filter(t => t.isOnline).length;
     const offlineCount = techniciansList.length - onlineCount;
@@ -967,17 +1285,34 @@ const getTechnicians = async (req, res) => {
 
 const updateTechnicianStatus = async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body; // 'Active' or 'Suspended'
+  const { status, reason = '' } = req.body; // 'Active' or 'Suspended'
+  const adminUid = req.user?.id || req.headers['x-admin-id'] || 'admin_console';
+  const uid = resolveCanonicalTechUid(id);
   try {
-    const nextStatus = status === 'Suspended' ? 'Suspended' : 'Active';
+    const isSuspending = String(status).toLowerCase().includes('suspend');
+    const nextStatus = isSuspending ? 'Suspended' : 'Active';
+    const nextAccountStatus = isSuspending ? 'SUSPENDED' : 'ACTIVE';
+    const existing = inMemoryTechProfiles.get(uid) || inMemoryTechProfiles.get(id) || {};
+    const previousStatus = existing.accountStatus || existing.status || 'ACTIVE';
 
-    if (inMemoryTechProfiles.has(id)) {
-      const tech = inMemoryTechProfiles.get(id);
-      tech.status = nextStatus;
-      if (nextStatus === 'Suspended') {
-        tech.isOnline = false;
-      }
-    }
+    setTechnicianProfile(
+      uid,
+      {
+        status: nextStatus,
+        accountStatus: nextAccountStatus,
+        ...(isSuspending ? { isOnline: false, availabilityStatus: 'OFFLINE' } : {}),
+      },
+      ['status', 'accountStatus', ...(isSuspending ? ['isOnline', 'availabilityStatus'] : []), 'updatedAt']
+    );
+
+    recordTechnicianAuditLog({
+      adminUid,
+      action: isSuspending ? 'SUSPEND_TECHNICIAN' : 'REACTIVATE_TECHNICIAN',
+      targetTechnicianUid: uid,
+      previousStatus,
+      updatedStatus: nextAccountStatus,
+      notes: reason || `Account status set to ${nextAccountStatus}`,
+    });
 
     if (postgres.isPgHealthy()) {
       await postgres.query(`
@@ -986,16 +1321,31 @@ const updateTechnicianStatus = async (req, res) => {
             is_online = CASE WHEN $1 = 'Suspended' THEN false ELSE is_online END,
             updated_at = NOW()
         WHERE technician_id = $2 OR id = $2;
-      `, [nextStatus, id]);
+      `, [nextStatus, uid]);
     }
 
     if (global.io) {
-      global.io.emit('technicians:updated', { action: 'STATUS_CHANGED', technicianId: id, status: nextStatus });
+      global.io.emit('technicians:updated', { action: 'STATUS_CHANGED', technicianId: uid, status: nextStatus, accountStatus: nextAccountStatus });
     }
   } catch (e) {
     console.warn('⚠️ updateTechnicianStatus warning:', e.message);
   }
-  return res.json({ success: true, message: `Technician status updated to ${status}`, id, status: status === 'Suspended' ? 'Suspended' : 'Active' });
+  const resolvedStatus = String(status).toLowerCase().includes('suspend') ? 'Suspended' : 'Active';
+  const resolvedAcctStatus = String(status).toLowerCase().includes('suspend') ? 'SUSPENDED' : 'ACTIVE';
+  return res.json({
+    success: true,
+    message: `Technician status updated to ${status}`,
+    id: uid,
+    uid,
+    status: resolvedStatus,
+    accountStatus: resolvedAcctStatus,
+    data: {
+      id: uid,
+      uid,
+      status: resolvedStatus,
+      accountStatus: resolvedAcctStatus,
+    },
+  });
 };
 
 const createTechnician = async (req, res) => {
@@ -1387,6 +1737,8 @@ const getTechnicianDocuments = async (req, res) => {
       });
     }
 
+    const uid = resolveCanonicalTechUid(id);
+    const priv = getTechnicianPrivateProfile(uid) || {};
     const docsList = Array.from(docMap.values());
     const selfieDoc = docsList.find(d => d.documentType.includes('SELFIE') || d.documentType.includes('LIVE') || d.documentType.includes('PHOTO'));
     const aadhaarDoc = docsList.find(d => d.documentType.includes('AADHAAR'));
@@ -1394,18 +1746,33 @@ const getTechnicianDocuments = async (req, res) => {
 
     return res.json({
       success: true,
+      uid,
       data: docsList,
       documents: docsList,
       count: docsList.length,
+      privateVault: {
+        uid,
+        voterIdVerificationStatus: priv.voterIdVerificationStatus || 'NOT_SUBMITTED',
+        maskedVoterId: priv.maskedVoterId || voterDoc?.maskedNumber || '',
+        aadhaarVerificationStatus: priv.aadhaarVerificationStatus || 'VERIFIED',
+        maskedAadhaar: priv.maskedAadhaar || aadhaarDoc?.maskedNumber || '',
+        upiVerificationStatus: priv.upiVerificationStatus || 'NOT_SUBMITTED',
+        upiId: priv.upiId || '',
+        maskedUpiId: priv.maskedUpiId || '',
+        kycSubmittedAt: priv.kycSubmittedAt || null,
+        verifiedAt: priv.verifiedAt || null,
+        verifiedByAdminUid: priv.verifiedByAdminUid || null,
+      },
+      auditHistory: getTechnicianAuditLogs(uid),
       summary: {
         hasLivePic: true,
         livePicUrl: resolveDocUrl(selfieDoc?.fileUrl, 'SELFIE'),
         hasAadhaar: true,
         aadhaarUrl: resolveDocUrl(aadhaarDoc?.fileUrl, 'AADHAAR'),
-        aadhaarNumber: aadhaarDoc?.maskedNumber || 'RECORD_VERIFIED',
+        aadhaarNumber: priv.maskedAadhaar || aadhaarDoc?.maskedNumber || 'RECORD_VERIFIED',
         hasVoterCard: true,
         voterCardUrl: resolveDocUrl(voterDoc?.fileUrl, 'VOTER_CARD'),
-        voterCardNumber: voterDoc?.maskedNumber || 'RECORD_VERIFIED',
+        voterCardNumber: priv.maskedVoterId || voterDoc?.maskedNumber || 'RECORD_VERIFIED',
       }
     });
   } catch (error) {
@@ -1417,25 +1784,66 @@ const updateTechnicianKyc = async (req, res) => {
   const { id } = req.params;
   const { status = 'VERIFIED', kycStatus, reason = '' } = req.body;
   const targetStatus = (kycStatus || status || 'VERIFIED').toUpperCase();
+  const adminUid = req.user?.id || req.headers['x-admin-id'] || 'admin_console';
+  const uid = resolveCanonicalTechUid(id);
+
+  // Prevent self-approval if technician calls this route directly
+  if (req.user?.id && resolveCanonicalTechUid(req.user.id) === uid && String(req.user.role || '').toUpperCase() === 'TECHNICIAN') {
+    return res.status(403).json({
+      success: false,
+      code: 'SELF_APPROVAL_FORBIDDEN',
+      error: 'Forbidden: Technicians cannot self-approve their own KYC.',
+    });
+  }
 
   try {
-    // 1. Update in-memory
-    if (inMemoryTechProfiles.has(id)) {
-      const tech = inMemoryTechProfiles.get(id);
-      tech.kycStatus = targetStatus;
-      tech.status = targetStatus === 'VERIFIED' ? 'Active' : (targetStatus === 'REJECTED' ? 'Rejected' : tech.status);
-      if (targetStatus === 'VERIFIED') {
-        tech.hasAadhaar = true;
-        tech.hasVoterCard = true;
-        tech.hasLivePic = true;
-        tech.profileCompletion = 100;
-        tech.isProfileComplete = true;
-      }
-    }
+    const existing = inMemoryTechProfiles.get(uid) || inMemoryTechProfiles.get(id) || {};
+    const previousStatus = existing.kycStatus || 'PENDING';
+    const nowIso = new Date().toISOString();
 
-    const docs = inMemoryDocs.get(id) || [];
+    // 1. Update private vault & public profile with partial field masks
+    setTechnicianPrivateProfile(uid, {
+      voterIdVerificationStatus: targetStatus,
+      aadhaarVerificationStatus: targetStatus,
+      verifiedAt: nowIso,
+      verifiedByAdminUid: adminUid,
+      rejectionReason: reason || '',
+    });
+
+    setTechnicianProfile(
+      uid,
+      {
+        kycStatus: targetStatus,
+        voterIdVerificationStatus: targetStatus,
+        status: targetStatus === 'VERIFIED' ? 'Active' : (targetStatus === 'REJECTED' ? 'Rejected' : existing.status),
+        accountStatus: targetStatus === 'VERIFIED' ? 'ACTIVE' : (targetStatus === 'REJECTED' ? 'CORRECTION_REQUIRED' : existing.accountStatus),
+        onboardingStep: targetStatus === 'VERIFIED' ? 'ACTIVE' : 'KYC_SUBMITTED',
+        onboardingCompleted: targetStatus === 'VERIFIED',
+      },
+      [
+        'kycStatus',
+        'voterIdVerificationStatus',
+        'status',
+        'accountStatus',
+        'onboardingStep',
+        'onboardingCompleted',
+        'profileCompletionPercentage',
+        'updatedAt',
+      ]
+    );
+
+    const docs = inMemoryDocs.get(uid) || inMemoryDocs.get(id) || [];
     docs.forEach(d => {
       d.verificationStatus = targetStatus;
+    });
+
+    recordTechnicianAuditLog({
+      adminUid,
+      action: targetStatus === 'VERIFIED' ? 'APPROVE_TECHNICIAN_KYC' : 'REJECT_OR_REQUEST_CORRECTION_KYC',
+      targetTechnicianUid: uid,
+      previousStatus,
+      updatedStatus: targetStatus,
+      notes: reason || `KYC marked ${targetStatus}`,
     });
 
     // 2. Update PostgreSQL
@@ -1445,13 +1853,13 @@ const updateTechnicianKyc = async (req, res) => {
           UPDATE technician_profiles
           SET kyc_status = $1, updated_at = NOW()
           WHERE technician_id = $2 OR id = $2;
-        `, [targetStatus, id]);
+        `, [targetStatus, uid]);
 
         await postgres.query(`
           UPDATE technician_kyc_documents
           SET verification_status = $1, verified_at = NOW()
           WHERE technician_id = $2;
-        `, [targetStatus, id]);
+        `, [targetStatus, uid]);
       } catch (pErr) {
         console.warn('Postgres updateTechnicianKyc warning:', pErr.message);
       }
@@ -1461,7 +1869,7 @@ const updateTechnicianKyc = async (req, res) => {
     if (mongo.isMongoHealthy()) {
       try {
         await MongoTechnicianProfile.findOneAndUpdate(
-          { technicianId: id },
+          { technicianId: uid },
           {
             $set: {
               kycStatus: targetStatus,
@@ -1478,23 +1886,26 @@ const updateTechnicianKyc = async (req, res) => {
     // 4. WebSocket Broadcast
     if (global.io) {
       global.io.emit('kyc:verified', {
-        technicianId: id,
+        technicianId: uid,
         kycStatus: targetStatus,
-        verifiedAt: new Date().toISOString(),
+        verifiedAt: nowIso,
       });
-      global.io.emit('technicians:updated', { technicianId: id, action: 'KYC_STATUS_UPDATED', kycStatus: targetStatus });
+      global.io.emit('technicians:updated', { technicianId: uid, action: 'KYC_STATUS_UPDATED', kycStatus: targetStatus });
     }
 
-    console.log(`✅ [KYC Admin Verify] Marked technician ${id} KYC as ${targetStatus}.`);
+    console.log(`✅ [KYC Admin Verify] Marked technician ${uid} KYC as ${targetStatus} by ${adminUid}.`);
     return res.json({
       success: true,
-      message: `Technician ${id} KYC status updated to ${targetStatus}`,
+      message: `Technician ${uid} KYC status updated to ${targetStatus}`,
       data: {
-        id,
-        technicianId: id,
+        id: uid,
+        uid,
+        technicianId: uid,
         kycStatus: targetStatus,
         status: targetStatus === 'VERIFIED' ? 'Active' : 'Pending',
         isProfileComplete: targetStatus === 'VERIFIED',
+        verifiedAt: nowIso,
+        verifiedByAdminUid: adminUid,
       }
     });
   } catch (error) {
@@ -1566,7 +1977,14 @@ const getReviews = async (req, res) => {
   return res.json({ success: true, data: reviews });
 };
 
-const getAuditLogs = async (req, res) => res.json({ success: true, data: adminAuditLogs });
+const getAuditLogs = async (req, res) => {
+  const merged = [
+    ...getTechnicianAuditLogs(),
+    ...getCatalogAuditLogs(),
+    ...adminAuditLogs,
+  ].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+  return res.json({ success: true, data: merged, count: merged.length });
+};
 
 const getPayments = async (req, res) => {
   const bookings = bookingsStore.getAllBookings();

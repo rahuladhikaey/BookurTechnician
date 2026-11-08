@@ -5,12 +5,12 @@ import OtpDisputeModal from '../support/OtpDisputeModal';
 import LiveTransitRadarModal from './LiveTransitRadarModal';
 
 const STAGES = [
-  { key: 'PENDING', label: 'Unassigned (Pending)', bg: '#FFFBEB', border: '#FDE68A', text: '#D97706', dot: '#D97706' },
-  { key: 'ACCEPTED', label: 'Accepted / Dispatched', bg: '#EFF6FF', border: '#BFDBFE', text: '#1E40AF', dot: '#1E40AF' },
-  { key: 'ARRIVED', label: 'Arrived at Doorstep', bg: '#FAF5FF', border: '#E9D5FF', text: '#7E22CE', dot: '#7E22CE' },
-  { key: 'IN_PROGRESS', label: 'In Progress (Start OTP)', bg: '#EEF2FF', border: '#C7D2FE', text: '#4338CA', dot: '#4338CA' },
-  { key: 'COMPLETED', label: 'Completed (Settled)', bg: '#ECFDF5', border: '#A7F3D0', text: '#15803D', dot: '#15803D' },
-  { key: 'CANCELLED', label: 'Cancelled / Refunded', bg: '#FEF2F2', border: '#FCA5A5', text: '#DC2626', dot: '#DC2626' },
+  { key: 'PENDING', label: 'Unassigned (Pending)', bg: '#FFF4E0', border: '#FBE4D5', text: '#E5A126', dot: '#E5A126' },
+  { key: 'ACCEPTED', label: 'Accepted / Dispatched', bg: '#FBE4D5', border: '#FBE4D5', text: '#F46B12', dot: '#F46B12' },
+  { key: 'ARRIVED', label: 'Arrived at Doorstep', bg: '#FBE4D5', border: '#FBE4D5', text: '#F46B12', dot: '#F46B12' },
+  { key: 'IN_PROGRESS', label: 'In Progress (Start OTP)', bg: '#FBE4D5', border: '#FBE4D5', text: '#F46B12', dot: '#F46B12' },
+  { key: 'COMPLETED', label: 'Completed (Settled)', bg: '#E8F5E9', border: '#E8F5E9', text: '#198754', dot: '#198754' },
+  { key: 'CANCELLED', label: 'Cancelled / Refunded', bg: '#FDECEC', border: '#FDECEC', text: '#DC3545', dot: '#DC3545' },
 ];
 
 export default function LiveBookingRadar({ onReload, isSyncing = false }) {
@@ -99,7 +99,7 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
           right: '24px',
           zIndex: 999,
           padding: '12px 18px',
-          backgroundColor: '#0F172A',
+          backgroundColor: '#F46B12',
           color: '#FFFFFF',
           borderRadius: '8px',
           boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
@@ -121,7 +121,7 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
             width: '42px',
             height: '42px',
             borderRadius: '8px',
-            backgroundColor: '#0F172A',
+            backgroundColor: '#F46B12',
             color: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
@@ -132,14 +132,14 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#222222', margin: 0 }}>
                 Live Operations Radar & Dispatch Tower
               </h2>
               <span className="live-badge" style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px' }}>
                 LIVE STREAM
               </span>
             </div>
-            <p style={{ fontSize: '12.5px', color: '#64748B', margin: '2px 0 0' }}>
+            <p style={{ fontSize: '12.5px', color: '#77716C', margin: '2px 0 0' }}>
               Real-time pipeline monitoring, 15 km spatial force-assign, and dual-OTP dispute controls
             </p>
           </div>
@@ -151,9 +151,9 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
             onClick={() => setAutoRefresh(!autoRefresh)}
             className="btn btn-outline btn-sm"
             style={{
-              borderColor: autoRefresh ? '#10B981' : '#CBD5E1',
-              color: autoRefresh ? '#047857' : '#64748B',
-              backgroundColor: autoRefresh ? '#ECFDF5' : '#FFFFFF',
+              borderColor: autoRefresh ? '#198754' : '#EEE8E2',
+              color: autoRefresh ? '#198754' : '#77716C',
+              backgroundColor: autoRefresh ? '#E8F5E9' : '#FFFFFF',
               fontWeight: '700'
             }}
           >
@@ -169,15 +169,15 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
             <span className={isSpinning ? 'spin-icon' : ''}>🔄</span> {isSpinning ? 'Refreshing...' : 'Refresh Radar'}
           </button>
 
-          <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '6px', padding: '2px', border: '1px solid #E2E8F0' }}>
+          <div style={{ display: 'flex', backgroundColor: '#FCF9F6', borderRadius: '6px', padding: '2px', border: '1px solid #EEE8E2' }}>
             <button
               onClick={() => setViewMode('kanban')}
               style={{
                 padding: '5px 12px',
                 borderRadius: '4px',
                 border: 'none',
-                backgroundColor: viewMode === 'kanban' ? '#0F172A' : 'transparent',
-                color: viewMode === 'kanban' ? '#FFFFFF' : '#64748B',
+                backgroundColor: viewMode === 'kanban' ? '#F46B12' : 'transparent',
+                color: viewMode === 'kanban' ? '#FFFFFF' : '#77716C',
                 fontSize: '12px',
                 fontWeight: '700',
                 cursor: 'pointer'
@@ -191,8 +191,8 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                 padding: '5px 12px',
                 borderRadius: '4px',
                 border: 'none',
-                backgroundColor: viewMode === 'table' ? '#0F172A' : 'transparent',
-                color: viewMode === 'table' ? '#FFFFFF' : '#64748B',
+                backgroundColor: viewMode === 'table' ? '#F46B12' : 'transparent',
+                color: viewMode === 'table' ? '#FFFFFF' : '#77716C',
                 fontSize: '12px',
                 fontWeight: '700',
                 cursor: 'pointer'
@@ -215,7 +215,7 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
               onClick={() => setSelectedStatus(isSelected ? 'ALL' : stage.key)}
               style={{
                 backgroundColor: isSelected ? stage.bg : '#FFFFFF',
-                border: `1.5px solid ${isSelected ? '#0F172A' : stage.border}`,
+                border: `1.5px solid ${isSelected ? '#222222' : stage.border}`,
                 borderRadius: '8px',
                 padding: '12px 14px',
                 cursor: 'pointer',
@@ -228,8 +228,8 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                 </span>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: stage.dot }}></span>
               </div>
-              <div style={{ fontSize: '22px', fontWeight: '900', color: '#0F172A' }}>{count}</div>
-              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: '22px', fontWeight: '900', color: '#222222' }}>{count}</div>
+              <div style={{ fontSize: '11px', color: '#77716C', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {stage.label}
               </div>
             </div>
@@ -253,9 +253,9 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: '#64748B' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: '#77716C' }}>
           <span>
-            Showing <strong style={{ color: '#0F172A' }}>{filteredBookings.length}</strong> active jobs
+            Showing <strong style={{ color: '#222222' }}>{filteredBookings.length}</strong> active jobs
           </span>
           {selectedStatus !== 'ALL' && (
             <button
@@ -284,7 +284,7 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                 key={stage.key}
                 style={{
                   backgroundColor: '#FFFFFF',
-                  border: '1px solid #E2E8F0',
+                  border: '1px solid #EEE8E2',
                   borderRadius: '8px',
                   padding: '14px',
                   display: 'flex',
@@ -303,7 +303,7 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: stage.dot }}></span>
-                    <span style={{ fontWeight: '800', fontSize: '12.5px', color: '#0F172A' }}>{stage.key}</span>
+                    <span style={{ fontWeight: '800', fontSize: '12.5px', color: '#222222' }}>{stage.key}</span>
                   </div>
                   <span style={{
                     fontSize: '11px',
@@ -324,9 +324,9 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                     <div style={{
                       padding: '30px 10px',
                       textAlign: 'center',
-                      color: '#94A3B8',
+                      color: '#77716C',
                       fontSize: '12px',
-                      border: '1px dashed #E2E8F0',
+                      border: '1px dashed #EEE8E2',
                       borderRadius: '6px'
                     }}>
                       No jobs in this stage
@@ -345,7 +345,7 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                           key={b.id || b._id}
                           style={{
                             backgroundColor: '#FFFFFF',
-                            border: '1px solid #E2E8F0',
+                            border: '1px solid #EEE8E2',
                             borderRadius: '6px',
                             padding: '12px',
                             display: 'flex',
@@ -355,29 +355,29 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                           }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontFamily: 'monospace', fontWeight: '800', fontSize: '12px', color: '#0F172A' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: '800', fontSize: '12px', color: '#222222' }}>
                               {code}
                             </span>
-                            <span style={{ fontSize: '12px', fontWeight: '800', color: '#15803D' }}>
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: '#198754' }}>
                               ₹{payout}
                             </span>
                           </div>
 
                           <div>
-                            <div style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A' }}>
+                            <div style={{ fontSize: '13px', fontWeight: '800', color: '#222222' }}>
                               {service}
                             </div>
-                            <div style={{ fontSize: '12px', color: '#64748B' }}>
+                            <div style={{ fontSize: '12px', color: '#77716C' }}>
                               {customer}
                             </div>
                           </div>
 
                           <div style={{
-                            backgroundColor: '#F8FAFC',
+                            backgroundColor: '#FCF9F6',
                             padding: '6px 8px',
                             borderRadius: '4px',
                             fontSize: '11px',
-                            color: '#64748B',
+                            color: '#77716C',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '3px'
@@ -386,11 +386,11 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                               📍 {address}
                             </div>
                             {tech ? (
-                              <div style={{ fontWeight: '700', color: '#0F172A' }}>
+                              <div style={{ fontWeight: '700', color: '#222222' }}>
                                 👨‍🔧 {tech}
                               </div>
                             ) : (
-                              <div style={{ fontWeight: '700', color: '#D97706' }}>
+                              <div style={{ fontWeight: '700', color: '#E5A126' }}>
                                 ⏳ Searching 15km radar...
                               </div>
                             )}
@@ -403,7 +403,7 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                               className="btn btn-sm"
                               style={{
                                 width: '100%',
-                                backgroundColor: '#2563EB',
+                                backgroundColor: '#F46B12',
                                 color: '#FFFFFF',
                                 fontSize: '11px',
                                 padding: '6px 8px',
@@ -423,7 +423,7 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                                 className="btn btn-sm"
                                 style={{
                                   width: '100%',
-                                  backgroundColor: '#0F172A',
+                                  backgroundColor: '#F46B12',
                                   color: '#FFFFFF',
                                   fontSize: '11px',
                                   padding: '5px 8px'
@@ -439,9 +439,9 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                                 className="btn btn-sm"
                                 style={{
                                   width: '100%',
-                                  backgroundColor: '#FEF2F2',
-                                  color: '#DC2626',
-                                  border: '1px solid #FCA5A5',
+                                  backgroundColor: '#FDECEC',
+                                  color: '#DC3545',
+                                  border: '1px solid #FDECEC',
                                   fontSize: '11px',
                                   padding: '5px 8px'
                                 }}
@@ -464,20 +464,20 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
         <div className="panel" style={{ margin: 0, padding: 0, overflow: 'hidden' }}>
           <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Booking Code</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Customer</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Service</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Technician</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Status</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Payout</th>
-                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Actions</th>
+              <tr style={{ backgroundColor: '#FCF9F6', borderBottom: '1px solid #EEE8E2' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Booking Code</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Customer</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Service</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Technician</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Status</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Payout</th>
+                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#94A3B8' }}>
+                  <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: '#77716C' }}>
                     No active bookings found matching criteria.
                   </td>
                 </tr>
@@ -491,20 +491,20 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                   const status = (b.status || 'PENDING').toUpperCase();
 
                   return (
-                    <tr key={b.id || b._id} style={{ borderBottom: '1px solid #E2E8F0' }}>
-                      <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', color: '#0F172A' }}>
+                    <tr key={b.id || b._id} style={{ borderBottom: '1px solid #EEE8E2' }}>
+                      <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', color: '#222222' }}>
                         {code}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        <div style={{ fontWeight: '700', color: '#0F172A' }}>{customer}</div>
-                        <div style={{ fontSize: '11px', color: '#64748B' }}>{b.customer?.phone || b.customerPhone || 'N/A'}</div>
+                        <div style={{ fontWeight: '700', color: '#222222' }}>{customer}</div>
+                        <div style={{ fontSize: '11px', color: '#77716C' }}>{b.customer?.phone || b.customerPhone || 'N/A'}</div>
                       </td>
-                      <td style={{ padding: '12px 16px', color: '#334155' }}>{service}</td>
+                      <td style={{ padding: '12px 16px', color: '#222222' }}>{service}</td>
                       <td style={{ padding: '12px 16px' }}>
                         {tech ? (
-                          <span style={{ fontWeight: '700', color: '#0F172A' }}>{tech}</span>
+                          <span style={{ fontWeight: '700', color: '#222222' }}>{tech}</span>
                         ) : (
-                          <span style={{ color: '#D97706', fontSize: '12px', fontWeight: '700' }}>Awaiting Partner</span>
+                          <span style={{ color: '#E5A126', fontSize: '12px', fontWeight: '700' }}>Awaiting Partner</span>
                         )}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
@@ -512,7 +512,7 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                           {status}
                         </span>
                       </td>
-                      <td style={{ padding: '12px 16px', fontWeight: '800', color: '#15803D' }}>
+                      <td style={{ padding: '12px 16px', fontWeight: '800', color: '#198754' }}>
                         ₹{payout}
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'right' }}>
@@ -520,7 +520,7 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                           <button
                             onClick={() => setForceAssignTarget(b)}
                             className="btn btn-sm"
-                            style={{ backgroundColor: '#0F172A', color: '#FFFFFF' }}
+                            style={{ backgroundColor: '#F46B12', color: '#FFFFFF' }}
                           >
                             Force Assign
                           </button>

@@ -166,26 +166,26 @@ class GpsPermissionHelper {
       builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          icon: const Icon(Icons.location_off_rounded, size: 48, color: Color(0xFFEF4444)),
+          icon: const Icon(Icons.location_off_rounded, size: 48, color: Color(0xFFDC3545)),
           title: const Text(
             'Device GPS Turned Off',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF222222)),
             textAlign: TextAlign.center,
           ),
           content: const Text(
             'BookUrTechnician Partner app requires active device GPS location to send you nearby customer jobs and track en-route service delivery.\n\nPlease enable location services.',
-            style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
+            style: TextStyle(fontSize: 13, color: Color(0xFF77716C), height: 1.4),
             textAlign: TextAlign.center,
           ),
           actionsAlignment: MainAxisAlignment.center,
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF77716C), fontWeight: FontWeight.w600)),
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A8A),
+                backgroundColor: const Color(0xFFF46B12),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -214,28 +214,28 @@ class GpsPermissionHelper {
       builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          icon: const Icon(Icons.gpp_maybe_rounded, size: 48, color: Color(0xFFF59E0B)),
+          icon: const Icon(Icons.gpp_maybe_rounded, size: 48, color: Color(0xFFE5A126)),
           title: const Text(
             'Location Access Required',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF222222)),
             textAlign: TextAlign.center,
           ),
           content: Text(
             isPermanentlyDenied
                 ? 'Location permission is permanently denied in device settings. Please open app settings and grant Location permission to continue receiving bookings.'
                 : 'BookUrTechnician Partner app needs Location permission to verify your service area and update customer live status.',
-            style: const TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
+            style: const TextStyle(fontSize: 13, color: Color(0xFF77716C), height: 1.4),
             textAlign: TextAlign.center,
           ),
           actionsAlignment: MainAxisAlignment.center,
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF77716C), fontWeight: FontWeight.w600)),
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A8A),
+                backgroundColor: const Color(0xFFF46B12),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),

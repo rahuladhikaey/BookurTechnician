@@ -241,8 +241,8 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                             circleId: const CircleId('radar_coverage_circle'),
                             center: _currentLocation,
                             radius: 1500,
-                            fillColor: const Color(0x2200E5FF),
-                            strokeColor: const Color(0x8800E5FF),
+                            fillColor: const Color(0x26F46B12),
+                            strokeColor: const Color(0x88F46B12),
                             strokeWidth: 2,
                           ),
                         },
@@ -260,7 +260,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xDD0C1322),
+                            color: const Color(0xDD222222),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(color: TechColors.electricCyan, width: 0.8),
                           ),
@@ -303,7 +303,7 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                       shape: BoxShape.circle,
                       color: _isOnline
                           ? TechColors.cardSurface
-                          : const Color(0xFF161A22),
+                          : const Color(0xFF222222),
                       border: Border.all(
                         color: _isOnline
                             ? TechColors.onlineGreen

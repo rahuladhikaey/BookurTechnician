@@ -34,7 +34,7 @@ export default function KycVerification({ technicians, onApprove, onReject }) {
                     <button className="action-btn action-btn-danger" onClick={() => onReject(t.id)}>Reject Partner</button>
                   </>
                 ) : (
-                  <span style={{ color: '#9ca3af' }}>Verification completed</span>
+                  <span style={{ color: '#77716C' }}>Verification completed</span>
                 )}
               </td>
             </tr>

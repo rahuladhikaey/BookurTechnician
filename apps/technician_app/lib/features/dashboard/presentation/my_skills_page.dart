@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/firestore_rest_client.dart';
 import '../../../core/security/secure_storage.dart';
 import '../../onboarding/data/skill_service.dart';
 import '../../onboarding/domain/skill_models.dart';
@@ -37,11 +38,17 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
             ? profile.fullName
             : ((realName != null && realName.isNotEmpty) ? realName : 'Partner Technician');
         
-        final idToUse = (profile.technicianId.isNotEmpty && profile.technicianId != 'BT-PARTNER')
-            ? profile.technicianId
-            : ((realUserId != null && realUserId.isNotEmpty) ? realUserId : 'tech_partner_01');
+        final idToUse = FirestoreRestClient.resolveCanonicalTechUid(
+          (profile.technicianId.isNotEmpty && profile.technicianId != 'BT-PARTNER')
+              ? profile.technicianId
+              : realUserId,
+          phone: details['phone'],
+        );
 
-        final codeToUse = 'BT-${idToUse.replaceAll(RegExp(r'\D'), '').padLeft(6, '0').substring(0, 6)}';
+        final codeToUse = FirestoreRestClient.resolveTechnicianCode(
+          idToUse,
+          phone: details['phone'],
+        );
 
         profile = TechnicianSkillProfileModel(
           technicianId: idToUse,
@@ -96,20 +103,20 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
         title: const Text(
           'My Skills & Expertise',
           style: TextStyle(
             fontWeight: FontWeight.w900,
             fontSize: 18,
-            color: Color(0xFF0F172A),
+            color: Color(0xFF222222),
           ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF222222)),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -121,22 +128,22 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
               );
               _loadSkills();
             },
-            icon: const Icon(Icons.add, size: 18, color: Color(0xFF1E3A8A)),
+            icon: const Icon(Icons.add, size: 18, color: Color(0xFFF46B12)),
             label: const Text(
               'Add Skills',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF1E3A8A),
+                color: Color(0xFFF46B12),
               ),
             ),
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1E3A8A)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFF46B12)))
           : RefreshIndicator(
               onRefresh: _loadSkills,
-              color: const Color(0xFF1E3A8A),
+              color: const Color(0xFFF46B12),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
@@ -162,7 +169,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
+                            color: Color(0xFF222222),
                           ),
                         ),
                         Text(
@@ -170,7 +177,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF64748B),
+                            color: Color(0xFF77716C),
                           ),
                         ),
                       ],
@@ -211,16 +218,12 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E3A8A), Color(0xFF0F172A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: const Color(0xFFF46B12),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1E3A8A).withValues(alpha: 0.25),
-            blurRadius: 12,
+            color: const Color(0xFFF46B12).withValues(alpha: 0.22),
+            blurRadius: 14,
             offset: const Offset(0, 4),
           ),
         ],
@@ -232,11 +235,11 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
               Container(
                 width: 46,
                 height: 46,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFBE4D5),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.verified_user_rounded, color: Color(0xFF86EFAC), size: 24),
+                child: const Icon(Icons.verified_user_rounded, color: Color(0xFFE85B08), size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -254,7 +257,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                     const SizedBox(height: 2),
                     Text(
                       'ID: $techId',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12),
                     ),
                   ],
                 ),
@@ -265,7 +268,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: const Color(0xFFE85B08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -275,7 +278,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.star_rounded, color: Color(0xFFFBBF24), size: 18),
+                        const Icon(Icons.star_rounded, color: Color(0xFFFBE4D5), size: 18),
                         const SizedBox(width: 4),
                         Text(
                           rating > 0 ? rating.toStringAsFixed(1) : '5.0',
@@ -330,13 +333,13 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFECFDF5),
+              color: const Color(0xFFE8F5E9),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFA7F3D0)),
+              border: Border.all(color: const Color(0xFFE8F5E9)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 20),
+                const Icon(Icons.check_circle_rounded, color: Color(0xFF198754), size: 20),
                 const SizedBox(width: 8),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,12 +349,12 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF065F46),
+                        color: Color(0xFF198754),
                       ),
                     ),
                     const Text(
                       'Auto-matched for jobs',
-                      style: TextStyle(fontSize: 10, color: Color(0xFF047857)),
+                      style: TextStyle(fontSize: 10, color: Color(0xFF198754)),
                     ),
                   ],
                 ),
@@ -364,13 +367,13 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFBEB),
+              color: const Color(0xFFFFF4E0),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFDE68A)),
+              border: Border.all(color: const Color(0xFFFBE4D5)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 20),
+                const Icon(Icons.hourglass_top_rounded, color: Color(0xFFE5A126), size: 20),
                 const SizedBox(width: 8),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,12 +383,12 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF92400E),
+                        color: Color(0xFFE85B08),
                       ),
                     ),
                     const Text(
                       'Under admin review',
-                      style: TextStyle(fontSize: 10, color: Color(0xFFB45309)),
+                      style: TextStyle(fontSize: 10, color: Color(0xFFE5A126)),
                     ),
                   ],
                 ),
@@ -404,18 +407,18 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
     IconData statusIcon;
 
     if (item.verificationStatus == 'VERIFIED') {
-      statusBg = const Color(0xFFECFDF5);
-      statusColor = const Color(0xFF059669);
+      statusBg = const Color(0xFFE8F5E9);
+      statusColor = const Color(0xFF198754);
       statusText = 'Verified';
       statusIcon = Icons.check_circle;
     } else if (item.verificationStatus == 'REJECTED') {
-      statusBg = const Color(0xFFFEF2F2);
-      statusColor = const Color(0xFFDC2626);
+      statusBg = const Color(0xFFFDECEC);
+      statusColor = const Color(0xFFDC3545);
       statusText = 'Rejected';
       statusIcon = Icons.cancel;
     } else {
-      statusBg = const Color(0xFFFFFBEB);
-      statusColor = const Color(0xFFD97706);
+      statusBg = const Color(0xFFFFF4E0);
+      statusColor = const Color(0xFFE5A126);
       statusText = 'Verification Pending';
       statusIcon = Icons.hourglass_empty_rounded;
     }
@@ -426,7 +429,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: item.enabled ? const Color(0xFFE2E8F0) : const Color(0xFFF1F5F9),
+          color: item.enabled ? const Color(0xFFEEE8E2) : const Color(0xFFFCF9F6),
         ),
         boxShadow: [
           BoxShadow(
@@ -451,7 +454,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                       style: TextStyle(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w800,
-                        color: item.enabled ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                        color: item.enabled ? const Color(0xFF222222) : const Color(0xFF77716C),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -459,7 +462,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                       '${item.categoryName.isNotEmpty ? "${item.categoryName} • " : ""}${item.experienceYears} ${item.experienceYears == 1 ? "yr" : "yrs"} experience',
                       style: const TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF64748B),
+                        color: Color(0xFF77716C),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -471,8 +474,8 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
               Switch(
                 value: item.enabled,
                 onChanged: (val) => _toggleSkill(item),
-                activeThumbColor: const Color(0xFF1E3A8A),
-                activeTrackColor: const Color(0xFFBFDBFE),
+                activeThumbColor: const Color(0xFFF46B12),
+                activeTrackColor: const Color(0xFFFBE4D5),
               ),
             ],
           ),
@@ -507,12 +510,12 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
               if (item.enabled)
                 const Text(
                   '• Receiving jobs',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 11, color: Color(0xFF198754), fontWeight: FontWeight.w600),
                 )
               else
                 const Text(
                   '• Paused by technician',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+                  style: TextStyle(fontSize: 11, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
                 ),
             ],
           ),
@@ -522,12 +525,12 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF2F2),
+                color: const Color(0xFFFDECEC),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 'Note: ${item.rejectionReason}',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF991B1B)),
+                style: const TextStyle(fontSize: 11, color: Color(0xFFDC3545)),
               ),
             ),
           ],
@@ -543,21 +546,21 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
       ),
       child: Column(
         children: [
-          const Icon(Icons.handyman_outlined, size: 48, color: Color(0xFF94A3B8)),
+          const Icon(Icons.handyman_outlined, size: 48, color: Color(0xFF77716C)),
           const SizedBox(height: 12),
           const Text(
             'No Skills Declared Yet',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF222222)),
           ),
           const SizedBox(height: 6),
           const Text(
             'Select your services to start receiving matching job dispatches.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+            style: TextStyle(fontSize: 12.5, color: Color(0xFF77716C)),
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
@@ -571,7 +574,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
             icon: const Icon(Icons.add, size: 18),
             label: const Text('Select Skills Now'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A8A),
+              backgroundColor: const Color(0xFFF46B12),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),

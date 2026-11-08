@@ -39,7 +39,7 @@ class _HomeBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return RefreshIndicator(
-      color: const Color(0xFF2146A8),
+      color: const Color(0xFFF46B12),
       onRefresh: () async {
         await ref.read(bookingProvider.notifier).refreshAllData();
       },
@@ -74,7 +74,7 @@ class _HomeBody extends ConsumerWidget {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                    colors: [Color(0xFFF46B12), Color(0xFFE85B08)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -742,7 +742,7 @@ void _showLiveServiceSearchSheet(BuildContext context, WidgetRef ref) {
                         ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () => setModalState(() => query = ''))
                         : null,
                     filled: true,
-                    fillColor: const Color(0xFFF1F5F9),
+                    fillColor: const Color(0xFFFCF9F6),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
@@ -758,7 +758,7 @@ void _showLiveServiceSearchSheet(BuildContext context, WidgetRef ref) {
                         padding: const EdgeInsets.only(right: 6),
                         child: ActionChip(
                           label: Text(tag, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
-                          backgroundColor: const Color(0xFFF8FAFC),
+                          backgroundColor: const Color(0xFFFCF9F6),
                           side: const BorderSide(color: kBorderColor),
                           onPressed: () => setModalState(() => query = tag),
                         ),
@@ -812,7 +812,7 @@ void _showLiveServiceSearchSheet(BuildContext context, WidgetRef ref) {
                               title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: kPrimaryText)),
                               subtitle: Row(
                                 children: [
-                                  const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 14),
+                                  const Icon(Icons.star_rounded, color: Color(0xFFE5A126), size: 14),
                                   Text(' ${item.rating} • ${item.durationMinutes} mins', style: const TextStyle(fontSize: 11.5, color: kSecondaryText)),
                                   const SizedBox(width: 6),
                                   const Icon(Icons.verified, color: kSuccessGreen, size: 12),
@@ -945,63 +945,63 @@ _CategoryMeta _getCategoryMeta(String id, String name) {
   if (lower.contains('wiring') || lower.contains('project')) {
     return const _CategoryMeta(
       icon: Icons.home_repair_service_rounded,
-      bgColor: Color(0xFFE0F2FE),
-      iconColor: Color(0xFF0284C7),
+      bgColor: Color(0xFFFBE4D5),
+      iconColor: Color(0xFFF46B12),
     );
   }
   if (lower.contains('electr') || lower.contains('fan') || lower.contains('switch')) {
     return const _CategoryMeta(
       icon: Icons.bolt_rounded,
-      bgColor: Color(0xFFFEF3C7),
-      iconColor: Color(0xFFD97706),
+      bgColor: Color(0xFFFFF4E0),
+      iconColor: Color(0xFFE5A126),
     );
   }
   if (lower.contains('ac') || lower.contains('cool') || lower.contains('air')) {
     return const _CategoryMeta(
       icon: Icons.ac_unit_rounded,
-      bgColor: Color(0xFFE0F7FA),
-      iconColor: Color(0xFF0097A7),
+      bgColor: Color(0xFFFBE4D5),
+      iconColor: Color(0xFFF46B12),
     );
   }
   if (lower.contains('refrig') || lower.contains('fridge') || lower.contains('freezer')) {
     return const _CategoryMeta(
       icon: Icons.kitchen_rounded,
-      bgColor: Color(0xFFDCFCE7),
-      iconColor: Color(0xFF16A34A),
+      bgColor: Color(0xFFE8F5E9),
+      iconColor: Color(0xFF198754),
     );
   }
   if (lower.contains('wash') || lower.contains('laundry')) {
     return const _CategoryMeta(
       icon: Icons.local_laundry_service_rounded,
-      bgColor: Color(0xFFEDF3FF),
-      iconColor: Color(0xFF173B8F),
+      bgColor: Color(0xFFFBE4D5),
+      iconColor: Color(0xFFF46B12),
     );
   }
   if (lower.contains('laptop') || lower.contains('computer') || lower.contains('pc')) {
     return const _CategoryMeta(
       icon: Icons.laptop_chromebook_rounded,
-      bgColor: Color(0xFFEDF3FF),
-      iconColor: Color(0xFF102A63),
+      bgColor: Color(0xFFFBE4D5),
+      iconColor: Color(0xFFE85B08),
     );
   }
   if (lower.contains('cctv') || lower.contains('camera') || lower.contains('security')) {
     return const _CategoryMeta(
       icon: Icons.videocam_rounded,
-      bgColor: Color(0xFFFEE2E2),
-      iconColor: Color(0xFFDC2626),
+      bgColor: Color(0xFFFDECEC),
+      iconColor: Color(0xFFDC3545),
     );
   }
   if (lower.contains('appliance') || lower.contains('micro') || lower.contains('purifier') || lower.contains('ro')) {
     return const _CategoryMeta(
       icon: Icons.microwave_rounded,
-      bgColor: Color(0xFFFFF7ED),
-      iconColor: Color(0xFFEA580C),
+      bgColor: Color(0xFFFBE4D5),
+      iconColor: Color(0xFFF46B12),
     );
   }
   return const _CategoryMeta(
     icon: Icons.home_repair_service_outlined,
-    bgColor: Color(0xFFF1F5F9),
-    iconColor: Color(0xFF0F172A),
+    bgColor: Color(0xFFFCF9F6),
+    iconColor: Color(0xFF222222),
   );
 }
 
@@ -1232,8 +1232,8 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
                               gradient: LinearGradient(
                                 colors: [
                                   Color(0x00000000),
-                                  Color(0x730B1F63),
-                                  Color(0xE60B1635),
+                                  Color(0x73222222),
+                                  Color(0xE6222222),
                                 ],
                                 stops: [0.25, 0.60, 1.0],
                                 begin: Alignment.topCenter,
@@ -1249,7 +1249,7 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFD700),
+                                color: const Color(0xFFE5A126),
                                 borderRadius: BorderRadius.circular(6),
                                 boxShadow: const [
                                   BoxShadow(
@@ -1262,7 +1262,7 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
                               child: Text(
                                 banner.badgeText.toUpperCase(),
                                 style: const TextStyle(
-                                  color: Color(0xFF0B1635),
+                                  color: Color(0xFF222222),
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.5,
@@ -1372,7 +1372,7 @@ class _InPopularServiceSectionState extends State<InPopularServiceSection> {
               height: 6,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(3),
-                color: isActive ? kBrandPrimary : const Color(0xFFD1D5DB),
+                color: isActive ? kBrandPrimary : const Color(0xFFEEE8E2),
               ),
             );
           }),
@@ -1465,15 +1465,15 @@ class BookUrServicesSection extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)],
+                    colors: [Color(0xFFFCF9F6), Color(0xFFFBE4D5)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFBFDBFE), width: 1.2),
+                  border: Border.all(color: const Color(0xFFFBE4D5), width: 1.2),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x0A1E40AF),
+                      color: Color(0x14F46B12),
                       blurRadius: 8,
                       offset: Offset(0, 3),
                     ),
@@ -1488,7 +1488,7 @@ class BookUrServicesSection extends ConsumerWidget {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Color(0x331E40AF),
+                            color: Color(0x33F46B12),
                             blurRadius: 6,
                             offset: Offset(0, 2),
                           ),
@@ -1578,7 +1578,7 @@ class _BookUrServiceCard extends ConsumerWidget {
           border: Border.all(color: kBorderColor, width: 1),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x0A0B1F63),
+              color: Color(0x0A222222),
               blurRadius: 8,
               offset: Offset(0, 3),
             ),
@@ -1598,7 +1598,7 @@ class _BookUrServiceCard extends ConsumerWidget {
                     service.imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: const Color(0xFFF8FAFC),
+                      color: const Color(0xFFFCF9F6),
                       alignment: Alignment.center,
                       child: const Icon(Icons.build_outlined, size: 40, color: kSecondaryText),
                     ),
@@ -1643,7 +1643,7 @@ class _BookUrServiceCard extends ConsumerWidget {
                   // Rating Row: ★ 4.8 (12.4K)
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 18),
+                      const Icon(Icons.star_rounded, color: Color(0xFFE5A126), size: 18),
                       const SizedBox(width: 4),
                       Text(
                         '${service.rating.toStringAsFixed(1)} ',
@@ -1686,10 +1686,10 @@ class _BookUrServiceCard extends ConsumerWidget {
                         margin: const EdgeInsets.only(top: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                         decoration: BoxDecoration(
-                          color: hasExperts ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+                          color: hasExperts ? const Color(0xFFE8F5E9) : const Color(0xFFFCF9F6),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: hasExperts ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0),
+                            color: hasExperts ? const Color(0xFFE8F5E9) : const Color(0xFFEEE8E2),
                             width: 1,
                           ),
                         ),
@@ -1700,7 +1700,7 @@ class _BookUrServiceCard extends ConsumerWidget {
                               width: 7,
                               height: 7,
                               decoration: BoxDecoration(
-                                color: hasExperts ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                                color: hasExperts ? const Color(0xFF198754) : const Color(0xFF77716C),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -1711,7 +1711,7 @@ class _BookUrServiceCard extends ConsumerWidget {
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
-                                  color: hasExperts ? const Color(0xFF047857) : const Color(0xFF64748B),
+                                  color: hasExperts ? const Color(0xFF198754) : const Color(0xFF77716C),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -1785,7 +1785,7 @@ class _BookUrServiceCard extends ConsumerWidget {
                             ref.read(bookingProvider.notifier).toggleCartItem(service);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: inCart ? const Color(0xFFDCFCE7) : kBlack,
+                            backgroundColor: inCart ? const Color(0xFFE8F5E9) : kPrimaryOrange,
                             foregroundColor: inCart ? kSuccessGreen : Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -1833,7 +1833,7 @@ class _BookUrServiceCard extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.block_rounded, color: Color(0xFFEF4444)),
+            Icon(Icons.block_rounded, color: Color(0xFFDC3545)),
             SizedBox(width: 8),
             Text('No Technician Online', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
@@ -1866,9 +1866,9 @@ class _ProfileCompletionBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
+        color: const Color(0xFFFBE4D5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFED7AA), width: 1.2),
+        border: Border.all(color: const Color(0xFFFBE4D5), width: 1.2),
       ),
       child: Row(
         children: [
@@ -1876,10 +1876,10 @@ class _ProfileCompletionBanner extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: const BoxDecoration(
-              color: Color(0xFFFFEDD5),
+              color: Color(0xFFFBE4D5),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFEA580C), size: 22),
+            child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFF46B12), size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1891,18 +1891,18 @@ class _ProfileCompletionBanner extends StatelessWidget {
                   children: [
                     const Text(
                       '⚠ Incomplete profile',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF9A3412)),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFE85B08)),
                     ),
                     Text(
                       '${profile.profileCompletion}% complete',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: Color(0xFFC2410C)),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: Color(0xFFE85B08)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Add your ${profile.missingFieldsReadable} for quick dispatch.',
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF7C2D12)),
+                  style: const TextStyle(fontSize: 11.5, color: Color(0xFFE85B08)),
                 ),
               ],
             ),
@@ -1911,7 +1911,7 @@ class _ProfileCompletionBanner extends StatelessWidget {
           ElevatedButton(
             onPressed: () => Navigator.pushNamed(context, '/profile_completion_wizard'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEA580C),
+              backgroundColor: const Color(0xFFF46B12),
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1958,7 +1958,7 @@ class _ActiveBookingBanner extends StatelessWidget {
   }
 }
 
-// ─── Bottom Navigation Bar (Royal Blue + Black Brand System) ─────────────────
+// ─── Bottom Navigation Bar (Premium Orange × Warm White Design System) ────────
 class _BottomNav extends ConsumerWidget {
   final String current;
   const _BottomNav({required this.current});
@@ -1977,13 +1977,13 @@ class _BottomNav extends ConsumerWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        color: kBlack,
-        border: Border(top: BorderSide(color: Color(0xFF27272A), width: 1)),
+        color: kWhite,
+        border: Border(top: BorderSide(color: kBorderWarm, width: 1)),
         boxShadow: [
           BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 10,
-            offset: Offset(0, -2),
+            color: Color(0x0F222222),
+            blurRadius: 12,
+            offset: Offset(0, -3),
           ),
         ],
       ),
@@ -2006,11 +2006,11 @@ class _BottomNav extends ConsumerWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: EdgeInsets.symmetric(
-                  horizontal: isSelected ? 12 : 8,
+                  horizontal: isSelected ? 14 : 8,
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF27272A) : Colors.transparent,
+                  color: isSelected ? kSoftPeach : Colors.transparent,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -2021,7 +2021,7 @@ class _BottomNav extends ConsumerWidget {
                       children: [
                         Icon(
                           isSelected ? item.activeIcon : item.icon,
-                          color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                          color: isSelected ? kPrimaryOrange : kSecondaryTextColor,
                           size: 22,
                         ),
                         if (item.badgeCount != null && item.badgeCount! > 0)
@@ -2031,7 +2031,7 @@ class _BottomNav extends ConsumerWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                               decoration: const BoxDecoration(
-                                color: Colors.white,
+                                color: kPrimaryOrange,
                                 shape: BoxShape.circle,
                               ),
                               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
@@ -2039,7 +2039,7 @@ class _BottomNav extends ConsumerWidget {
                               child: Text(
                                 '${item.badgeCount}',
                                 style: const TextStyle(
-                                  color: Colors.black,
+                                  color: Colors.white,
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -2053,8 +2053,8 @@ class _BottomNav extends ConsumerWidget {
                       item.label,
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                        color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                        color: isSelected ? kPrimaryOrange : kSecondaryTextColor,
                       ),
                     ),
                   ],

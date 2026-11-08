@@ -150,7 +150,7 @@ export default function Dashboard({ stats, bookings = [], technicians = [], cust
                   <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>Total Orders Received</span>
                   <strong>{totalBookingsCount} bookings</strong>
                 </div>
-                <div style={{ height: '8px', background: '#F1F5F9', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '8px', background: '#FCF9F6', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{ width: totalBookingsCount > 0 ? '100%' : '0%', height: '100%', background: 'var(--royal-blue)', borderRadius: '4px' }}></div>
                 </div>
               </div>
@@ -160,7 +160,7 @@ export default function Dashboard({ stats, bookings = [], technicians = [], cust
                   <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>Successfully Completed</span>
                   <strong style={{ color: 'var(--status-green)' }}>{completedBookingsCount} jobs ({completedPct}%)</strong>
                 </div>
-                <div style={{ height: '8px', background: '#F1F5F9', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '8px', background: '#FCF9F6', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{ width: `${completedPct}%`, height: '100%', background: 'var(--status-green)', borderRadius: '4px' }}></div>
                 </div>
               </div>
@@ -170,7 +170,7 @@ export default function Dashboard({ stats, bookings = [], technicians = [], cust
                   <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>Ongoing In-Field / Active</span>
                   <strong style={{ color: 'var(--royal-blue)' }}>{activeBookingsCount} jobs ({activePct}%)</strong>
                 </div>
-                <div style={{ height: '8px', background: '#F1F5F9', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '8px', background: '#FCF9F6', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{ width: `${activePct}%`, height: '100%', background: 'var(--royal-blue)', borderRadius: '4px' }}></div>
                 </div>
               </div>
@@ -180,7 +180,7 @@ export default function Dashboard({ stats, bookings = [], technicians = [], cust
                   <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>Cancelled Orders</span>
                   <strong style={{ color: 'var(--status-red)' }}>{cancelledBookingsCount} jobs ({cancelledPct}%)</strong>
                 </div>
-                <div style={{ height: '8px', background: '#F1F5F9', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '8px', background: '#FCF9F6', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{ width: `${cancelledPct}%`, height: '100%', background: 'var(--status-red)', borderRadius: '4px' }}></div>
                 </div>
               </div>
@@ -217,7 +217,7 @@ export default function Dashboard({ stats, bookings = [], technicians = [], cust
 
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg-sidebar)', color: '#FFFFFF', borderRadius: '8px', marginTop: '4px' }}>
                 <span style={{ fontWeight: '800' }}>💎 Net Processed Revenue</span>
-                <strong style={{ color: '#60A5FA', fontSize: '16px', fontFamily: 'monospace' }}>₹{totalRevenue.toFixed(2)}</strong>
+                <strong style={{ color: '#F46B12', fontSize: '16px', fontFamily: 'monospace' }}>₹{totalRevenue.toFixed(2)}</strong>
               </div>
             </div>
           </div>

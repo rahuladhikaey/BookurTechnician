@@ -74,11 +74,11 @@ class _MainShellPageState extends State<MainShellPage> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A),
-          border: const Border(top: BorderSide(color: Color(0xFF1E293B), width: 1)),
+          color: Colors.white,
+          border: const Border(top: BorderSide(color: Color(0xFFEEE8E2), width: 1)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
+              color: const Color(0xFF222222).withValues(alpha: 0.06),
               blurRadius: 16,
               offset: const Offset(0, -4),
             ),
@@ -101,15 +101,15 @@ class _MainShellPageState extends State<MainShellPage> {
                   curve: Curves.easeInOut,
                   padding: EdgeInsets.symmetric(
                     horizontal: isSelected ? 16 : 10,
-                    vertical: 7,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFFDB813) : Colors.transparent,
+                    color: isSelected ? const Color(0xFFF46B12) : Colors.transparent,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: const Color(0xFFFDB813).withValues(alpha: 0.35),
+                              color: const Color(0xFFF46B12).withValues(alpha: 0.25),
                               blurRadius: 10,
                               offset: const Offset(0, 2),
                             ),
@@ -121,7 +121,7 @@ class _MainShellPageState extends State<MainShellPage> {
                     children: [
                       Icon(
                         isSelected ? item.activeIcon : item.icon,
-                        color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+                        color: isSelected ? Colors.white : const Color(0xFF77716C),
                         size: 22,
                       ),
                       if (isSelected) ...[
@@ -130,8 +130,8 @@ class _MainShellPageState extends State<MainShellPage> {
                           item.label,
                           style: const TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
                             letterSpacing: 0.2,
                           ),
                         ),

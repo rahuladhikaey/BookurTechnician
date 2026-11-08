@@ -100,28 +100,17 @@ class ApiClient {
         });
         clearTimeout(timeoutId);
 
-        // Handle expired token auto-renewal
+        // Handle expired or invalid token - trigger callback and fail securely immediately (NEVER bypass to fallback!)
         if ((response.status === 401 || response.status === 403) && !targetUrl.includes('/auth/')) {
-          console.warn(`[ApiClient] Token expired (HTTP ${response.status}). Auto-refreshing...`);
-          try {
-            const authRes = await this.directAdminAccess('admin@bookurtechnician.com', 'BT-ADMIN-KEY-PRIMARY-7788', 'BT-ADMIN-KEY-SECONDARY-9900');
-            const freshToken = authRes?.data?.accessToken || authRes?.accessToken || authRes?.token;
-            if (freshToken) {
-              this.setToken(freshToken, true);
-              const retryHeaders = this.getHeaders(options.headers || {});
-              const retryConfig = { ...options, headers: retryHeaders };
-              if (retryConfig.body && typeof retryConfig.body === 'object' && !(retryConfig.body instanceof FormData)) {
-                retryConfig.body = JSON.stringify(retryConfig.body);
-              }
-              const retryResp = await fetch(targetUrl, retryConfig);
-              const retryText = await retryResp.text();
-              let retryData = null;
-              try { retryData = JSON.parse(retryText); } catch (_) { retryData = { message: retryText }; }
-              if (retryResp.ok) return retryData;
-            }
-          } catch (e) {
-            console.warn('[ApiClient] Reauth attempt notice:', e.message);
+          console.warn(`[ApiClient] Authentication rejected (HTTP ${response.status}). Triggering unauthorized callback.`);
+          if (this.onUnauthorizedCallback) {
+            this.onUnauthorizedCallback();
           }
+          this.clearToken();
+          const authErr = new Error(`HTTP ${response.status}: Administrative authentication required. Please log in.`);
+          authErr.isAuthError = true;
+          authErr.status = response.status;
+          throw authErr;
         }
 
         const text = await response.text();
@@ -163,17 +152,27 @@ class ApiClient {
 
       } catch (err) {
         lastError = err;
+        // Never continue loop or attempt bypass when backend explicitly rejected authentication
+        if (err?.isAuthError) {
+          throw err;
+        }
         console.warn(`[ApiClient] Attempt on ${targetUrl} failed: ${err.message}. Trying next candidate...`);
       }
     }
 
-    // Automatic Direct Cloud Firestore Fallback (100% Serverless Firebase Mode)
+    // SECURITY: Administrative and authentication endpoints CANNOT fall back to Firestore.
+    // Privileged admin operations must strictly validate against the authenticated backend.
+    if (normalizedEndpoint.startsWith('/admin') || normalizedEndpoint.startsWith('/auth') || lastError?.isAuthError) {
+      throw lastError || new Error(`Backend server required for administrative operations at ${normalizedEndpoint}.`);
+    }
+
+    // Automatic Direct Cloud Firestore Fallback (Read-Only Public Catalog Projection)
     try {
       let parsedBody = options.body;
       if (typeof parsedBody === 'string') {
         try { parsedBody = JSON.parse(parsedBody); } catch (_) {}
       }
-      console.log(`🔥 [Firebase Direct] Serving ${normalizedEndpoint} via Cloud Firestore (bookmytechnician-53d94)`);
+      console.log(`🔥 [Firebase Direct] Serving public projection ${normalizedEndpoint} via Cloud Firestore (bookmytechnician-53d94)`);
       return await handleFirestoreFallback(normalizedEndpoint, options.method || 'GET', parsedBody);
     } catch (fbErr) {
       console.warn('[Firebase Direct] Fallback error:', fbErr);
@@ -214,8 +213,17 @@ class ApiClient {
   }
 
   // ─── AUTHENTICATION METHODS ───────────────────────────────────────────────
-  directAdminAccess(email, accessKey1, accessKey2) {
-    return this.post('/auth/admin/direct-access', { email, accessKey1, accessKey2 });
+  directAdminAccess(email, accessKey1, accessKey2 = null) {
+    // SECURITY: Credentials must be entered dynamically by the user, never hardcoded in client source.
+    if (!email || !accessKey1) {
+      throw new Error('Authentication credentials required: Administrator email and access key must be provided.');
+    }
+    return this.post('/auth/admin/direct-access', {
+      email,
+      password: accessKey1,
+      accessKey1,
+      accessKey2: accessKey2 || accessKey1,
+    });
   }
 
   requestOtp(email, name = 'Admin', purpose = 'LOGIN') {

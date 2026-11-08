@@ -473,25 +473,53 @@ const verifyOtp = async (req, res) => {
 
 /**
  * POST /api/v1/auth/admin/direct-access
+ * Authoritative Server-Side Admin Authentication
+ * Enforces strict environment credential verification — ZERO hardcoded secrets.
  */
 const adminDirectAccess = async (req, res) => {
   try {
-    const { email, accessKey1, accessKey2 } = req.body;
-    const trimmedEmail = (email || '').trim().toLowerCase();
-    const primaryKey = accessKey1 || '';
-    const secondaryKey = accessKey2 || '';
+    const { email, accessKey1, accessKey2, password, key } = req.body || {};
+    const trimmedEmail = String(email || '').trim().toLowerCase();
+    const providedKey1 = String(accessKey1 || password || key || '').trim();
+    const providedKey2 = String(accessKey2 || '').trim();
 
     const configuredAdminEmail = (process.env.ADMIN_EMAIL || 'admin@bookurtechnician.com').toLowerCase();
-    const configuredKey1 = process.env.ADMIN_KEY_PRIMARY || 'BT-ADMIN-KEY-PRIMARY-7788';
-    const configuredKey2 = process.env.ADMIN_KEY_SECONDARY || 'BT-ADMIN-KEY-SECONDARY-9900';
+    const configuredKey1 = process.env.ADMIN_KEY_PRIMARY;
+    const configuredKey2 = process.env.ADMIN_KEY_SECONDARY;
+    const configuredSecretKey = process.env.ADMIN_SECRET_KEY;
 
-    const isAuthorizedAdmin =
-      trimmedEmail === configuredAdminEmail &&
-      (primaryKey === configuredKey1 || secondaryKey === configuredKey2 || primaryKey === process.env.ADMIN_SECRET_KEY);
+    // Fail securely if administrative credentials are not configured in environment
+    if (!configuredKey1 && !configuredKey2 && !configuredSecretKey) {
+      console.error('🚨 [SECURITY CONFIG ERROR] ADMIN_KEY_PRIMARY / ADMIN_KEY_SECONDARY / ADMIN_SECRET_KEY are not configured in environment.');
+      return res.status(500).json({
+        success: false,
+        code: 'ADMIN_CREDENTIALS_UNCONFIGURED',
+        error: 'Server configuration error: Administrative keys are not configured in server environment.',
+      });
+    }
+
+    if (!providedKey1 && !providedKey2) {
+      return res.status(401).json({
+        success: false,
+        code: 'MISSING_ADMIN_CREDENTIALS',
+        error: 'Unauthorized: Administrative password or access key is required.',
+      });
+    }
+
+    const keyMatches = 
+      (Boolean(configuredKey1) && (providedKey1 === configuredKey1 || providedKey2 === configuredKey1)) ||
+      (Boolean(configuredKey2) && (providedKey1 === configuredKey2 || providedKey2 === configuredKey2)) ||
+      (Boolean(configuredSecretKey) && (providedKey1 === configuredSecretKey || providedKey2 === configuredSecretKey));
+
+    const isAuthorizedAdmin = (trimmedEmail === configuredAdminEmail) && keyMatches;
 
     if (!isAuthorizedAdmin) {
       console.warn(`🚨 [SECURITY ALERT] Unauthorized admin access attempt rejected for email: ${trimmedEmail}`);
-      return res.status(401).json({ success: false, error: 'Unauthorized: Invalid administrative credentials or access key.' });
+      return res.status(401).json({
+        success: false,
+        code: 'INVALID_ADMIN_CREDENTIALS',
+        error: 'Unauthorized: Invalid administrative credentials or access key.',
+      });
     }
 
     const adminId = 'admin-master-001';
@@ -505,6 +533,8 @@ const adminDirectAccess = async (req, res) => {
 
     const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
     const refreshToken = jwt.sign(payload, REFRESH_SECRET, { expiresIn: '30d' });
+
+    console.log(`🔐 [Admin Auth] Administrative session granted for ${trimmedEmail} (Role: SUPER_ADMIN)`);
 
     return res.json({
       success: true,

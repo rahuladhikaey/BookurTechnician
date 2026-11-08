@@ -181,7 +181,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
-            const Icon(Icons.shield_outlined, color: Color(0xFF16A34A), size: 48),
+            const Icon(Icons.shield_outlined, color: Color(0xFF198754), size: 48),
             const SizedBox(height: 12),
             const Text(
               'Privacy-Protected Call',
@@ -231,7 +231,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
         if (res.statusCode == 200) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              backgroundColor: Color(0xFF166534),
+              backgroundColor: Color(0xFF198754),
               content: Text('Completion OTP email has been resent to your inbox!'),
             ),
           );
@@ -285,7 +285,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
         Polyline(
           polylineId: const PolylineId('route_to_customer'),
           points: [_techPos!, _userPos],
-          color: const Color(0xFF2146A8),
+          color: const Color(0xFFF46B12),
           width: 4,
           jointType: JointType.round,
         ),
@@ -296,8 +296,8 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
         circleId: const CircleId('user_discovery_zone'),
         center: _userPos,
         radius: 1500,
-        fillColor: const Color(0x152146A8),
-        strokeColor: const Color(0x552146A8),
+        fillColor: const Color(0x26F46B12),
+        strokeColor: const Color(0x4DF46B12),
         strokeWidth: 1,
       ),
     };
@@ -307,12 +307,12 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
       appBar: AppBar(
         title: Text(
           'Booking #${_booking['bookingCode'] ?? (_booking['id'] != null ? _booking['id'].toString() : '')}',
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF111827)),
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF222222)),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF111827), size: 18),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF222222), size: 18),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -323,19 +323,19 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                 child: SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2146A8)),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF46B12)),
                 ),
               ),
             )
           else
             IconButton(
               tooltip: 'Refresh Booking',
-              icon: const Icon(Icons.refresh_rounded, color: Color(0xFF2146A8)),
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFFF46B12)),
               onPressed: _fetchLiveBooking,
             ),
           IconButton(
             tooltip: 'Fit Map View',
-            icon: const Icon(Icons.center_focus_strong_rounded, color: Color(0xFF2146A8)),
+            icon: const Icon(Icons.center_focus_strong_rounded, color: Color(0xFFF46B12)),
             onPressed: _fitBounds,
           ),
         ],
@@ -380,10 +380,10 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: const Color(0xFFFBE4D5),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.radar_rounded, color: Color(0xFF2146A8), size: 20),
+                    child: const Icon(Icons.radar_rounded, color: Color(0xFFF46B12), size: 20),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -394,7 +394,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                           _booking['serviceName']?.toString().isNotEmpty == true
                               ? _booking['serviceName']
                               : 'Home Service',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF222222)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -409,13 +409,13 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
+                        color: const Color(0xFFE8F5E9),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF86EFAC)),
+                        border: Border.all(color: const Color(0xFFE8F5E9)),
                       ),
                       child: Text(
                         '$distanceKm km away',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: Color(0xFF065F46)),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: Color(0xFF198754)),
                       ),
                     ),
                 ],
@@ -447,7 +447,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFCBD5E1),
+                        color: const Color(0xFFEEE8E2),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -462,11 +462,11 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                         height: 50,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFFEFF6FF),
-                          border: Border.all(color: const Color(0xFF2146A8), width: 1.5),
+                          color: const Color(0xFFFBE4D5),
+                          border: Border.all(color: const Color(0xFFF46B12), width: 1.5),
                         ),
                         child: const Center(
-                          child: Icon(Icons.engineering_rounded, color: Color(0xFF2146A8), size: 28),
+                          child: Icon(Icons.engineering_rounded, color: Color(0xFFF46B12), size: 28),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -478,12 +478,12 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                               _booking['technicianName']?.toString().isNotEmpty == true
                                   ? _booking['technicianName']
                                   : 'Assigning nearest partner...',
-                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)),
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF222222)),
                             ),
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                const Icon(Icons.star_rounded, size: 16, color: Color(0xFFF59E0B)),
+                                const Icon(Icons.star_rounded, size: 16, color: Color(0xFFE5A126)),
                                 const SizedBox(width: 3),
                                 Text(
                                   (_booking['technicianRating'] is num && (_booking['technicianRating'] as num) > 0)
@@ -504,7 +504,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                       if (_booking['technicianPhone'] != null && _booking['technicianPhone'].toString().isNotEmpty)
                         IconButton.filled(
                           style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xFF16A34A),
+                            backgroundColor: const Color(0xFF198754),
                             foregroundColor: Colors.white,
                           ),
                           icon: const Icon(Icons.phone_rounded, size: 20),
@@ -520,16 +520,16 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: const Color(0xFFFCF9F6),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: const Color(0xFFEEE8E2)),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Padding(
                           padding: EdgeInsets.only(top: 2),
-                          child: Icon(Icons.location_on_rounded, size: 16, color: Color(0xFFDC2626)),
+                          child: Icon(Icons.location_on_rounded, size: 16, color: Color(0xFFDC3545)),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -538,14 +538,14 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                             children: [
                               const Text(
                                 'SERVICE LOCATION',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF64748B), letterSpacing: 0.4),
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF77716C), letterSpacing: 0.4),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 _booking['fullAddress']?.toString().isNotEmpty == true
                                     ? _booking['fullAddress']
                                     : (_booking['address']?.toString().isNotEmpty == true ? _booking['address'] : 'Current Customer Location'),
-                                style: const TextStyle(fontSize: 12, color: Color(0xFF1E293B), fontWeight: FontWeight.w600),
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF222222), fontWeight: FontWeight.w600),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -557,7 +557,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                   ),
 
                   const SizedBox(height: 14),
-                  const Divider(color: Color(0xFFF1F5F9), height: 1),
+                  const Divider(color: Color(0xFFFCF9F6), height: 1),
                   const SizedBox(height: 14),
 
                   // ─── DUAL-OTP LIFECYCLE BANNER ───
@@ -567,16 +567,16 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEEF2FF),
+                        color: const Color(0xFFFBE4D5),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFC7D2FE), width: 1.2),
+                        border: Border.all(color: const Color(0xFFFBE4D5), width: 1.2),
                       ),
                       child: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2146A8),
+                              color: const Color(0xFFF46B12),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(Icons.key_rounded, color: Colors.white, size: 20),
@@ -591,7 +591,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
-                                    color: Color(0xFF3730A3),
+                                    color: Color(0xFFF46B12),
                                     letterSpacing: 0.4,
                                   ),
                                 ),
@@ -601,14 +601,14 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w900,
-                                    color: Color(0xFF1E1B4B),
+                                    color: Color(0xFF222222),
                                     letterSpacing: 1,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 const Text(
                                   'Valid for 3 Hours from booking',
-                                  style: TextStyle(fontSize: 11, color: Color(0xFF4F46E5), fontWeight: FontWeight.w600),
+                                  style: TextStyle(fontSize: 11, color: Color(0xFFF46B12), fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
@@ -622,9 +622,9 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
+                        color: const Color(0xFFE8F5E9),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+                        border: Border.all(color: const Color(0xFFE8F5E9), width: 1.2),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -634,7 +634,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF16A34A),
+                                  color: const Color(0xFF198754),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: const Icon(Icons.mark_email_read_rounded, color: Colors.white, size: 20),
@@ -649,14 +649,14 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                                       style: TextStyle(
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.w800,
-                                        color: Color(0xFF166534),
+                                        color: Color(0xFF198754),
                                         letterSpacing: 0.5,
                                       ),
                                     ),
                                     SizedBox(height: 2),
                                     Text(
                                       'Completion OTP sent to your registered email',
-                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF064E3B)),
+                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF198754)),
                                     ),
                                   ],
                                 ),
@@ -669,7 +669,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                             children: [
                               const Text(
                                 '• Valid for 24 Hours • Check inbox/spam',
-                                style: TextStyle(fontSize: 11, color: Color(0xFF047857), fontWeight: FontWeight.w600),
+                                style: TextStyle(fontSize: 11, color: Color(0xFF198754), fontWeight: FontWeight.w600),
                               ),
                               TextButton(
                                 onPressed: _isResendingEmail ? null : _resendCompletionEmail,
@@ -682,7 +682,7 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                                     : const Text(
                                         'Resend Email',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF16A34A)),
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF198754)),
                                       ),
                               ),
                             ],
@@ -696,18 +696,18 @@ class _BookingStatusMapScreenState extends ConsumerState<BookingStatusMapScreen>
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
+                        color: const Color(0xFFE8F5E9),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                        border: Border.all(color: const Color(0xFFE8F5E9)),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 24),
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF198754), size: 24),
                           SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               'Service Completed & Inspected! Thank you.',
-                              style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF166534), fontSize: 13.5),
+                              style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF198754), fontSize: 13.5),
                             ),
                           ),
                         ],

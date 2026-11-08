@@ -66,7 +66,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
-            const Icon(Icons.shield_outlined, color: Color(0xFF16A34A), size: 48),
+            const Icon(Icons.shield_outlined, color: Color(0xFF198754), size: 48),
             const SizedBox(height: 12),
             const Text(
               'Privacy-Protected Partner Call',
@@ -88,14 +88,14 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('📞 Connecting via BT Telecom Bridge: 1800-889-TECH'),
-                      backgroundColor: Color(0xFF16A34A),
+                      backgroundColor: Color(0xFF198754),
                     ),
                   );
                 },
                 icon: const Icon(Icons.call),
                 label: const Text('Connect via Telecom Bridge'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF16A34A),
+                  backgroundColor: const Color(0xFF198754),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -143,7 +143,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF166534),
+              backgroundColor: const Color(0xFF198754),
               content: Text('$type photo verified with GPS timestamp and attached to booking.'),
             ),
           );
@@ -153,7 +153,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: const Color(0xFFDC3545),
             content: Text('Failed to upload proof photo: $e'),
           ),
         );
@@ -174,7 +174,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.add_shopping_cart, color: Color(0xFF1E3A8A)),
+            Icon(Icons.add_shopping_cart, color: Color(0xFFF46B12)),
             SizedBox(width: 8),
             Text('Request Add-on Spare Parts', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           ],
@@ -185,7 +185,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
             children: [
               const Text(
                 'Add-ons require customer confirmation in real-time before adding to the bill.',
-                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                style: TextStyle(fontSize: 12, color: Color(0xFF77716C)),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -256,7 +256,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        backgroundColor: Color(0xFF166534),
+                        backgroundColor: Color(0xFF198754),
                         content: Text('Add-on request sent to customer via FCM & Realtime! Waiting for approval.'),
                       ),
                     );
@@ -265,13 +265,13 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(backgroundColor: const Color(0xFFDC2626), content: Text('Add-on error: $e')),
+                    SnackBar(backgroundColor: const Color(0xFFDC3545), content: Text('Add-on error: $e')),
                   );
                 }
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E3A8A),
+              backgroundColor: const Color(0xFFF46B12),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
@@ -314,7 +314,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Row(
             children: [
-              Icon(Icons.key_rounded, color: Color(0xFF1E3A8A)),
+              Icon(Icons.key_rounded, color: Color(0xFFF46B12)),
               SizedBox(width: 8),
               Text('Enter Start OTP', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
             ],
@@ -324,7 +324,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
             children: [
               const Text(
                 'Collect the 4-digit Start Service OTP shown on the customer\'s app screen to start work.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                style: TextStyle(fontSize: 13, color: Color(0xFF77716C)),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -332,13 +332,13 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                 keyboardType: TextInputType.number,
                 maxLength: 4,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 8, color: Color(0xFF1E3A8A)),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 8, color: Color(0xFFF46B12)),
                 decoration: InputDecoration(
                   hintText: '••••',
                   errorText: errorText,
                   counterText: '',
                   filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
+                  fillColor: const Color(0xFFFCF9F6),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
@@ -353,8 +353,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       },
                 icon: isResending
                     ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.refresh, size: 14, color: Color(0xFF1E3A8A)),
-                label: const Text('Resend Start OTP to Customer', style: TextStyle(fontSize: 12, color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
+                    : const Icon(Icons.refresh, size: 14, color: Color(0xFFF46B12)),
+                label: const Text('Resend Start OTP to Customer', style: TextStyle(fontSize: 12, color: Color(0xFFF46B12), fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -375,7 +375,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                 _verifyStartOtp(code);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A8A),
+                backgroundColor: const Color(0xFFF46B12),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
@@ -396,7 +396,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            backgroundColor: Color(0xFF166534),
+            backgroundColor: Color(0xFF198754),
             content: Text('Start OTP resent to customer successfully!'),
           ),
         );
@@ -405,7 +405,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: const Color(0xFFDC3545),
             content: Text('Could not resend OTP: $e'),
           ),
         );
@@ -422,7 +422,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            backgroundColor: Color(0xFF166534),
+            backgroundColor: Color(0xFF198754),
             content: Text('Ending OTP resent to customer successfully!'),
           ),
         );
@@ -431,7 +431,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: const Color(0xFFDC3545),
             content: Text('Could not resend End OTP: $e'),
           ),
         );
@@ -451,7 +451,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Row(
             children: [
-              Icon(Icons.verified_rounded, color: Color(0xFF16A34A)),
+              Icon(Icons.verified_rounded, color: Color(0xFF198754)),
               SizedBox(width: 8),
               Text('Complete Service OTP', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
             ],
@@ -461,7 +461,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
             children: [
               const Text(
                 'Ask customer for the 4-digit Completion OTP sent to their registered app / phone inbox.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                style: TextStyle(fontSize: 13, color: Color(0xFF77716C)),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -469,13 +469,13 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                 keyboardType: TextInputType.number,
                 maxLength: 4,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 8, color: Color(0xFF166534)),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 8, color: Color(0xFF198754)),
                 decoration: InputDecoration(
                   hintText: '••••',
                   errorText: errorText,
                   counterText: '',
                   filled: true,
-                  fillColor: const Color(0xFFF0FDF4),
+                  fillColor: const Color(0xFFE8F5E9),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
@@ -490,8 +490,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       },
                 icon: isResending
                     ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.refresh, size: 14, color: Color(0xFF16A34A)),
-                label: const Text('Resend Ending OTP to Customer', style: TextStyle(fontSize: 12, color: Color(0xFF16A34A), fontWeight: FontWeight.bold)),
+                    : const Icon(Icons.refresh, size: 14, color: Color(0xFF198754)),
+                label: const Text('Resend Ending OTP to Customer', style: TextStyle(fontSize: 12, color: Color(0xFF198754), fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -512,7 +512,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                 _verifyEndOtp(code);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
+                backgroundColor: const Color(0xFF198754),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
@@ -545,7 +545,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            backgroundColor: Color(0xFF166534),
+            backgroundColor: Color(0xFF198754),
             content: Text('Start OTP Verified! Work is now IN_PROGRESS. Completion OTP emailed to customer.'),
           ),
         );
@@ -555,7 +555,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: const Color(0xFFDC3545),
             content: Text('Verification Failed: $e'),
           ),
         );
@@ -567,7 +567,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
     if (_failedAttempts >= 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          backgroundColor: Color(0xFFDC2626),
+          backgroundColor: Color(0xFFDC3545),
           content: Text('Maximum attempts exceeded (3 failed attempts). Account locked.'),
         ),
       );
@@ -594,7 +594,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            backgroundColor: Color(0xFF166534),
+            backgroundColor: Color(0xFF198754),
             content: Text('Service Completed! Earnings credited to your wallet.'),
           ),
         );
@@ -605,7 +605,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: const Color(0xFFDC3545),
             content: Text('Invalid End OTP. Failed attempts: $_failedAttempts/3'),
           ),
         );
@@ -665,16 +665,16 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
     final isCompleted = _status == 'COMPLETED';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
         title: Text(
           'Job Execution #${widget.job['id'] ?? 'BT-900'}',
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF0F172A)),
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF222222)),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF0F172A)),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF222222)),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -689,13 +689,13 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: isCompleted
-                    ? const Color(0xFFECFDF5)
-                    : (isInProgress ? const Color(0xFFFEF3C7) : const Color(0xFFEFF6FF)),
+                    ? const Color(0xFFE8F5E9)
+                    : (isInProgress ? const Color(0xFFFFF4E0) : const Color(0xFFFBE4D5)),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isCompleted
-                      ? const Color(0xFF86EFAC)
-                      : (isInProgress ? const Color(0xFFFDE68A) : const Color(0xFFBFDBFE)),
+                      ? const Color(0xFFE8F5E9)
+                      : (isInProgress ? const Color(0xFFFBE4D5) : const Color(0xFFFBE4D5)),
                 ),
               ),
               child: Row(
@@ -705,8 +705,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                         ? Icons.check_circle_rounded
                         : (isInProgress ? Icons.engineering_rounded : Icons.schedule_rounded),
                     color: isCompleted
-                        ? const Color(0xFF16A34A)
-                        : (isInProgress ? const Color(0xFFD97706) : const Color(0xFF1E3A8A)),
+                        ? const Color(0xFF198754)
+                        : (isInProgress ? const Color(0xFFE5A126) : const Color(0xFFF46B12)),
                     size: 20,
                   ),
                   const SizedBox(width: 10),
@@ -722,8 +722,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                             fontWeight: FontWeight.w900,
                             fontSize: 12.5,
                             color: isCompleted
-                                ? const Color(0xFF166534)
-                                : (isInProgress ? const Color(0xFF92400E) : const Color(0xFF1E3A8A)),
+                                ? const Color(0xFF198754)
+                                : (isInProgress ? const Color(0xFFE85B08) : const Color(0xFFF46B12)),
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -733,7 +733,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                               : (isInProgress
                                   ? 'Work underway. Collect Ending OTP upon finishing.'
                                   : 'Head to customer location & collect Start OTP.'),
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -788,7 +788,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                             LatLng(actualTechLat, actualTechLng),
                             LatLng(actualCustLat, actualCustLng),
                           ],
-                          color: const Color(0xFF1E3A8A),
+                          color: const Color(0xFFF46B12),
                           width: 5,
                           jointType: JointType.round,
                         ),
@@ -816,7 +816,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                         FloatingActionButton.small(
                           heroTag: 'btn_fit_${widget.job['id']}',
                           backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF1E3A8A),
+                          foregroundColor: const Color(0xFFF46B12),
                           elevation: 3,
                           onPressed: () {
                             final custPos = LatLng(actualCustLat, actualCustLng);
@@ -828,7 +828,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                         const SizedBox(width: 8),
                         FloatingActionButton.extended(
                           heroTag: 'btn_nav_${widget.job['id']}',
-                          backgroundColor: const Color(0xFF1E3A8A),
+                          backgroundColor: const Color(0xFFF46B12),
                           foregroundColor: Colors.white,
                           elevation: 4,
                           icon: const Icon(Icons.navigation_rounded, size: 16),
@@ -855,7 +855,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: const Color(0xFFEEE8E2)),
                 boxShadow: const [
                   BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 3)),
                 ],
@@ -869,18 +869,18 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)),
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF222222)),
                         ),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
+                          color: const Color(0xFFE8F5E9),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           payout,
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF047857)),
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF198754)),
                         ),
                       ),
                     ],
@@ -888,17 +888,17 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Icon(Icons.schedule_rounded, size: 16, color: Color(0xFF64748B)),
+                      const Icon(Icons.schedule_rounded, size: 16, color: Color(0xFF77716C)),
                       const SizedBox(width: 6),
-                      Text(timeSlot, style: const TextStyle(fontSize: 13, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
+                      Text(timeSlot, style: const TextStyle(fontSize: 13, color: Color(0xFF77716C), fontWeight: FontWeight.w600)),
                       if (distance.isNotEmpty) ...[
                         const SizedBox(width: 10),
-                        Text('• $distance', style: const TextStyle(fontSize: 13, color: Color(0xFF059669), fontWeight: FontWeight.w800)),
+                        Text('• $distance', style: const TextStyle(fontSize: 13, color: Color(0xFF198754), fontWeight: FontWeight.w800)),
                       ],
                     ],
                   ),
                   const SizedBox(height: 14),
-                  const Divider(color: Color(0xFFF1F5F9)),
+                  const Divider(color: Color(0xFFFCF9F6)),
                   const SizedBox(height: 12),
 
                   // Customer details row
@@ -906,8 +906,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                     children: [
                       const CircleAvatar(
                         radius: 20,
-                        backgroundColor: Color(0xFFEFF6FF),
-                        child: Icon(Icons.person, color: Color(0xFF1E3A8A), size: 22),
+                        backgroundColor: Color(0xFFFBE4D5),
+                        child: Icon(Icons.person, color: Color(0xFFF46B12), size: 22),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -915,7 +915,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(customerName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
-                            Text(address, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)), maxLines: 2),
+                            Text(address, style: const TextStyle(fontSize: 12, color: Color(0xFF77716C)), maxLines: 2),
                           ],
                         ),
                       ),
@@ -929,10 +929,10 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _callCustomer(phone),
-                          icon: const Icon(Icons.phone_rounded, size: 16, color: Color(0xFF16A34A)),
-                          label: const Text('Call Customer', style: TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w800)),
+                          icon: const Icon(Icons.phone_rounded, size: 16, color: Color(0xFF198754)),
+                          label: const Text('Call Customer', style: TextStyle(color: Color(0xFF198754), fontWeight: FontWeight.w800)),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF86EFAC)),
+                            side: const BorderSide(color: Color(0xFFE8F5E9)),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
@@ -941,10 +941,10 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _launchNavigation(address, lat: actualCustLat, lng: actualCustLng),
-                          icon: const Icon(Icons.navigation_rounded, size: 16, color: Color(0xFF1E3A8A)),
-                          label: const Text('Navigate', style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.w800)),
+                          icon: const Icon(Icons.navigation_rounded, size: 16, color: Color(0xFFF46B12)),
+                          label: const Text('Navigate', style: TextStyle(color: Color(0xFFF46B12), fontWeight: FontWeight.w800)),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFBFDBFE)),
+                            side: const BorderSide(color: Color(0xFFFBE4D5)),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
@@ -964,7 +964,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: const Color(0xFFEEE8E2)),
                 boxShadow: const [
                   BoxShadow(color: Color(0x0A000000), blurRadius: 10, offset: Offset(0, 3)),
                 ],
@@ -977,22 +977,22 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.receipt_long_rounded, size: 20, color: Color(0xFF1E3A8A)),
+                          Icon(Icons.receipt_long_rounded, size: 20, color: Color(0xFFF46B12)),
                           SizedBox(width: 8),
                           Text(
                             'Payment & Prepayment Summary',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: Color(0xFF0F172A)),
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: Color(0xFF222222)),
                           ),
                         ],
                       ),
                       Text(
                         'Razorpay Verified',
-                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF15803D)),
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF198754)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
-                  const Divider(color: Color(0xFFF1F5F9)),
+                  const Divider(color: Color(0xFFFCF9F6)),
                   const SizedBox(height: 10),
 
                   // 1. Online Prepayment (30% + Booking Fee)
@@ -1007,25 +1007,25 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF334155),
+                              color: Color(0xFF222222),
                             ),
                           ),
                           Text(
                             'Booking Fee (₹49) + 30% Service Advance',
-                            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            style: TextStyle(fontSize: 11, color: Color(0xFF77716C)),
                           ),
                         ],
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
+                          color: const Color(0xFFE8F5E9),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFA7F3D0)),
+                          border: Border.all(color: const Color(0xFFE8F5E9)),
                         ),
                         child: Text(
                           '₹$totalAdvancePaid (🟢 Paid Online)',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF15803D)),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF198754)),
                         ),
                       ),
                     ],
@@ -1036,9 +1036,9 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
+                      color: const Color(0xFFFFF4E0),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFFDE68A)),
+                      border: Border.all(color: const Color(0xFFFBE4D5)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1048,17 +1048,17 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                           children: [
                             Text(
                               'Balance to Collect on Finish',
-                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF92400E)),
+                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFFE85B08)),
                             ),
                             Text(
                               '70% Remaining Service Balance (Cash / UPI)',
-                              style: TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                              style: TextStyle(fontSize: 11, color: Color(0xFFE5A126)),
                             ),
                           ],
                         ),
                         Text(
                           '₹$balanceToCollect',
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFFB45309)),
+                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFFE5A126)),
                         ),
                       ],
                     ),
@@ -1069,8 +1069,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Your Guaranteed Partner Payout', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF1E3A8A))),
-                      Text(payout, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF1E3A8A))),
+                      const Text('Your Guaranteed Partner Payout', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFFF46B12))),
+                      Text(payout, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFFF46B12))),
                     ],
                   ),
                 ],
@@ -1083,20 +1083,20 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: const Color(0xFFFCF9F6),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: const Color(0xFFEEE8E2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.camera_alt_outlined, size: 18, color: Color(0xFF1E3A8A)),
+                      Icon(Icons.camera_alt_outlined, size: 18, color: Color(0xFFF46B12)),
                       SizedBox(width: 8),
                       Text(
                         'Proof of Work & Inspection Photos',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF0F172A)),
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF222222)),
                       ),
                     ],
                   ),
@@ -1108,16 +1108,16 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: _beforePhotoUrl != null ? const Color(0xFFECFDF5) : Colors.white,
+                            color: _beforePhotoUrl != null ? const Color(0xFFE8F5E9) : Colors.white,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: _beforePhotoUrl != null ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1)),
+                            border: Border.all(color: _beforePhotoUrl != null ? const Color(0xFFE8F5E9) : const Color(0xFFEEE8E2)),
                           ),
                           child: Row(
                             children: [
                               Icon(
                                 _beforePhotoUrl != null ? Icons.check_circle : Icons.pending_outlined,
                                 size: 16,
-                                color: _beforePhotoUrl != null ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                                color: _beforePhotoUrl != null ? const Color(0xFF198754) : const Color(0xFF77716C),
                               ),
                               const SizedBox(width: 6),
                               Expanded(
@@ -1126,7 +1126,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
-                                    color: _beforePhotoUrl != null ? const Color(0xFF166534) : const Color(0xFF64748B),
+                                    color: _beforePhotoUrl != null ? const Color(0xFF198754) : const Color(0xFF77716C),
                                   ),
                                 ),
                               ),
@@ -1140,16 +1140,16 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: _afterPhotoUrl != null ? const Color(0xFFECFDF5) : Colors.white,
+                            color: _afterPhotoUrl != null ? const Color(0xFFE8F5E9) : Colors.white,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: _afterPhotoUrl != null ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1)),
+                            border: Border.all(color: _afterPhotoUrl != null ? const Color(0xFFE8F5E9) : const Color(0xFFEEE8E2)),
                           ),
                           child: Row(
                             children: [
                               Icon(
                                 _afterPhotoUrl != null ? Icons.check_circle : Icons.pending_outlined,
                                 size: 16,
-                                color: _afterPhotoUrl != null ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+                                color: _afterPhotoUrl != null ? const Color(0xFF198754) : const Color(0xFF77716C),
                               ),
                               const SizedBox(width: 6),
                               Expanded(
@@ -1158,7 +1158,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
-                                    color: _afterPhotoUrl != null ? const Color(0xFF166534) : const Color(0xFF64748B),
+                                    color: _afterPhotoUrl != null ? const Color(0xFF198754) : const Color(0xFF77716C),
                                   ),
                                 ),
                               ),
@@ -1177,8 +1177,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('• ${a['title']}', style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
-                          Text('₹${a['amount']} (${a['status']})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+                          Text('• ${a['title']}', style: const TextStyle(fontSize: 12, color: Color(0xFF222222))),
+                          Text('₹${a['amount']} (${a['status']})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFE5A126))),
                         ],
                       ),
                     )),
@@ -1205,7 +1205,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
+                      backgroundColor: const Color(0xFFF46B12),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
@@ -1223,7 +1223,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E3A8A),
+                      backgroundColor: const Color(0xFFF46B12),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
@@ -1239,8 +1239,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                   icon: const Icon(Icons.add_shopping_cart, size: 18),
                   label: const Text('+ Request Add-on Spare Parts / Extra Work', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFB45309),
-                    side: const BorderSide(color: Color(0xFFF59E0B)),
+                    foregroundColor: const Color(0xFFE5A126),
+                    side: const BorderSide(color: Color(0xFFE5A126)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
@@ -1260,7 +1260,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D9488),
+                      backgroundColor: const Color(0xFFF46B12),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
@@ -1278,7 +1278,7 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                       style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF16A34A),
+                      backgroundColor: const Color(0xFF198754),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
@@ -1290,18 +1290,18 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5),
+                  color: const Color(0xFFE8F5E9),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF86EFAC)),
+                  border: Border.all(color: const Color(0xFFE8F5E9)),
                 ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.verified_rounded, color: Color(0xFF16A34A)),
+                    Icon(Icons.verified_rounded, color: Color(0xFF198754)),
                     SizedBox(width: 8),
                     Text(
                       'Job Successfully Finished & Settled',
-                      style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF065F46), fontSize: 14),
+                      style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF198754), fontSize: 14),
                     ),
                   ],
                 ),

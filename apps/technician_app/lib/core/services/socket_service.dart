@@ -266,7 +266,7 @@ class TechnicianSocketService {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: const Color(0xFF222222),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           margin: const EdgeInsets.all(16),
@@ -280,7 +280,7 @@ class TechnicianSocketService {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('New Service Added by Admin!', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13)),
-                    Text('$name ($category) • ₹$price', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                    Text('$name ($category) • ₹$price', style: const TextStyle(color: Color(0xFF77716C), fontSize: 12)),
                   ],
                 ),
               ),

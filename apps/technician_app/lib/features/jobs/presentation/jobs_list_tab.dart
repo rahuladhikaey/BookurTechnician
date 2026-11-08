@@ -42,7 +42,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
-            const Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 48),
+            const Icon(Icons.shield_outlined, color: Color(0xFF198754), size: 48),
             const SizedBox(height: 12),
             const Text(
               'Customer Privacy Masking',
@@ -67,7 +67,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                 icon: const Icon(Icons.call),
                 label: const Text('Connect via Virtual Gateway (1800-889-TECH)'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A8A),
+                  backgroundColor: const Color(0xFFF46B12),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -97,22 +97,22 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
     final upcomingJobs = [...jobState.tomorrowJobs, ...jobState.nextDayJobs];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: const Color(0xFF222222),
         elevation: 0,
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFFDB813),
+                color: const Color(0xFFF46B12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 'CAPTAIN',
                 style: TextStyle(
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF222222),
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.8,
@@ -143,29 +143,29 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(52),
           child: Container(
-            color: const Color(0xFF0F172A),
+            color: const Color(0xFF222222),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Container(
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: const Color(0xFF222222),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: TabBar(
                 controller: _tabController,
                 indicator: BoxDecoration(
-                  color: const Color(0xFFFDB813),
+                  color: const Color(0xFFF46B12),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFDB813).withValues(alpha: 0.3),
+                      color: const Color(0xFFF46B12).withValues(alpha: 0.3),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                labelColor: const Color(0xFF0F172A),
-                unselectedLabelColor: const Color(0xFF94A3B8),
+                labelColor: const Color(0xFF222222),
+                unselectedLabelColor: const Color(0xFF77716C),
                 labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5),
                 unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
                 tabs: [
@@ -218,8 +218,8 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
     bool isHistoryTab = false,
   }) {
     return RefreshIndicator(
-      color: const Color(0xFF0F172A),
-      backgroundColor: const Color(0xFFFDB813),
+      color: const Color(0xFF222222),
+      backgroundColor: const Color(0xFFF46B12),
       onRefresh: () async {
         await ref.read(jobStateProvider.notifier).fetchAssignedJobs();
       },
@@ -256,10 +256,10 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                                     : Icons.event_available_rounded,
                             size: 44,
                             color: isHistoryTab
-                                ? const Color(0xFF64748B)
+                                ? const Color(0xFF77716C)
                                 : isTodayTab
-                                    ? const Color(0xFFF59E0B)
-                                    : const Color(0xFF0284C7),
+                                    ? const Color(0xFFE5A126)
+                                    : const Color(0xFFF46B12),
                           ),
                         ),
                         const SizedBox(height: 18),
@@ -268,7 +268,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
+                            color: Color(0xFF222222),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -276,7 +276,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                           emptySubtitle,
                           style: const TextStyle(
                             fontSize: 12.5,
-                            color: Color(0xFF64748B),
+                            color: Color(0xFF77716C),
                             height: 1.4,
                           ),
                           textAlign: TextAlign.center,
@@ -309,13 +309,13 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isTodayTab ? const Color(0xFFFDB813) : const Color(0xFFE2E8F0),
+          color: isTodayTab ? const Color(0xFFF46B12) : const Color(0xFFEEE8E2),
           width: isTodayTab ? 1.8 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
             color: isTodayTab
-                ? const Color(0xFFFDB813).withValues(alpha: 0.12)
+                ? const Color(0xFFF46B12).withValues(alpha: 0.12)
                 : Colors.black.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
@@ -330,12 +330,12 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: isHistoryTab
-                  ? const Color(0xFFF8FAFC)
+                  ? const Color(0xFFFCF9F6)
                   : isTodayTab
-                      ? const Color(0xFFFEFCE8)
-                      : const Color(0xFFF0FDF4),
+                      ? const Color(0xFFFFF4E0)
+                      : const Color(0xFFE8F5E9),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-              border: Border(bottom: BorderSide(color: const Color(0xFFE2E8F0).withValues(alpha: 0.6))),
+              border: Border(bottom: BorderSide(color: const Color(0xFFEEE8E2).withValues(alpha: 0.6))),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -345,7 +345,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
+                        color: const Color(0xFF222222),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -353,7 +353,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFFFDB813),
+                          color: Color(0xFFF46B12),
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -363,10 +363,10 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                       decoration: BoxDecoration(
                         color: isHistoryTab
-                            ? const Color(0xFFE2E8F0)
+                            ? const Color(0xFFEEE8E2)
                             : isTodayTab
-                                ? const Color(0xFFDCFCE7)
-                                : const Color(0xFFE0F2FE),
+                                ? const Color(0xFFE8F5E9)
+                                : const Color(0xFFFBE4D5),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -375,10 +375,10 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
                           color: isHistoryTab
-                              ? const Color(0xFF475569)
+                              ? const Color(0xFF77716C)
                               : isTodayTab
-                                  ? const Color(0xFF15803D)
-                                  : const Color(0xFF0369A1),
+                                  ? const Color(0xFF198754)
+                                  : const Color(0xFFF46B12),
                         ),
                       ),
                     ),
@@ -389,7 +389,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF198754),
                   ),
                 ),
               ],
@@ -407,7 +407,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                   style: const TextStyle(
                     fontSize: 15.5,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF0F172A),
+                    color: Color(0xFF222222),
                     letterSpacing: -0.2,
                   ),
                 ),
@@ -420,10 +420,10 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                       width: 32,
                       height: 32,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF222222),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.person, size: 18, color: Color(0xFFFDB813)),
+                      child: const Icon(Icons.person, size: 18, color: Color(0xFFF46B12)),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -435,14 +435,14 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                             style: const TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
+                              color: Color(0xFF222222),
                             ),
                           ),
                           Text(
                             job.customerPhone != null && job.customerPhone!.isNotEmpty
                                 ? job.customerPhone!
                                 : 'Verified Customer',
-                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                           ),
                         ],
                       ),
@@ -454,21 +454,21 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFDCFCE7),
+                            color: const Color(0xFFE8F5E9),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFF86EFAC)),
+                            border: Border.all(color: const Color(0xFFE8F5E9)),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.call, size: 14, color: Color(0xFF16A34A)),
+                              Icon(Icons.call, size: 14, color: Color(0xFF198754)),
                               SizedBox(width: 4),
                               Text(
                                 'CALL',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xFF16A34A),
+                                  color: Color(0xFF198754),
                                 ),
                               ),
                             ],
@@ -483,16 +483,16 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: const Color(0xFFFCF9F6),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: const Color(0xFFEEE8E2)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Padding(
                         padding: EdgeInsets.only(top: 2),
-                        child: Icon(Icons.location_on_rounded, size: 16, color: Color(0xFFEF4444)),
+                        child: Icon(Icons.location_on_rounded, size: 16, color: Color(0xFFDC3545)),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -501,7 +501,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155),
+                            color: Color(0xFF222222),
                             height: 1.35,
                           ),
                           maxLines: 2,
@@ -511,7 +511,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                       const SizedBox(width: 6),
                       InkWell(
                         onTap: () => _openNavigation(job.customerAddress),
-                        child: const Icon(Icons.directions_rounded, size: 20, color: Color(0xFF0284C7)),
+                        child: const Icon(Icons.directions_rounded, size: 20, color: Color(0xFFF46B12)),
                       ),
                     ],
                   ),
@@ -524,14 +524,14 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.access_time_filled_rounded, size: 14, color: Color(0xFF64748B)),
+                        const Icon(Icons.access_time_filled_rounded, size: 14, color: Color(0xFF77716C)),
                         const SizedBox(width: 5),
                         Text(
                           'Slot: ${job.scheduleSlot ?? "Standard Window"}',
                           style: const TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF64748B),
+                            color: Color(0xFF77716C),
                           ),
                         ),
                       ],
@@ -542,7 +542,7 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
+                          color: Color(0xFF222222),
                         ),
                       ),
                   ],
@@ -572,11 +572,11 @@ class _JobsListTabState extends ConsumerState<JobsListTab> with SingleTickerProv
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isHistoryTab
-                          ? const Color(0xFF0F172A)
+                          ? const Color(0xFF222222)
                           : isTodayTab
-                              ? const Color(0xFFFDB813)
-                              : const Color(0xFF0F172A),
-                      foregroundColor: isTodayTab && !isHistoryTab ? const Color(0xFF0F172A) : Colors.white,
+                              ? const Color(0xFFF46B12)
+                              : const Color(0xFF222222),
+                      foregroundColor: isTodayTab && !isHistoryTab ? const Color(0xFF222222) : Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),

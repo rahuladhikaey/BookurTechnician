@@ -58,14 +58,14 @@ class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> {
               width: 68,
               height: 68,
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: const Color(0xFFFBE4D5),
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF93C5FD), width: 2),
+                border: Border.all(color: const Color(0xFFFBE4D5), width: 2),
               ),
               child: const Center(
                 child: Icon(
                   Icons.assignment_turned_in_rounded,
-                  color: Color(0xFF1E3A8A),
+                  color: Color(0xFFF46B12),
                   size: 34,
                 ),
               ),
@@ -76,7 +76,7 @@ class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
+                color: const Color(0xFFE8F5E9),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
@@ -84,7 +84,7 @@ class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF059669),
+                  color: Color(0xFF198754),
                   letterSpacing: 0.5,
                 ),
               ),
@@ -96,7 +96,7 @@ class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> {
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF222222),
               ),
               textAlign: TextAlign.center,
             ),
@@ -106,15 +106,15 @@ class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.schedule_rounded, size: 14, color: Color(0xFF64748B)),
+                const Icon(Icons.schedule_rounded, size: 14, color: Color(0xFF77716C)),
                 const SizedBox(width: 4),
-                Text(slot, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                Text(slot, style: const TextStyle(fontSize: 12, color: Color(0xFF77716C), fontWeight: FontWeight.w600)),
                 const SizedBox(width: 8),
-                const Text('•', style: TextStyle(color: Color(0xFF94A3B8))),
+                const Text('•', style: TextStyle(color: Color(0xFF77716C))),
                 const SizedBox(width: 8),
-                const Icon(Icons.near_me_rounded, size: 14, color: Color(0xFF059669)),
+                const Icon(Icons.near_me_rounded, size: 14, color: Color(0xFF198754)),
                 const SizedBox(width: 4),
-                Text(distance, style: const TextStyle(fontSize: 12, color: Color(0xFF059669), fontWeight: FontWeight.w800)),
+                Text(distance, style: const TextStyle(fontSize: 12, color: Color(0xFF198754), fontWeight: FontWeight.w800)),
               ],
             ),
 
@@ -125,18 +125,18 @@ class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: const Color(0xFFFCF9F6),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: const Color(0xFFEEE8E2)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.location_on_outlined, size: 18, color: Color(0xFF64748B)),
+                  const Icon(Icons.location_on_outlined, size: 18, color: Color(0xFF77716C)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       address,
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF222222)),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -152,20 +152,20 @@ class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
+                color: const Color(0xFFE8F5E9),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF86EFAC)),
+                border: Border.all(color: const Color(0xFFE8F5E9)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'Guaranteed Partner Payout',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF065F46)),
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF198754)),
                   ),
                   Text(
                     payout,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF047857)),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF198754)),
                   ),
                 ],
               ),
@@ -183,7 +183,7 @@ class _LeadAlertDialogState extends ConsumerState<LeadAlertDialog> {
                   widget.onAccept();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A8A),
+                  backgroundColor: const Color(0xFFF46B12),
                   foregroundColor: Colors.white,
                   elevation: 2,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

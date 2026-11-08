@@ -578,8 +578,8 @@ class TechnicianIllustration extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: const RadialGradient(
                 colors: [
-                  Color(0x2606B6D4),
-                  Color(0x051E40AF),
+                  Color(0x33F46B12),
+                  Color(0x0DF46B12),
                   Colors.transparent,
                 ],
                 stops: [0.4, 0.8, 1.0],
@@ -610,7 +610,7 @@ class TechnicianIllustration extends StatelessWidget {
             top: 90,
             child: _FloatingAsset(
               angle: -0.2,
-              child: const Icon(Icons.build_rounded, color: Color(0xFF1E40AF), size: 24),
+              child: const Icon(Icons.build_rounded, color: Color(0xFFF46B12), size: 24),
             ),
           ),
           
@@ -620,7 +620,7 @@ class TechnicianIllustration extends StatelessWidget {
             top: 100,
             child: _FloatingAsset(
               angle: 0.3,
-              child: const Icon(Icons.construction_rounded, color: Color(0xFF06B6D4), size: 24),
+              child: const Icon(Icons.construction_rounded, color: Color(0xFFF46B12), size: 24),
             ),
           ),
 
@@ -656,7 +656,7 @@ class TechnicianIllustration extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
-                  color: Color(0xFF10B981), // Success green
+                  color: Color(0xFF198754), // Success green
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -678,10 +678,10 @@ class _TechnicianPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    final bodyPaint = Paint()..color = const Color(0xFF0F172A); // Navy/Black shirt
+    final bodyPaint = Paint()..color = const Color(0xFF222222); // Navy/Black shirt
     final skinPaint = Paint()..color = const Color(0xFFE5A67C); // South Asian tone
-    final darkPaint = Paint()..color = const Color(0xFF1E1E24); // Hair / beard
-    final accentPaint = Paint()..color = const Color(0xFF06B6D4); // Teal collar
+    final darkPaint = Paint()..color = const Color(0xFF222222); // Hair / beard
+    final accentPaint = Paint()..color = const Color(0xFFF46B12); // Teal collar
 
     // 1. Draw shoulders & body
     final bodyPath = Path()
@@ -743,7 +743,7 @@ class _TechnicianPainter extends CustomPainter {
     canvas.drawPath(beardPath, darkPaint);
 
     // Eyes
-    final eyePaint = Paint()..color = const Color(0xFF1E1E24);
+    final eyePaint = Paint()..color = const Color(0xFF222222);
     canvas.drawCircle(Offset(w * 0.44, h * 0.28), 2.2, eyePaint);
     canvas.drawCircle(Offset(w * 0.56, h * 0.28), 2.2, eyePaint);
 
@@ -766,7 +766,7 @@ class _TechnicianPainter extends CustomPainter {
     );
 
     // 6. Draw crossed arms
-    final armsPaint = Paint()..color = const Color(0xFF1E293B);
+    final armsPaint = Paint()..color = const Color(0xFF222222);
     final armPath = Path()
       ..moveTo(w * 0.22, h * 0.72)
       ..lineTo(w * 0.78, h * 0.72)
@@ -807,8 +807,8 @@ class TrackingIllustration extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: const RadialGradient(
                 colors: [
-                  Color(0x1F06B6D4),
-                  Color(0x051E40AF),
+                  Color(0x26F46B12),
+                  Color(0x0DF46B12),
                   Colors.transparent,
                 ],
               ),
@@ -820,7 +820,7 @@ class TrackingIllustration extends StatelessWidget {
             width: 140,
             height: 220,
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
+              color: const Color(0xFF222222),
               borderRadius: BorderRadius.circular(24),
               boxShadow: const [
                 BoxShadow(
@@ -833,7 +833,7 @@ class TrackingIllustration extends StatelessWidget {
             padding: const EdgeInsets.all(4),
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: const Color(0xFFFCF9F6),
                 borderRadius: BorderRadius.circular(20),
               ),
               clipBehavior: Clip.antiAlias,
@@ -852,7 +852,7 @@ class TrackingIllustration extends StatelessWidget {
                     right: 35,
                     child: Icon(
                       Icons.home,
-                      color: Color(0xFF1E40AF),
+                      color: Color(0xFFF46B12),
                       size: 28,
                     ),
                   ),
@@ -863,7 +863,7 @@ class TrackingIllustration extends StatelessWidget {
                     left: 25,
                     child: Icon(
                       Icons.directions_bike_rounded,
-                      color: Color(0xFF06B6D4),
+                      color: Color(0xFFF46B12),
                       size: 26,
                     ),
                   ),
@@ -893,9 +893,9 @@ class TrackingIllustration extends StatelessWidget {
                             height: 24,
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Color(0xFFE2E8F0),
+                              color: Color(0xFFEEE8E2),
                             ),
-                            child: const Icon(Icons.person, size: 16, color: Color(0xFF64748B)),
+                            child: const Icon(Icons.person, size: 16, color: Color(0xFF77716C)),
                           ),
                           const SizedBox(width: 6),
                           Expanded(
@@ -908,7 +908,7 @@ class TrackingIllustration extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 8,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A),
+                                    color: Color(0xFF222222),
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -916,13 +916,13 @@ class TrackingIllustration extends StatelessWidget {
                                   '12 min • 2.4 km',
                                   style: TextStyle(
                                     fontSize: 7,
-                                    color: Color(0xFF64748B),
+                                    color: Color(0xFF77716C),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const Icon(Icons.phone, size: 10, color: Color(0xFF10B981)),
+                          const Icon(Icons.phone, size: 10, color: Color(0xFF198754)),
                         ],
                       ),
                     ),
@@ -937,7 +937,7 @@ class TrackingIllustration extends StatelessWidget {
             left: 20,
             top: 40,
             child: _FloatingAsset(
-              child: const Icon(Icons.location_on, color: Color(0xFFEF4444), size: 20),
+              child: const Icon(Icons.location_on, color: Color(0xFFDC3545), size: 20),
             ),
           ),
           
@@ -950,7 +950,7 @@ class TrackingIllustration extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: const [
                   Text('ETA', style: TextStyle(fontSize: 8, color: Colors.grey, fontWeight: FontWeight.bold)),
-                  Text('12m', style: TextStyle(fontSize: 11, color: Color(0xFF06B6D4), fontWeight: FontWeight.bold)),
+                  Text('12m', style: TextStyle(fontSize: 11, color: Color(0xFFF46B12), fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -974,7 +974,7 @@ class _MapPainter extends CustomPainter {
 
     // Water (soft blue)
     final waterPaint = Paint()
-      ..color = const Color(0xFFE0F2FE)
+      ..color = const Color(0xFFFBE4D5)
       ..strokeWidth = 10
       ..style = PaintingStyle.stroke;
     final waterPath = Path()
@@ -996,7 +996,7 @@ class _MapPainter extends CustomPainter {
 
     // Dotted route line
     final routePaint = Paint()
-      ..color = const Color(0xFF06B6D4)
+      ..color = const Color(0xFFF46B12)
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -1044,8 +1044,8 @@ class PaymentsIllustration extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: const RadialGradient(
                 colors: [
-                  Color(0x1A1E40AF),
-                  Color(0x0506B6D4),
+                  Color(0x26F46B12),
+                  Color(0x0DF46B12),
                   Colors.transparent,
                 ],
               ),
@@ -1059,7 +1059,7 @@ class PaymentsIllustration extends StatelessWidget {
               width: 130,
               height: 210,
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: const Color(0xFF222222),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: const [
                   BoxShadow(
@@ -1082,12 +1082,12 @@ class PaymentsIllustration extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: const BoxDecoration(
-                        color: Color(0xFFD1FAE5),
+                        color: Color(0xFFE8F5E9),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.check_circle,
-                        color: Color(0xFF10B981),
+                        color: Color(0xFF198754),
                         size: 28,
                       ),
                     ),
@@ -1098,7 +1098,7 @@ class PaymentsIllustration extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF222222),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1116,7 +1116,7 @@ class PaymentsIllustration extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
                         Text('Paid', style: TextStyle(fontSize: 6, color: Colors.grey)),
-                        Text('₹549.00', style: TextStyle(fontSize: 6, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                        Text('₹549.00', style: TextStyle(fontSize: 6, fontWeight: FontWeight.bold, color: Color(0xFFF46B12))),
                       ],
                     ),
                   ],
@@ -1136,7 +1136,7 @@ class PaymentsIllustration extends StatelessWidget {
                 height: 56,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                    colors: [Color(0xFFF46B12), Color(0xFFE85B08)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -1221,7 +1221,7 @@ class PaymentsIllustration extends StatelessWidget {
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [Color(0xFFFCD34D), Color(0xFFF59E0B)],
+                    colors: [Color(0xFFE5A126), Color(0xFFE5A126)],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
@@ -1251,7 +1251,7 @@ class _ShieldPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     final shieldPaint = Paint()
-      ..color = const Color(0xFF1E40AF)
+      ..color = const Color(0xFFF46B12)
       ..style = PaintingStyle.fill;
     final linePaint = Paint()
       ..color = Colors.white

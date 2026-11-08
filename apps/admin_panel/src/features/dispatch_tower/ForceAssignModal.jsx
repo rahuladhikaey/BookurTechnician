@@ -84,12 +84,12 @@ export default function ForceAssignModal({ booking, onClose, onSuccess }) {
         {/* Body Content */}
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           
-          <div style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '10px 14px', fontSize: '12.5px' }}>
+          <div style={{ backgroundColor: '#FCF9F6', border: '1px solid #EEE8E2', borderRadius: '6px', padding: '10px 14px', fontSize: '12.5px' }}>
             <strong>Target Booking:</strong> <span style={{ fontFamily: 'monospace', fontWeight: '800' }}>{booking?.bookingCode || booking?.id}</span> • {booking?.service?.name || booking?.serviceType || 'Service Request'}
           </div>
 
           {error && (
-            <div style={{ padding: '10px 14px', backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', color: '#DC2626', borderRadius: '6px', fontSize: '12.5px' }}>
+            <div style={{ padding: '10px 14px', backgroundColor: '#FDECEC', border: '1px solid #FDECEC', color: '#DC3545', borderRadius: '6px', fontSize: '12.5px' }}>
               ⚠️ {error}
             </div>
           )}
@@ -109,7 +109,7 @@ export default function ForceAssignModal({ booking, onClose, onSuccess }) {
           {/* Technicians List */}
           <div className="form-group">
             <label className="form-label">Select Partner</label>
-            <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '8px' }}>
+            <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid #EEE8E2', borderRadius: '6px', padding: '8px' }}>
               {filteredTechs.map(tech => {
                 const isSelected = selectedTechId === (tech._id || tech.id);
                 return (
@@ -119,8 +119,8 @@ export default function ForceAssignModal({ booking, onClose, onSuccess }) {
                     style={{
                       padding: '10px 12px',
                       borderRadius: '6px',
-                      border: `1.5px solid ${isSelected ? '#0F172A' : '#E2E8F0'}`,
-                      backgroundColor: isSelected ? '#F1F5F9' : '#FFFFFF',
+                      border: `1.5px solid ${isSelected ? '#222222' : '#EEE8E2'}`,
+                      backgroundColor: isSelected ? '#FCF9F6' : '#FFFFFF',
                       cursor: 'pointer',
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -128,10 +128,10 @@ export default function ForceAssignModal({ booking, onClose, onSuccess }) {
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: '800', fontSize: '13px', color: '#0F172A' }}>{tech.name || tech.fullName}</div>
-                      <div style={{ fontSize: '11px', color: '#64748B' }}>{tech.technicianCode || tech.id} • {tech.phone} • {tech.category}</div>
+                      <div style={{ fontWeight: '800', fontSize: '13px', color: '#222222' }}>{tech.name || tech.fullName}</div>
+                      <div style={{ fontSize: '11px', color: '#77716C' }}>{tech.technicianCode || tech.id} • {tech.phone} • {tech.category}</div>
                     </div>
-                    <span style={{ fontSize: '11px', fontWeight: '800', color: tech.isOnline ? '#15803D' : '#64748B' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '800', color: tech.isOnline ? '#198754' : '#77716C' }}>
                       {tech.isOnline ? '🟢 Online' : '⚪ Offline'}
                     </span>
                   </div>
@@ -139,7 +139,7 @@ export default function ForceAssignModal({ booking, onClose, onSuccess }) {
               })}
 
               {filteredTechs.length === 0 && (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#94A3B8', fontSize: '12px' }}>
+                <div style={{ padding: '20px', textAlign: 'center', color: '#77716C', fontSize: '12px' }}>
                   No technicians available matching search.
                 </div>
               )}

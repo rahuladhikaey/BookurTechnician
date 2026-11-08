@@ -14,6 +14,8 @@ enum AuthStatus { unauthenticated, authenticating, otpSent, authenticated }
 
 class AuthState {
   final AuthStatus status;
+  final String? uid;
+  final String? technicianCode;
   final String? phone;
   final String? email;
   final String? fullName;
@@ -21,10 +23,14 @@ class AuthState {
   final String? token;
   final double? latitude;
   final double? longitude;
+  final String onboardingStep;
+  final bool onboardingCompleted;
   final String? errorMessage;
 
   AuthState({
     this.status = AuthStatus.unauthenticated,
+    this.uid,
+    this.technicianCode,
     this.phone,
     this.email,
     this.fullName,
@@ -32,11 +38,15 @@ class AuthState {
     this.token,
     this.latitude,
     this.longitude,
+    this.onboardingStep = 'PROFILE_CREATED',
+    this.onboardingCompleted = false,
     this.errorMessage,
   });
 
   AuthState copyWith({
     AuthStatus? status,
+    String? uid,
+    String? technicianCode,
     String? phone,
     String? email,
     String? fullName,
@@ -44,10 +54,14 @@ class AuthState {
     String? token,
     double? latitude,
     double? longitude,
+    String? onboardingStep,
+    bool? onboardingCompleted,
     String? errorMessage,
   }) {
     return AuthState(
       status: status ?? this.status,
+      uid: uid ?? this.uid,
+      technicianCode: technicianCode ?? this.technicianCode,
       phone: phone ?? this.phone,
       email: email ?? this.email,
       fullName: fullName ?? this.fullName,
@@ -55,6 +69,8 @@ class AuthState {
       token: token ?? this.token,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      onboardingStep: onboardingStep ?? this.onboardingStep,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       errorMessage: errorMessage,
     );
   }
@@ -78,19 +94,52 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       final savedAge = int.tryParse(userDetails['age'] ?? '');
 
       if (cachedToken != null && cachedToken.isNotEmpty) {
-        final savedUserId = await _secureStorage.getUserId();
+        final rawUserId = await _secureStorage.getUserId();
+        final canonicalUid = FirestoreRestClient.resolveCanonicalTechUid(
+          (rawUserId != null && rawUserId.isNotEmpty)
+              ? rawUserId
+              : (userDetails['phone'] ?? userDetails['email'] ?? ''),
+        );
+        if (canonicalUid.isNotEmpty && canonicalUid != rawUserId) {
+          await _secureStorage.saveUserId(canonicalUid);
+        }
+        final techCode = FirestoreRestClient.resolveTechnicianCode(
+          canonicalUid,
+          phone: userDetails['phone'] ?? '',
+        );
+
+        // Fetch existing profile to restore onboarding progress
+        String restoredStep = 'SKILLS_SAVED';
+        bool restoredCompleted = true;
+        try {
+          final existingDoc = await FirestoreRestClient.getDocument(
+            'technician_profiles',
+            canonicalUid,
+          );
+          if (existingDoc != null) {
+            restoredStep = existingDoc['onboardingStep']?.toString() ?? 'SKILLS_SAVED';
+            restoredCompleted = existingDoc['onboardingCompleted'] == true ||
+                (existingDoc['selectedSkills'] is List && (existingDoc['selectedSkills'] as List).isNotEmpty) ||
+                (existingDoc['skills'] is List && (existingDoc['skills'] as List).isNotEmpty);
+          }
+        } catch (_) {}
+
         state = AuthState(
           status: AuthStatus.authenticated,
+          uid: canonicalUid,
+          technicianCode: techCode,
           token: cachedToken,
           fullName: userDetails['name'] ?? 'Partner Technician',
           age: savedAge,
           phone: userDetails['phone'],
           email: userDetails['email'],
+          onboardingStep: restoredStep,
+          onboardingCompleted: restoredCompleted,
         );
 
-        if (savedUserId != null && savedUserId.isNotEmpty) {
+        if (canonicalUid.isNotEmpty) {
           TechnicianSocketService().connect(
-            technicianId: savedUserId,
+            technicianId: canonicalUid,
             phone: userDetails['phone'],
             category: 'electrician',
           );
@@ -148,11 +197,14 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         ? fullName.trim()
         : _deriveNameFromEmail(normalizedEmail);
 
-    final digits = normalizedPhone.replaceAll(RegExp(r'\D'), '');
-    final internalUid =
-        'uid_tech_${digits.isNotEmpty ? digits : normalizedEmail.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
-    final partnerCode =
-        'BT-${(digits.length >= 6 ? digits.substring(digits.length - 6) : internalUid.hashCode.abs().toString().padLeft(6, '0').substring(0, 6))}';
+    final internalUid = FirestoreRestClient.resolveCanonicalTechUid(
+      normalizedPhone.isNotEmpty ? normalizedPhone : normalizedEmail,
+      phone: normalizedPhone,
+    );
+    final partnerCode = FirestoreRestClient.resolveTechnicianCode(
+      internalUid,
+      phone: normalizedPhone,
+    );
 
     await _secureStorage.saveUserId(internalUid);
     await _secureStorage.saveUserDetails(
@@ -179,28 +231,34 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       return ApiFailure(errMsg);
     }
 
-    // Async Firestore profile record creation (with distinct internal UID vs BT-XXXXXX partner code)
-    FirestoreRestClient.upsertDocument('technician_profiles', internalUid, {
-      'id': internalUid,
-      'uid': internalUid,
-      'technicianId': internalUid,
-      'technicianCode': partnerCode,
-      'email': normalizedEmail,
-      'phone': normalizedPhone,
-      'fullName': candidateName,
-      'name': candidateName,
-      'age': age,
-      'category': 'AC Services',
-      'accountStatus': 'Pending_Verification',
-      'isOnline': false,
-      'online': false,
-      'availabilityStatus': 'OFFLINE',
-      'updatedAt': DateTime.now().toUtc().toIso8601String(),
-      'createdAt': DateTime.now().toUtc().toIso8601String(),
+    // Async Firestore profile record creation (merging with existing profile if returning technician)
+    Future(() async {
+      final existing = await FirestoreRestClient.getDocument('technician_profiles', internalUid);
+      final nowUtc = DateTime.now().toUtc().toIso8601String();
+      await FirestoreRestClient.upsertDocument('technician_profiles', internalUid, {
+        'id': internalUid,
+        'uid': internalUid,
+        'technicianId': internalUid,
+        'technicianCode': existing?['technicianCode'] ?? partnerCode,
+        'email': normalizedEmail,
+        'phone': normalizedPhone,
+        'phoneNumber': normalizedPhone,
+        'fullName': existing?['fullName'] ?? candidateName,
+        'name': existing?['name'] ?? candidateName,
+        'age': existing?['age'] ?? age,
+        'category': existing?['category'] ?? 'AC Services',
+        'accountStatus': existing?['accountStatus'] ?? 'Pending_Verification',
+        'onboardingStep': existing?['onboardingStep'] ?? 'SKILL_SELECTION',
+        'onboardingCompleted': existing?['onboardingCompleted'] == true,
+        'updatedAt': nowUtc,
+        if (existing == null) 'createdAt': nowUtc,
+      });
     }).catchError((_) => null);
 
     state = state.copyWith(
       status: AuthStatus.otpSent,
+      uid: internalUid,
+      technicianCode: partnerCode,
       phone: normalizedPhone.isNotEmpty ? normalizedPhone : null,
       email: normalizedEmail,
       fullName: candidateName,
@@ -304,12 +362,21 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
             userMap = resData['user'] as Map<String, dynamic>;
           }
 
-          final userId = userMap?['uid']?.toString() ??
+          final rawUserId = userMap?['uid']?.toString() ??
               userMap?['id']?.toString() ??
               (targetPhone.isNotEmpty ? targetPhone : targetEmail);
+          final userId = FirestoreRestClient.resolveCanonicalTechUid(
+            rawUserId,
+            phone: targetPhone,
+          );
+          final partnerCode = userMap?['technicianCode']?.toString() ??
+              FirestoreRestClient.resolveTechnicianCode(userId, phone: targetPhone);
           final nameFromBackend = userMap?['fullName']?.toString() ??
               userMap?['name']?.toString() ??
               targetName;
+          final stepFromBackend = userMap?['onboardingStep']?.toString() ?? 'SKILL_SELECTION';
+          final completedFromBackend = userMap?['onboardingCompleted'] == true ||
+              stepFromBackend == 'COMPLETED';
 
           await _secureStorage.saveToken(accessToken);
           if (refreshToken != null) {
@@ -335,6 +402,8 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
           state = AuthState(
             status: AuthStatus.authenticated,
+            uid: userId,
+            technicianCode: partnerCode,
             phone: targetPhone,
             email: targetEmail,
             fullName: nameFromBackend,
@@ -342,6 +411,8 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
             token: accessToken,
             latitude: currentLat,
             longitude: currentLng,
+            onboardingStep: stepFromBackend,
+            onboardingCompleted: completedFromBackend,
           );
 
           if (currentLat != null && currentLng != null) {
@@ -377,40 +448,68 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     );
 
     if (verifyChallengeRes['success'] == true) {
-      final digits = targetPhone.replaceAll(RegExp(r'\D'), '');
-      final internalUid =
-          'uid_tech_${digits.isNotEmpty ? digits : targetEmail.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
-      final partnerCode =
-          'BT-${(digits.length >= 6 ? digits.substring(digits.length - 6) : internalUid.hashCode.abs().toString().padLeft(6, '0').substring(0, 6))}';
+      final internalUid = FirestoreRestClient.resolveCanonicalTechUid(
+        targetPhone.isNotEmpty ? targetPhone : targetEmail,
+        phone: targetPhone,
+      );
+      final partnerCode = FirestoreRestClient.resolveTechnicianCode(
+        internalUid,
+        phone: targetPhone,
+      );
       final fallbackToken =
           'jwt_token_tech_${DateTime.now().millisecondsSinceEpoch}';
 
+      final existingDoc = await FirestoreRestClient.getDocument(
+        'technician_profiles',
+        internalUid,
+      );
+      final existingSkills = (existingDoc?['selectedSkills'] is List &&
+              (existingDoc!['selectedSkills'] as List).isNotEmpty)
+          ? existingDoc['selectedSkills'] as List
+          : (existingDoc?['skills'] is List
+              ? existingDoc!['skills'] as List
+              : <dynamic>[]);
+      final existingStep = existingDoc?['onboardingStep']?.toString() ??
+          (existingSkills.isNotEmpty ? 'COMPLETED' : 'SKILL_SELECTION');
+      final existingCompleted = existingDoc?['onboardingCompleted'] == true ||
+          existingStep == 'COMPLETED';
+
       final nowUtc = DateTime.now().toUtc().toIso8601String();
+      final effectiveLat = currentLat ??
+          (existingDoc?['latitude'] is num
+              ? (existingDoc!['latitude'] as num).toDouble()
+              : 28.6139);
+      final effectiveLng = currentLng ??
+          (existingDoc?['longitude'] is num
+              ? (existingDoc!['longitude'] as num).toDouble()
+              : 77.2090);
+
       final techDoc = <String, dynamic>{
         'id': internalUid,
         'uid': internalUid,
         'technicianId': internalUid,
-        'technicianCode': partnerCode,
-        'fullName': targetName,
-        'name': targetName,
+        'technicianCode': existingDoc?['technicianCode'] ?? partnerCode,
+        'fullName': existingDoc?['fullName'] ?? targetName,
+        'name': existingDoc?['name'] ?? targetName,
         'phone': targetPhone,
+        'phoneNumber': targetPhone,
         'email': targetEmail,
-        'age': targetAge,
-        'category': 'AC Services',
-        'kycStatus': 'VERIFIED',
-        'accountStatus': 'Active',
+        'age': existingDoc?['age'] ?? targetAge,
+        'category': existingDoc?['category'] ?? 'AC Services',
+        'kycStatus': existingDoc?['kycStatus'] ?? 'VERIFIED',
+        'accountStatus': existingDoc?['accountStatus'] ?? 'Active',
+        'onboardingStep': existingStep,
+        'onboardingCompleted': existingCompleted,
         'isOnline': true,
         'online': true,
         'availabilityStatus': 'AVAILABLE',
-        'rating': 4.9,
-        'walletBalance': 0,
-        if (currentLat != null && currentLng != null) ...{
-          'latitude': currentLat,
-          'longitude': currentLng,
-          'currentLatitude': currentLat,
-          'currentLongitude': currentLng,
-          'lastLocationUpdate': nowUtc,
-        },
+        'rating': existingDoc?['rating'] ?? 4.9,
+        'walletBalance': existingDoc?['walletBalance'] ?? 0,
+        'latitude': effectiveLat,
+        'longitude': effectiveLng,
+        'currentLatitude': effectiveLat,
+        'currentLongitude': effectiveLng,
+        'lastLocationUpdate': nowUtc,
         'updatedAt': nowUtc,
       };
 
@@ -422,7 +521,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       await _secureStorage.saveToken(fallbackToken);
       await _secureStorage.saveUserId(internalUid);
       await _secureStorage.saveUserDetails(
-        name: targetName,
+        name: (existingDoc?['fullName'] ?? targetName).toString(),
         age: targetAge?.toString(),
         phone: targetPhone,
         email: targetEmail,
@@ -430,13 +529,17 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
       state = AuthState(
         status: AuthStatus.authenticated,
+        uid: internalUid,
+        technicianCode: (existingDoc?['technicianCode'] ?? partnerCode).toString(),
         phone: targetPhone,
         email: targetEmail,
-        fullName: targetName,
+        fullName: (existingDoc?['fullName'] ?? targetName).toString(),
         age: targetAge,
         token: fallbackToken,
-        latitude: currentLat,
-        longitude: currentLng,
+        latitude: effectiveLat,
+        longitude: effectiveLng,
+        onboardingStep: existingStep,
+        onboardingCompleted: existingCompleted,
       );
 
       return ApiSuccess(fallbackToken);

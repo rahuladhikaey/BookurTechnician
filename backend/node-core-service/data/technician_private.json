@@ -1,0 +1,84 @@
+{
+  "uid_tech_9876548363": {
+    "uid": "uid_tech_9876548363",
+    "id": "uid_tech_9876548363",
+    "voterIdVerificationStatus": "PENDING_VERIFICATION",
+    "maskedVoterId": "INV****123",
+    "aadhaarVerificationStatus": "VERIFIED",
+    "maskedAadhaar": "XXXX-XXXX-9123",
+    "secureDocumentRefs": [
+      {
+        "id": "doc_selfie_1794108799253",
+        "documentType": "SELFIE",
+        "storageRef": "https://res.cloudinary.com/p1ish280/image/upload/v1788799180/prw4acrn6uajclcl7neg.svg",
+        "maskedNumber": "LIVE_SELFIE",
+        "uploadedAt": "2026-11-08T03:33:19.253Z"
+      },
+      {
+        "id": "doc_aadhaar_1794108799304",
+        "documentType": "AADHAAR",
+        "storageRef": "https://res.cloudinary.com/p1ish280/image/upload/v1788799174/npirtdof27t2ogvu2hnj.svg",
+        "maskedNumber": "XXXX-XXXX-9123",
+        "uploadedAt": "2026-11-08T03:33:19.304Z"
+      },
+      {
+        "id": "doc_voter_card_1794108799372",
+        "documentType": "VOTER_CARD",
+        "storageRef": "https://res.cloudinary.com/p1ish280/image/upload/v1788799176/u6zexc12ymd5l5szgrhn.svg",
+        "maskedNumber": "INV****123",
+        "uploadedAt": "2026-11-08T03:33:19.372Z"
+      }
+    ],
+    "upiVerificationStatus": "NOT_SUBMITTED",
+    "upiId": "",
+    "maskedUpiId": "",
+    "kycSubmittedAt": "2026-11-08T03:33:19.372Z",
+    "verifiedAt": "2026-11-08T03:33:19.339Z",
+    "verifiedByAdminUid": "admin_master",
+    "updatedAt": "2026-11-08T03:33:19.375Z",
+    "aadhaarNumber": "123456789123",
+    "voterIdNumber": "INVALID_123",
+    "rejectionReason": ""
+  },
+  "uid_tech_9876988363": {
+    "uid": "uid_tech_9876988363",
+    "id": "uid_tech_9876988363",
+    "voterIdVerificationStatus": "PENDING_VERIFICATION",
+    "maskedVoterId": "WBD****567",
+    "aadhaarVerificationStatus": "VERIFIED",
+    "maskedAadhaar": "XXXX-XXXX-9123",
+    "secureDocumentRefs": [
+      {
+        "id": "doc_selfie_1794110862715",
+        "documentType": "SELFIE",
+        "storageRef": "https://res.cloudinary.com/p1ish280/image/upload/v1788799180/prw4acrn6uajclcl7neg.svg",
+        "maskedNumber": "LIVE_SELFIE",
+        "uploadedAt": "2026-11-08T04:07:42.715Z"
+      },
+      {
+        "id": "doc_aadhaar_1794110862726",
+        "documentType": "AADHAAR",
+        "storageRef": "https://res.cloudinary.com/p1ish280/image/upload/v1788799174/npirtdof27t2ogvu2hnj.svg",
+        "maskedNumber": "XXXX-XXXX-9123",
+        "uploadedAt": "2026-11-08T04:07:42.726Z"
+      },
+      {
+        "id": "doc_voter_card_1794110892856",
+        "documentType": "VOTER_CARD",
+        "storageRef": "https://res.cloudinary.com/p1ish280/image/upload/v1788799176/u6zexc12ymd5l5szgrhn.svg",
+        "maskedNumber": "WBD****567",
+        "uploadedAt": "2026-11-08T04:08:12.856Z"
+      }
+    ],
+    "upiVerificationStatus": "VERIFIED",
+    "upiId": "ram988363@okaxis",
+    "maskedUpiId": "ra***@okaxis",
+    "kycSubmittedAt": "2026-11-08T04:08:12.856Z",
+    "verifiedAt": "2026-11-08T04:08:12.818Z",
+    "verifiedByAdminUid": "admin_master",
+    "updatedAt": "2026-11-08T04:08:12.859Z",
+    "aadhaarNumber": "123456789123",
+    "voterIdNumber": "WBD1234567",
+    "rejectionReason": ""
+  }
+}

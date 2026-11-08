@@ -243,9 +243,13 @@ export default function ServicesManager({ categories, setCategories, services, s
     status: 'Active'
   });
 
-  // Search & Filter
+  // Search, Filter & Pagination
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
+  const [filterSubcategory, setFilterSubcategory] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 25;
 
   // ─── CATEGORIES HANDLERS ───
   const openCategoryModal = (cat = null) => {
@@ -322,6 +326,8 @@ export default function ServicesManager({ categories, setCategories, services, s
         imageUrl: srv.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
         category: srv.categoryName || srv.category?.name || srv.category || categories[0]?.name || '',
         categoryId: srv.categoryId || srv.category?.id || categories[0]?.id,
+        subcategoryId: srv.subcategoryId || '',
+        displayOrder: srv.displayOrder || 1,
         description: srv.description || '',
         price: activePrice,
         basePrice: regularPrice,
@@ -343,7 +349,9 @@ export default function ServicesManager({ categories, setCategories, services, s
         name: '',
         imageUrl: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
         category: categories[0]?.name || 'Electrical Services',
-        categoryId: categories[0]?.id || 'cat_electrical',
+        categoryId: categories[0]?.id || 'electrical_services',
+        subcategoryId: '',
+        displayOrder: (services?.length || 0) + 1,
         description: '',
         price: 199,
         basePrice: 249,
@@ -363,6 +371,20 @@ export default function ServicesManager({ categories, setCategories, services, s
     setShowServiceModal(true);
   };
 
+  const handleToggleServiceStatus = async (srv) => {
+    const currentActive = srv.active !== false && srv.isActive !== false;
+    const nextActive = !currentActive;
+    try {
+      const res = await api.updateService(srv.id, { isActive: nextActive, active: nextActive });
+      const saved = res?.data || { ...srv, isActive: nextActive, active: nextActive };
+      setServices(prev => prev.map(s => s.id === srv.id ? { ...s, ...saved, isActive: nextActive, active: nextActive } : s));
+      auditLogAction?.('Services', `${nextActive ? 'Enabled' : 'Disabled'} service "${srv.name}" (${srv.id})`);
+      if (onReload) await onReload();
+    } catch (err) {
+      alert('Failed to update service status: ' + (err.message || 'Request failed'));
+    }
+  };
+
   const handleSaveService = async (e) => {
     e.preventDefault();
     const selectedCategory = categories.find(c => c.id === serviceForm.categoryId || c.name === serviceForm.category) || categories[0];
@@ -379,17 +401,21 @@ export default function ServicesManager({ categories, setCategories, services, s
       name: serviceForm.name.trim(),
       imageUrl: serviceForm.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500',
       categoryId: selectedCategory.id,
+      subcategoryId: serviceForm.subcategoryId || `${selectedCategory.id}_general`,
       category: selectedCategory.name,
       categoryName: selectedCategory.name,
       description: serviceForm.description || '',
       price: finalSellingPrice,
       basePrice: regularP,
+      discountPrice: offerP,
       offerPrice: offerP,
+      displayOrder: Number(serviceForm.displayOrder) || 1,
       bookingCharge: Number(serviceForm.bookingCharge) || 49,
       advancePrepaymentPct: Number(serviceForm.advancePrepaymentPct) || 30,
       technicianPayoutAmount: Number(serviceForm.technicianPayoutAmount) || Math.round(finalSellingPrice * 0.8),
       durationMinutes: Number(serviceForm.durationMinutes) || 45,
       warrantyText: serviceForm.warrantyText || '30 Days Warranty',
+      isActive: serviceForm.isActive !== false,
       active: serviceForm.isActive !== false,
       popular: false
     };
@@ -622,16 +648,38 @@ export default function ServicesManager({ categories, setCategories, services, s
     return '';
   };
 
+  // Unique Subcategories for Filter
+  const availableSubcategories = Array.from(
+    new Map(
+      (services || [])
+        .filter(s => filterCategory === 'ALL' || getCategoryId(s) === filterCategory || getCategoryName(s).toLowerCase() === filterCategory.toLowerCase())
+        .filter(s => s.subcategoryId || s.subcategoryName)
+        .map(s => [s.subcategoryId || s.subcategoryName, { id: s.subcategoryId || s.subcategoryName, name: s.subcategoryName || s.subcategoryId }])
+    ).values()
+  );
+
   // Filtered Services List
   const filteredServices = (services || []).filter(s => {
     const sCat = getCategoryName(s);
     const sCatId = getCategoryId(s);
+    const sSubId = s.subcategoryId || s.subcategoryName || '';
+    const isSrvActive = s.active !== false && s.isActive !== false;
     const matchesSearch = !searchQuery || 
-      (s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase())) || 
+      (s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (s.id && String(s.id).toLowerCase().includes(searchQuery.toLowerCase())) ||
       sCat.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCat = filterCategory === 'ALL' || sCat.toLowerCase() === filterCategory.toLowerCase() || sCatId === filterCategory;
-    return matchesSearch && matchesCat;
+    const matchesSub = filterSubcategory === 'ALL' || sSubId === filterSubcategory;
+    const matchesStatus = filterStatus === 'ALL' || (filterStatus === 'ACTIVE' && isSrvActive) || (filterStatus === 'DISABLED' && !isSrvActive);
+    return matchesSearch && matchesCat && matchesSub && matchesStatus;
   });
+
+  const totalServicePages = Math.max(1, Math.ceil(filteredServices.length / itemsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalServicePages);
+  const paginatedServices = filteredServices.slice(
+    (safeCurrentPage - 1) * itemsPerPage,
+    safeCurrentPage * itemsPerPage
+  );
 
   const filteredSkills = (skillsList || []).filter(sk => {
     const skCat = sk.categoryName || '';
@@ -818,24 +866,54 @@ export default function ServicesManager({ categories, setCategories, services, s
           </div>
 
           <div className="toolbar-row">
-            <div className="toolbar-left">
+            <div className="toolbar-left" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <div className="search-input-box header-search">
                 <input
                   type="text"
-                  placeholder="Search services..."
+                  placeholder="Search by service name, ID, category..."
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 />
               </div>
-              <select className="filter-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+              <select className="filter-select" value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setFilterSubcategory('ALL'); setCurrentPage(1); }}>
                 <option value="ALL">All Categories</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              <select className="filter-select" value={filterSubcategory} onChange={e => { setFilterSubcategory(e.target.value); setCurrentPage(1); }}>
+                <option value="ALL">All Subcategories</option>
+                {availableSubcategories.map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
+              </select>
+              <select className="filter-select" value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}>
+                <option value="ALL">All Statuses</option>
+                <option value="ACTIVE">Active Only</option>
+                <option value="DISABLED">Disabled Only</option>
+              </select>
             </div>
-            <div className="toolbar-right">
+            <div className="toolbar-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Showing {filteredServices.length} of {services.length} services
+                Showing {paginatedServices.length} of {filteredServices.length} filtered ({services.length} total)
               </span>
+              {totalServicePages > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    disabled={safeCurrentPage <= 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  >
+                    ‹ Prev
+                  </button>
+                  <span style={{ fontSize: '12px', fontWeight: '700', padding: '0 6px' }}>
+                    Page {safeCurrentPage}/{totalServicePages}
+                  </span>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    disabled={safeCurrentPage >= totalServicePages}
+                    onClick={() => setCurrentPage(p => Math.min(totalServicePages, p + 1))}
+                  >
+                    Next ›
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -844,32 +922,33 @@ export default function ServicesManager({ categories, setCategories, services, s
               <thead>
                 <tr>
                   <th style={{ width: '70px' }}>Thumbnail</th>
-                  <th>Service Details</th>
-                  <th>Category</th>
+                  <th>Service Details & ID</th>
+                  <th>Category / Subcategory</th>
                   <th>Selling (₹)</th>
-                  <th>Booking Fee</th>
-                  <th>Adv %</th>
+                  <th>Bookings / Usage</th>
+                  <th>Order</th>
                   <th>Payout</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredServices.length === 0 ? (
+                {paginatedServices.length === 0 ? (
                   <tr>
                     <td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
                       🛠️ No services found for this filter
                     </td>
                   </tr>
                 ) : (
-                  filteredServices.map(srv => {
-                    const activeP = srv.price || srv.basePrice || 499;
+                  paginatedServices.map(srv => {
+                    const activeP = srv.discountPrice || srv.price || srv.basePrice || 499;
                     const regularP = srv.basePrice || srv.originalPrice || activeP;
-                    const offerP = srv.offerPrice !== undefined ? srv.offerPrice : activeP;
+                    const offerP = srv.discountPrice !== undefined ? srv.discountPrice : (srv.offerPrice !== undefined ? srv.offerPrice : activeP);
                     const hasDiscount = offerP > 0 && offerP < regularP;
-                    const fee = srv.bookingCharge || (activeP >= 1000 ? 99 : 49);
-                    const advPct = srv.advancePrepaymentPct || 30;
+                    const bookingsCount = srv.bookingCount || srv.usageCount || 0;
+                    const displayOrd = srv.displayOrder || 1;
                     const payout = srv.technicianPayoutAmount || Math.round(activeP * 0.8);
+                    const isSrvActive = srv.active !== false && srv.isActive !== false;
 
                     return (
                       <tr key={srv.id}>
@@ -890,12 +969,20 @@ export default function ServicesManager({ categories, setCategories, services, s
                         </td>
                         <td>
                           <strong style={{ color: 'var(--text-main)', fontSize: '13.5px' }}>{srv.name}</strong>
+                          <div style={{ fontSize: '10.5px', fontFamily: 'monospace', color: 'var(--primary)' }}>
+                            ID: {srv.canonicalServiceId || srv.id}
+                          </div>
                           <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {srv.description || 'Professional doorstep service'}
                           </div>
                         </td>
                         <td>
                           <span className="badge badge-info">{getCategoryName(srv)}</span>
+                          {srv.subcategoryName && (
+                            <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+                              ↳ {srv.subcategoryName}
+                            </div>
+                          )}
                         </td>
                         <td>
                           <strong style={{ color: 'var(--text-main)', fontFamily: 'monospace', fontSize: '13px' }}>₹{activeP}</strong>
@@ -906,21 +993,28 @@ export default function ServicesManager({ categories, setCategories, services, s
                           )}
                         </td>
                         <td>
-                          <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-secondary)' }}>₹{fee}</span>
+                          <span style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-secondary)' }}>{bookingsCount} bookings</span>
                         </td>
                         <td>
-                          <span className="badge" style={{ fontSize: '11px', background: '#EFF6FF', color: '#1E40AF', border: '1px solid #BFDBFE' }}>{advPct}%</span>
+                          <span className="badge" style={{ fontSize: '11px', background: '#FBE4D5', color: '#F46B12', border: '1px solid #FBE4D5' }}>#{displayOrd}</span>
                         </td>
                         <td>
-                          <span style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: '700', color: '#16A34A' }}>₹{payout}</span>
+                          <span style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: '700', color: '#198754' }}>₹{payout}</span>
                         </td>
                         <td>
-                          <span className={`badge ${(srv.active !== false && srv.isActive !== false) ? 'badge-completed' : 'badge-cancelled'}`}>
-                            {(srv.active !== false && srv.isActive !== false) ? 'Active' : 'Disabled'}
+                          <span className={`badge ${isSrvActive ? 'badge-completed' : 'badge-cancelled'}`}>
+                            {isSrvActive ? 'Active' : 'Disabled'}
                           </span>
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           <div className="page-actions-group" style={{ justifyContent: 'flex-end' }}>
+                            <button
+                              className="btn btn-outline btn-sm"
+                              style={{ borderColor: isSrvActive ? '#E5A126' : '#198754', color: isSrvActive ? '#E5A126' : '#198754' }}
+                              onClick={() => handleToggleServiceStatus(srv)}
+                            >
+                              {isSrvActive ? 'Disable' : 'Enable'}
+                            </button>
                             <button className="btn btn-outline btn-sm" onClick={() => openServiceModal(srv)}>Edit</button>
                             <button className="btn btn-danger btn-sm" onClick={() => handleDeleteService(srv.id, srv.name)}>Delete</button>
                           </div>
@@ -1088,7 +1182,7 @@ export default function ServicesManager({ categories, setCategories, services, s
 
           <form onSubmit={handleSaveMatchingRules} style={{ maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {/* 1. Spatial Search & Matching Strictness */}
-            <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #E2E8F0)', borderRadius: '12px', padding: '20px' }}>
+            <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #EEE8E2)', borderRadius: '12px', padding: '20px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '14px', color: 'var(--text-main)' }}>
                 📍 1. Spatial Search & Skill Compatibility Strictness
               </h3>
@@ -1125,7 +1219,7 @@ export default function ServicesManager({ categories, setCategories, services, s
             </div>
 
             {/* 2. Dispatch Priority & Score Weights */}
-            <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #E2E8F0)', borderRadius: '12px', padding: '20px' }}>
+            <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #EEE8E2)', borderRadius: '12px', padding: '20px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '14px', color: 'var(--text-main)' }}>
                 ⚖️ 2. Priority Policy & Candidate Scoring Weights
               </h3>
@@ -1165,7 +1259,7 @@ export default function ServicesManager({ categories, setCategories, services, s
                     step="0.05"
                     value={matchingRules.scoreWeightRating}
                     onChange={e => setMatchingRules({ ...matchingRules, scoreWeightRating: Number(e.target.value) })}
-                    style={{ width: '100%', accentColor: '#D97706' }}
+                    style={{ width: '100%', accentColor: '#E5A126' }}
                   />
                 </div>
                 <div className="form-group">
@@ -1177,7 +1271,7 @@ export default function ServicesManager({ categories, setCategories, services, s
                     step="0.05"
                     value={matchingRules.scoreWeightAcceptance}
                     onChange={e => setMatchingRules({ ...matchingRules, scoreWeightAcceptance: Number(e.target.value) })}
-                    style={{ width: '100%', accentColor: '#059669' }}
+                    style={{ width: '100%', accentColor: '#198754' }}
                   />
                 </div>
                 <div className="form-group">
@@ -1189,14 +1283,14 @@ export default function ServicesManager({ categories, setCategories, services, s
                     step="0.05"
                     value={matchingRules.scoreWeightExperience}
                     onChange={e => setMatchingRules({ ...matchingRules, scoreWeightExperience: Number(e.target.value) })}
-                    style={{ width: '100%', accentColor: '#7C3AED' }}
+                    style={{ width: '100%', accentColor: '#F46B12' }}
                   />
                 </div>
               </div>
             </div>
 
             {/* 3. Proposal Timeouts & Candidate Failover Escalation */}
-            <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #E2E8F0)', borderRadius: '12px', padding: '20px' }}>
+            <div style={{ background: 'var(--card-bg, #ffffff)', border: '1px solid var(--border-color, #EEE8E2)', borderRadius: '12px', padding: '20px' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '14px', color: 'var(--text-main)' }}>
                 ⏱️ 3. Proposal Timeouts & Dispatch Candidate Failover Escalation
               </h3>
@@ -1536,12 +1630,12 @@ export default function ServicesManager({ categories, setCategories, services, s
                     onChange={e => setCategoryForm({ ...categoryForm, imageUrl: e.target.value })}
                   />
                   {/* Live Active Image Preview */}
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px', backgroundColor: '#F8FAFC', padding: '8px 12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px', backgroundColor: '#FCF9F6', padding: '8px 12px', borderRadius: '6px', border: '1px solid #EEE8E2' }}>
                     <div style={{
                       width: '48px',
                       height: '48px',
                       borderRadius: '6px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid #EEE8E2',
                       backgroundColor: '#FFFFFF',
                       overflow: 'hidden',
                       display: 'flex',
@@ -1566,15 +1660,15 @@ export default function ServicesManager({ categories, setCategories, services, s
                       ) : null}
                       <span style={{ fontSize: '20px', display: categoryForm.imageUrl ? 'none' : 'block' }}>🖼️</span>
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#64748B', flex: 1 }}>
-                      <strong style={{ color: '#0F172A', display: 'block' }}>Live Thumbnail Preview</strong>
+                    <div style={{ fontSize: '11.5px', color: '#77716C', flex: 1 }}>
+                      <strong style={{ color: '#222222', display: 'block' }}>Live Thumbnail Preview</strong>
                       Uploaded from gallery or pasted direct image link.
                     </div>
                     {categoryForm.imageUrl && (
                       <button
                         type="button"
                         className="btn btn-outline btn-sm"
-                        style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
+                        style={{ color: '#DC3545', borderColor: '#FDECEC' }}
                         onClick={() => setCategoryForm(prev => ({ ...prev, imageUrl: '' }))}
                       >
                         ✕ Clear
@@ -1739,12 +1833,12 @@ export default function ServicesManager({ categories, setCategories, services, s
                     onChange={e => setServiceForm({ ...serviceForm, imageUrl: e.target.value })}
                   />
                   {/* Live Active Image Preview */}
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px', backgroundColor: '#F8FAFC', padding: '8px 12px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px', backgroundColor: '#FCF9F6', padding: '8px 12px', borderRadius: '6px', border: '1px solid #EEE8E2' }}>
                     <div style={{
                       width: '48px',
                       height: '48px',
                       borderRadius: '6px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid #EEE8E2',
                       backgroundColor: '#FFFFFF',
                       overflow: 'hidden',
                       display: 'flex',
@@ -1769,15 +1863,15 @@ export default function ServicesManager({ categories, setCategories, services, s
                       ) : null}
                       <span style={{ fontSize: '20px', display: serviceForm.imageUrl ? 'none' : 'block' }}>🛠️</span>
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#64748B', flex: 1 }}>
-                      <strong style={{ color: '#0F172A', display: 'block' }}>Live Thumbnail Preview</strong>
+                    <div style={{ fontSize: '11.5px', color: '#77716C', flex: 1 }}>
+                      <strong style={{ color: '#222222', display: 'block' }}>Live Thumbnail Preview</strong>
                       Uploaded from device gallery or pasted URL link.
                     </div>
                     {serviceForm.imageUrl && (
                       <button
                         type="button"
                         className="btn btn-outline btn-sm"
-                        style={{ color: '#EF4444', borderColor: '#FCA5A5' }}
+                        style={{ color: '#DC3545', borderColor: '#FDECEC' }}
                         onClick={() => setServiceForm(prev => ({ ...prev, imageUrl: '' }))}
                       >
                         ✕ Clear
@@ -2077,8 +2171,8 @@ export default function ServicesManager({ categories, setCategories, services, s
                           justifyContent: 'space-between',
                           padding: '10px 14px',
                           borderRadius: '8px',
-                          border: isChecked ? '1.5px solid var(--primary, #1E3A8A)' : '1px solid var(--border-color, #E2E8F0)',
-                          background: isChecked ? '#EFF6FF' : 'var(--card-bg, #ffffff)',
+                          border: isChecked ? '1.5px solid var(--primary, #F46B12)' : '1px solid var(--border-color, #EEE8E2)',
+                          background: isChecked ? '#FBE4D5' : 'var(--card-bg, #ffffff)',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease'
                         }}
@@ -2088,7 +2182,7 @@ export default function ServicesManager({ categories, setCategories, services, s
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => {}}
-                            style={{ width: '17px', height: '17px', accentColor: 'var(--primary, #1E3A8A)', cursor: 'pointer' }}
+                            style={{ width: '17px', height: '17px', accentColor: 'var(--primary, #F46B12)', cursor: 'pointer' }}
                           />
                           <div>
                             <strong style={{ color: 'var(--text-main)', fontSize: '13.5px' }}>{srv.name}</strong>

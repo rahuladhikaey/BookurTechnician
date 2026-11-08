@@ -79,13 +79,21 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select at least one skill to receive customer job requests.'),
-          backgroundColor: Color(0xFFDC2626),
+          backgroundColor: Color(0xFFDC3545),
         ),
       );
       return;
     }
 
+    if (_isSaving) return;
     setState(() => _isSaving = true);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Saving skills to server...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
 
     List<Map<String, dynamic>> payload = _selectedSkills.entries.map((entry) {
       final sId = entry.key;
@@ -93,13 +101,15 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
       String sName = '';
       String cId = '';
       String cName = '';
+      String canonicalId = sId;
 
       for (final cat in _categories) {
         for (final s in cat.skills) {
-          if (s.id == sId) {
+          if (s.id == sId || s.canonicalServiceId == sId) {
             sName = s.name;
             cId = cat.id;
             cName = cat.name;
+            canonicalId = s.canonicalServiceId;
             break;
           }
         }
@@ -116,8 +126,9 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
       }
 
       return {
-        'id': sId,
-        'skillId': sId,
+        'id': canonicalId,
+        'skillId': canonicalId,
+        'canonicalServiceId': canonicalId,
         'name': sName,
         'skillName': sName,
         'categoryId': cId,
@@ -128,15 +139,19 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
       };
     }).toList();
 
-    await _skillService.saveSelectedSkills(payload);
+    final savedProfile = await _skillService.saveSelectedSkills(payload);
 
     if (mounted) {
       setState(() => _isSaving = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${_selectedSkills.length} skills submitted for verification!'),
-          backgroundColor: const Color(0xFF059669),
+          content: Text(
+            savedProfile != null
+                ? 'Saved to server! ${_selectedSkills.length} skills active for live matching.'
+                : 'Saved locally, waiting to sync (${_selectedSkills.length} skills).',
+          ),
+          backgroundColor: const Color(0xFF198754),
         ),
       );
 
@@ -174,14 +189,14 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
     }).where((cat) => cat.skills.isNotEmpty).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
         title: const Text(
           'Select Your Skills',
           style: TextStyle(
             fontWeight: FontWeight.w900,
             fontSize: 18,
-            color: Color(0xFF0F172A),
+            color: Color(0xFF222222),
           ),
         ),
         elevation: 0,
@@ -189,12 +204,12 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
         leading: widget.isOnboarding
             ? null
             : IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF222222)),
                 onPressed: () => Navigator.pop(context),
               ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1E3A8A)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFF46B12)))
           : Column(
               children: [
                 // Top Instructions & Search Container
@@ -202,7 +217,7 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   decoration: const BoxDecoration(
                     color: Colors.white,
-                    border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                    border: Border(bottom: BorderSide(color: Color(0xFFEEE8E2))),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,22 +230,22 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF77716C),
                             ),
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
+                              color: const Color(0xFFFBE4D5),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                              border: Border.all(color: const Color(0xFFFBE4D5)),
                             ),
                             child: Text(
                               '${_selectedSkills.length} Selected',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w900,
-                                color: Color(0xFF1E3A8A),
+                                color: Color(0xFFF46B12),
                               ),
                             ),
                           ),
@@ -248,8 +263,8 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
                         },
                         decoration: InputDecoration(
                           hintText: 'Search skills (e.g. Ceiling Fan, AC Deep Cleaning...)',
-                          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                          prefixIcon: const Icon(Icons.search, color: Color(0xFF1E3A8A), size: 20),
+                          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF77716C)),
+                          prefixIcon: const Icon(Icons.search, color: Color(0xFFF46B12), size: 20),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
                                   icon: const Icon(Icons.clear, size: 18),
@@ -260,19 +275,19 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
                                 )
                               : null,
                           filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
+                          fillColor: const Color(0xFFFCF9F6),
                           contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                            borderSide: const BorderSide(color: Color(0xFFEEE8E2)),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(color: Color(0xFFEEE8E2)),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF1E3A8A), width: 1.5),
+                            borderSide: const BorderSide(color: Color(0xFFF46B12), width: 1.5),
                           ),
                         ),
                       ),
@@ -287,11 +302,11 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.search_off, size: 48, color: Color(0xFF94A3B8)),
+                              const Icon(Icons.search_off, size: 48, color: Color(0xFF77716C)),
                               const SizedBox(height: 8),
                               Text(
                                 'No matching skills found for "$_searchQuery"',
-                                style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                style: const TextStyle(color: Color(0xFF77716C), fontWeight: FontWeight.w500),
                               ),
                             ],
                           ),
@@ -311,7 +326,7 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+                    border: const Border(top: BorderSide(color: Color(0xFFEEE8E2))),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -345,7 +360,7 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: selectedCountInCat > 0 ? const Color(0xFF1E3A8A).withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
+          color: selectedCountInCat > 0 ? const Color(0xFFF46B12).withValues(alpha: 0.3) : const Color(0xFFEEE8E2),
           width: selectedCountInCat > 0 ? 1.4 : 1.0,
         ),
         boxShadow: [
@@ -364,12 +379,12 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+              color: const Color(0xFFFBE4D5),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.handyman_rounded,
-              color: Color(0xFF1E3A8A),
+              color: Color(0xFFF46B12),
               size: 20,
             ),
           ),
@@ -378,7 +393,7 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF0F172A),
+              color: Color(0xFF222222),
             ),
           ),
           subtitle: Text(
@@ -386,7 +401,7 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: selectedCountInCat > 0 ? FontWeight.w700 : FontWeight.w500,
-              color: selectedCountInCat > 0 ? const Color(0xFF1E3A8A) : const Color(0xFF64748B),
+              color: selectedCountInCat > 0 ? const Color(0xFFF46B12) : const Color(0xFF77716C),
             ),
           ),
           children: [
@@ -416,10 +431,10 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+          color: isSelected ? const Color(0xFFFBE4D5) : const Color(0xFFFCF9F6),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? const Color(0xFF1E3A8A) : const Color(0xFFCBD5E1),
+            color: isSelected ? const Color(0xFFF46B12) : const Color(0xFFEEE8E2),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -429,7 +444,7 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
             Icon(
               isSelected ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
               size: 16,
-              color: isSelected ? const Color(0xFF1E3A8A) : const Color(0xFF64748B),
+              color: isSelected ? const Color(0xFFF46B12) : const Color(0xFF77716C),
             ),
             const SizedBox(width: 6),
             Text(
@@ -437,7 +452,7 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? const Color(0xFF1E3A8A) : const Color(0xFF334155),
+                color: isSelected ? const Color(0xFFF46B12) : const Color(0xFF222222),
               ),
             ),
             if (isSelected) ...[
@@ -449,7 +464,7 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
                 icon: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A8A),
+                    color: const Color(0xFFF46B12),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

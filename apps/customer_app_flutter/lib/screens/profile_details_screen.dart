@@ -210,9 +210,9 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: const Color(0xFFFCF9F6),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFD9E2F2)),
+                  border: Border.all(color: const Color(0xFFEEE8E2)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -228,8 +228,8 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
-                          child: const Text('✓ Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                          decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(6)),
+                          child: const Text('✓ Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF198754))),
                         ),
                       ],
                     ),
@@ -249,9 +249,9 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: const Color(0xFFFCF9F6),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFD9E2F2)),
+                  border: Border.all(color: const Color(0xFFEEE8E2)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -267,8 +267,8 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
-                          child: const Text('✓ Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                          decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(6)),
+                          child: const Text('✓ Verified', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF198754))),
                         ),
                       ],
                     ),
@@ -284,9 +284,9 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: const Color(0xFFFCF9F6),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFD9E2F2)),
+                  border: Border.all(color: const Color(0xFFEEE8E2)),
                 ),
                 child: Row(
                   children: [
@@ -339,7 +339,7 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                             decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFD9E2F2)),
+                              border: Border.all(color: const Color(0xFFEEE8E2)),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -349,7 +349,7 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
                                   _selectedDob != null ? _formatDate(_selectedDob) : 'DD-MM-YYYY',
                                   style: TextStyle(
                                     fontSize: 12.5,
-                                    color: _selectedDob != null ? kPrimaryText : const Color(0xFF94A3B8),
+                                    color: _selectedDob != null ? kPrimaryText : const Color(0xFF77716C),
                                   ),
                                 ),
                                 const Icon(Icons.calendar_month_outlined, size: 16, color: kSecondaryText),
@@ -372,7 +372,7 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                             decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFD9E2F2)),
+                              border: Border.all(color: const Color(0xFFEEE8E2)),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -382,7 +382,7 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
                                   _selectedAnniversary != null ? _formatDate(_selectedAnniversary) : 'DD-MM-YYYY',
                                   style: TextStyle(
                                     fontSize: 12.5,
-                                    color: _selectedAnniversary != null ? kPrimaryText : const Color(0xFF94A3B8),
+                                    color: _selectedAnniversary != null ? kPrimaryText : const Color(0xFF77716C),
                                   ),
                                 ),
                                 const Icon(Icons.favorite_border, size: 16, color: kSecondaryText),

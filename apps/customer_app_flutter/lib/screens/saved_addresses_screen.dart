@@ -27,7 +27,7 @@ class SavedAddressesScreen extends ConsumerWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Color(0xFFEA580C)),
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFF46B12)),
               SizedBox(width: 8),
               Text('Last Service Address', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
@@ -106,7 +106,7 @@ class SavedAddressesScreen extends ConsumerWidget {
                       width: 80,
                       height: 80,
                       decoration: const BoxDecoration(
-                        color: Color(0xFFEEF3FF),
+                        color: Color(0xFFFBE4D5),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.location_off_outlined, size: 40, color: kBrandPrimary),
@@ -155,7 +155,7 @@ class SavedAddressesScreen extends ConsumerWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: addr.isPrimary ? kBrandPrimary : const Color(0xFFD9E2F2),
+                      color: addr.isPrimary ? kBrandPrimary : const Color(0xFFEEE8E2),
                       width: addr.isPrimary ? 1.5 : 1.0,
                     ),
                   ),
@@ -187,12 +187,12 @@ class SavedAddressesScreen extends ConsumerWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFDCFCE7),
+                                color: const Color(0xFFE8F5E9),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Text(
                                 'PRIMARY',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF15803D)),
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF198754)),
                               ),
                             )
                           else
@@ -214,7 +214,7 @@ class SavedAddressesScreen extends ConsumerWidget {
                         const SizedBox(height: 4),
                         Text(
                           'Landmark: ${addr.landmark}',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF77716C)),
                         ),
                       ],
                       const Divider(height: 20),
@@ -392,7 +392,7 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('📍 Live GPS coordinates & address acquired!'),
-            backgroundColor: Color(0xFF16A34A),
+            backgroundColor: Color(0xFF198754),
           ),
         );
       }
@@ -463,7 +463,7 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFFD9E2F2))),
+              border: Border(bottom: BorderSide(color: Color(0xFFEEE8E2))),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -496,9 +496,9 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEEF3FF),
+                        color: const Color(0xFFFBE4D5),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFD9E2F2)),
+                        border: Border.all(color: const Color(0xFFEEE8E2)),
                       ),
                       child: Row(
                         children: [
@@ -642,7 +642,7 @@ class _AddAddressBottomSheetState extends ConsumerState<AddAddressBottomSheet> {
           decoration: BoxDecoration(
             color: isSelected ? kBrandPrimary : Colors.white,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isSelected ? kBrandPrimary : const Color(0xFFD9E2F2)),
+            border: Border.all(color: isSelected ? kBrandPrimary : const Color(0xFFEEE8E2)),
           ),
           alignment: Alignment.center,
           child: Text(

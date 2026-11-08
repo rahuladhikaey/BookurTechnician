@@ -45,6 +45,8 @@ export default function TechniciansManager({
   const [loadingSkills, setLoadingSkills] = useState(false);
   const [techDocsData, setTechDocsData] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
+  const [techAuditLogs, setTechAuditLogs] = useState([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
   const [loadingTechs, setLoadingTechs] = useState(false);
   const [creatingTech, setCreatingTech] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,9 +92,23 @@ export default function TechniciansManager({
     setSelectedTech(tech);
     setDetailTab('overview');
     setShowDetailModal(true);
-    // Pre-load skills & documents in background
+    // Pre-load skills, documents & audit history in background
     loadTechSkills(tech.id);
     loadTechDocs(tech.id);
+    loadTechAuditLogs(tech.id);
+  };
+
+  const loadTechAuditLogs = async (techId) => {
+    setLoadingAudit(true);
+    try {
+      const res = await api.getAuditLogs ? await api.getAuditLogs() : null;
+      const allLogs = res?.data || [];
+      setTechAuditLogs(allLogs.filter(l => !techId || l.targetTechnicianUid === techId || (l.details || '').includes(techId)));
+    } catch (_) {
+      setTechAuditLogs([]);
+    } finally {
+      setLoadingAudit(false);
+    }
   };
 
   const loadTechSkills = async (techId) => {
@@ -406,7 +422,7 @@ export default function TechniciansManager({
             <button
               className="btn btn-outline"
               onClick={handleClearAllTechs}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#EF4444', color: '#EF4444' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#DC3545', color: '#DC3545' }}
               title="Clear all mock/test technician records for clean production slate"
             >
               <span>🗑️</span> Reset Test Data
@@ -443,35 +459,35 @@ export default function TechniciansManager({
         <button
           className={`flat-tab ${filterTab === 'PENDING' ? 'active' : ''}`}
           onClick={() => setFilterTab('PENDING')}
-          style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: filterTab === 'PENDING' ? '800' : '600', color: filterTab === 'PENDING' ? '#D97706' : 'var(--text-secondary)', borderBottom: filterTab === 'PENDING' ? '3px solid #D97706' : '3px solid transparent' }}
+          style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: filterTab === 'PENDING' ? '800' : '600', color: filterTab === 'PENDING' ? '#E5A126' : 'var(--text-secondary)', borderBottom: filterTab === 'PENDING' ? '3px solid #E5A126' : '3px solid transparent' }}
         >
           ⏳ Pending KYC ({pendingCount})
         </button>
         <button
           className={`flat-tab ${filterTab === 'APPROVED' ? 'active' : ''}`}
           onClick={() => setFilterTab('APPROVED')}
-          style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: filterTab === 'APPROVED' ? '800' : '600', color: filterTab === 'APPROVED' ? '#059669' : 'var(--text-secondary)', borderBottom: filterTab === 'APPROVED' ? '3px solid #059669' : '3px solid transparent' }}
+          style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: filterTab === 'APPROVED' ? '800' : '600', color: filterTab === 'APPROVED' ? '#198754' : 'var(--text-secondary)', borderBottom: filterTab === 'APPROVED' ? '3px solid #198754' : '3px solid transparent' }}
         >
           ✓ Verified Partners ({verifiedCount})
         </button>
         <button
           className={`flat-tab ${filterTab === 'ONLINE' ? 'active' : ''}`}
           onClick={() => setFilterTab('ONLINE')}
-          style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: filterTab === 'ONLINE' ? '800' : '600', color: filterTab === 'ONLINE' ? '#2563EB' : 'var(--text-secondary)', borderBottom: filterTab === 'ONLINE' ? '3px solid #2563EB' : '3px solid transparent' }}
+          style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: filterTab === 'ONLINE' ? '800' : '600', color: filterTab === 'ONLINE' ? '#F46B12' : 'var(--text-secondary)', borderBottom: filterTab === 'ONLINE' ? '3px solid #F46B12' : '3px solid transparent' }}
         >
           🟢 Online GPS ({onlineCount})
         </button>
         <button
           className={`flat-tab ${filterTab === 'OFFLINE' ? 'active' : ''}`}
           onClick={() => setFilterTab('OFFLINE')}
-          style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: filterTab === 'OFFLINE' ? '800' : '600', color: filterTab === 'OFFLINE' ? '#64748B' : 'var(--text-secondary)', borderBottom: filterTab === 'OFFLINE' ? '3px solid #64748B' : '3px solid transparent' }}
+          style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: filterTab === 'OFFLINE' ? '800' : '600', color: filterTab === 'OFFLINE' ? '#77716C' : 'var(--text-secondary)', borderBottom: filterTab === 'OFFLINE' ? '3px solid #77716C' : '3px solid transparent' }}
         >
           ⚪ Offline ({offlineCount})
         </button>
         <button
           className={`flat-tab ${filterTab === 'SUSPENDED' ? 'active' : ''}`}
           onClick={() => setFilterTab('SUSPENDED')}
-          style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: filterTab === 'SUSPENDED' ? '800' : '600', color: filterTab === 'SUSPENDED' ? '#DC2626' : 'var(--text-secondary)', borderBottom: filterTab === 'SUSPENDED' ? '3px solid #DC2626' : '3px solid transparent' }}
+          style={{ padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer', fontWeight: filterTab === 'SUSPENDED' ? '800' : '600', color: filterTab === 'SUSPENDED' ? '#DC3545' : 'var(--text-secondary)', borderBottom: filterTab === 'SUSPENDED' ? '3px solid #DC3545' : '3px solid transparent' }}
         >
           🚫 Suspended ({suspendedCount})
         </button>
@@ -492,7 +508,7 @@ export default function TechniciansManager({
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}
+                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#77716C' }}
               >
                 ✕
               </button>
@@ -511,7 +527,7 @@ export default function TechniciansManager({
         <div className="table-responsive">
           <table className="flat-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid var(--border-color)' }}>
+              <tr style={{ background: '#FCF9F6', borderBottom: '1px solid var(--border-color)' }}>
                 <th style={{ padding: '12px 16px', fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Partner ID & Profile</th>
                 <th style={{ padding: '12px 16px', fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Category & Declared Skills</th>
                 <th style={{ padding: '12px 16px', fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Availability & Status</th>
@@ -562,7 +578,7 @@ export default function TechniciansManager({
                               width: '44px',
                               height: '44px',
                               borderRadius: '50%',
-                              backgroundColor: '#1E3A8A',
+                              backgroundColor: '#F46B12',
                               color: '#FFFFFF',
                               display: 'flex',
                               alignItems: 'center',
@@ -579,7 +595,7 @@ export default function TechniciansManager({
                               width: '12px',
                               height: '12px',
                               borderRadius: '50%',
-                              backgroundColor: isOnline ? '#10B981' : '#94A3B8',
+                              backgroundColor: isOnline ? '#198754' : '#77716C',
                               border: '2px solid #FFFFFF'
                             }} />
                           </div>
@@ -620,15 +636,15 @@ export default function TechniciansManager({
                       <td style={{ padding: '14px 16px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           {isBusy ? (
-                            <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', fontWeight: '700', fontSize: '11px', width: 'fit-content' }}>
+                            <span className="badge badge-warning" style={{ background: '#FFF4E0', color: '#E85B08', fontWeight: '700', fontSize: '11px', width: 'fit-content' }}>
                               🟡 Busy on Job
                             </span>
                           ) : isOnline ? (
-                            <span className="badge badge-confirmed" style={{ background: '#D1FAE5', color: '#065F46', fontWeight: '700', fontSize: '11px', width: 'fit-content' }}>
+                            <span className="badge badge-confirmed" style={{ background: '#E8F5E9', color: '#198754', fontWeight: '700', fontSize: '11px', width: 'fit-content' }}>
                               🟢 Online & Idle
                             </span>
                           ) : (
-                            <span className="badge badge-cancelled" style={{ background: '#F1F5F9', color: '#475569', fontWeight: '700', fontSize: '11px', width: 'fit-content' }}>
+                            <span className="badge badge-cancelled" style={{ background: '#FCF9F6', color: '#77716C', fontWeight: '700', fontSize: '11px', width: 'fit-content' }}>
                               ⚪ Offline
                             </span>
                           )}
@@ -683,10 +699,10 @@ export default function TechniciansManager({
                               fontSize: '10px',
                               padding: '1px 5px',
                               borderRadius: '4px',
-                              background: t.hasLivePic ? '#ECFDF5' : '#FEF2F2',
-                              color: t.hasLivePic ? '#059669' : '#DC2626',
+                              background: t.hasLivePic ? '#E8F5E9' : '#FDECEC',
+                              color: t.hasLivePic ? '#198754' : '#DC3545',
                               fontWeight: '600',
-                              border: `1px solid ${t.hasLivePic ? '#A7F3D0' : '#FECACA'}`
+                              border: `1px solid ${t.hasLivePic ? '#E8F5E9' : '#FDECEC'}`
                             }}>
                               {t.hasLivePic ? '✓ Live Pic' : '✕ No Selfie'}
                             </span>
@@ -694,10 +710,10 @@ export default function TechniciansManager({
                               fontSize: '10px',
                               padding: '1px 5px',
                               borderRadius: '4px',
-                              background: t.hasAadhaar ? '#ECFDF5' : '#FEF2F2',
-                              color: t.hasAadhaar ? '#059669' : '#DC2626',
+                              background: t.hasAadhaar ? '#E8F5E9' : '#FDECEC',
+                              color: t.hasAadhaar ? '#198754' : '#DC3545',
                               fontWeight: '600',
-                              border: `1px solid ${t.hasAadhaar ? '#A7F3D0' : '#FECACA'}`
+                              border: `1px solid ${t.hasAadhaar ? '#E8F5E9' : '#FDECEC'}`
                             }}>
                               {t.hasAadhaar ? '✓ Aadhaar' : '✕ No Aadhaar'}
                             </span>
@@ -705,32 +721,35 @@ export default function TechniciansManager({
                               fontSize: '10px',
                               padding: '1px 5px',
                               borderRadius: '4px',
-                              background: t.hasVoterCard ? '#ECFDF5' : '#FEF2F2',
-                              color: t.hasVoterCard ? '#059669' : '#DC2626',
+                              background: t.hasVoterCard ? '#E8F5E9' : '#FDECEC',
+                              color: t.hasVoterCard ? '#198754' : '#DC3545',
                               fontWeight: '600',
-                              border: `1px solid ${t.hasVoterCard ? '#A7F3D0' : '#FECACA'}`
+                              border: `1px solid ${t.hasVoterCard ? '#E8F5E9' : '#FDECEC'}`
                             }}>
                               {t.hasVoterCard ? '✓ Voter Card' : '✕ No Voter'}
                             </span>
                           </div>
 
-                          <div style={{ fontSize: '10.5px', color: (t.isProfileComplete || t.profileCompletion === 100) ? '#059669' : '#DC2626', fontWeight: '700' }}>
+                          <div style={{ fontSize: '10.5px', color: (t.isProfileComplete || t.profileCompletion === 100) ? '#198754' : '#DC3545', fontWeight: '700' }}>
                             {(t.isProfileComplete || t.profileCompletion === 100) ? '🟢 Online Dispatch: Allowed' : '🔴 Online Dispatch: Blocked'}
                           </div>
                         </div>
                       </td>
 
-                      {/* Column 6: Performance & Wallet */}
+                      {/* Column 6: Performance & Wallet (Masked in General List) */}
                       <td style={{ padding: '14px 16px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <div style={{ fontWeight: 'bold', color: '#D97706', fontSize: '12.5px' }}>
+                          <div style={{ fontWeight: 'bold', color: '#E5A126', fontSize: '12.5px' }}>
                             ★ {t.rating ? Number(t.rating).toFixed(1) : '5.0'} <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>({t.totalRatingsCount || 0} reviews)</span>
                           </div>
                           <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
                             Jobs Completed: <strong>{t.totalJobsCompleted || 0}</strong>
                           </div>
-                          <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600' }}>
-                            UPI: {t.upiId || 'technician@upi'}
+                          <div style={{ fontSize: '11px', color: '#198754', fontWeight: '600' }}>
+                            UPI: {t.maskedUpiId || (t.upiId ? `${t.upiId.slice(0, 2)}***@${t.upiId.split('@')[1] || 'upi'}` : 'te***@upi')}
+                          </div>
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)' }}>
+                            Step: <strong>{t.onboardingStep || 'COMPLETED'}</strong>
                           </div>
                         </div>
                       </td>
@@ -768,7 +787,7 @@ export default function TechniciansManager({
                           </button>
                           <button
                             className="btn btn-outline btn-sm"
-                            style={{ borderColor: '#EF4444', color: '#EF4444', fontSize: '11.5px', padding: '4px 7px' }}
+                            style={{ borderColor: '#DC3545', color: '#DC3545', fontSize: '11.5px', padding: '4px 7px' }}
                             title="Delete Technician"
                             onClick={() => handleDeleteTech(t)}
                           >
@@ -795,7 +814,7 @@ export default function TechniciansManager({
                   width: '48px',
                   height: '48px',
                   borderRadius: '50%',
-                  backgroundColor: '#1E3A8A',
+                  backgroundColor: '#F46B12',
                   color: '#FFFFFF',
                   display: 'flex',
                   alignItems: 'center',
@@ -829,36 +848,42 @@ export default function TechniciansManager({
             </div>
 
             {/* Modal Internal Navigation Tabs */}
-            <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border-color)', padding: '8px 0', background: '#F8FAFC', paddingLeft: '16px' }}>
+            <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border-color)', padding: '8px 0', background: '#FCF9F6', paddingLeft: '16px' }}>
               <button
                 onClick={() => setDetailTab('overview')}
-                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'overview' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'overview' ? '700' : '500', color: detailTab === 'overview' ? 'var(--primary)' : '#64748B', cursor: 'pointer', boxShadow: detailTab === 'overview' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'overview' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'overview' ? '700' : '500', color: detailTab === 'overview' ? 'var(--primary)' : '#77716C', cursor: 'pointer', boxShadow: detailTab === 'overview' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
               >
                 👤 Overview & Contact
               </button>
               <button
                 onClick={() => setDetailTab('skills')}
-                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'skills' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'skills' ? '700' : '500', color: detailTab === 'skills' ? 'var(--primary)' : '#64748B', cursor: 'pointer', boxShadow: detailTab === 'skills' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'skills' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'skills' ? '700' : '500', color: detailTab === 'skills' ? 'var(--primary)' : '#77716C', cursor: 'pointer', boxShadow: detailTab === 'skills' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
               >
                 🛠️ Declared Skills ({techSkillsData?.skills?.length || selectedTech.skills?.length || 0})
               </button>
               <button
                 onClick={() => setDetailTab('kyc')}
-                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'kyc' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'kyc' ? '700' : '500', color: detailTab === 'kyc' ? 'var(--primary)' : '#64748B', cursor: 'pointer', boxShadow: detailTab === 'kyc' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'kyc' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'kyc' ? '700' : '500', color: detailTab === 'kyc' ? 'var(--primary)' : '#77716C', cursor: 'pointer', boxShadow: detailTab === 'kyc' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
               >
                 📄 KYC Documents ({techDocsData?.length || selectedTech.documents?.length || 0})
               </button>
               <button
                 onClick={() => setDetailTab('gps')}
-                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'gps' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'gps' ? '700' : '500', color: detailTab === 'gps' ? 'var(--primary)' : '#64748B', cursor: 'pointer', boxShadow: detailTab === 'gps' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'gps' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'gps' ? '700' : '500', color: detailTab === 'gps' ? 'var(--primary)' : '#77716C', cursor: 'pointer', boxShadow: detailTab === 'gps' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
               >
                 📍 Live GPS Radar
               </button>
               <button
                 onClick={() => setDetailTab('financial')}
-                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'financial' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'financial' ? '700' : '500', color: detailTab === 'financial' ? 'var(--primary)' : '#64748B', cursor: 'pointer', boxShadow: detailTab === 'financial' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'financial' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'financial' ? '700' : '500', color: detailTab === 'financial' ? 'var(--primary)' : '#77716C', cursor: 'pointer', boxShadow: detailTab === 'financial' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
               >
                 💳 Payout & Financials
+              </button>
+              <button
+                onClick={() => setDetailTab('audit')}
+                style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'audit' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'audit' ? '700' : '500', color: detailTab === 'audit' ? 'var(--primary)' : '#77716C', cursor: 'pointer', boxShadow: detailTab === 'audit' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+              >
+                🛡️ Audit History ({techAuditLogs.length})
               </button>
             </div>
 
@@ -868,32 +893,32 @@ export default function TechniciansManager({
               {detailTab === 'overview' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-                    <div style={{ background: '#F8FAFC', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px' }}>
+                    <div style={{ background: '#FCF9F6', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Contact Phone</span>
                       <div style={{ fontSize: '14px', fontWeight: '700', marginTop: '4px' }}>
                         📞 {selectedTech.phone || 'N/A'}
                       </div>
                       <div style={{ marginTop: '6px', display: 'flex', gap: '8px' }}>
                         <a href={`tel:${selectedTech.phone}`} style={{ fontSize: '11.5px', color: 'var(--primary)', textDecoration: 'none', fontWeight: '600' }}>Call Phone</a>
-                        <a href={`https://wa.me/${(selectedTech.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" style={{ fontSize: '11.5px', color: '#059669', textDecoration: 'none', fontWeight: '600' }}>WhatsApp Chat</a>
+                        <a href={`https://wa.me/${(selectedTech.phone || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" style={{ fontSize: '11.5px', color: '#198754', textDecoration: 'none', fontWeight: '600' }}>WhatsApp Chat</a>
                       </div>
                     </div>
 
-                    <div style={{ background: '#F8FAFC', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px' }}>
+                    <div style={{ background: '#FCF9F6', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Registered Email</span>
                       <div style={{ fontSize: '14px', fontWeight: '700', marginTop: '4px', wordBreak: 'break-all' }}>
                         ✉️ {selectedTech.email || 'partner@bookurtechnician.online'}
                       </div>
                     </div>
 
-                    <div style={{ background: '#F8FAFC', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px' }}>
+                    <div style={{ background: '#FCF9F6', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Registration Date</span>
                       <div style={{ fontSize: '14px', fontWeight: '700', marginTop: '4px' }}>
                         🗓️ {selectedTech.createdAt ? new Date(selectedTech.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Active Fleet Partner'}
                       </div>
                     </div>
 
-                    <div style={{ background: '#F8FAFC', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px' }}>
+                    <div style={{ background: '#FCF9F6', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Primary Category</span>
                       <div style={{ fontSize: '14px', fontWeight: '700', marginTop: '4px' }}>
                         🛠️ {selectedTech.category || 'General Electrical & Appliances'}
@@ -905,21 +930,21 @@ export default function TechniciansManager({
                   <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '16px', background: '#FFFFFF' }}>
                     <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '800' }}>Performance Snapshot & Dispatch Telemetry</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', textAlign: 'center' }}>
-                      <div style={{ padding: '10px', background: '#FEF3C7', borderRadius: '6px' }}>
-                        <div style={{ fontSize: '18px', fontWeight: '900', color: '#D97706' }}>★ {Number(selectedTech.rating || 5.0).toFixed(1)}</div>
-                        <div style={{ fontSize: '11px', color: '#92400E' }}>{selectedTech.totalRatingsCount || 0} Total Reviews</div>
+                      <div style={{ padding: '10px', background: '#FFF4E0', borderRadius: '6px' }}>
+                        <div style={{ fontSize: '18px', fontWeight: '900', color: '#E5A126' }}>★ {Number(selectedTech.rating || 5.0).toFixed(1)}</div>
+                        <div style={{ fontSize: '11px', color: '#E85B08' }}>{selectedTech.totalRatingsCount || 0} Total Reviews</div>
                       </div>
-                      <div style={{ padding: '10px', background: '#EFF6FF', borderRadius: '6px' }}>
-                        <div style={{ fontSize: '18px', fontWeight: '900', color: '#1D4ED8' }}>{selectedTech.totalJobsCompleted || 0}</div>
-                        <div style={{ fontSize: '11px', color: '#1E40AF' }}>Completed Jobs</div>
+                      <div style={{ padding: '10px', background: '#FBE4D5', borderRadius: '6px' }}>
+                        <div style={{ fontSize: '18px', fontWeight: '900', color: '#F46B12' }}>{selectedTech.totalJobsCompleted || 0}</div>
+                        <div style={{ fontSize: '11px', color: '#F46B12' }}>Completed Jobs</div>
                       </div>
-                      <div style={{ padding: '10px', background: '#ECFDF5', borderRadius: '6px' }}>
-                        <div style={{ fontSize: '18px', fontWeight: '900', color: '#059669' }}>{selectedTech.acceptanceRate || 98.5}%</div>
-                        <div style={{ fontSize: '11px', color: '#065F46' }}>Acceptance Rate</div>
+                      <div style={{ padding: '10px', background: '#E8F5E9', borderRadius: '6px' }}>
+                        <div style={{ fontSize: '18px', fontWeight: '900', color: '#198754' }}>{selectedTech.acceptanceRate || 98.5}%</div>
+                        <div style={{ fontSize: '11px', color: '#198754' }}>Acceptance Rate</div>
                       </div>
-                      <div style={{ padding: '10px', background: '#FEF2F2', borderRadius: '6px' }}>
-                        <div style={{ fontSize: '18px', fontWeight: '900', color: '#DC2626' }}>{selectedTech.cancellationRate || 1.0}%</div>
-                        <div style={{ fontSize: '11px', color: '#991B1B' }}>Cancellation Rate</div>
+                      <div style={{ padding: '10px', background: '#FDECEC', borderRadius: '6px' }}>
+                        <div style={{ fontSize: '18px', fontWeight: '900', color: '#DC3545' }}>{selectedTech.cancellationRate || 1.0}%</div>
+                        <div style={{ fontSize: '11px', color: '#DC3545' }}>Cancellation Rate</div>
                       </div>
                     </div>
                   </div>
@@ -934,7 +959,7 @@ export default function TechniciansManager({
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         className="btn btn-primary btn-sm"
-                        style={{ background: '#059669', borderColor: '#059669', color: '#FFFFFF', fontWeight: '700' }}
+                        style={{ background: '#198754', borderColor: '#198754', color: '#FFFFFF', fontWeight: '700' }}
                         onClick={handleBulkVerifySkills}
                       >
                         ✓ Verify All Skills
@@ -1038,8 +1063,8 @@ export default function TechniciansManager({
                     padding: '12px 14px',
                     borderRadius: '8px',
                     marginBottom: '16px',
-                    background: (selectedTech.isProfileComplete || selectedTech.profileCompletion === 100) ? '#ECFDF5' : '#FEF2F2',
-                    border: `1px solid ${(selectedTech.isProfileComplete || selectedTech.profileCompletion === 100) ? '#A7F3D0' : '#FECACA'}`,
+                    background: (selectedTech.isProfileComplete || selectedTech.profileCompletion === 100) ? '#E8F5E9' : '#FDECEC',
+                    border: `1px solid ${(selectedTech.isProfileComplete || selectedTech.profileCompletion === 100) ? '#E8F5E9' : '#FDECEC'}`,
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center'
@@ -1047,13 +1072,13 @@ export default function TechniciansManager({
                     <div>
                       <strong style={{
                         fontSize: '13px',
-                        color: (selectedTech.isProfileComplete || selectedTech.profileCompletion === 100) ? '#065F46' : '#991B1B'
+                        color: (selectedTech.isProfileComplete || selectedTech.profileCompletion === 100) ? '#198754' : '#DC3545'
                       }}>
                         {(selectedTech.isProfileComplete || selectedTech.profileCompletion === 100)
                           ? '✓ 100% Profile Complete — Technician can go Online'
                           : `⚠️ Profile Incomplete (${selectedTech.profileCompletion || 25}%) — Blocked from going Online`}
                       </strong>
-                      <div style={{ fontSize: '11.5px', color: (selectedTech.isProfileComplete || selectedTech.profileCompletion === 100) ? '#047857' : '#B91C1C', marginTop: '2px' }}>
+                      <div style={{ fontSize: '11.5px', color: (selectedTech.isProfileComplete || selectedTech.profileCompletion === 100) ? '#198754' : '#DC3545', marginTop: '2px' }}>
                         {(selectedTech.isProfileComplete || selectedTech.profileCompletion === 100)
                           ? 'All required documents (Live Photo, Aadhaar, Voter Card) and skills have been recorded.'
                           : `Missing requirements: ${selectedTech.missingRequirements?.join(', ') || 'Live Photo, Aadhaar Card, Voter Card'}`}
@@ -1092,7 +1117,7 @@ export default function TechniciansManager({
                           </div>
                           <div
                             onClick={() => setDocLightbox({ open: true, title: 'Real Live Selfie Photo', url: livePhotoSrc, docType: 'SELFIE', maskedNumber: 'LIVE PHOTO' })}
-                            style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #E2E8F0' }}
+                            style={{ height: '140px', background: '#FCF9F6', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #EEE8E2' }}
                             title="Click to view full image"
                           >
                             <img
@@ -1127,7 +1152,7 @@ export default function TechniciansManager({
                           </div>
                           <div
                             onClick={() => setDocLightbox({ open: true, title: 'Aadhaar Card Record', url: aadhaarSrc, docType: 'AADHAAR', maskedNumber: aadhaarNum })}
-                            style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #E2E8F0' }}
+                            style={{ height: '140px', background: '#FCF9F6', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #EEE8E2' }}
                             title="Click to view full image"
                           >
                             <img
@@ -1162,7 +1187,7 @@ export default function TechniciansManager({
                           </div>
                           <div
                             onClick={() => setDocLightbox({ open: true, title: 'Voter Card ID Record', url: voterSrc, docType: 'VOTER_CARD', maskedNumber: voterNum })}
-                            style={{ height: '140px', background: '#F1F5F9', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #E2E8F0' }}
+                            style={{ height: '140px', background: '#FCF9F6', borderRadius: '6px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid #EEE8E2' }}
                             title="Click to view full image"
                           >
                             <img
@@ -1191,7 +1216,7 @@ export default function TechniciansManager({
                   })()}
 
                   {/* KYC Decision Bar */}
-                  <div style={{ marginTop: '18px', padding: '14px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ marginTop: '18px', padding: '14px', background: '#FCF9F6', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                       <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-main)' }}>KYC Verification Decision</span>
                       <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>Current Status: <strong>{selectedTech.kycStatus || 'PENDING'}</strong></div>
@@ -1214,7 +1239,7 @@ export default function TechniciansManager({
                   <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800' }}>Live GPS Availability & Coordinates</h4>
 
                   {selectedTech.latitude && selectedTech.longitude ? (
-                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '16px', background: '#F8FAFC' }}>
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '16px', background: '#FCF9F6' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                         <div>
                           <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--primary)' }}>
@@ -1236,7 +1261,7 @@ export default function TechniciansManager({
                       </div>
                     </div>
                   ) : (
-                    <div style={{ textAlign: 'center', padding: '36px', background: '#F8FAFC', borderRadius: '8px', border: '1px dashed var(--border-color)', color: 'var(--text-secondary)' }}>
+                    <div style={{ textAlign: 'center', padding: '36px', background: '#FCF9F6', borderRadius: '8px', border: '1px dashed var(--border-color)', color: 'var(--text-secondary)' }}>
                       📍 No GPS coordinates recorded for this technician yet.
                       <div style={{ fontSize: '11.5px', marginTop: '4px' }}>Real GPS coordinates are streamed automatically when the technician switches toggle to ONLINE.</div>
                     </div>
@@ -1249,17 +1274,17 @@ export default function TechniciansManager({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800' }}>Payout Settings & Digital Wallet</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px', background: '#F8FAFC' }}>
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px', background: '#FCF9F6' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Configured UPI ID</span>
-                      <div style={{ fontSize: '15px', fontWeight: '800', marginTop: '4px', color: '#059669' }}>
+                      <div style={{ fontSize: '15px', fontWeight: '800', marginTop: '4px', color: '#198754' }}>
                         {selectedTech.upiId || 'technician@upi'}
                       </div>
-                      <div style={{ fontSize: '11px', color: selectedTech.isUpiVerified ? '#059669' : '#D97706', marginTop: '4px', fontWeight: '600' }}>
+                      <div style={{ fontSize: '11px', color: selectedTech.isUpiVerified ? '#198754' : '#E5A126', marginTop: '4px', fontWeight: '600' }}>
                         {selectedTech.isUpiVerified ? '✓ Verified UPI VPA' : '⏳ Auto-Verification Pending'}
                       </div>
                     </div>
 
-                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px', background: '#F8FAFC' }}>
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px', background: '#FCF9F6' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Available Wallet Balance</span>
                       <div style={{ fontSize: '18px', fontWeight: '900', marginTop: '4px', color: 'var(--primary)' }}>
                         ₹{selectedTech.availableBalance ? Number(selectedTech.availableBalance).toFixed(2) : '0.00'}
@@ -1271,6 +1296,48 @@ export default function TechniciansManager({
                   </div>
                 </div>
               )}
+
+              {/* TAB 6: AUDIT HISTORY */}
+              {detailTab === 'audit' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '800' }}>Admin Governance & Audit Trail</h4>
+                    <button className="btn btn-outline btn-sm" onClick={() => loadTechAuditLogs(selectedTech.id)}>🔄 Refresh Audit Logs</button>
+                  </div>
+                  {loadingAudit ? (
+                    <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>Loading audit records...</div>
+                  ) : techAuditLogs.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px', background: '#FCF9F6', borderRadius: '8px', color: 'var(--text-secondary)' }}>
+                      No administrative modifications recorded for this partner yet.
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="flat-table" style={{ fontSize: '12px' }}>
+                        <thead>
+                          <tr>
+                            <th>Timestamp</th>
+                            <th>Admin UID</th>
+                            <th>Action</th>
+                            <th>Previous → Updated Status</th>
+                            <th>Details</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {techAuditLogs.map((log, idx) => (
+                            <tr key={log.id || idx}>
+                              <td>{log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Recent'}</td>
+                              <td><code>{log.adminUid || 'admin_master'}</code></td>
+                              <td><strong>{log.action}</strong></td>
+                              <td>{log.previousStatus || '-'} → <strong>{log.updatedStatus || '-'}</strong></td>
+                              <td>{log.details || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
@@ -1278,7 +1345,7 @@ export default function TechniciansManager({
                 <button className="btn btn-outline" onClick={() => setShowDetailModal(false)}>Close</button>
                 <button
                   className="btn btn-outline"
-                  style={{ borderColor: '#EF4444', color: '#EF4444' }}
+                  style={{ borderColor: '#DC3545', color: '#DC3545' }}
                   onClick={() => handleDeleteTech(selectedTech)}
                 >
                   🗑️ Delete Partner
@@ -1316,7 +1383,7 @@ export default function TechniciansManager({
             </div>
 
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ padding: '12px', background: '#F8FAFC', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+              <div style={{ padding: '12px', background: '#FCF9F6', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <strong>{selectedTech.name || selectedTech.fullName}</strong> ({selectedTech.phone || 'No phone'})
@@ -1352,7 +1419,7 @@ export default function TechniciansManager({
                       <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>📸 REAL LIVE PHOTO</span>
                       <div
                         onClick={() => setDocLightbox({ open: true, title: 'Real Live Photo', url: livePhotoSrc, docType: 'SELFIE', maskedNumber: 'LIVE PHOTO' })}
-                        style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        style={{ height: '120px', background: '#FCF9F6', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                         title="Click to view full image"
                       >
                         <img
@@ -1366,7 +1433,7 @@ export default function TechniciansManager({
                         />
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                        <div style={{ fontSize: '10.5px', color: '#059669', fontWeight: '700' }}>
+                        <div style={{ fontSize: '10.5px', color: '#198754', fontWeight: '700' }}>
                           ✓ Live Photo Verified
                         </div>
                         <button
@@ -1384,7 +1451,7 @@ export default function TechniciansManager({
                       <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>🪪 AADHAAR CARD</span>
                       <div
                         onClick={() => setDocLightbox({ open: true, title: 'Aadhaar Card Record', url: aadhaarSrc, docType: 'AADHAAR', maskedNumber: aadhaarNum })}
-                        style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        style={{ height: '120px', background: '#FCF9F6', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                         title="Click to view full image"
                       >
                         <img
@@ -1398,7 +1465,7 @@ export default function TechniciansManager({
                         />
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                        <div style={{ fontSize: '10.5px', color: '#059669', fontWeight: '700' }}>
+                        <div style={{ fontSize: '10.5px', color: '#198754', fontWeight: '700' }}>
                           ✓ Masked: {aadhaarNum}
                         </div>
                         <button
@@ -1416,7 +1483,7 @@ export default function TechniciansManager({
                       <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--primary)' }}>🗳️ VOTER CARD ID</span>
                       <div
                         onClick={() => setDocLightbox({ open: true, title: 'Voter Card ID Record', url: voterSrc, docType: 'VOTER_CARD', maskedNumber: voterNum })}
-                        style={{ height: '120px', background: '#F1F5F9', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        style={{ height: '120px', background: '#FCF9F6', borderRadius: '4px', marginTop: '6px', overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                         title="Click to view full image"
                       >
                         <img
@@ -1430,7 +1497,7 @@ export default function TechniciansManager({
                         />
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                        <div style={{ fontSize: '10.5px', color: '#059669', fontWeight: '700' }}>
+                        <div style={{ fontSize: '10.5px', color: '#198754', fontWeight: '700' }}>
                           ✓ ID: {voterNum}
                         </div>
                         <button
@@ -1469,7 +1536,7 @@ export default function TechniciansManager({
                 </button>
                 <button
                   className="btn btn-primary"
-                  style={{ fontWeight: '800', background: '#059669', borderColor: '#059669' }}
+                  style={{ fontWeight: '800', background: '#198754', borderColor: '#198754' }}
                   onClick={() => handleApproveTech(selectedTech)}
                 >
                   ✓ Approve & Issue ID Badge
@@ -1617,20 +1684,20 @@ export default function TechniciansManager({
             <div
               style={{
                 padding: '16px 20px',
-                borderBottom: '1px solid #E2E8F0',
+                borderBottom: '1px solid #EEE8E2',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: '#F8FAFC',
+                background: '#FCF9F6',
               }}
             >
               <div>
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#222222', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>{docLightbox.title}</span>
                   <span className="badge badge-completed" style={{ fontSize: '10px' }}>Verified Record</span>
                 </h3>
                 {docLightbox.maskedNumber && (
-                  <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: '#77716C', marginTop: '2px' }}>
                     Document Ref: <strong>{docLightbox.maskedNumber}</strong>
                   </div>
                 )}
@@ -1639,7 +1706,7 @@ export default function TechniciansManager({
                 type="button"
                 onClick={() => setDocLightbox({ open: false, title: '', url: '', docType: '', maskedNumber: '' })}
                 style={{
-                  background: '#F1F5F9',
+                  background: '#FCF9F6',
                   border: 'none',
                   borderRadius: '50%',
                   width: '32px',
@@ -1649,7 +1716,7 @@ export default function TechniciansManager({
                   justifyContent: 'center',
                   cursor: 'pointer',
                   fontSize: '16px',
-                  color: '#475569',
+                  color: '#77716C',
                   fontWeight: 'bold',
                 }}
               >
@@ -1661,7 +1728,7 @@ export default function TechniciansManager({
             <div
               style={{
                 padding: '24px',
-                background: '#0B0F19',
+                background: '#F46B12',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1691,14 +1758,14 @@ export default function TechniciansManager({
             <div
               style={{
                 padding: '12px 20px',
-                borderTop: '1px solid #E2E8F0',
+                borderTop: '1px solid #EEE8E2',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 background: '#FFFFFF',
               }}
             >
-              <div style={{ fontSize: '12px', color: '#64748B' }}>
+              <div style={{ fontSize: '12px', color: '#77716C' }}>
                 Cloudinary High-Res CDN Secure Storage
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>

@@ -1,100 +1,113 @@
 import 'package:flutter/material.dart';
 
 // ============================================================================
-// BOOKURTECHNICIAN — ROYAL BLUE + BRIGHT YELLOW + PURE WHITE DESIGN SYSTEM
-// Official Uber / Rapido Inspired Home-Services Brand Palette & Components
+// BOOKURTECHNICIAN — ENTERPRISE DESIGN SYSTEM
+// Premium Orange (#F46B12) × Warm White (#FCF9F6) × Soft Peach (#FBE4D5)
 // ============================================================================
 
-// Primary Brand Colours (Part 1 Specification)
-const Color kRoyalBlue = Color(0xFF173B8F);         // Royal Blue (#173B8F)
-const Color kDeepNavy = Color(0xFF102A63);          // Deep Navy (#102A63)
-const Color kBrightYellow = Color(0xFFFFC928);      // Bright Yellow (#FFC928)
-const Color kWhite = Color(0xFFFFFFFF);             // Pure White (#FFFFFF)
-const Color kLightBlueTint = Color(0xFFEDF3FF);     // Light Blue Background (#EDF3FF)
-const Color kTextDark = Color(0xFF202938);          // Dark Text (#202938)
-const Color kSecondaryText = Color(0xFF737D8C);     // Secondary Text (#737D8C)
-const Color kSuccessGreen = Color(0xFF18864B);      // Success (#18864B)
-const Color kErrorRed = Color(0xFFD64545);          // Error (#D64545)
-const Color kBorderColor = Color(0xFFE4E9F1);       // Border (#E4E9F1)
-const Color kWarningAmber = Color(0xFFFFC928);      // Bright Yellow Highlight (#FFC928)
+// Primary Design Tokens (Phase 1 Specification)
+const Color kPrimaryOrange = Color(0xFFF46B12);      // Primary Orange (#F46B12)
+const Color kDarkOrange = Color(0xFFE85B08);         // Dark Orange (#E85B08)
+const Color kSoftPeach = Color(0xFFFBE4D5);          // Soft Peach (#FBE4D5)
+const Color kWarmBackground = Color(0xFFFCF9F6);     // Warm Background (#FCF9F6)
+const Color kWhite = Color(0xFFFFFFFF);              // Pure White (#FFFFFF)
+const Color kPrimaryTextColor = Color(0xFF222222);   // Primary Text (#222222)
+const Color kSecondaryTextColor = Color(0xFF77716C); // Secondary Text (#77716C)
+const Color kBorderWarm = Color(0xFFEEE8E2);         // Border (#EEE8E2)
+const Color kSuccessGreen = Color(0xFF198754);       // Success (#198754)
+const Color kWarningAmber = Color(0xFFE5A126);       // Warning (#E5A126)
+const Color kErrorRed = Color(0xFFDC3545);           // Error (#DC3545)
 
-// Backwards-Compatible Brand Aliases used across all Customer App screens
-const Color kBrandPrimary = kRoyalBlue;             // #173B8F Royal Blue
-const Color kDeepRoyalBlue = kDeepNavy;             // #102A63 Deep Navy
-const Color kBlack = kDeepNavy;                     // #102A63 Deep Navy for strong headings/controls
-const Color kBackgroundLight = kWhite;              // #FFFFFF Pure White
-const Color kCardBackground = kWhite;               // #FFFFFF Card Surface
-const Color kSurfaceSubtle = kLightBlueTint;        // #EDF3FF Light Blue Surface
-const Color kCharcoalDark = kDeepNavy;              // #102A63 Deep Navy Surface
-const Color kCharcoalMedium = Color(0xFF1E3F85);    // Medium Royal Blue Divider
-const Color kGoldAccent = kBrightYellow;            // #FFC928 Bright Yellow Accent
+// Backwards-Compatible Semantic Aliases used across Customer App screens
+const Color kRoyalBlue = kPrimaryOrange;             // #F46B12 Primary Orange
+const Color kDeepNavy = kPrimaryTextColor;           // #222222 Charcoal Heading/Control
+const Color kBrightYellow = kSoftPeach;              // #FBE4D5 Soft Peach Highlight
+const Color kLightBlueTint = kWarmBackground;        // #FCF9F6 Warm White Surface
+const Color kTextDark = kPrimaryTextColor;           // #222222 Primary Text
+const Color kSecondaryText = kSecondaryTextColor;    // #77716C Secondary Text
+const Color kBorderColor = kBorderWarm;              // #EEE8E2 Warm Border
 
-const Color kLightBlue = kLightBlueTint;
-const Color kPrimaryText = kTextDark;
-const Color kBrandSecondary = kBrightYellow;
+const Color kBrandPrimary = kPrimaryOrange;          // #F46B12 Primary Orange
+const Color kDeepRoyalBlue = kDarkOrange;            // #E85B08 Dark Orange
+const Color kBlack = kPrimaryTextColor;              // #222222 Primary Charcoal
+const Color kBackgroundLight = kWarmBackground;      // #FCF9F6 Warm White
+const Color kCardBackground = kWhite;                // #FFFFFF Pure White Card
+const Color kSurfaceSubtle = kSoftPeach;             // #FBE4D5 Soft Peach Surface
+const Color kCharcoalDark = kPrimaryTextColor;       // #222222 Charcoal
+const Color kCharcoalMedium = Color(0xFF3D3935);     // Warm Charcoal Medium
+const Color kGoldAccent = kPrimaryOrange;            // #F46B12 Orange Accent
+
+const Color kLightBlue = kSoftPeach;
+const Color kPrimaryText = kPrimaryTextColor;
+const Color kBrandSecondary = kDarkOrange;
 const Color kCardWhite = kWhite;
-const Color kTextNavy = kDeepNavy;
-const Color kTextGray = kSecondaryText;
+const Color kTextNavy = kPrimaryTextColor;
+const Color kTextGray = kSecondaryTextColor;
 const Color kGreenSuccess = kSuccessGreen;
 const Color kRedError = kErrorRed;
 
 class AppColors {
-  static const Color primary = kRoyalBlue;
-  static const Color navy = kDeepNavy;
-  static const Color accentYellow = kBrightYellow;
-  static const Color secondary = kDeepNavy;
-  static const Color background = kWhite;
-  static const Color lightBlueBg = kLightBlueTint;
-  static const Color text = kTextDark;
-  static const Color textSecondary = kSecondaryText;
-  static const Color border = kBorderColor;
+  static const Color primary = kPrimaryOrange;
+  static const Color primaryDark = kDarkOrange;
+  static const Color softPeach = kSoftPeach;
+  static const Color warmBackground = kWarmBackground;
+  static const Color navy = kPrimaryTextColor;
+  static const Color accentYellow = kSoftPeach;
+  static const Color secondary = kDarkOrange;
+  static const Color background = kWarmBackground;
+  static const Color surface = kWhite;
+  static const Color lightBlueBg = kSoftPeach;
+  static const Color text = kPrimaryTextColor;
+  static const Color textSecondary = kSecondaryTextColor;
+  static const Color border = kBorderWarm;
   static const Color success = kSuccessGreen;
+  static const Color warning = kWarningAmber;
   static const Color error = kErrorRed;
 }
 
 ThemeData buildAppTheme() {
   return ThemeData(
     useMaterial3: true,
-    scaffoldBackgroundColor: kWhite,
-    primaryColor: kRoyalBlue,
+    scaffoldBackgroundColor: kWarmBackground,
+    primaryColor: kPrimaryOrange,
     colorScheme: const ColorScheme.light(
-      primary: kRoyalBlue,
-      secondary: kBrightYellow,
-      tertiary: kDeepNavy,
+      primary: kPrimaryOrange,
+      secondary: kDarkOrange,
+      tertiary: kSoftPeach,
       surface: kWhite,
       onPrimary: kWhite,
-      onSecondary: kDeepNavy,
-      onSurface: kTextDark,
-      outline: kBorderColor,
+      onSecondary: kWhite,
+      onSurface: kPrimaryTextColor,
+      outline: kBorderWarm,
       error: kErrorRed,
     ),
     fontFamily: 'Inter',
     appBarTheme: const AppBarTheme(
-      backgroundColor: kRoyalBlue,
-      foregroundColor: kWhite,
+      backgroundColor: kWhite,
+      foregroundColor: kPrimaryTextColor,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
       titleTextStyle: TextStyle(
-        color: kWhite,
+        color: kPrimaryTextColor,
         fontWeight: FontWeight.w800,
         fontSize: 18,
         letterSpacing: -0.3,
       ),
-      iconTheme: IconThemeData(color: kWhite),
+      iconTheme: IconThemeData(color: kPrimaryTextColor),
     ),
     cardTheme: CardThemeData(
       elevation: 0,
       color: kWhite,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: kBorderColor, width: 1),
+        side: const BorderSide(color: kBorderWarm, width: 1),
       ),
       margin: EdgeInsets.zero,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: kRoyalBlue,
+        backgroundColor: kPrimaryOrange,
         foregroundColor: kWhite,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -109,8 +122,8 @@ ThemeData buildAppTheme() {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         backgroundColor: kWhite,
-        foregroundColor: kRoyalBlue,
-        side: const BorderSide(color: kRoyalBlue, width: 1.5),
+        foregroundColor: kPrimaryOrange,
+        side: const BorderSide(color: kPrimaryOrange, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         textStyle: const TextStyle(
@@ -122,70 +135,79 @@ ThemeData buildAppTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: kLightBlueTint,
+      fillColor: kWhite,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: kBorderColor),
+        borderSide: const BorderSide(color: kBorderWarm),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: kBorderColor),
+        borderSide: const BorderSide(color: kBorderWarm),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: kRoyalBlue, width: 2),
+        borderSide: const BorderSide(color: kPrimaryOrange, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: kErrorRed, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      hintStyle: const TextStyle(color: kSecondaryText, fontSize: 14),
+      hintStyle: const TextStyle(color: kSecondaryTextColor, fontSize: 14),
     ),
     checkboxTheme: CheckboxThemeData(
       fillColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return kRoyalBlue;
+          return kPrimaryOrange;
         }
         return Colors.transparent;
       }),
       checkColor: const WidgetStatePropertyAll(kWhite),
-      side: const BorderSide(color: kRoyalBlue, width: 1.5),
+      side: const BorderSide(color: kPrimaryOrange, width: 1.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
     ),
     radioTheme: RadioThemeData(
       fillColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return kRoyalBlue;
+          return kPrimaryOrange;
         }
-        return kSecondaryText;
+        return kSecondaryTextColor;
       }),
     ),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return kBrightYellow;
+          return kWhite;
         }
-        return kSecondaryText;
+        return kSecondaryTextColor;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return kRoyalBlue;
+          return kPrimaryOrange;
         }
-        return kBorderColor;
+        return kBorderWarm;
       }),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: kDeepNavy,
-      selectedItemColor: kBrightYellow,
-      unselectedItemColor: Color(0xFFB4C2DC),
+      backgroundColor: kWhite,
+      selectedItemColor: kPrimaryOrange,
+      unselectedItemColor: kSecondaryTextColor,
       selectedLabelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
       unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5),
       type: BottomNavigationBarType.fixed,
-      elevation: 12,
+      elevation: 8,
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: kWhite,
+      selectedColor: kSoftPeach,
+      disabledColor: kWarmBackground,
+      labelStyle: const TextStyle(color: kPrimaryTextColor, fontWeight: FontWeight.w600, fontSize: 12.5),
+      secondaryLabelStyle: const TextStyle(color: kDarkOrange, fontWeight: FontWeight.w800, fontSize: 12.5),
+      side: const BorderSide(color: kBorderWarm),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
     dividerTheme: const DividerThemeData(
-      color: kBorderColor,
+      color: kBorderWarm,
       thickness: 1,
       space: 1,
     ),
@@ -193,10 +215,10 @@ ThemeData buildAppTheme() {
 }
 
 // ============================================================================
-// PART 5 — REUSABLE DESIGN COMPONENT LIBRARY
+// REUSABLE DESIGN COMPONENT LIBRARY (Premium Orange × Warm White × Soft Peach)
 // ============================================================================
 
-/// Official Primary Action Button (Royal Blue #173B8F with Pure White Text)
+/// Official Primary Action Button (Primary Orange #F46B12 with Pure White Text)
 class BTPrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -219,8 +241,8 @@ class BTPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = useYellowHighlight ? kBrightYellow : kRoyalBlue;
-    final fgColor = useYellowHighlight ? kDeepNavy : kWhite;
+    final bgColor = useYellowHighlight ? kDarkOrange : kPrimaryOrange;
+    const fgColor = kWhite;
 
     return SizedBox(
       height: height,
@@ -230,13 +252,13 @@ class BTPrimaryButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: bgColor,
           foregroundColor: fgColor,
-          disabledBackgroundColor: kBorderColor,
-          disabledForegroundColor: kSecondaryText,
+          disabledBackgroundColor: kBorderWarm,
+          disabledForegroundColor: kSecondaryTextColor,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           elevation: 0,
         ),
         child: isLoading
-            ? SizedBox(
+            ? const SizedBox(
                 width: 22,
                 height: 22,
                 child: CircularProgressIndicator(color: fgColor, strokeWidth: 2.5),
@@ -250,7 +272,7 @@ class BTPrimaryButton extends StatelessWidget {
                   ],
                   Text(
                     label,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.2,
@@ -268,7 +290,7 @@ class BTPrimaryButton extends StatelessWidget {
   }
 }
 
-/// Official Bright Yellow CTA Highlight Button (#FFC928 background, #102A63 Deep Navy text)
+/// Official Dark Orange CTA Highlight Button (#E85B08 background, #FFFFFF text)
 class BTYellowCtaButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -298,7 +320,7 @@ class BTYellowCtaButton extends StatelessWidget {
   }
 }
 
-/// Official Secondary Action Button (White Background, Royal Blue Border & Text)
+/// Official Secondary Action Button (White Background, Primary Orange Border & Text)
 class BTSecondaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
@@ -322,8 +344,8 @@ class BTSecondaryButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           backgroundColor: kWhite,
-          foregroundColor: kRoyalBlue,
-          side: const BorderSide(color: kRoyalBlue, width: 1.8),
+          foregroundColor: kPrimaryOrange,
+          side: const BorderSide(color: kPrimaryOrange, width: 1.8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           elevation: 0,
         ),
@@ -331,12 +353,12 @@ class BTSecondaryButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 20, color: kRoyalBlue),
+              Icon(icon, size: 20, color: kPrimaryOrange),
               const SizedBox(width: 10),
             ],
             Text(
               label,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kRoyalBlue),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kPrimaryOrange),
             ),
           ],
         ),
@@ -371,7 +393,7 @@ class BTOutlinedButton extends StatelessWidget {
   }
 }
 
-/// High-contrast Uber/Rapido-style Pill Tag
+/// Soft Peach & Orange Pill Tag
 class UBPillTag extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -390,8 +412,8 @@ class UBPillTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = customBg ?? (isDark ? kRoyalBlue : kLightBlueTint);
-    final fg = customText ?? (isDark ? kWhite : kDeepNavy);
+    final bg = customBg ?? (isDark ? kPrimaryOrange : kSoftPeach);
+    final fg = customText ?? (isDark ? kWhite : kDarkOrange);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -399,7 +421,7 @@ class UBPillTag extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? Colors.transparent : kBorderColor,
+          color: isDark ? Colors.transparent : kBorderWarm,
           width: 1,
         ),
       ),
@@ -439,13 +461,13 @@ class BTStatusBadge extends StatelessWidget {
   });
 
   factory BTStatusBadge.success(String text) =>
-      BTStatusBadge(label: text, backgroundColor: const Color(0xFFE6F6EE), textColor: kSuccessGreen);
+      BTStatusBadge(label: text, backgroundColor: const Color(0xFFE8F5E9), textColor: kSuccessGreen);
 
   factory BTStatusBadge.warning(String text) =>
-      BTStatusBadge(label: text, backgroundColor: const Color(0xFFFFF6D6), textColor: kDeepNavy);
+      BTStatusBadge(label: text, backgroundColor: const Color(0xFFFFF4E0), textColor: kWarningAmber);
 
   factory BTStatusBadge.info(String text) =>
-      BTStatusBadge(label: text, backgroundColor: kLightBlueTint, textColor: kRoyalBlue);
+      BTStatusBadge(label: text, backgroundColor: kSoftPeach, textColor: kDarkOrange);
 
   factory BTStatusBadge.error(String text) =>
       BTStatusBadge(label: text, backgroundColor: const Color(0xFFFDECEC), textColor: kErrorRed);
@@ -471,7 +493,7 @@ class BTStatusBadge extends StatelessWidget {
   }
 }
 
-/// Loading Skeleton Placeholder (Part 5 & Part 9 — No blank screens)
+/// Loading Skeleton Placeholder
 class BTSkeletonBox extends StatelessWidget {
   final double width;
   final double height;
@@ -490,15 +512,15 @@ class BTSkeletonBox extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: kLightBlueTint,
+        color: kSoftPeach.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: kBorderColor, width: 0.8),
+        border: Border.all(color: kBorderWarm, width: 0.8),
       ),
     );
   }
 }
 
-/// Clean Empty State Component (Part 5 & Part 9)
+/// Clean Empty State Component
 class BTEmptyState extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -527,11 +549,11 @@ class BTEmptyState extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: kLightBlueTint,
+                color: kSoftPeach,
                 shape: BoxShape.circle,
-                border: Border.all(color: kBorderColor),
+                border: Border.all(color: kBorderWarm),
               ),
-              child: Icon(icon, size: 34, color: kRoyalBlue),
+              child: Icon(icon, size: 34, color: kPrimaryOrange),
             ),
             const SizedBox(height: 16),
             Text(
@@ -540,7 +562,7 @@ class BTEmptyState extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: kDeepNavy,
+                color: kPrimaryTextColor,
               ),
             ),
             const SizedBox(height: 8),
@@ -549,7 +571,7 @@ class BTEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13.5,
-                color: kSecondaryText,
+                color: kSecondaryTextColor,
                 height: 1.45,
               ),
             ),
@@ -571,7 +593,7 @@ class BTEmptyState extends StatelessWidget {
   }
 }
 
-/// API Failure / Network Offline Retry Component (Part 5 & Part 9)
+/// API Failure / Network Offline Retry Component
 class BTErrorRetryState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -594,7 +616,7 @@ class BTErrorRetryState extends StatelessWidget {
           decoration: BoxDecoration(
             color: kWhite,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kBorderColor),
+            border: Border.all(color: kBorderWarm),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -610,14 +632,14 @@ class BTErrorRetryState extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: kDeepNavy,
+                  color: kPrimaryTextColor,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: kSecondaryText),
+                style: const TextStyle(fontSize: 13, color: kSecondaryTextColor),
               ),
               const SizedBox(height: 16),
               BTPrimaryButton(
@@ -634,12 +656,12 @@ class BTErrorRetryState extends StatelessWidget {
   }
 }
 
-/// Minimalist Map Style JSON
+/// Warm Minimalist Map Style JSON
 const String kUberMapStyleJson = '''
 [
   {
     "elementType": "geometry",
-    "stylers": [{"color": "#f5f5f5"}]
+    "stylers": [{"color": "#fcf9f6"}]
   },
   {
     "elementType": "labels.icon",
@@ -647,11 +669,11 @@ const String kUberMapStyleJson = '''
   },
   {
     "elementType": "labels.text.fill",
-    "stylers": [{"color": "#616161"}]
+    "stylers": [{"color": "#77716c"}]
   },
   {
     "elementType": "labels.text.stroke",
-    "stylers": [{"color": "#f5f5f5"}]
+    "stylers": [{"color": "#fcf9f6"}]
   },
   {
     "featureType": "administrative.land_parcel",
@@ -661,12 +683,12 @@ const String kUberMapStyleJson = '''
   {
     "featureType": "poi",
     "elementType": "geometry",
-    "stylers": [{"color": "#eeeeee"}]
+    "stylers": [{"color": "#f4efe9"}]
   },
   {
     "featureType": "poi",
     "elementType": "labels.text.fill",
-    "stylers": [{"color": "#757575"}]
+    "stylers": [{"color": "#77716c"}]
   },
   {
     "featureType": "road",
@@ -676,32 +698,32 @@ const String kUberMapStyleJson = '''
   {
     "featureType": "road.arterial",
     "elementType": "labels.text.fill",
-    "stylers": [{"color": "#757575"}]
+    "stylers": [{"color": "#77716c"}]
   },
   {
     "featureType": "road.highway",
     "elementType": "geometry",
-    "stylers": [{"color": "#dadada"}]
+    "stylers": [{"color": "#fbe4d5"}]
   },
   {
     "featureType": "road.highway",
     "elementType": "labels.text.fill",
-    "stylers": [{"color": "#616161"}]
+    "stylers": [{"color": "#222222"}]
   },
   {
     "featureType": "transit.line",
     "elementType": "geometry",
-    "stylers": [{"color": "#e5e5e5"}]
+    "stylers": [{"color": "#eee8e2"}]
   },
   {
     "featureType": "water",
     "elementType": "geometry",
-    "stylers": [{"color": "#c9c9c9"}]
+    "stylers": [{"color": "#e3edf2"}]
   },
   {
     "featureType": "water",
     "elementType": "labels.text.fill",
-    "stylers": [{"color": "#9e9e9e"}]
+    "stylers": [{"color": "#77716c"}]
   }
 ]
 ''';

@@ -93,7 +93,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final notifier = ref.read(dashboardProvider.notifier);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFFCF9F6),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -164,7 +164,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF0B1635),
+                    color: Color(0xFF222222),
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -176,7 +176,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF667085),
+                color: Color(0xFF77716C),
               ),
             ),
           ],
@@ -192,7 +192,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: const Color(0xFFEEE8E2)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.04),
@@ -203,7 +203,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ),
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.notifications_outlined, size: 22, color: Color(0xFF0B1635)),
+                    icon: const Icon(Icons.notifications_outlined, size: 22, color: Color(0xFF222222)),
                     onPressed: () => widget.onNavigateTab?.call(3), // Notifications Tab
                   ),
                 ),
@@ -213,7 +213,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(
-                      color: Color(0xFFDC2626),
+                      color: Color(0xFFDC3545),
                       shape: BoxShape.circle,
                     ),
                     constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
@@ -238,12 +238,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF17399A), width: 2),
+                  border: Border.all(color: const Color(0xFFF46B12), width: 2),
                 ),
                 child: const CircleAvatar(
                   radius: 18,
                   backgroundImage: NetworkImage('https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=100'),
-                  backgroundColor: Color(0xFFE8EEFF),
+                  backgroundColor: Color(0xFFFBE4D5),
                 ),
               ),
             ),
@@ -264,13 +264,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isOnline ? const Color(0xFF16A34A).withValues(alpha: 0.3) : const Color(0xFFE5E7EB),
+          color: isOnline ? const Color(0xFF198754).withValues(alpha: 0.3) : const Color(0xFFEEE8E2),
           width: isOnline ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: isOnline
-                ? const Color(0xFF16A34A).withValues(alpha: 0.08)
+                ? const Color(0xFF198754).withValues(alpha: 0.08)
                 : Colors.black.withValues(alpha: 0.03),
             blurRadius: 14,
             offset: const Offset(0, 4),
@@ -287,11 +287,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 height: 14,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isOnline ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                  color: isOnline ? const Color(0xFF198754) : const Color(0xFF77716C),
                   boxShadow: [
                     if (isOnline)
                       BoxShadow(
-                        color: const Color(0xFF16A34A).withValues(alpha: 0.4),
+                        color: const Color(0xFF198754).withValues(alpha: 0.4),
                         blurRadius: 8,
                         spreadRadius: 2,
                       ),
@@ -304,7 +304,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0B1635),
+                  color: Color(0xFF222222),
                 ),
               ),
             ],
@@ -316,7 +316,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 : "You won't receive new booking requests",
             style: const TextStyle(
               fontSize: 13,
-              color: Color(0xFF667085),
+              color: Color(0xFF77716C),
             ),
           ),
           if (isOnline) ...[
@@ -324,13 +324,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF3FF),
+                color: const Color(0xFFFBE4D5),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFD9E2F2)),
+                border: Border.all(color: const Color(0xFFEEE8E2)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.my_location_rounded, size: 15, color: Color(0xFF2146A8)),
+                  const Icon(Icons.my_location_rounded, size: 15, color: Color(0xFFF46B12)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -340,7 +340,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       style: const TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF17357F),
+                        color: Color(0xFFF46B12),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -350,14 +350,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     const SizedBox(
                       width: 12,
                       height: 12,
-                      child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF2146A8)),
+                      child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFFF46B12)),
                     )
                   else
                     InkWell(
                       onTap: () => notifier.fetchAndUpdateLocation(context: context, showPromptDialogs: true),
                       child: const Padding(
                         padding: EdgeInsets.all(2),
-                        child: Icon(Icons.refresh, size: 15, color: Color(0xFF2146A8)),
+                        child: Icon(Icons.refresh, size: 15, color: Color(0xFFF46B12)),
                       ),
                     ),
                 ],
@@ -371,7 +371,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             child: ElevatedButton(
               onPressed: () => notifier.toggleOnline(!isOnline, context: context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isOnline ? const Color(0xFFDC2626) : AppColors.black,
+                backgroundColor: isOnline ? const Color(0xFFDC3545) : AppColors.black,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -429,7 +429,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               width: isActive ? 22 : 7,
               height: 7,
               decoration: BoxDecoration(
-                color: isActive ? const Color(0xFF17399A) : const Color(0xFFCBD5E1),
+                color: isActive ? const Color(0xFFF46B12) : const Color(0xFFEEE8E2),
                 borderRadius: BorderRadius.circular(4),
               ),
             );
@@ -462,7 +462,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 banner.imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
-                  color: const Color(0xFF17399A),
+                  color: const Color(0xFFF46B12),
                 ),
               ),
             ),
@@ -518,7 +518,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF17399A),
+                        color: const Color(0xFFF46B12),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                       ),
@@ -557,7 +557,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF0B1635),
+            color: Color(0xFF222222),
             letterSpacing: -0.2,
           ),
         ),
@@ -571,32 +571,32 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 title: "Today's Jobs",
                 value: '${state.todayJobsCount}',
                 icon: Icons.work_outline,
-                iconColor: const Color(0xFF17399A),
-                bgColor: const Color(0xFFE8EEFF),
+                iconColor: const Color(0xFFF46B12),
+                bgColor: const Color(0xFFFBE4D5),
               ),
               const SizedBox(width: 10),
               _buildSummaryCard(
                 title: "Today's Earnings",
                 value: '₹${state.todayEarnings.toStringAsFixed(0)}',
                 icon: Icons.currency_rupee,
-                iconColor: const Color(0xFF16A34A),
-                bgColor: const Color(0xFFDCFCE7),
+                iconColor: const Color(0xFF198754),
+                bgColor: const Color(0xFFE8F5E9),
               ),
               const SizedBox(width: 10),
               _buildSummaryCard(
                 title: 'Completed',
                 value: '${state.completedJobsCount}',
                 icon: Icons.check_circle_outline,
-                iconColor: const Color(0xFF3B82F6),
-                bgColor: const Color(0xFFEFF6FF),
+                iconColor: const Color(0xFFF46B12),
+                bgColor: const Color(0xFFFBE4D5),
               ),
               const SizedBox(width: 10),
               _buildSummaryCard(
                 title: 'Rating',
                 value: '${state.rating} ⭐',
                 icon: Icons.star_outline,
-                iconColor: const Color(0xFFF59E0B),
-                bgColor: const Color(0xFFFEF3C7),
+                iconColor: const Color(0xFFE5A126),
+                bgColor: const Color(0xFFFFF4E0),
               ),
             ],
           ),
@@ -618,7 +618,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -641,12 +641,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           const SizedBox(height: 10),
           Text(
             title,
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085), fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0B1635)),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF222222)),
           ),
         ],
       ),
@@ -665,10 +665,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+        border: Border.all(color: const Color(0xFFE5A126), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+            color: const Color(0xFFE5A126).withValues(alpha: 0.12),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -682,14 +682,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.notifications_active, color: Color(0xFFF59E0B), size: 20),
+                  Icon(Icons.notifications_active, color: Color(0xFFE5A126), size: 20),
                   SizedBox(width: 8),
                   Text(
                     '🔔 New Service Request',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF0B1635),
+                      color: Color(0xFF222222),
                     ),
                   ),
                 ],
@@ -697,13 +697,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
+                  color: const Color(0xFFFFF4E0),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '${countdown}s left',
                   style: const TextStyle(
-                    color: Color(0xFFB45309),
+                    color: Color(0xFFE5A126),
                     fontWeight: FontWeight.w800,
                     fontSize: 11,
                   ),
@@ -717,8 +717,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 4,
-              backgroundColor: const Color(0xFFFEF3C7),
-              valueColor: const AlwaysStoppedAnimation(Color(0xFFF59E0B)),
+              backgroundColor: const Color(0xFFFFF4E0),
+              valueColor: const AlwaysStoppedAnimation(Color(0xFFE5A126)),
             ),
           ),
           const SizedBox(height: 14),
@@ -730,7 +730,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0B1635),
+                  color: Color(0xFF222222),
                 ),
               ),
               Text(
@@ -738,7 +738,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF16A34A),
+                  color: Color(0xFF198754),
                 ),
               ),
             ],
@@ -746,16 +746,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           const SizedBox(height: 6),
           Text(
             'Customer: ${proposal.customerName}',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0B1635)),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF222222)),
           ),
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF667085)),
+              const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF77716C)),
               const SizedBox(width: 4),
               Text(
                 '📍 ${proposal.distanceKm} km away • Est. ${proposal.travelMinutes} min',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF667085), fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -766,8 +766,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 child: OutlinedButton(
                   onPressed: () => notifier.rejectProposal(),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFDC2626),
-                    side: const BorderSide(color: Color(0xFFDC2626)),
+                    foregroundColor: const Color(0xFFDC3545),
+                    side: const BorderSide(color: Color(0xFFDC3545)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -780,7 +780,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 child: ElevatedButton(
                   onPressed: () => notifier.acceptProposal(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
+                    backgroundColor: const Color(0xFF198754),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     elevation: 0,
@@ -836,10 +836,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF17399A), width: 1.5),
+        border: Border.all(color: const Color(0xFFF46B12), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF17399A).withValues(alpha: 0.1),
+            color: const Color(0xFFF46B12).withValues(alpha: 0.1),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -854,13 +854,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8EEFF),
+                  color: const Color(0xFFFBE4D5),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
                   'ACTIVE SERVICE',
                   style: TextStyle(
-                    color: Color(0xFF17399A),
+                    color: Color(0xFFF46B12),
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
@@ -869,36 +869,36 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
               Text(
                 '₹${job.price.toStringAsFixed(0)}',
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF16A34A)),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF198754)),
               ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
             job.title,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0B1635)),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF222222)),
           ),
           const SizedBox(height: 4),
           Text(
             'Customer: ${job.customerName}',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0B1635)),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF222222)),
           ),
           const SizedBox(height: 2),
           Text(
             '📍 Customer Location: ${job.distanceKm} km • ${job.travelMinutes} min away',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF667085)),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF77716C)),
           ),
           const SizedBox(height: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFDCFCE7),
+              color: const Color(0xFFE8F5E9),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               'Status: $stepLabel',
               style: const TextStyle(
-                color: Color(0xFF166534),
+                color: Color(0xFF198754),
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -942,8 +942,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   icon: const Icon(Icons.call, size: 14),
                   label: const Text('CALL', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF16A34A),
-                    side: const BorderSide(color: Color(0xFF16A34A)),
+                    foregroundColor: const Color(0xFF198754),
+                    side: const BorderSide(color: Color(0xFF198754)),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
@@ -966,8 +966,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   icon: const Icon(Icons.chat_bubble_outline, size: 14),
                   label: const Text('CHAT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF17399A),
-                    side: const BorderSide(color: Color(0xFF17399A)),
+                    foregroundColor: const Color(0xFFF46B12),
+                    side: const BorderSide(color: Color(0xFFF46B12)),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
@@ -1011,7 +1011,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF0B1635),
+                color: Color(0xFF222222),
                 letterSpacing: -0.2,
               ),
             ),
@@ -1022,7 +1022,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF17399A),
+                  color: Color(0xFFF46B12),
                 ),
               ),
             ),
@@ -1036,7 +1036,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: const Color(0xFFEEE8E2)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.02),
@@ -1051,10 +1051,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8EEFF),
+                        color: const Color(0xFFFBE4D5),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.build, color: Color(0xFF17399A), size: 22),
+                      child: const Icon(Icons.build, color: Color(0xFFF46B12), size: 22),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -1063,19 +1063,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         children: [
                           Text(
                             state.activeJob!.title,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0B1635)),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF222222)),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             '${state.activeJob!.customerName} • Today',
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF667085)),
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF77716C)),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             '📍 ${state.activeJob!.customerAddress}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF667085)),
+                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                           ),
                         ],
                       ),
@@ -1085,13 +1085,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       children: [
                         Text(
                           '₹${state.activeJob!.price.toStringAsFixed(0)}',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF17399A)),
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFFF46B12)),
                         ),
                         const SizedBox(height: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
+                            color: const Color(0xFFFBE4D5),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
@@ -1099,7 +1099,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1D4ED8),
+                              color: Color(0xFFF46B12),
                             ),
                           ),
                         ),
@@ -1114,12 +1114,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  border: Border.all(color: const Color(0xFFEEE8E2)),
                 ),
                 child: const Center(
                   child: Text(
                     'No active bookings scheduled for today',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF667085), fontWeight: FontWeight.w500),
+                    style: TextStyle(fontSize: 13, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
                   ),
                 ),
               ),
@@ -1134,14 +1134,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0B1F63), Color(0xFF17399A)],
+          colors: [Color(0xFFF46B12), Color(0xFFE85B08)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF17399A).withValues(alpha: 0.25),
+            color: const Color(0xFFF46B12).withValues(alpha: 0.25),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -1248,7 +1248,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -1268,19 +1268,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0B1635),
+                  color: Color(0xFF222222),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
+                  color: const Color(0xFFFFF4E0),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '⭐ ${state.rating} Rating',
                   style: const TextStyle(
-                    color: Color(0xFFB45309),
+                    color: Color(0xFFE5A126),
                     fontWeight: FontWeight.w800,
                     fontSize: 11,
                   ),
@@ -1292,25 +1292,25 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           _buildPerformanceBar(
             label: 'Acceptance Rate',
             percentage: state.acceptanceRate,
-            color: const Color(0xFF16A34A),
+            color: const Color(0xFF198754),
           ),
           const SizedBox(height: 12),
           _buildPerformanceBar(
             label: 'Completion Rate',
             percentage: state.completionRate,
-            color: const Color(0xFF17399A),
+            color: const Color(0xFFF46B12),
           ),
           const SizedBox(height: 14),
           Row(
             children: [
-              const Icon(Icons.verified, color: Color(0xFF16A34A), size: 16),
+              const Icon(Icons.verified, color: Color(0xFF198754), size: 16),
               const SizedBox(width: 6),
               Text(
                 '${state.weeklyCompletedJobs} Jobs Completed Successfully',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF0B1635),
+                  color: Color(0xFF222222),
                 ),
               ),
             ],
@@ -1333,11 +1333,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 12.5, color: Color(0xFF667085), fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
             ),
             Text(
               '${percentage.toStringAsFixed(0)}%',
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0B1635)),
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF222222)),
             ),
           ],
         ),
@@ -1347,7 +1347,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           child: LinearProgressIndicator(
             value: percentage / 100,
             minHeight: 6,
-            backgroundColor: const Color(0xFFF1F5F9),
+            backgroundColor: const Color(0xFFFCF9F6),
             valueColor: AlwaysStoppedAnimation(color),
           ),
         ),
@@ -1365,7 +1365,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF0B1635),
+            color: Color(0xFF222222),
             letterSpacing: -0.2,
           ),
         ),
@@ -1382,28 +1382,28 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               title: 'My Jobs',
               subtitle: 'Active & history',
               icon: Icons.work_outline,
-              color: const Color(0xFF17399A),
+              color: const Color(0xFFF46B12),
               onTap: () => widget.onNavigateTab?.call(1),
             ),
             _buildQuickActionTile(
               title: 'Earnings',
               subtitle: 'Payouts & tips',
               icon: Icons.account_balance_wallet_outlined,
-              color: const Color(0xFF16A34A),
+              color: const Color(0xFF198754),
               onTap: () => widget.onNavigateTab?.call(2),
             ),
             _buildQuickActionTile(
               title: 'Availability',
               subtitle: 'Duty shifts & leaves',
               icon: Icons.calendar_month_outlined,
-              color: const Color(0xFFF59E0B),
+              color: const Color(0xFFE5A126),
               onTap: () => widget.onNavigateTab?.call(4),
             ),
             _buildQuickActionTile(
               title: 'Support',
               subtitle: 'Safety cell & help',
               icon: Icons.headset_mic_outlined,
-              color: const Color(0xFF6366F1),
+              color: const Color(0xFFF46B12),
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Partner Support helpline: +91 98765 43210')),
@@ -1431,7 +1431,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: const Color(0xFFEEE8E2)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.02),
@@ -1458,11 +1458,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0B1635)),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF222222)),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF667085)),
+                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF77716C)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

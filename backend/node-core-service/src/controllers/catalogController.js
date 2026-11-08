@@ -1,4 +1,9 @@
-const { getMasterCatalog, getCatalogHierarchy, getFlattenedServices } = require('../config/masterCatalog');
+const {
+  getMasterCatalog,
+  getCatalogHierarchy,
+  getFlattenedServices,
+  getCatalogVersion,
+} = require('../config/masterCatalog');
 const postgresSpatialScanner = require('../services/postgresSpatialScanner');
 
 /**
@@ -7,9 +12,12 @@ const postgresSpatialScanner = require('../services/postgresSpatialScanner');
  */
 const getCatalog = async (req, res) => {
   try {
-    const categories = getCatalogHierarchy();
+    const includeInactive = req.query.includeInactive === 'true';
+    const categories = getCatalogHierarchy({ includeInactive });
+    const catalogVersion = getCatalogVersion();
     return res.json({
       success: true,
+      catalogVersion,
       data: categories,
       categories: categories,
       count: categories.length,
@@ -25,9 +33,12 @@ const getCatalog = async (req, res) => {
  */
 const getHierarchy = async (req, res) => {
   try {
-    const hierarchy = getCatalogHierarchy();
+    const includeInactive = req.query.includeInactive === 'true';
+    const hierarchy = getCatalogHierarchy({ includeInactive });
+    const catalogVersion = getCatalogVersion();
     return res.json({
       success: true,
+      catalogVersion,
       data: hierarchy,
       categories: hierarchy,
       count: hierarchy.length,
@@ -39,16 +50,77 @@ const getHierarchy = async (req, res) => {
 
 /**
  * GET /api/v1/catalog/services
- * Returns flattened list of all services with live pricing and images
+ * Returns flattened list of all services with live pricing, images, filtering, and pagination
  */
 const getServices = async (req, res) => {
   try {
-    const services = getFlattenedServices();
+    const {
+      categoryId,
+      subcategoryId,
+      isActive,
+      active,
+      search,
+      page,
+      limit,
+    } = req.query;
+
+    let services = getFlattenedServices();
+    const totalUnfiltered = services.length;
+
+    if (categoryId && categoryId !== 'all') {
+      services = services.filter(s => s.categoryId === categoryId);
+    }
+    if (subcategoryId && subcategoryId !== 'all') {
+      services = services.filter(s => s.subcategoryId === subcategoryId);
+    }
+    const activeFilter = isActive !== undefined ? isActive : active;
+    if (activeFilter !== undefined && activeFilter !== 'all') {
+      const wantActive = String(activeFilter).toLowerCase() === 'true';
+      services = services.filter(s => Boolean(s.isActive) === wantActive);
+    }
+    if (search && String(search).trim()) {
+      const q = String(search).trim().toLowerCase();
+      services = services.filter(s =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.id || '').toLowerCase().includes(q) ||
+        (s.canonicalServiceId || '').toLowerCase().includes(q) ||
+        (s.categoryName || '').toLowerCase().includes(q) ||
+        (s.subcategoryName || '').toLowerCase().includes(q) ||
+        (s.description || '').toLowerCase().includes(q)
+      );
+    }
+
+    services.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+
+    const totalFiltered = services.length;
+    let paginated = services;
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    if (!isNaN(pageNum) && pageNum > 0 && !isNaN(limitNum) && limitNum > 0) {
+      const start = (pageNum - 1) * limitNum;
+      paginated = services.slice(start, start + limitNum);
+    }
+
+    const catalogVersion = getCatalogVersion();
+    const resolvedPage = !isNaN(pageNum) && pageNum > 0 ? pageNum : 1;
+    const resolvedLimit = !isNaN(limitNum) && limitNum > 0 ? limitNum : totalFiltered;
     return res.json({
       success: true,
-      data: services,
-      services: services,
-      count: services.length,
+      catalogVersion,
+      data: paginated,
+      services: paginated,
+      count: paginated.length,
+      totalFiltered,
+      totalCatalogServices: totalUnfiltered,
+      page: resolvedPage,
+      limit: resolvedLimit,
+      pagination: {
+        total: totalFiltered,
+        totalCatalogServices: totalUnfiltered,
+        page: resolvedPage,
+        limit: resolvedLimit,
+        totalPages: resolvedLimit > 0 ? Math.ceil(totalFiltered / resolvedLimit) : 1,
+      },
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });

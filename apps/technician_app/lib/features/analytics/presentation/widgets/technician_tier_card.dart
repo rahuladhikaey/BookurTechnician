@@ -35,7 +35,7 @@ class TechnicianTierCard extends StatelessWidget {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFCBD5E1),
+                    color: const Color(0xFFEEE8E2),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -43,18 +43,18 @@ class TechnicianTierCard extends StatelessWidget {
               const SizedBox(height: 18),
               const Row(
                 children: [
-                  Icon(Icons.workspace_premium_rounded, color: Color(0xFFD97706), size: 28),
+                  Icon(Icons.workspace_premium_rounded, color: Color(0xFFE5A126), size: 28),
                   SizedBox(width: 10),
                   Text(
                     'Partner Membership Tiers',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF222222)),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
               const Text(
                 'Work daily hours on BookurTechnician to unlock higher tier perks, lower platform commissions, and VIP job radar.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                style: TextStyle(fontSize: 13, color: Color(0xFF77716C)),
               ),
               const SizedBox(height: 20),
 
@@ -79,7 +79,7 @@ class TechnicianTierCard extends StatelessWidget {
                 tier: TechnicianTier.silver,
                 title: 'Silver Pro Partner 🥈',
                 subtitle: 'Unlocks when working 5+ hours per day',
-                color: const Color(0xFF64748B),
+                color: const Color(0xFF77716C),
                 isCurrent: tierInfo.tier == TechnicianTier.silver,
                 perks: [
                   'Priority Job Radar in 15km Radius',
@@ -96,7 +96,7 @@ class TechnicianTierCard extends StatelessWidget {
                 tier: TechnicianTier.gold,
                 title: 'Gold VIP Elite 🥇',
                 subtitle: 'Unlocks when working 9+ hours per day',
-                color: const Color(0xFFD97706),
+                color: const Color(0xFFE5A126),
                 isCurrent: tierInfo.tier == TechnicianTier.gold,
                 perks: [
                   'Top-Tier #1 Priority Job Radar Dispatch',
@@ -113,7 +113,7 @@ class TechnicianTierCard extends StatelessWidget {
                 height: 48,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F172A),
+                    backgroundColor: const Color(0xFF222222),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -139,10 +139,10 @@ class TechnicianTierCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isCurrent ? color.withAlpha(20) : const Color(0xFFF8FAFC),
+        color: isCurrent ? color.withAlpha(20) : const Color(0xFFFCF9F6),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isCurrent ? color : const Color(0xFFE2E8F0),
+          color: isCurrent ? color : const Color(0xFFEEE8E2),
           width: isCurrent ? 2 : 1,
         ),
       ),
@@ -165,7 +165,7 @@ class TechnicianTierCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF77716C), fontWeight: FontWeight.w500)),
           const SizedBox(height: 10),
           ...perks.map((p) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
@@ -175,7 +175,7 @@ class TechnicianTierCard extends StatelessWidget {
                     Icon(Icons.check_circle_rounded, color: color, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(p, style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155), fontWeight: FontWeight.w600)),
+                      child: Text(p, style: const TextStyle(fontSize: 12.5, color: Color(0xFF222222), fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -199,27 +199,27 @@ class TechnicianTierCard extends StatelessWidget {
     switch (tier) {
       case TechnicianTier.gold:
         gradientColors = const [
-          Color(0xFF78350F),
-          Color(0xFFB45309),
-          Color(0xFFD97706),
-          Color(0xFFF59E0B),
-          Color(0xFFFDE68A),
+          Color(0xFFE85B08),
+          Color(0xFFE5A126),
+          Color(0xFFE5A126),
+          Color(0xFFE5A126),
+          Color(0xFFFBE4D5),
         ];
-        accentColor = const Color(0xFFFEF3C7);
-        chipColor = const Color(0xFFFCD34D);
+        accentColor = const Color(0xFFFFF4E0);
+        chipColor = const Color(0xFFE5A126);
         watermark = 'GOLD VIP';
         tierIcon = Icons.military_tech_rounded;
         break;
       case TechnicianTier.silver:
         gradientColors = const [
-          Color(0xFF334155),
-          Color(0xFF475569),
-          Color(0xFF64748B),
-          Color(0xFF94A3B8),
-          Color(0xFFCBD5E1),
+          Color(0xFF222222),
+          Color(0xFF77716C),
+          Color(0xFF77716C),
+          Color(0xFF77716C),
+          Color(0xFFEEE8E2),
         ];
-        accentColor = const Color(0xFFF1F5F9);
-        chipColor = const Color(0xFFE2E8F0);
+        accentColor = const Color(0xFFFCF9F6);
+        chipColor = const Color(0xFFEEE8E2);
         watermark = 'SILVER PRO';
         tierIcon = Icons.verified_rounded;
         break;
@@ -231,7 +231,7 @@ class TechnicianTierCard extends StatelessWidget {
           Color(0xFFB87333),
           Color(0xFFD27D2D),
         ];
-        accentColor = const Color(0xFFFFEDD5);
+        accentColor = const Color(0xFFFBE4D5);
         chipColor = const Color(0xFFFDBA74);
         watermark = 'COPPER PASS';
         tierIcon = Icons.shield_rounded;
@@ -470,7 +470,7 @@ class TechnicianTierCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.flash_on_rounded, color: Color(0xFFFCD34D), size: 14),
+                          const Icon(Icons.flash_on_rounded, color: Color(0xFFE5A126), size: 14),
                           const SizedBox(width: 4),
                           Text(
                             '${tierInfo.weeklyStreakDays}-Day Active Shift Streak 🔥',

@@ -102,21 +102,14 @@ class _SplashPageState extends ConsumerState<SplashPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Premium Dark Slate Background
+      backgroundColor: const Color(0xFFFCF9F6), // Warm Background (#FCF9F6)
       body: Stack(
         children: [
-          // Background Gradient Glow
+          // Subtle Warm Peach Radial Accent
           Positioned.fill(
             child: Container(
               decoration: const BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment(0.0, -0.2),
-                  radius: 1.2,
-                  colors: [
-                    Color(0xFF1E3A8A), // Deep Navy
-                    Color(0xFF0B1120), // Dark Void Slate
-                  ],
-                ),
+                color: Color(0xFFFCF9F6),
               ),
             ),
           ),
@@ -135,16 +128,20 @@ class _SplashPageState extends ConsumerState<SplashPage>
                       children: [
                         // App Logo Container
                         Container(
-                          width: 110,
-                          height: 110,
+                          width: 112,
+                          height: 112,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.white,
+                            border: Border.all(
+                              color: const Color(0xFFF46B12),
+                              width: 3.5,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
-                                blurRadius: 36,
-                                spreadRadius: 4,
+                                color: const Color(0xFFF46B12).withValues(alpha: 0.18),
+                                blurRadius: 30,
+                                spreadRadius: 2,
                                 offset: const Offset(0, 10),
                               ),
                             ],
@@ -156,9 +153,9 @@ class _SplashPageState extends ConsumerState<SplashPage>
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) {
                                 return const Icon(
-                                  Icons.handyman_rounded,
+                                  Icons.bolt_rounded,
                                   size: 54,
-                                  color: Color(0xFF1E3A8A),
+                                  color: Color(0xFFF46B12),
                                 );
                               },
                             ),
@@ -171,30 +168,30 @@ class _SplashPageState extends ConsumerState<SplashPage>
                           textAlign: TextAlign.center,
                           text: const TextSpan(
                             style: TextStyle(
-                              fontSize: 26,
+                              fontSize: 27,
                               fontWeight: FontWeight.bold,
                               letterSpacing: -0.5,
                               fontFamily: 'Inter',
                             ),
                             children: [
                               TextSpan(
-                                text: 'bookur',
+                                text: 'Bookur',
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF222222),
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
                               TextSpan(
-                                text: 'technician',
+                                text: 'Technician',
                                 style: TextStyle(
-                                  color: Color(0xFF38BDF8), // Bright Sky Blue
+                                  color: Color(0xFFF46B12), // Primary Orange
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
 
                         // Partner Pro Badge
                         Transform.translate(
@@ -205,10 +202,10 @@ class _SplashPageState extends ConsumerState<SplashPage>
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                              color: const Color(0xFFFBE4D5),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.6),
+                                color: const Color(0xFFF46B12).withValues(alpha: 0.4),
                                 width: 1.2,
                               ),
                             ),
@@ -217,14 +214,14 @@ class _SplashPageState extends ConsumerState<SplashPage>
                               children: [
                                 Icon(
                                   Icons.verified_rounded,
-                                  color: Color(0xFF10B981),
+                                  color: Color(0xFFF46B12),
                                   size: 16,
                                 ),
                                 SizedBox(width: 6),
                                 Text(
                                   'PARTNER PRO',
                                   style: TextStyle(
-                                    color: Color(0xFF34D399),
+                                    color: Color(0xFFE85B08),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 1.2,
@@ -243,7 +240,7 @@ class _SplashPageState extends ConsumerState<SplashPage>
           ),
 
           // Bottom Loading & Version Info
-          Positioned(
+          const Positioned(
             bottom: 40,
             left: 0,
             right: 0,
@@ -255,18 +252,18 @@ class _SplashPageState extends ConsumerState<SplashPage>
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      const Color(0xFF38BDF8).withValues(alpha: 0.8),
+                      Color(0xFFF46B12),
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Text(
-                  'Expert Partner Network',
+                  'Expert Electrical Partner Network',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
+                    color: Color(0xFF77716C),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
                   ),
                 ),
               ],

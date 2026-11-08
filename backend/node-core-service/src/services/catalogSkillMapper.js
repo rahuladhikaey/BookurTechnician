@@ -439,7 +439,27 @@ const doesTechnicianMatchService = (profile, targetServiceId) => {
   return false;
 };
 
+/**
+ * Resolves a single skill identifier or name to its canonical catalog service object
+ * @param {string} skillInput
+ * @returns {{ serviceId: string, serviceName: string, categoryId: string, categoryName: string } | null}
+ */
+const resolveToCatalogService = (skillInput) => {
+  const ids = resolveServiceIdsFromSkill(skillInput);
+  if (!ids || ids.length === 0) return null;
+  const catalog = getFlattenedServices();
+  const item = catalog.find(s => s.id === ids[0] || s.canonicalServiceId === ids[0]);
+  if (!item) return null;
+  return {
+    serviceId: item.canonicalServiceId || item.id,
+    serviceName: item.name,
+    categoryId: item.categoryId,
+    categoryName: item.categoryName,
+  };
+};
+
 module.exports = {
+  resolveToCatalogService,
   resolveServiceIdsFromSkill,
   getSkillSynonymsForService,
   doesTechnicianMatchService,

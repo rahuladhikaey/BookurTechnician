@@ -25,7 +25,7 @@ class _AnalyticsDualChartState extends State<AnalyticsDualChart> {
       return Container(
         height: 220,
         alignment: Alignment.center,
-        child: const Text('No analytics data recorded for this period.', style: TextStyle(color: Color(0xFF64748B))),
+        child: const Text('No analytics data recorded for this period.', style: TextStyle(color: Color(0xFF77716C))),
       );
     }
 
@@ -48,30 +48,30 @@ class _AnalyticsDualChartState extends State<AnalyticsDualChart> {
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2563EB),
+                    color: const Color(0xFFF46B12),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Text('Income (₹)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                const Text('Income (₹)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF222222))),
                 const SizedBox(width: 16),
                 Container(
                   width: 10,
                   height: 10,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFF59E0B),
+                    color: Color(0xFFE5A126),
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Text('Work Time (hrs)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                const Text('Work Time (hrs)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF222222))),
               ],
             ),
             if (_selectedIndex != null && _selectedIndex! < widget.dataPoints.length)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
+                  color: const Color(0xFF222222),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -126,7 +126,7 @@ class _AnalyticsDualChartState extends State<AnalyticsDualChart> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
-                    color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                    color: isSelected ? const Color(0xFFF46B12) : const Color(0xFF77716C),
                   ),
                 ),
               ),
@@ -163,7 +163,7 @@ class _DualChartPainter extends CustomPainter {
 
     // 1. Draw horizontal grid lines
     final gridPaint = Paint()
-      ..color = const Color(0xFFF1F5F9)
+      ..color = const Color(0xFFFCF9F6)
       ..strokeWidth = 1;
 
     for (int i = 0; i <= 4; i++) {
@@ -188,8 +188,8 @@ class _DualChartPainter extends CustomPainter {
       final barPaint = Paint()
         ..shader = LinearGradient(
           colors: isSelected
-              ? const [Color(0xFF1D4ED8), Color(0xFF3B82F6)]
-              : const [Color(0xFF3B82F6), Color(0xFF93C5FD)],
+              ? const [Color(0xFFF46B12), Color(0xFFF46B12)]
+              : const [Color(0xFFF46B12), Color(0xFFFBE4D5)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ).createShader(Rect.fromLTRB(centerX - (barWidth / 2), topY, centerX + (barWidth / 2), height));
@@ -201,7 +201,7 @@ class _DualChartPainter extends CustomPainter {
         final textPainter = TextPainter(
           text: TextSpan(
             text: '₹${pt.earnings.toStringAsFixed(0)}',
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A)),
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFFF46B12)),
           ),
           textDirection: TextDirection.ltr,
         )..layout();
@@ -232,7 +232,7 @@ class _DualChartPainter extends CustomPainter {
     }
 
     final linePaint = Paint()
-      ..color = const Color(0xFFF59E0B)
+      ..color = const Color(0xFFE5A126)
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -240,7 +240,7 @@ class _DualChartPainter extends CustomPainter {
     canvas.drawPath(linePath, linePaint);
 
     // Draw circular dots for hours
-    final dotPaint = Paint()..color = const Color(0xFFF59E0B);
+    final dotPaint = Paint()..color = const Color(0xFFE5A126);
     final dotInnerPaint = Paint()..color = Colors.white;
 
     for (int i = 0; i < points.length; i++) {

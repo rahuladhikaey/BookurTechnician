@@ -122,7 +122,7 @@ class _TechnicianChatScreenState extends State<TechnicianChatScreen> {
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
-            const Icon(Icons.shield_outlined, color: Color(0xFF16A34A), size: 48),
+            const Icon(Icons.shield_outlined, color: Color(0xFF198754), size: 48),
             const SizedBox(height: 12),
             const Text(
               'Privacy-Protected Partner Call',
@@ -144,14 +144,14 @@ class _TechnicianChatScreenState extends State<TechnicianChatScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('📞 Connecting via BT Telecom Bridge: 1800-889-TECH'),
-                      backgroundColor: Color(0xFF16A34A),
+                      backgroundColor: Color(0xFF198754),
                     ),
                   );
                 },
                 icon: const Icon(Icons.call),
                 label: const Text('Call via Telecom Relay'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF16A34A),
+                  backgroundColor: const Color(0xFF198754),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -177,7 +177,7 @@ class _TechnicianChatScreenState extends State<TechnicianChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1635),
+        backgroundColor: const Color(0xFF222222),
         foregroundColor: Colors.white,
         titleSpacing: 0,
         title: Column(
@@ -189,13 +189,13 @@ class _TechnicianChatScreenState extends State<TechnicianChatScreen> {
             ),
             Text(
               '${widget.serviceName ?? "Service Job"} • Secured In-App Chat',
-              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF77716C)),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.phone_in_talk, color: Color(0xFF22C55E)),
+            icon: const Icon(Icons.phone_in_talk, color: Color(0xFF198754)),
             tooltip: 'Secured Masked Call',
             onPressed: _initiateMaskedCall,
           ),
@@ -206,10 +206,10 @@ class _TechnicianChatScreenState extends State<TechnicianChatScreen> {
           // Security disclaimer
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: const Color(0xFFF1F5F9),
+            color: const Color(0xFFFCF9F6),
             child: Row(
               children: [
-                const Icon(Icons.verified_user, size: 16, color: Color(0xFF475569)),
+                const Icon(Icons.verified_user, size: 16, color: Color(0xFF77716C)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -264,7 +264,7 @@ class _TechnicianChatScreenState extends State<TechnicianChatScreen> {
                               constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
-                                color: isMe ? const Color(0xFF17399A) : Colors.grey.shade100,
+                                color: isMe ? const Color(0xFFF46B12) : Colors.grey.shade100,
                                 borderRadius: BorderRadius.only(
                                   topLeft: const Radius.circular(16),
                                   topRight: const Radius.circular(16),
@@ -365,7 +365,7 @@ class _TechnicianChatScreenState extends State<TechnicianChatScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(color: Color(0xFF17399A)),
+                          borderSide: const BorderSide(color: Color(0xFFF46B12)),
                         ),
                         filled: true,
                         fillColor: Colors.grey.shade50,
@@ -376,7 +376,7 @@ class _TechnicianChatScreenState extends State<TechnicianChatScreen> {
                   const SizedBox(width: 8),
                   Container(
                     decoration: const BoxDecoration(
-                      color: Color(0xFF17399A),
+                      color: Color(0xFFF46B12),
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(

@@ -165,7 +165,7 @@ export default function PricingManager({ services: propServices, setServices: se
           right: '24px',
           zIndex: 999,
           padding: '12px 18px',
-          backgroundColor: '#0F172A',
+          backgroundColor: '#F46B12',
           color: '#FFFFFF',
           borderRadius: '8px',
           boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
@@ -187,7 +187,7 @@ export default function PricingManager({ services: propServices, setServices: se
             width: '42px',
             height: '42px',
             borderRadius: '8px',
-            backgroundColor: '#0F172A',
+            backgroundColor: '#F46B12',
             color: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
@@ -197,10 +197,10 @@ export default function PricingManager({ services: propServices, setServices: se
             🏷️
           </div>
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#222222', margin: 0 }}>
               Dynamic Service Rate Cards & Pricing Management ({services.length} Services)
             </h2>
-            <p style={{ fontSize: '12.5px', color: '#64748B', margin: '2px 0 0' }}>
+            <p style={{ fontSize: '12.5px', color: '#77716C', margin: '2px 0 0' }}>
               Set customized selling rates, regular MRP, special offer prices, booking fees (₹49 / ₹99), advance % rules, and partner earnings.
             </p>
           </div>
@@ -222,7 +222,7 @@ export default function PricingManager({ services: propServices, setServices: se
         {/* Simulator Selector Card */}
         <div className="panel" style={{ margin: 0, padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A' }}>
+            <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#222222' }}>
               🧮 Live Multi-Service Pricing Simulator
             </div>
             <span className="badge badge-info">18% GST Configured</span>
@@ -244,59 +244,59 @@ export default function PricingManager({ services: propServices, setServices: se
             </select>
           </div>
 
-          <div style={{ backgroundColor: '#F8FAFC', padding: '12px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ backgroundColor: '#FCF9F6', padding: '12px', borderRadius: '6px', border: '1px solid #EEE8E2', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#64748B' }}>Base / Selling Cost:</span>
-              <strong style={{ color: '#0F172A', fontFamily: 'monospace' }}>₹{simBase.toFixed(2)}</strong>
+              <span style={{ color: '#77716C' }}>Base / Selling Cost:</span>
+              <strong style={{ color: '#222222', fontFamily: 'monospace' }}>₹{simBase.toFixed(2)}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#64748B' }}>Service Booking / Inspection Fee:</span>
-              <strong style={{ color: '#D97706', fontFamily: 'monospace' }}>₹{simBookingFee.toFixed(2)}</strong>
+              <span style={{ color: '#77716C' }}>Service Booking / Inspection Fee:</span>
+              <strong style={{ color: '#E5A126', fontFamily: 'monospace' }}>₹{simBookingFee.toFixed(2)}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#64748B' }}>Statutory GST Tax (18%):</span>
-              <strong style={{ color: '#0F172A', fontFamily: 'monospace' }}>₹{simGst.toFixed(2)}</strong>
+              <span style={{ color: '#77716C' }}>Statutory GST Tax (18%):</span>
+              <strong style={{ color: '#222222', fontFamily: 'monospace' }}>₹{simGst.toFixed(2)}</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #E2E8F0', paddingTop: '6px', fontWeight: '800', fontSize: '13.5px' }}>
-              <span style={{ color: '#0F172A' }}>Total Customer Payable:</span>
-              <span style={{ color: '#15803D', fontFamily: 'monospace' }}>₹{simGrandTotal.toFixed(2)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #EEE8E2', paddingTop: '6px', fontWeight: '800', fontSize: '13.5px' }}>
+              <span style={{ color: '#222222' }}>Total Customer Payable:</span>
+              <span style={{ color: '#198754', fontFamily: 'monospace' }}>₹{simGrandTotal.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         {/* Prepayment & Technician Payout Split Card */}
         <div className="panel" style={{ margin: 0, padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#0F172A' }}>
+          <div style={{ fontSize: '13.5px', fontWeight: '800', color: '#222222' }}>
             💳 Online Prepayment & Technician Settlement Split
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            <div style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '6px', padding: '10px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#1E40AF', textTransform: 'uppercase' }}>
+            <div style={{ backgroundColor: '#FBE4D5', border: '1px solid #FBE4D5', borderRadius: '6px', padding: '10px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: '#F46B12', textTransform: 'uppercase' }}>
                 Online Prepayment ({activeSim?.advancePrepaymentPct || 30}%)
               </div>
-              <div style={{ fontSize: '18px', fontWeight: '900', color: '#1E40AF', fontFamily: 'monospace', marginTop: '2px' }}>
+              <div style={{ fontSize: '18px', fontWeight: '900', color: '#F46B12', fontFamily: 'monospace', marginTop: '2px' }}>
                 ₹{simAdvancePrepayment.toFixed(2)}
               </div>
-              <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '2px' }}>
+              <div style={{ fontSize: '10.5px', color: '#77716C', marginTop: '2px' }}>
                 Booking Fee + {activeSim?.advancePrepaymentPct || 30}% Service
               </div>
             </div>
 
-            <div style={{ backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', padding: '10px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: '#15803D', textTransform: 'uppercase' }}>
+            <div style={{ backgroundColor: '#E8F5E9', border: '1px solid #E8F5E9', borderRadius: '6px', padding: '10px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: '#198754', textTransform: 'uppercase' }}>
                 Partner Net Payout
               </div>
-              <div style={{ fontSize: '18px', fontWeight: '900', color: '#15803D', fontFamily: 'monospace', marginTop: '2px' }}>
+              <div style={{ fontSize: '18px', fontWeight: '900', color: '#198754', fontFamily: 'monospace', marginTop: '2px' }}>
                 ₹{simPartnerPayout.toFixed(2)}
               </div>
-              <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '2px' }}>
+              <div style={{ fontSize: '10.5px', color: '#77716C', marginTop: '2px' }}>
                 Disbursed to Partner Wallet
               </div>
             </div>
           </div>
 
-          <div style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', padding: '8px 10px', fontSize: '11.5px', color: '#D97706', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ backgroundColor: '#FFF4E0', border: '1px solid #FBE4D5', borderRadius: '6px', padding: '8px 10px', fontSize: '11.5px', color: '#E5A126', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>Balance to Collect by Partner on Finish:</span>
             <strong style={{ fontFamily: 'monospace', fontSize: '13px' }}>₹{simBalanceOnFinish.toFixed(2)}</strong>
           </div>
@@ -320,7 +320,7 @@ export default function PricingManager({ services: propServices, setServices: se
         </div>
 
         {/* Category Pills */}
-        <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '6px', padding: '2px', border: '1px solid #E2E8F0', flexWrap: 'wrap', gap: '2px' }}>
+        <div style={{ display: 'flex', backgroundColor: '#FCF9F6', borderRadius: '6px', padding: '2px', border: '1px solid #EEE8E2', flexWrap: 'wrap', gap: '2px' }}>
           {categories.map(cat => (
             <button
               key={cat}
@@ -329,8 +329,8 @@ export default function PricingManager({ services: propServices, setServices: se
                 padding: '4px 10px',
                 borderRadius: '4px',
                 border: 'none',
-                backgroundColor: filterCategory === cat ? '#0F172A' : 'transparent',
-                color: filterCategory === cat ? '#FFFFFF' : '#64748B',
+                backgroundColor: filterCategory === cat ? '#F46B12' : 'transparent',
+                color: filterCategory === cat ? '#FFFFFF' : '#77716C',
                 fontSize: '11.5px',
                 fontWeight: '700',
                 cursor: 'pointer'
@@ -347,16 +347,16 @@ export default function PricingManager({ services: propServices, setServices: se
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Service Name</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Category / Subcategory</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Regular MRP (₹)</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Offer Price (₹)</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Booking Fee (₹)</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Advance Pay (30%)</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Partner Payout (₹)</th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Warranty</th>
-                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '800', color: '#0F172A' }}>Actions</th>
+              <tr style={{ backgroundColor: '#FCF9F6', borderBottom: '1px solid #EEE8E2' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Service Name</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Category / Subcategory</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Regular MRP (₹)</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Offer Price (₹)</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Booking Fee (₹)</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Advance Pay (30%)</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Partner Payout (₹)</th>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Warranty</th>
+                <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: '800', color: '#222222' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -373,45 +373,45 @@ export default function PricingManager({ services: propServices, setServices: se
                 const subName = srv.subcategoryName || srv.subcategory?.name || '';
 
                 return (
-                  <tr key={srv.id} style={{ borderBottom: '1px solid #E2E8F0' }}>
+                  <tr key={srv.id} style={{ borderBottom: '1px solid #EEE8E2' }}>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: '800', color: '#0F172A', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ fontWeight: '800', color: '#222222', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span>{srv.name}</span>
                         {!srv.active && <span className="badge badge-error" style={{ fontSize: '9.5px' }}>Disabled</span>}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#64748B', maxWidth: '280px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: '11px', color: '#77716C', maxWidth: '280px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {srv.description || 'Verified on-demand doorstep service.'}
                       </div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span className="badge badge-info" style={{ fontWeight: '700' }}>{catName}</span>
                       {subName && (
-                        <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '3px' }}>
+                        <div style={{ fontSize: '10.5px', color: '#77716C', marginTop: '3px' }}>
                           ↳ {subName}
                         </div>
                       )}
                     </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13px', color: hasDiscount ? '#94A3B8' : '#0F172A', textDecoration: hasDiscount ? 'line-through' : 'none' }}>
+                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13px', color: hasDiscount ? '#77716C' : '#222222', textDecoration: hasDiscount ? 'line-through' : 'none' }}>
                       ₹{base}
                     </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '900', fontSize: '13.5px', color: '#16A34A' }}>
+                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '900', fontSize: '13.5px', color: '#198754' }}>
                       ₹{offer || activePrice}
                       {hasDiscount && (
-                        <span style={{ marginLeft: '6px', fontSize: '10px', backgroundColor: '#DCFCE7', color: '#15803D', padding: '2px 5px', borderRadius: '4px', fontWeight: '800' }}>
+                        <span style={{ marginLeft: '6px', fontSize: '10px', backgroundColor: '#E8F5E9', color: '#198754', padding: '2px 5px', borderRadius: '4px', fontWeight: '800' }}>
                           {discountPct}% OFF
                         </span>
                       )}
                     </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13.5px', color: '#D97706' }}>
+                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13.5px', color: '#E5A126' }}>
                       ₹{fee}
                     </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '12.5px', color: '#1E40AF' }}>
+                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '12.5px', color: '#F46B12' }}>
                       ₹{advance.toFixed(0)}
                     </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13.5px', color: '#15803D' }}>
+                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: '800', fontSize: '13.5px', color: '#198754' }}>
                       ₹{payout}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '11.5px', color: '#64748B' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '11.5px', color: '#77716C' }}>
                       🛡️ {srv.warrantyText || '30 Days'}
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
@@ -429,7 +429,7 @@ export default function PricingManager({ services: propServices, setServices: se
 
               {filteredServices.length === 0 && (
                 <tr>
-                  <td colSpan={9} style={{ padding: '32px', textAlign: 'center', color: '#94A3B8' }}>
+                  <td colSpan={9} style={{ padding: '32px', textAlign: 'center', color: '#77716C' }}>
                     {loading ? 'Loading live service rates...' : 'No services found matching search or category.'}
                   </td>
                 </tr>
@@ -454,7 +454,7 @@ export default function PricingManager({ services: propServices, setServices: se
 
             <form onSubmit={handleSaveServicePricing}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ backgroundColor: '#F8FAFC', padding: '10px 14px', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ backgroundColor: '#FCF9F6', padding: '10px 14px', borderRadius: '6px', border: '1px solid #EEE8E2', fontSize: '12px', display: 'flex', justifyContent: 'space-between' }}>
                   <div>
                     <strong>Category:</strong> {editingService.categoryName || editingService.category?.name || 'General'}
                     {editingService.subcategoryName && ` • ${editingService.subcategoryName}`}
@@ -476,7 +476,7 @@ export default function PricingManager({ services: propServices, setServices: se
                       step="1"
                       required
                     />
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>Original price displayed to customer</span>
+                    <span style={{ fontSize: '11px', color: '#77716C' }}>Original price displayed to customer</span>
                   </div>
 
                   <div className="form-group">
@@ -490,7 +490,7 @@ export default function PricingManager({ services: propServices, setServices: se
                       step="1"
                       placeholder="Same as regular if no discount"
                     />
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>Discounted selling price (shows discount badge)</span>
+                    <span style={{ fontSize: '11px', color: '#77716C' }}>Discounted selling price (shows discount badge)</span>
                   </div>
                 </div>
 
@@ -506,7 +506,7 @@ export default function PricingManager({ services: propServices, setServices: se
                       step="1"
                       required
                     />
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>e.g. ₹49 for Repair, ₹99 for Installation</span>
+                    <span style={{ fontSize: '11px', color: '#77716C' }}>e.g. ₹49 for Repair, ₹99 for Installation</span>
                   </div>
 
                   <div className="form-group">
@@ -521,7 +521,7 @@ export default function PricingManager({ services: propServices, setServices: se
                       step="5"
                       required
                     />
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>e.g. 30% collected upfront</span>
+                    <span style={{ fontSize: '11px', color: '#77716C' }}>e.g. 30% collected upfront</span>
                   </div>
                 </div>
 
@@ -537,7 +537,7 @@ export default function PricingManager({ services: propServices, setServices: se
                       step="1"
                       required
                     />
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>Direct net earnings to technician wallet</span>
+                    <span style={{ fontSize: '11px', color: '#77716C' }}>Direct net earnings to technician wallet</span>
                   </div>
 
                   <div className="form-group">
@@ -551,7 +551,7 @@ export default function PricingManager({ services: propServices, setServices: se
                       step="5"
                       required
                     />
-                    <span style={{ fontSize: '11px', color: '#64748B' }}>e.g. 30 mins, 45 mins, 60 mins</span>
+                    <span style={{ fontSize: '11px', color: '#77716C' }}>e.g. 30 mins, 45 mins, 60 mins</span>
                   </div>
                 </div>
 
@@ -582,8 +582,8 @@ export default function PricingManager({ services: propServices, setServices: se
                 </div>
 
                 {/* Calculation Preview */}
-                <div style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '6px', padding: '10px 14px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ fontWeight: '800', color: '#1E40AF' }}>Live Summary Preview:</div>
+                <div style={{ backgroundColor: '#FBE4D5', border: '1px solid #FBE4D5', borderRadius: '6px', padding: '10px 14px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ fontWeight: '800', color: '#F46B12' }}>Live Summary Preview:</div>
                   <div>• Selling Price: <strong>₹{editForm.offerPrice || editForm.basePrice || editForm.price}</strong> {Number(editForm.offerPrice) < Number(editForm.basePrice) ? `(${Math.round(((Number(editForm.basePrice) - Number(editForm.offerPrice)) / Number(editForm.basePrice)) * 100)}% Discount)` : '(No Discount)'}</div>
                   <div>• Customer Advance: <strong>₹{(Number(editForm.bookingCharge) + ((Number(editForm.offerPrice) || Number(editForm.basePrice) || Number(editForm.price)) * (Number(editForm.advancePrepaymentPct) / 100))).toFixed(0)}</strong></div>
                   <div>• Partner Payout: <strong>₹{editForm.technicianPayoutAmount}</strong></div>

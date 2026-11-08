@@ -2,10 +2,10 @@ import React, { useState, useCallback } from 'react';
 
 const ADMIN_ROLES = [
   { role: 'Super Admin', desc: 'Full unrestricted system, finance, dispatch and user access.', usersCount: 2, color: 'var(--primary)' },
-  { role: 'Operations Admin', desc: 'Bookings, technicians verification, dispatch console, live fleet.', usersCount: 5, color: '#0284C7' },
-  { role: 'Finance Admin', desc: 'Payments ledger, pricing rules, GST rates, refund processing (48h).', usersCount: 3, color: '#15803D' },
-  { role: 'Support Admin', desc: 'Customer complaints, tickets, review moderation, customer accounts.', usersCount: 8, color: '#D97706' },
-  { role: 'Content Admin', desc: 'Promotional banners, services catalog, notification broadcasts.', usersCount: 2, color: '#7C3AED' }
+  { role: 'Operations Admin', desc: 'Bookings, technicians verification, dispatch console, live fleet.', usersCount: 5, color: '#F46B12' },
+  { role: 'Finance Admin', desc: 'Payments ledger, pricing rules, GST rates, refund processing (48h).', usersCount: 3, color: '#198754' },
+  { role: 'Support Admin', desc: 'Customer complaints, tickets, review moderation, customer accounts.', usersCount: 8, color: '#E5A126' },
+  { role: 'Content Admin', desc: 'Promotional banners, services catalog, notification broadcasts.', usersCount: 2, color: '#F46B12' }
 ];
 
 export default function SettingsManager({ 

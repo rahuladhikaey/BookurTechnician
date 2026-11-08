@@ -16,7 +16,7 @@ export default function AuditLogs({ logs = [] }) {
         <tbody>
           {logs.length === 0 ? (
             <tr>
-              <td colSpan="4" style={{ textAlign: 'center', color: '#64748B', padding: '24px' }}>
+              <td colSpan="4" style={{ textAlign: 'center', color: '#77716C', padding: '24px' }}>
                 No audit events recorded yet. Live operational actions will appear here automatically.
               </td>
             </tr>

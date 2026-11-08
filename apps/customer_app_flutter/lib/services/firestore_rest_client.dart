@@ -709,32 +709,73 @@ class FirestoreRestClient {
     return earthRadiusKm * c;
   }
 
+  static const Map<String, String> _canonicalSkillAliases = {
+    'sk_ac_installation': 'ac_install',
+    'ac installation': 'ac_install',
+    'sk_ac_uninstallation': 'ac_uninstall',
+    'ac uninstallation': 'ac_uninstall',
+    'sk_deep_cleaning_service': 'ac_deep_cleaning',
+    'deep cleaning service': 'ac_deep_cleaning',
+    'ac deep cleaning service': 'ac_deep_cleaning',
+    'sk_ac_repair': 'ac_repair_general',
+    'ac repair': 'ac_repair_general',
+    'sk_ac_pcb_repair': 'ac_pcb_repair',
+    'ac pcb repair': 'ac_pcb_repair',
+    'sk_ac_relocation': 'ac_relocation',
+    'ac relocation': 'ac_relocation',
+    'sk_ac_general_servicing': 'ac_general_service',
+    'ac general servicing': 'ac_general_service',
+    'sk_gas_refill_top_up': 'ac_gas_refill',
+    'gas refill / top-up': 'ac_gas_refill',
+  };
+
   static bool _doesTechnicianMatchService(
       Map<String, dynamic> tech, String sId, String sName) {
-    final rawSkills = tech['skills'] as List<dynamic>? ?? [];
-    final sIdNorm = sId.toLowerCase().replaceAll('sk_', '').replaceAll('_', ' ').trim();
+    final rawSkills = <dynamic>[
+      ...(tech['skills'] as List<dynamic>? ?? const []),
+      ...(tech['selectedSkills'] as List<dynamic>? ?? const []),
+    ];
+    final sIdLower = sId.toLowerCase().trim();
+    final sIdNorm = sIdLower.replaceAll('sk_', '').replaceAll('_', ' ').trim();
     final sNameNorm = sName.toLowerCase().trim();
 
     for (final skill in rawSkills) {
       String skillId = '';
+      String canonicalId = '';
       String skillName = '';
       bool isSkillEnabled = true;
 
       if (skill is Map) {
         skillId = skill['skillId']?.toString() ?? skill['id']?.toString() ?? '';
+        canonicalId = skill['canonicalServiceId']?.toString() ?? skill['serviceId']?.toString() ?? '';
         skillName = skill['name']?.toString() ?? skill['skillName']?.toString() ?? '';
         if (skill.containsKey('enabled')) {
           isSkillEnabled = skill['enabled'] == true;
+        } else if (skill.containsKey('isActive')) {
+          isSkillEnabled = skill['isActive'] == true;
         }
       } else if (skill is String) {
         skillId = skill;
+        canonicalId = skill;
         skillName = skill;
       }
 
       if (!isSkillEnabled) continue;
 
-      final skIdNorm = skillId.toLowerCase().replaceAll('sk_', '').replaceAll('_', ' ').trim();
+      final skIdLower = skillId.toLowerCase().trim();
+      final canIdLower = canonicalId.toLowerCase().trim();
       final skNameNorm = skillName.toLowerCase().trim();
+      final mappedFromId = _canonicalSkillAliases[skIdLower] ?? '';
+      final mappedFromName = _canonicalSkillAliases[skNameNorm] ?? '';
+
+      if (skIdLower == sIdLower ||
+          canIdLower == sIdLower ||
+          mappedFromId == sIdLower ||
+          mappedFromName == sIdLower) {
+        return true;
+      }
+
+      final skIdNorm = skIdLower.replaceAll('sk_', '').replaceAll('_', ' ').trim();
 
       if (skIdNorm == sIdNorm ||
           (sNameNorm.isNotEmpty && skNameNorm == sNameNorm) ||
@@ -851,6 +892,7 @@ class FirestoreRestClient {
               'category': t['category'] ?? '',
               'categories': t['categories'] ?? [],
               'skills': t['skills'] ?? [],
+              'selectedSkills': t['selectedSkills'] ?? [],
               'distanceKm': double.parse(dist.toStringAsFixed(2)),
               'locationFresh': true,
               'isOnline': true,

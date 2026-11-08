@@ -121,7 +121,7 @@ export default function RefundsManager({ auditLogAction, onReload, isSyncing = f
                     </span>
                   </td>
                   <td>
-                    <strong style={{ color: '#15803D' }}>₹{r.eligibleRefund.toFixed(2)}</strong>
+                    <strong style={{ color: '#198754' }}>₹{r.eligibleRefund.toFixed(2)}</strong>
                   </td>
                   <td>
                     {r.status === 'Completed' ? (

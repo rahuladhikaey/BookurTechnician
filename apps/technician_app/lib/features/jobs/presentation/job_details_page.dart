@@ -472,7 +472,7 @@ class _JobDetailsPageState extends ConsumerState<JobDetailsPage> {
                                           LatLng(activeJob.techLatitude!, activeJob.techLongitude!),
                                           LatLng(activeJob.customerLatitude!, activeJob.customerLongitude!),
                                         ],
-                                        color: const Color(0xFF2563EB),
+                                        color: const Color(0xFFF46B12),
                                         width: 5,
                                         jointType: JointType.round,
                                       ),

@@ -34,10 +34,10 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
         return Theme(
           data: ThemeData.light().copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF1E3A8A),
+              primary: Color(0xFFF46B12),
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Color(0xFF0F172A),
+              onSurface: Color(0xFF222222),
             ),
           ),
           child: child!,
@@ -58,30 +58,30 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
     final overview = state.overview;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
         title: const Text(
           'Income & Work Hours Analytics',
-          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF0F172A)),
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF222222)),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF0F172A)),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF222222)),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF1E3A8A)),
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFFF46B12)),
             tooltip: 'Refresh Data',
             onPressed: () => notifier.loadData(silent: false),
           ),
         ],
       ),
       body: state.isLoading && overview == null
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1E3A8A)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFF46B12)))
           : RefreshIndicator(
-              color: const Color(0xFF1E3A8A),
+              color: const Color(0xFFF46B12),
               onRefresh: () => notifier.loadData(silent: true),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -96,7 +96,7 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                       Container(
                         height: 180,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE2E8F0),
+                          color: const Color(0xFFEEE8E2),
                           borderRadius: BorderRadius.circular(20),
                         ),
                       ),
@@ -106,7 +106,7 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                     // ─── 2. TIME RANGE FILTER SELECTOR ─────────────────────
                     const Text(
                       'Select Analytics Timeframe',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF222222)),
                     ),
                     const SizedBox(height: 10),
                     SingleChildScrollView(
@@ -124,7 +124,7 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                           _buildFilterChip('This Month', 'month', state.selectedFilter, notifier),
                           const SizedBox(width: 8),
                           ActionChip(
-                            avatar: const Icon(Icons.date_range_rounded, size: 16, color: Color(0xFF1E3A8A)),
+                            avatar: const Icon(Icons.date_range_rounded, size: 16, color: Color(0xFFF46B12)),
                             label: Text(
                               state.selectedFilter == 'custom' && state.customStartDate != null
                                   ? '${state.customStartDate!.day}/${state.customStartDate!.month} – ${state.customEndDate!.day}/${state.customEndDate!.month}'
@@ -132,11 +132,11 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
-                                color: state.selectedFilter == 'custom' ? Colors.white : const Color(0xFF1E3A8A),
+                                color: state.selectedFilter == 'custom' ? Colors.white : const Color(0xFFF46B12),
                               ),
                             ),
-                            backgroundColor: state.selectedFilter == 'custom' ? const Color(0xFF1E3A8A) : Colors.white,
-                            side: const BorderSide(color: Color(0xFFBFDBFE)),
+                            backgroundColor: state.selectedFilter == 'custom' ? const Color(0xFFF46B12) : Colors.white,
+                            side: const BorderSide(color: Color(0xFFFBE4D5)),
                             onPressed: _pickCustomDateRange,
                           ),
                         ],
@@ -160,36 +160,36 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                             value: '₹${overview.totalEarnings.toStringAsFixed(0)}',
                             subtitle: 'Net: ₹${overview.netEarnings.toStringAsFixed(0)}',
                             icon: Icons.account_balance_wallet_rounded,
-                            iconColor: const Color(0xFF16A34A),
-                            bgColor: const Color(0xFFF0FDF4),
-                            borderColor: const Color(0xFFBBF7D0),
+                            iconColor: const Color(0xFF198754),
+                            bgColor: const Color(0xFFE8F5E9),
+                            borderColor: const Color(0xFFE8F5E9),
                           ),
                           _buildKpiCard(
                             title: 'Working Time',
                             value: '${overview.totalOnlineHours} hrs',
                             subtitle: '${overview.totalOnlineMinutes} active mins',
                             icon: Icons.timer_rounded,
-                            iconColor: const Color(0xFFD97706),
-                            bgColor: const Color(0xFFFFFBEB),
-                            borderColor: const Color(0xFFFDE68A),
+                            iconColor: const Color(0xFFE5A126),
+                            bgColor: const Color(0xFFFFF4E0),
+                            borderColor: const Color(0xFFFBE4D5),
                           ),
                           _buildKpiCard(
                             title: 'Orders Completed',
                             value: '${overview.completedJobs}',
                             subtitle: 'Service jobs finished',
                             icon: Icons.task_alt_rounded,
-                            iconColor: const Color(0xFF2563EB),
-                            bgColor: const Color(0xFFEFF6FF),
-                            borderColor: const Color(0xFFBFDBFE),
+                            iconColor: const Color(0xFFF46B12),
+                            bgColor: const Color(0xFFFBE4D5),
+                            borderColor: const Color(0xFFFBE4D5),
                           ),
                           _buildKpiCard(
                             title: 'Avg Hourly Rate',
                             value: '₹${overview.avgHourlyRate} / hr',
                             subtitle: 'Earnings per work hour',
                             icon: Icons.trending_up_rounded,
-                            iconColor: const Color(0xFF9333EA),
-                            bgColor: const Color(0xFFFAF5FF),
-                            borderColor: const Color(0xFFE9D5FF),
+                            iconColor: const Color(0xFFF46B12),
+                            bgColor: const Color(0xFFFBE4D5),
+                            borderColor: const Color(0xFFFBE4D5),
                           ),
                         ],
                       ),
@@ -203,7 +203,7 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: const Color(0xFFEEE8E2)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withAlpha(8),
@@ -220,17 +220,17 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                             children: [
                               Text(
                                 '${_getFilterTitle(state.selectedFilter)} Breakdown',
-                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A)),
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF222222)),
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFEFF6FF),
+                                  color: const Color(0xFFFBE4D5),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: const Text(
                                   'Tap bar to inspect',
-                                  style: TextStyle(fontSize: 10.5, color: Color(0xFF2563EB), fontWeight: FontWeight.bold),
+                                  style: TextStyle(fontSize: 10.5, color: Color(0xFFF46B12), fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ],
@@ -253,7 +253,7 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                       children: [
                         const Text(
                           'Daily Shift & Work Record',
-                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A)),
+                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF222222)),
                         ),
                         Text(
                           'Recent Days',
@@ -274,10 +274,10 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                           Color tierColor = const Color(0xFFB87333);
                           String badgeEmoji = '🥉';
                           if (log.tier.toUpperCase() == 'GOLD') {
-                            tierColor = const Color(0xFFD97706);
+                            tierColor = const Color(0xFFE5A126);
                             badgeEmoji = '🥇';
                           } else if (log.tier.toUpperCase() == 'SILVER') {
-                            tierColor = const Color(0xFF64748B);
+                            tierColor = const Color(0xFF77716C);
                             badgeEmoji = '🥈';
                           }
 
@@ -286,7 +286,7 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              border: Border.all(color: const Color(0xFFEEE8E2)),
                             ),
                             child: Row(
                               children: [
@@ -308,12 +308,12 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                                     children: [
                                       Text(
                                         log.date,
-                                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF0F172A)),
+                                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF222222)),
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
                                         '${log.hoursText} worked • ${log.jobsCount} jobs finished',
-                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
                                       ),
                                     ],
                                   ),
@@ -323,7 +323,7 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                                   children: [
                                     Text(
                                       log.earnings,
-                                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF1E3A8A)),
+                                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFFF46B12)),
                                     ),
                                     const SizedBox(height: 2),
                                     Container(
@@ -351,9 +351,9 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          border: Border.all(color: const Color(0xFFEEE8E2)),
                         ),
-                        child: const Text('No historical shift records found.', style: TextStyle(color: Color(0xFF64748B), fontSize: 12.5)),
+                        child: const Text('No historical shift records found.', style: TextStyle(color: Color(0xFF77716C), fontSize: 12.5)),
                       ),
                   ],
                 ),
@@ -373,11 +373,11 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => notifier.setFilter(filterKey),
-      selectedColor: const Color(0xFF1E3A8A),
+      selectedColor: const Color(0xFFF46B12),
       backgroundColor: Colors.white,
-      side: BorderSide(color: isSelected ? const Color(0xFF1E3A8A) : const Color(0xFFE2E8F0)),
+      side: BorderSide(color: isSelected ? const Color(0xFFF46B12) : const Color(0xFFEEE8E2)),
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : const Color(0xFF334155),
+        color: isSelected ? Colors.white : const Color(0xFF222222),
         fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
         fontSize: 12,
       ),
@@ -409,14 +409,14 @@ class _TechnicianAnalyticsScreenState extends ConsumerState<TechnicianAnalyticsS
             children: [
               Text(
                 title,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF77716C)),
               ),
               Icon(icon, size: 18, color: iconColor),
             ],
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A), letterSpacing: -0.5),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF222222), letterSpacing: -0.5),
           ),
           Text(
             subtitle,

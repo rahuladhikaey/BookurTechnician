@@ -170,7 +170,7 @@ export default function TechnicianIdCardManager({ technicians = [], setTechnicia
             <div className="card" style={{ maxWidth: '460px', margin: '0 auto', width: '100%', boxShadow: 'var(--shadow-lg)' }}>
               {/* Top Obsidian Black & Royal Blue Header Banner */}
               <div style={{
-                background: 'linear-gradient(135deg, #080C16 0%, #172554 100%)',
+                background: 'linear-gradient(135deg, #F46B12 0%, #E85B08 100%)',
                 padding: '20px 24px',
                 borderBottom: '3px solid var(--royal-blue)',
                 display: 'flex',
@@ -193,13 +193,13 @@ export default function TechnicianIdCardManager({ technicians = [], setTechnicia
                   </div>
                   <div>
                     <div style={{ fontWeight: '900', fontSize: '15px', letterSpacing: '0.5px' }}>BookurTechnician</div>
-                    <div style={{ fontSize: '9.5px', color: '#93C5FD', fontWeight: '800', letterSpacing: '1px' }}>OFFICIAL VERIFIED BADGE</div>
+                    <div style={{ fontSize: '9.5px', color: '#FBE4D5', fontWeight: '800', letterSpacing: '1px' }}>OFFICIAL VERIFIED BADGE</div>
                   </div>
                 </div>
                 <div style={{
                   background: 'rgba(37, 99, 235, 0.25)',
                   border: '1px solid var(--royal-blue)',
-                  color: '#93C5FD',
+                  color: '#FBE4D5',
                   padding: '3px 8px',
                   borderRadius: '12px',
                   fontSize: '9.5px',
@@ -216,7 +216,7 @@ export default function TechnicianIdCardManager({ technicians = [], setTechnicia
                     width: '90px',
                     height: '90px',
                     borderRadius: 'var(--radius-full)',
-                    background: 'linear-gradient(135deg, #080C16 0%, #1E40AF 100%)',
+                    background: 'linear-gradient(135deg, #F46B12 0%, #E85B08 100%)',
                     border: '3px solid var(--royal-blue)',
                     color: '#FFFFFF',
                     display: 'flex',
@@ -260,7 +260,7 @@ export default function TechnicianIdCardManager({ technicians = [], setTechnicia
 
                 {/* Metadata Box */}
                 <div style={{
-                  background: '#F8FAFC',
+                  background: '#FCF9F6',
                   border: '1px solid var(--border-color)',
                   borderRadius: 'var(--radius-md)',
                   padding: '14px',

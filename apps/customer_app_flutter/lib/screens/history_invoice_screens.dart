@@ -47,7 +47,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
         title: const Text('My Bookings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: Colors.white,
@@ -61,7 +61,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
           ),
           if (allBookings.isNotEmpty)
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF64748B)),
+              icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF77716C)),
               tooltip: 'Booking Options',
               onSelected: (val) async {
                 if (val == 'clear_all') {
@@ -79,7 +79,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                           child: const Text('Cancel'),
                         ),
                         TextButton(
-                          style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+                          style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC3545)),
                           onPressed: () => Navigator.pop(ctx, true),
                           child: const Text('Clear All', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
@@ -102,9 +102,9 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                   value: 'clear_all',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_sweep_rounded, color: Color(0xFFDC2626), size: 20),
+                      Icon(Icons.delete_sweep_rounded, color: Color(0xFFDC3545), size: 20),
                       SizedBox(width: 8),
-                      Text('Clear All Bookings', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600)),
+                      Text('Clear All Bookings', style: TextStyle(color: Color(0xFFDC3545), fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -189,7 +189,7 @@ class _BookingCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isLive ? kBrandPrimary.withValues(alpha: 0.3) : const Color(0xFFE2E8F0)),
+        border: Border.all(color: isLive ? kBrandPrimary.withValues(alpha: 0.3) : const Color(0xFFEEE8E2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isLive ? 0.05 : 0.02),
@@ -237,7 +237,7 @@ class _BookingCard extends ConsumerWidget {
                         const SizedBox(width: 8),
                         Text(
                           booking.id,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF0F172A), fontFamily: 'monospace'),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF222222), fontFamily: 'monospace'),
                         ),
                       ],
                     ),
@@ -257,7 +257,7 @@ class _BookingCard extends ConsumerWidget {
                         ),
                         const SizedBox(width: 4),
                         IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF94A3B8)),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF77716C)),
                           tooltip: 'Delete Booking',
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
@@ -275,7 +275,7 @@ class _BookingCard extends ConsumerWidget {
                                     child: const Text('Cancel'),
                                   ),
                                   TextButton(
-                                    style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+                                    style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC3545)),
                                     onPressed: () => Navigator.pop(ctx, true),
                                     child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
                                   ),
@@ -301,7 +301,7 @@ class _BookingCard extends ConsumerWidget {
                 // Service Name
                 Text(
                   serviceTitle,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF222222)),
                 ),
                 const SizedBox(height: 8),
 
@@ -310,12 +310,12 @@ class _BookingCard extends ConsumerWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+                      const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF77716C)),
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
                           booking.address,
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF77716C)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -328,11 +328,11 @@ class _BookingCard extends ConsumerWidget {
                 // Date & Time + Price Row
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_outlined, size: 13, color: Color(0xFF64748B)),
+                    const Icon(Icons.calendar_today_outlined, size: 13, color: Color(0xFF77716C)),
                     const SizedBox(width: 5),
                     Text(
                       '${booking.date} • ${booking.timeSlot}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
                     ),
                     const Spacer(),
                     Text(
@@ -342,7 +342,7 @@ class _BookingCard extends ConsumerWidget {
                   ],
                 ),
 
-                const Divider(height: 22, color: Color(0xFFF1F5F9)),
+                const Divider(height: 22, color: Color(0xFFFCF9F6)),
 
                 // Action buttons / OTP footer
                 Row(
@@ -351,17 +351,17 @@ class _BookingCard extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7),
+                          color: const Color(0xFFFFF4E0),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
+                          border: Border.all(color: const Color(0xFFFBE4D5)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.vpn_key_rounded, size: 13, color: Color(0xFFB45309)),
+                            const Icon(Icons.vpn_key_rounded, size: 13, color: Color(0xFFE5A126)),
                             const SizedBox(width: 4),
                             Text(
                               'Start OTP: ${booking.otpCode}',
-                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFE85B08)),
                             ),
                           ],
                         ),
@@ -416,11 +416,11 @@ class _BookingCard extends ConsumerWidget {
 
   Color _statusColor(BookingStatus s) {
     switch (s) {
-      case BookingStatus.completed: return const Color(0xFF16A34A);
-      case BookingStatus.cancelled: return const Color(0xFFDC2626);
+      case BookingStatus.completed: return const Color(0xFF198754);
+      case BookingStatus.cancelled: return const Color(0xFFDC3545);
       case BookingStatus.techOnTheWay:
       case BookingStatus.techArrived:
-      case BookingStatus.serviceStarted: return const Color(0xFFD97706);
+      case BookingStatus.serviceStarted: return const Color(0xFFE5A126);
       default: return kBrandPrimary;
     }
   }

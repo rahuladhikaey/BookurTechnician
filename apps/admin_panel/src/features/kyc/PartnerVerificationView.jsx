@@ -108,7 +108,7 @@ export default function PartnerVerificationView() {
           right: '24px',
           zIndex: 999,
           padding: '12px 18px',
-          backgroundColor: '#0F172A',
+          backgroundColor: '#F46B12',
           color: '#FFFFFF',
           borderRadius: '8px',
           boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
@@ -130,7 +130,7 @@ export default function PartnerVerificationView() {
             width: '42px',
             height: '42px',
             borderRadius: '8px',
-            backgroundColor: '#0F172A',
+            backgroundColor: '#F46B12',
             color: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
@@ -140,22 +140,22 @@ export default function PartnerVerificationView() {
             🛡️
           </div>
           <div>
-            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#222222', margin: 0 }}>
               Partner KYC Verification & Safety Governance
             </h2>
-            <p style={{ fontSize: '12.5px', color: '#64748B', margin: '2px 0 0' }}>
+            <p style={{ fontSize: '12.5px', color: '#77716C', margin: '2px 0 0' }}>
               Inspect government IDs, verify skill certifications, approve onboarding, and enforce compliance suspensions
             </p>
           </div>
         </div>
 
         {/* Filter Pills */}
-        <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '6px', padding: '2px', border: '1px solid #E2E8F0', flexWrap: 'wrap', gap: '2px' }}>
+        <div style={{ display: 'flex', backgroundColor: '#FCF9F6', borderRadius: '6px', padding: '2px', border: '1px solid #EEE8E2', flexWrap: 'wrap', gap: '2px' }}>
           {[
             { key: 'ALL', label: 'All Partners', count: partners.length },
-            { key: 'PENDING_APPROVAL', label: 'Pending KYC', count: pendingCount, text: '#D97706' },
-            { key: 'ACTIVE', label: 'Active / Verified', count: activeCount, text: '#15803D' },
-            { key: 'SUSPENDED', label: 'Suspended', count: suspendedCount, text: '#DC2626' },
+            { key: 'PENDING_APPROVAL', label: 'Pending KYC', count: pendingCount, text: '#E5A126' },
+            { key: 'ACTIVE', label: 'Active / Verified', count: activeCount, text: '#198754' },
+            { key: 'SUSPENDED', label: 'Suspended', count: suspendedCount, text: '#DC3545' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -164,8 +164,8 @@ export default function PartnerVerificationView() {
                 padding: '5px 12px',
                 borderRadius: '4px',
                 border: 'none',
-                backgroundColor: filterStatus === tab.key ? '#0F172A' : 'transparent',
-                color: filterStatus === tab.key ? '#FFFFFF' : (tab.text || '#64748B'),
+                backgroundColor: filterStatus === tab.key ? '#F46B12' : 'transparent',
+                color: filterStatus === tab.key ? '#FFFFFF' : (tab.text || '#77716C'),
                 fontSize: '12px',
                 fontWeight: '700',
                 cursor: 'pointer',
@@ -179,8 +179,8 @@ export default function PartnerVerificationView() {
                 fontSize: '10px',
                 padding: '1px 6px',
                 borderRadius: '10px',
-                backgroundColor: filterStatus === tab.key ? 'rgba(255,255,255,0.2)' : '#E2E8F0',
-                color: filterStatus === tab.key ? '#FFFFFF' : '#0F172A'
+                backgroundColor: filterStatus === tab.key ? 'rgba(255,255,255,0.2)' : '#EEE8E2',
+                color: filterStatus === tab.key ? '#FFFFFF' : '#222222'
               }}>
                 {tab.count}
               </span>
@@ -205,8 +205,8 @@ export default function PartnerVerificationView() {
           </span>
         </div>
 
-        <div style={{ fontSize: '13px', color: '#64748B' }}>
-          Showing <strong style={{ color: '#0F172A' }}>{filteredPartners.length}</strong> partner profiles
+        <div style={{ fontSize: '13px', color: '#77716C' }}>
+          Showing <strong style={{ color: '#222222' }}>{filteredPartners.length}</strong> partner profiles
         </div>
       </div>
 
@@ -219,7 +219,7 @@ export default function PartnerVerificationView() {
               key={partner._id || partner.id}
               style={{
                 backgroundColor: '#FFFFFF',
-                border: '1px solid #E2E8F0',
+                border: '1px solid #EEE8E2',
                 borderRadius: '8px',
                 padding: '16px',
                 display: 'flex',
@@ -235,9 +235,9 @@ export default function PartnerVerificationView() {
                       width: '40px',
                       height: '40px',
                       borderRadius: '8px',
-                      backgroundColor: '#F1F5F9',
-                      border: '1px solid #E2E8F0',
-                      color: '#0F172A',
+                      backgroundColor: '#FCF9F6',
+                      border: '1px solid #EEE8E2',
+                      color: '#222222',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -247,8 +247,8 @@ export default function PartnerVerificationView() {
                       {(partner.name || partner.fullName || 'P')[0]}
                     </div>
                     <div>
-                      <div style={{ fontWeight: '800', fontSize: '14px', color: '#0F172A' }}>{partner.name || partner.fullName}</div>
-                      <div style={{ fontSize: '11.5px', color: '#64748B', fontFamily: 'monospace' }}>
+                      <div style={{ fontWeight: '800', fontSize: '14px', color: '#222222' }}>{partner.name || partner.fullName}</div>
+                      <div style={{ fontSize: '11.5px', color: '#77716C', fontFamily: 'monospace' }}>
                         {partner.technicianCode || partner.id || 'TECH-001'} • {partner.phone}
                       </div>
                     </div>
@@ -271,26 +271,26 @@ export default function PartnerVerificationView() {
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
                   gap: '8px',
-                  backgroundColor: '#F8FAFC',
+                  backgroundColor: '#FCF9F6',
                   padding: '10px',
                   borderRadius: '6px',
                   fontSize: '11.5px'
                 }}>
                   <div>
-                    <span style={{ color: '#64748B', display: 'block' }}>Primary Category:</span>
-                    <strong style={{ color: '#0F172A' }}>{partner.category || 'Home Services'}</strong>
+                    <span style={{ color: '#77716C', display: 'block' }}>Primary Category:</span>
+                    <strong style={{ color: '#222222' }}>{partner.category || 'Home Services'}</strong>
                   </div>
                   <div>
-                    <span style={{ color: '#64748B', display: 'block' }}>Rating:</span>
-                    <strong style={{ color: '#D97706' }}>★ {partner.rating || '4.9'}</strong>
+                    <span style={{ color: '#77716C', display: 'block' }}>Rating:</span>
+                    <strong style={{ color: '#E5A126' }}>★ {partner.rating || '4.9'}</strong>
                   </div>
                   <div>
-                    <span style={{ color: '#64748B', display: 'block' }}>Wallet Balance:</span>
-                    <strong style={{ color: '#15803D', fontFamily: 'monospace' }}>₹{partner.walletBalance || 0}</strong>
+                    <span style={{ color: '#77716C', display: 'block' }}>Wallet Balance:</span>
+                    <strong style={{ color: '#198754', fontFamily: 'monospace' }}>₹{partner.walletBalance || 0}</strong>
                   </div>
                   <div>
-                    <span style={{ color: '#64748B', display: 'block' }}>Duty Status:</span>
-                    <strong style={{ color: partner.isOnline ? '#15803D' : '#64748B' }}>
+                    <span style={{ color: '#77716C', display: 'block' }}>Duty Status:</span>
+                    <strong style={{ color: partner.isOnline ? '#198754' : '#77716C' }}>
                       {partner.isOnline ? '🟢 Online' : '⚪ Offline'}
                     </strong>
                   </div>
@@ -314,9 +314,9 @@ export default function PartnerVerificationView() {
             gridColumn: '1 / -1',
             padding: '40px 16px',
             textAlign: 'center',
-            color: '#94A3B8',
+            color: '#77716C',
             fontSize: '13px',
-            border: '1px dashed #E2E8F0',
+            border: '1px dashed #EEE8E2',
             borderRadius: '8px'
           }}>
             No partner records match the selected filter.
@@ -338,12 +338,12 @@ export default function PartnerVerificationView() {
             </div>
 
             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '12px', borderBottom: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '12px', borderBottom: '1px solid #EEE8E2' }}>
                 <div style={{
                   width: '48px',
                   height: '48px',
                   borderRadius: '50%',
-                  backgroundColor: '#0F172A',
+                  backgroundColor: '#F46B12',
                   color: '#FFFFFF',
                   display: 'flex',
                   alignItems: 'center',
@@ -354,10 +354,10 @@ export default function PartnerVerificationView() {
                   {(selectedPartner.name || selectedPartner.fullName || 'P')[0]}
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#222222', margin: 0 }}>
                     {selectedPartner.name || selectedPartner.fullName}
                   </h3>
-                  <div style={{ fontSize: '12px', color: '#64748B', fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: '12px', color: '#77716C', fontFamily: 'monospace' }}>
                     {selectedPartner.technicianCode || selectedPartner.id} • {selectedPartner.phone} • {selectedPartner.category}
                   </div>
                 </div>
@@ -368,7 +368,7 @@ export default function PartnerVerificationView() {
                 <label className="form-label">Submitted Identity & Background Proofs</label>
                 
                 {loadingDocs ? (
-                  <div style={{ padding: '16px', textAlign: 'center', color: '#64748B' }}>Loading uploaded KYC vault documents...</div>
+                  <div style={{ padding: '16px', textAlign: 'center', color: '#77716C' }}>Loading uploaded KYC vault documents...</div>
                 ) : partnerDocs.length > 0 ? (
                   partnerDocs.map(doc => (
                     <div key={doc.id} style={{
@@ -376,15 +376,15 @@ export default function PartnerVerificationView() {
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       padding: '10px 14px',
-                      backgroundColor: '#F8FAFC',
-                      border: '1px solid #E2E8F0',
+                      backgroundColor: '#FCF9F6',
+                      border: '1px solid #EEE8E2',
                       borderRadius: '6px'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>🪪</span>
                         <div>
-                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>{doc.documentType}</div>
-                          <div style={{ fontSize: '11px', color: '#64748B' }}>{doc.maskedNumber || 'Encrypted Proof Reference'}</div>
+                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#222222' }}>{doc.documentType}</div>
+                          <div style={{ fontSize: '11px', color: '#77716C' }}>{doc.maskedNumber || 'Encrypted Proof Reference'}</div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -406,15 +406,15 @@ export default function PartnerVerificationView() {
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       padding: '10px 14px',
-                      backgroundColor: '#F8FAFC',
-                      border: '1px solid #E2E8F0',
+                      backgroundColor: '#FCF9F6',
+                      border: '1px solid #EEE8E2',
                       borderRadius: '6px'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>🪪</span>
                         <div>
-                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Aadhaar Card (Front/Back)</div>
-                          <div style={{ fontSize: '11px', color: '#64748B' }}>Verified against UIDAI format</div>
+                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#222222' }}>Aadhaar Card (Front/Back)</div>
+                          <div style={{ fontSize: '11px', color: '#77716C' }}>Verified against UIDAI format</div>
                         </div>
                       </div>
                       <span className={`badge ${selectedPartner.kycStatus === 'VERIFIED' ? 'badge-completed' : 'badge-pending'}`}>
@@ -427,15 +427,15 @@ export default function PartnerVerificationView() {
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       padding: '10px 14px',
-                      backgroundColor: '#F8FAFC',
-                      border: '1px solid #E2E8F0',
+                      backgroundColor: '#FCF9F6',
+                      border: '1px solid #EEE8E2',
                       borderRadius: '6px'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>🗳️</span>
                         <div>
-                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>Voter Card ID Verification</div>
-                          <div style={{ fontSize: '11px', color: '#64748B' }}>Election Commission of India EPIC</div>
+                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#222222' }}>Voter Card ID Verification</div>
+                          <div style={{ fontSize: '11px', color: '#77716C' }}>Election Commission of India EPIC</div>
                         </div>
                       </div>
                       <span className={`badge ${selectedPartner.kycStatus === 'VERIFIED' ? 'badge-completed' : 'badge-pending'}`}>
@@ -448,15 +448,15 @@ export default function PartnerVerificationView() {
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       padding: '10px 14px',
-                      backgroundColor: '#F8FAFC',
-                      border: '1px solid #E2E8F0',
+                      backgroundColor: '#FCF9F6',
+                      border: '1px solid #EEE8E2',
                       borderRadius: '6px'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>📱</span>
                         <div>
-                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#0F172A' }}>UPI Number / Payout Handle</div>
-                          <div style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{selectedPartner.upiId || 'Not configured'}</div>
+                          <div style={{ fontWeight: '700', fontSize: '12.5px', color: '#222222' }}>UPI Number / Payout Handle</div>
+                          <div style={{ fontSize: '11px', color: '#77716C', fontFamily: 'monospace' }}>{selectedPartner.upiId || 'Not configured'}</div>
                         </div>
                       </div>
                       <span className="badge badge-completed">✓ ACTIVE</span>
@@ -473,7 +473,7 @@ export default function PartnerVerificationView() {
                     onClick={() => handleStatusUpdate(selectedPartner._id || selectedPartner.id, 'ACTIVE')}
                     disabled={submitting}
                     className="btn btn-primary"
-                    style={{ flex: 1, backgroundColor: '#15803D', borderColor: '#15803D' }}
+                    style={{ flex: 1, backgroundColor: '#198754', borderColor: '#198754' }}
                   >
                     ✓ Approve & Activate Partner
                   </button>

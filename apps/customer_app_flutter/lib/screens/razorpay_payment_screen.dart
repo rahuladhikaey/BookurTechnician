@@ -172,7 +172,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
         if (name.isNotEmpty) 'name': name,
       },
       'theme': {
-        'color': '#0284C7',
+        'color': '#F46B12',
       },
       'external': {
         'wallets': ['paytm']
@@ -247,7 +247,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
         : 'Payment was cancelled or could not be completed.';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: const Color(0xFFDC2626),
+        backgroundColor: const Color(0xFFDC3545),
         content: Row(
           children: [
             const Icon(Icons.error_outline, color: Colors.white, size: 20),
@@ -281,10 +281,10 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
               width: 64,
               height: 64,
               decoration: const BoxDecoration(
-                color: Color(0xFFDCFCE7),
+                color: Color(0xFFE8F5E9),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 40),
+              child: const Icon(Icons.check_circle_rounded, color: Color(0xFF198754), size: 40),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -294,7 +294,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
             const SizedBox(height: 6),
             Text(
               'Booking ID: ${widget.bookingCode}',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0C2340), fontFamily: 'monospace'),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF222222), fontFamily: 'monospace'),
             ),
             Text(
               'Razorpay Payment ID: $paymentId',
@@ -304,7 +304,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: const Color(0xFFFCF9F6),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: kBorderColor),
               ),
@@ -330,7 +330,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                   Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0C2340),
+                  backgroundColor: const Color(0xFF222222),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
@@ -355,7 +355,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-              color: isBold ? const Color(0xFF16A34A) : kPrimaryText,
+              color: isBold ? const Color(0xFF198754) : kPrimaryText,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -398,9 +398,9 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
         if (!didPop) _onBackPressed();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF4F6F9),
+        backgroundColor: const Color(0xFFFCF9F6),
         appBar: AppBar(
-          backgroundColor: const Color(0xFF0C2340),
+          backgroundColor: const Color(0xFF222222),
           foregroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
@@ -412,13 +412,13 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF17357F),
+                  color: const Color(0xFFF46B12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.bolt, color: Color(0xFF58B4FF), size: 14),
+                    Icon(Icons.bolt, color: Color(0xFFF46B12), size: 14),
                     SizedBox(width: 3),
                     Text(
                       'Razorpay',
@@ -442,9 +442,9 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.timer_outlined, size: 13, color: Color(0xFFFBBF24)),
+                  const Icon(Icons.timer_outlined, size: 13, color: Color(0xFFE5A126)),
                   const SizedBox(width: 4),
-                  Text(_formattedTime, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFFBBF24))),
+                  Text(_formattedTime, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFE5A126))),
                 ],
               ),
             ),
@@ -457,7 +457,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
               decoration: const BoxDecoration(
-                color: Color(0xFF0C2340),
+                color: Color(0xFF222222),
                 borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
               ),
               child: Column(
@@ -469,7 +469,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Payable Amount', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w600)),
+                          const Text('Payable Amount', style: TextStyle(color: Color(0xFF77716C), fontSize: 11.5, fontWeight: FontWeight.w600)),
                           const SizedBox(height: 2),
                           Text(
                             '₹${widget.amount.toStringAsFixed(2)}',
@@ -480,16 +480,16 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF166534).withValues(alpha: 0.3),
+                          color: const Color(0xFF198754).withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.4)),
+                          border: Border.all(color: const Color(0xFF198754).withValues(alpha: 0.4)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.lock, size: 12, color: Color(0xFF4ADE80)),
+                            Icon(Icons.lock, size: 12, color: Color(0xFF198754)),
                             SizedBox(width: 4),
-                            Text('256-Bit SSL Encrypted', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF4ADE80))),
+                            Text('256-Bit SSL Encrypted', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF198754))),
                           ],
                         ),
                       ),
@@ -498,11 +498,11 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Icon(Icons.receipt_long_outlined, color: Color(0xFF94A3B8), size: 13),
+                      const Icon(Icons.receipt_long_outlined, color: Color(0xFF77716C), size: 13),
                       const SizedBox(width: 4),
                       Text(
                         'Booking Code: ${widget.bookingCode}',
-                        style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 11.5, fontFamily: 'monospace'),
+                        style: const TextStyle(color: Color(0xFFEEE8E2), fontSize: 11.5, fontFamily: 'monospace'),
                       ),
                     ],
                   ),
@@ -517,7 +517,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: const Color(0xFFEEE8E2)),
               ),
               child: Row(
                 children: [
@@ -548,17 +548,17 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: const Color(0xFFEEE8E2)),
                       ),
                       child: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEEF3FF),
+                              color: const Color(0xFFFBE4D5),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.verified_user_outlined, color: Color(0xFF1E40AF), size: 20),
+                            child: const Icon(Icons.verified_user_outlined, color: Color(0xFFF46B12), size: 20),
                           ),
                           const SizedBox(width: 10),
                           const Expanded(
@@ -599,7 +599,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                   child: ElevatedButton(
                     onPressed: _isProcessing ? null : _processPayment,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0C2340),
+                      backgroundColor: const Color(0xFF222222),
                       foregroundColor: Colors.white,
                       elevation: 2,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -639,20 +639,20 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF0C2340) : Colors.transparent,
+            color: isSelected ? const Color(0xFF222222) : Colors.transparent,
             borderRadius: BorderRadius.circular(9),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: isSelected ? Colors.white : const Color(0xFF64748B)),
+              Icon(icon, size: 18, color: isSelected ? Colors.white : const Color(0xFF77716C)),
               const SizedBox(height: 3),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                  color: isSelected ? Colors.white : const Color(0xFF64748B),
+                  color: isSelected ? Colors.white : const Color(0xFF77716C),
                 ),
               ),
             ],
@@ -676,7 +676,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,19 +688,19 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFF0F7FF) : Colors.white,
+                color: isSelected ? const Color(0xFFFBE4D5) : Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isSelected ? const Color(0xFF1E40AF) : const Color(0xFFE2E8F0)),
+                border: Border.all(color: isSelected ? const Color(0xFFF46B12) : const Color(0xFFEEE8E2)),
               ),
               child: ListTile(
                 dense: true,
                 leading: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: const Color(0xFFFCF9F6),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(app['icon'] as IconData, size: 20, color: const Color(0xFF0C2340)),
+                  child: Icon(app['icon'] as IconData, size: 20, color: const Color(0xFF222222)),
                 ),
                 title: Text(app['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 trailing: Row(
@@ -711,18 +711,18 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         margin: const EdgeInsets.only(right: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
+                          color: const Color(0xFFE8F5E9),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           app['tag'] as String,
-                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF198754)),
                         ),
                       ),
                     Icon(
                       isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
                       size: 20,
-                      color: isSelected ? const Color(0xFF1E40AF) : const Color(0xFF94A3B8),
+                      color: isSelected ? const Color(0xFFF46B12) : const Color(0xFF77716C),
                     ),
                   ],
                 ),
@@ -732,7 +732,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
           }),
 
           const SizedBox(height: 12),
-          const Divider(color: Color(0xFFF1F5F9)),
+          const Divider(color: Color(0xFFFCF9F6)),
           const SizedBox(height: 10),
 
           // Custom UPI ID
@@ -740,16 +740,16 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: const Color(0xFFFCF9F6),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: const Color(0xFFEEE8E2)),
             ),
             child: TextField(
               controller: _upiIdCtrl,
               decoration: const InputDecoration(
                 hintText: 'e.g. yourname@okhdfcbank',
-                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5),
-                prefixIcon: Icon(Icons.alternate_email, size: 18, color: Color(0xFF64748B)),
+                hintStyle: TextStyle(color: Color(0xFF77716C), fontSize: 12.5),
+                prefixIcon: Icon(Icons.alternate_email, size: 18, color: Color(0xFF77716C)),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               ),
@@ -767,7 +767,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -776,13 +776,13 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
           const SizedBox(height: 14),
 
           // Card Number
-          const Text('Card Number', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF475569))),
+          const Text('Card Number', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF77716C))),
           const SizedBox(height: 6),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: const Color(0xFFFCF9F6),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: const Color(0xFFEEE8E2)),
             ),
             child: TextField(
               controller: _cardNumberCtrl,
@@ -793,8 +793,8 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
               ],
               decoration: const InputDecoration(
                 hintText: '4532 •••• •••• 8890',
-                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                prefixIcon: Icon(Icons.credit_card, size: 20, color: Color(0xFF64748B)),
+                hintStyle: TextStyle(color: Color(0xFF77716C), fontSize: 13),
+                prefixIcon: Icon(Icons.credit_card, size: 20, color: Color(0xFF77716C)),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               ),
@@ -809,13 +809,13 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Expiry (MM/YY)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF475569))),
+                    const Text('Expiry (MM/YY)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF77716C))),
                     const SizedBox(height: 6),
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: const Color(0xFFFCF9F6),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: const Color(0xFFEEE8E2)),
                       ),
                       child: TextField(
                         controller: _cardExpiryCtrl,
@@ -823,8 +823,8 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                         inputFormatters: [LengthLimitingTextInputFormatter(5)],
                         decoration: const InputDecoration(
                           hintText: '12/28',
-                          hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                          prefixIcon: Icon(Icons.calendar_today, size: 16, color: Color(0xFF64748B)),
+                          hintStyle: TextStyle(color: Color(0xFF77716C), fontSize: 13),
+                          prefixIcon: Icon(Icons.calendar_today, size: 16, color: Color(0xFF77716C)),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                         ),
@@ -838,13 +838,13 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('CVV', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF475569))),
+                    const Text('CVV', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF77716C))),
                     const SizedBox(height: 6),
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: const Color(0xFFFCF9F6),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: const Color(0xFFEEE8E2)),
                       ),
                       child: TextField(
                         controller: _cardCvvCtrl,
@@ -856,8 +856,8 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                         ],
                         decoration: const InputDecoration(
                           hintText: '•••',
-                          hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                          prefixIcon: Icon(Icons.lock_outline, size: 16, color: Color(0xFF64748B)),
+                          hintStyle: TextStyle(color: Color(0xFF77716C), fontSize: 13),
+                          prefixIcon: Icon(Icons.lock_outline, size: 16, color: Color(0xFF77716C)),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                         ),
@@ -871,21 +871,21 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
           const SizedBox(height: 14),
 
           // Name on Card
-          const Text('Name on Card', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF475569))),
+          const Text('Name on Card', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF77716C))),
           const SizedBox(height: 6),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: const Color(0xFFFCF9F6),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: const Color(0xFFEEE8E2)),
             ),
             child: TextField(
               controller: _cardHolderCtrl,
               textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
                 hintText: 'RAHUL ADHIKARY',
-                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                prefixIcon: Icon(Icons.person_outline, size: 18, color: Color(0xFF64748B)),
+                hintStyle: TextStyle(color: Color(0xFF77716C), fontSize: 13),
+                prefixIcon: Icon(Icons.person_outline, size: 18, color: Color(0xFF77716C)),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               ),
@@ -912,7 +912,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -927,10 +927,10 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
               return ChoiceChip(
                 label: Text(b['name']!, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : kPrimaryText)),
                 selected: isSelected,
-                selectedColor: const Color(0xFF0C2340),
-                backgroundColor: const Color(0xFFF8FAFC),
+                selectedColor: const Color(0xFF222222),
+                backgroundColor: const Color(0xFFFCF9F6),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                side: BorderSide(color: isSelected ? const Color(0xFF0C2340) : const Color(0xFFE2E8F0)),
+                side: BorderSide(color: isSelected ? const Color(0xFF222222) : const Color(0xFFEEE8E2)),
                 onSelected: (_) => setState(() => _selectedBank = b['name']),
               );
             }).toList(),
@@ -954,7 +954,7 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -966,13 +966,13 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFFF0F7FF) : Colors.white,
+                color: isSelected ? const Color(0xFFFBE4D5) : Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isSelected ? const Color(0xFF1E40AF) : const Color(0xFFE2E8F0)),
+                border: Border.all(color: isSelected ? const Color(0xFFF46B12) : const Color(0xFFEEE8E2)),
               ),
               child: ListTile(
                 dense: true,
-                leading: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF0C2340), size: 20),
+                leading: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF222222), size: 20),
                 title: Text(w['name']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -982,18 +982,18 @@ class _RazorpayPaymentScreenState extends ConsumerState<RazorpayPaymentScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         margin: const EdgeInsets.only(right: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7),
+                          color: const Color(0xFFFFF4E0),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           w['tag']!,
-                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF92400E)),
+                          style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFFE85B08)),
                         ),
                       ),
                     Icon(
                       isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
                       size: 20,
-                      color: isSelected ? const Color(0xFF1E40AF) : const Color(0xFF94A3B8),
+                      color: isSelected ? const Color(0xFFF46B12) : const Color(0xFF77716C),
                     ),
                   ],
                 ),

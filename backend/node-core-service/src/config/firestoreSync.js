@@ -74,9 +74,10 @@ function docToPlainObject(doc) {
 }
 
 /**
- * Upsert a document into Cloud Firestore (uses Admin SDK first, falls back to REST API)
+ * Upsert a document into Cloud Firestore (uses Admin SDK first, falls back to REST API).
+ * Supports partial updates via updateMask (Spark-plan optimized field-level patching).
  */
-async function upsertDocument(collection, docId, data) {
+async function upsertDocument(collection, docId, data, updateMask = null) {
   if (process.env.DISABLE_FIRESTORE_SYNC === 'true' || process.env.NODE_ENV === 'test') return false;
   if (!collection || !docId || !data) return false;
   const cleanId = String(docId).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -95,15 +96,21 @@ async function upsertDocument(collection, docId, data) {
     }
   }
 
-  // Fallback to Firestore REST API
+  // Fallback to Firestore REST API with updateMask to preserve unrelated fields
   try {
     const fields = {};
+    const fieldKeys = [];
     for (const [k, v] of Object.entries(data)) {
       if (v !== undefined) {
         fields[k] = toFirestoreValue(v);
+        fieldKeys.push(k);
       }
     }
-    const url = `${FIRESTORE_REST_BASE}/${encodeURIComponent(collection)}/${encodeURIComponent(cleanId)}`;
+    const maskKeys = Array.isArray(updateMask) && updateMask.length > 0 ? updateMask : fieldKeys;
+    const maskQuery = maskKeys
+      .map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`)
+      .join('&');
+    const url = `${FIRESTORE_REST_BASE}/${encodeURIComponent(collection)}/${encodeURIComponent(cleanId)}${maskQuery ? '?' + maskQuery : ''}`;
     const res = await fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -170,12 +177,14 @@ async function listDocuments(collection, pageSize = 300) {
  */
 async function syncCatalogToFirestore() {
   try {
-    const { getMasterCatalog, getFlattenedServices } = require('./masterCatalog');
+    const { getMasterCatalog, getFlattenedServices, getCatalogVersion } = require('./masterCatalog');
     const categories = getMasterCatalog();
     const services = getFlattenedServices();
+    const catalogVersion = getCatalogVersion();
 
     let syncedCats = 0;
     for (const cat of categories) {
+      const isActive = cat.isActive !== undefined ? Boolean(cat.isActive) : (cat.active !== false);
       const ok = await upsertDocument('service_categories', cat.id || cat.categoryId, {
         id: cat.id || cat.categoryId,
         categoryId: cat.id || cat.categoryId,
@@ -183,10 +192,13 @@ async function syncCatalogToFirestore() {
         slug: (cat.slug || cat.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         icon: cat.icon || 'build',
         imageUrl: cat.imageUrl || '',
-        active: cat.active !== false,
+        active: isActive,
+        isActive,
         displayOrder: cat.displayOrder || 1,
+        catalogVersion,
         subcategories: cat.subcategories || [],
-        updatedAt: new Date().toISOString(),
+        createdAt: cat.createdAt || '2026-01-01T00:00:00.000Z',
+        updatedAt: cat.updatedAt || new Date().toISOString(),
       });
       if (ok) syncedCats++;
     }
@@ -196,23 +208,27 @@ async function syncCatalogToFirestore() {
     for (let i = 0; i < services.length; i += 15) {
       const batch = services.slice(i, i + 15);
       const results = await Promise.all(
-        batch.map(srv =>
-          upsertDocument('services', srv.id, {
+        batch.map(srv => {
+          const isActive = srv.isActive !== undefined ? Boolean(srv.isActive) : (srv.active !== false);
+          return upsertDocument('services', srv.id, {
             ...srv,
             id: srv.id,
-            active: srv.active !== false,
-            updatedAt: new Date().toISOString(),
-          })
-        )
+            canonicalServiceId: srv.canonicalServiceId || srv.id,
+            isActive,
+            active: isActive,
+            catalogVersion,
+            updatedAt: srv.updatedAt || new Date().toISOString(),
+          });
+        })
       );
       syncedServices += results.filter(Boolean).length;
     }
 
-    console.log(`🔥 [Firebase Firestore] Synced ${syncedCats} categories and ${syncedServices} services to project '${PROJECT_ID}'`);
-    return { syncedCats, syncedServices };
+    console.log(`🔥 [Firebase Firestore] Synced ${syncedCats} categories and ${syncedServices} services (v${catalogVersion}) to project '${PROJECT_ID}'`);
+    return { syncedCats, syncedServices, catalogVersion };
   } catch (err) {
     console.warn('⚠️ [Firebase Firestore] Catalog sync notice:', err.message);
-    return { syncedCats: 0, syncedServices: 0 };
+    return { syncedCats: 0, syncedServices: 0, catalogVersion: 1 };
   }
 }
 

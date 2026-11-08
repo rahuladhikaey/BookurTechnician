@@ -93,7 +93,7 @@ export default function ReportsManager({ auditLogAction, technicians = [], onRel
                     <td>₹2,48,500.00</td>
                     <td>₹16,434.00</td>
                     <td>₹47,688.12</td>
-                    <td><span style={{ color: '#DC2626' }}>- ₹5,990.00</span></td>
+                    <td><span style={{ color: '#DC3545' }}>- ₹5,990.00</span></td>
                     <td><strong style={{ color: 'var(--primary)' }}>₹3,06,632.12</strong></td>
                   </tr>
                   <tr>
@@ -101,7 +101,7 @@ export default function ReportsManager({ auditLogAction, technicians = [], onRel
                     <td>₹1,84,200.00</td>
                     <td>₹9,801.00</td>
                     <td>₹34,920.18</td>
-                    <td><span style={{ color: '#DC2626' }}>- ₹3,499.00</span></td>
+                    <td><span style={{ color: '#DC3545' }}>- ₹3,499.00</span></td>
                     <td><strong style={{ color: 'var(--primary)' }}>₹2,25,422.18</strong></td>
                   </tr>
                   <tr>
@@ -109,7 +109,7 @@ export default function ReportsManager({ auditLogAction, technicians = [], onRel
                     <td>₹64,300.00</td>
                     <td>₹8,415.00</td>
                     <td>₹13,088.70</td>
-                    <td><span style={{ color: '#DC2626' }}>- ₹897.00</span></td>
+                    <td><span style={{ color: '#DC3545' }}>- ₹897.00</span></td>
                     <td><strong style={{ color: 'var(--primary)' }}>₹84,906.70</strong></td>
                   </tr>
                   <tr>
@@ -117,7 +117,7 @@ export default function ReportsManager({ auditLogAction, technicians = [], onRel
                     <td>₹1,12,400.00</td>
                     <td>₹11,088.00</td>
                     <td>₹22,227.84</td>
-                    <td><span style={{ color: '#DC2626' }}>- ₹1,798.00</span></td>
+                    <td><span style={{ color: '#DC3545' }}>- ₹1,798.00</span></td>
                     <td><strong style={{ color: 'var(--primary)' }}>₹1,43,917.84</strong></td>
                   </tr>
                   <tr style={{ background: 'var(--primary-light)', fontWeight: '800' }}>
@@ -125,7 +125,7 @@ export default function ReportsManager({ auditLogAction, technicians = [], onRel
                     <td>₹6,09,400.00</td>
                     <td>₹45,738.00</td>
                     <td>₹1,17,924.84</td>
-                    <td><span style={{ color: '#DC2626' }}>- ₹12,184.00</span></td>
+                    <td><span style={{ color: '#DC3545' }}>- ₹12,184.00</span></td>
                     <td><strong style={{ color: 'var(--primary)', fontSize: '15px' }}>₹7,60,878.84</strong></td>
                   </tr>
                 </tbody>

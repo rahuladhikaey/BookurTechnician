@@ -103,7 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Verification code sent to $email! Check your inbox.'),
-              backgroundColor: const Color(0xFF059669),
+              backgroundColor: const Color(0xFF198754),
             ),
           );
           Navigator.push(
@@ -139,7 +139,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('⚠️ $msg'),
-                backgroundColor: const Color(0xFFDC2626),
+                backgroundColor: const Color(0xFFDC3545),
                 duration: const Duration(seconds: 4),
               ),
             );
@@ -156,7 +156,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('ℹ️ $msg'),
-                backgroundColor: const Color(0xFFD97706),
+                backgroundColor: const Color(0xFFE5A126),
                 duration: const Duration(seconds: 4),
               ),
             );
@@ -167,7 +167,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(msg.isNotEmpty ? msg : 'Unable to reach authentication server. Please try again.'),
-                backgroundColor: const Color(0xFFDC2626),
+                backgroundColor: const Color(0xFFDC3545),
                 duration: const Duration(seconds: 4),
               ),
             );
@@ -177,7 +177,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(msg),
-              backgroundColor: const Color(0xFFDC2626),
+              backgroundColor: const Color(0xFFDC3545),
             ),
           );
         }
@@ -190,7 +190,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Connection error: ${e.toString()}'),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: const Color(0xFFDC3545),
             duration: const Duration(seconds: 4),
           ),
         );
@@ -213,9 +213,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF2146A8), // Royal Blue
-                    Color(0xFF17357F), // Deep Royal Blue
-                    Color(0xFF0F2458), // Rich Dark Navy
+                    Color(0xFFF46B12), // Royal Blue
+                    Color(0xFFF46B12), // Deep Royal Blue
+                    Color(0xFF222222), // Rich Dark Navy
                   ],
                 ),
               ),
@@ -277,7 +277,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         TextSpan(
                           text: 'technician',
                           style: TextStyle(
-                            color: Color(0xFF60A5FA), // Accent light blue
+                            color: Color(0xFFF46B12), // Accent light blue
                             fontWeight: FontWeight.w900,
                           ),
                         ),
@@ -310,7 +310,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: const [
                         BoxShadow(
-                          color: Color(0x4D0B1635),
+                          color: Color(0x4D222222),
                           blurRadius: 24,
                           offset: Offset(0, 12),
                         ),
@@ -324,7 +324,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF111827),
+                            color: Color(0xFF222222),
                             letterSpacing: -0.5,
                           ),
                         ),
@@ -335,7 +335,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               : 'Register with mobile and email to get started.',
                           style: const TextStyle(
                             fontSize: 13,
-                            color: Color(0xFF667085),
+                            color: Color(0xFF77716C),
                             height: 1.4,
                           ),
                         ),
@@ -345,9 +345,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Container(
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
+                            color: const Color(0xFFFCF9F6),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(color: const Color(0xFFEEE8E2)),
                           ),
                           child: Row(
                             children: [
@@ -381,7 +381,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           Icon(
                                             Icons.login_rounded,
                                             size: 15,
-                                            color: _selectedMode == 0 ? const Color(0xFF2146A8) : const Color(0xFF64748B),
+                                            color: _selectedMode == 0 ? const Color(0xFFF46B12) : const Color(0xFF77716C),
                                           ),
                                           const SizedBox(width: 5),
                                           Text(
@@ -389,7 +389,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                             style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: _selectedMode == 0 ? FontWeight.w800 : FontWeight.w600,
-                                              color: _selectedMode == 0 ? const Color(0xFF2146A8) : const Color(0xFF64748B),
+                                              color: _selectedMode == 0 ? const Color(0xFFF46B12) : const Color(0xFF77716C),
                                             ),
                                           ),
                                         ],
@@ -428,7 +428,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           Icon(
                                             Icons.person_add_outlined,
                                             size: 15,
-                                            color: _selectedMode == 1 ? const Color(0xFF2146A8) : const Color(0xFF64748B),
+                                            color: _selectedMode == 1 ? const Color(0xFFF46B12) : const Color(0xFF77716C),
                                           ),
                                           const SizedBox(width: 5),
                                           Text(
@@ -436,7 +436,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                             style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: _selectedMode == 1 ? FontWeight.w800 : FontWeight.w600,
-                                              color: _selectedMode == 1 ? const Color(0xFF2146A8) : const Color(0xFF64748B),
+                                              color: _selectedMode == 1 ? const Color(0xFFF46B12) : const Color(0xFF77716C),
                                             ),
                                           ),
                                         ],
@@ -456,15 +456,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
-                            color: Color(0xFF1E293B),
+                            color: Color(0xFF222222),
                           ),
                         ),
                         const SizedBox(height: 8),
                         Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: const Color(0xFFFCF9F6),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE4E7EC)),
+                            border: Border.all(color: const Color(0xFFEEE8E2)),
                           ),
                           child: TextField(
                             controller: _emailCtrl,
@@ -472,12 +472,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF111827),
+                              color: Color(0xFF222222),
                             ),
                             decoration: const InputDecoration(
                               hintText: 'name@example.com',
-                              hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.normal),
-                              prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF64748B), size: 20),
+                              hintStyle: TextStyle(color: Color(0xFF77716C), fontSize: 13.5, fontWeight: FontWeight.normal),
+                              prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF77716C), size: 20),
                               contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                               border: InputBorder.none,
                             ),
@@ -493,15 +493,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
-                              color: Color(0xFF1E293B),
+                              color: Color(0xFF222222),
                             ),
                           ),
                           const SizedBox(height: 8),
                           Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
+                              color: const Color(0xFFFCF9F6),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE4E7EC)),
+                              border: Border.all(color: const Color(0xFFEEE8E2)),
                             ),
                             child: TextField(
                               controller: _nameCtrl,
@@ -509,12 +509,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF111827),
+                                color: Color(0xFF222222),
                               ),
                               decoration: const InputDecoration(
                                 hintText: 'Enter your full name',
-                                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.normal),
-                                prefixIcon: Icon(Icons.person_outline, color: Color(0xFF64748B), size: 20),
+                                hintStyle: TextStyle(color: Color(0xFF77716C), fontSize: 13.5, fontWeight: FontWeight.normal),
+                                prefixIcon: Icon(Icons.person_outline, color: Color(0xFF77716C), size: 20),
                                 contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                                 border: InputBorder.none,
                               ),
@@ -528,22 +528,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
-                              color: Color(0xFF1E293B),
+                              color: Color(0xFF222222),
                             ),
                           ),
                           const SizedBox(height: 8),
                           Container(
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
+                              color: const Color(0xFFFCF9F6),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE4E7EC)),
+                              border: Border.all(color: const Color(0xFFEEE8E2)),
                             ),
                             child: Row(
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                                   decoration: const BoxDecoration(
-                                    border: Border(right: BorderSide(color: Color(0xFFE4E7EC))),
+                                    border: Border(right: BorderSide(color: Color(0xFFEEE8E2))),
                                   ),
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -555,7 +555,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         style: TextStyle(
                                           fontWeight: FontWeight.w800,
                                           fontSize: 14,
-                                          color: Color(0xFF111827),
+                                          color: Color(0xFF222222),
                                         ),
                                       ),
                                     ],
@@ -569,11 +569,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     style: const TextStyle(
                                       fontSize: 14.5,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF111827),
+                                      color: Color(0xFF222222),
                                     ),
                                     decoration: const InputDecoration(
                                       hintText: 'Enter 10-digit number',
-                                      hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5, fontWeight: FontWeight.normal),
+                                      hintStyle: TextStyle(color: Color(0xFF77716C), fontSize: 13.5, fontWeight: FontWeight.normal),
                                       contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                                       border: InputBorder.none,
                                       counterText: '',
@@ -595,11 +595,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             onPressed: (_isValid && !_isLoading) ? _sendOtp : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kBlack,
-                              disabledBackgroundColor: const Color(0xFFCBD5E1),
+                              disabledBackgroundColor: const Color(0xFFEEE8E2),
                               foregroundColor: Colors.white,
-                              disabledForegroundColor: const Color(0xFF64748B),
+                              disabledForegroundColor: const Color(0xFF77716C),
                               elevation: _isValid ? 2 : 0,
-                              shadowColor: const Color(0x662146A8),
+                              shadowColor: const Color(0x59F46B12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -644,7 +644,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 style: const TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF2146A8),
+                                  color: Color(0xFFF46B12),
                                 ),
                               ),
                             ),
@@ -661,7 +661,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Navigator.pushReplacementNamed(context, '/home');
                             },
                             style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF475569),
+                              foregroundColor: const Color(0xFF77716C),
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                             ),
                             child: const Row(
@@ -672,18 +672,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   style: TextStyle(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF334155),
+                                    color: Color(0xFF222222),
                                   ),
                                 ),
                                 SizedBox(width: 4),
-                                Icon(Icons.arrow_forward_rounded, size: 16, color: Color(0xFF334155)),
+                                Icon(Icons.arrow_forward_rounded, size: 16, color: Color(0xFF222222)),
                               ],
                             ),
                           ),
                         ),
 
                         const SizedBox(height: 14),
-                        const Divider(color: Color(0xFFF1F5F9)),
+                        const Divider(color: Color(0xFFFCF9F6)),
                         const SizedBox(height: 10),
 
                         // ─── LEGAL NOTICE ───
@@ -696,7 +696,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               children: [
                                 const Text(
                                   'By continuing, you agree to our ',
-                                  style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                  style: TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                                 ),
                                 GestureDetector(
                                   onTap: () => Navigator.pushNamed(context, '/terms'),
@@ -704,7 +704,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     'Terms of Service',
                                     style: TextStyle(
                                       fontSize: 11.5,
-                                      color: Color(0xFF2146A8),
+                                      color: Color(0xFFF46B12),
                                       fontWeight: FontWeight.bold,
                                       decoration: TextDecoration.underline,
                                     ),
@@ -712,7 +712,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                                 const Text(
                                   ' and ',
-                                  style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                  style: TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                                 ),
                                 GestureDetector(
                                   onTap: () => Navigator.pushNamed(context, '/privacy'),
@@ -720,7 +720,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     'Privacy Policy',
                                     style: TextStyle(
                                       fontSize: 11.5,
-                                      color: Color(0xFF2146A8),
+                                      color: Color(0xFFF46B12),
                                       fontWeight: FontWeight.bold,
                                       decoration: TextDecoration.underline,
                                     ),
@@ -936,7 +936,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           _startCountdown();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF166534),
+              backgroundColor: const Color(0xFF198754),
               content: Text('New 6-digit verification code sent to ${widget.emailAddress}!'),
             ),
           );
@@ -960,7 +960,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           _startCountdown();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF166534),
+              backgroundColor: const Color(0xFF198754),
               content: Text('New 6-digit verification code sent to ${widget.emailAddress}!'),
             ),
           );
@@ -995,9 +995,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF2146A8),
-                    Color(0xFF17357F),
-                    Color(0xFF0F2458),
+                    Color(0xFFF46B12),
+                    Color(0xFFF46B12),
+                    Color(0xFF222222),
                   ],
                 ),
               ),
@@ -1077,7 +1077,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: const [
                         BoxShadow(
-                          color: Color(0x4D0B1635),
+                          color: Color(0x4D222222),
                           blurRadius: 24,
                           offset: Offset(0, 12),
                         ),
@@ -1091,13 +1091,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF111827),
+                            color: Color(0xFF222222),
                           ),
                         ),
                         const SizedBox(height: 6),
                         const Text(
                           'Check your inbox or spam folder',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          style: TextStyle(fontSize: 12, color: Color(0xFF77716C)),
                         ),
                         const SizedBox(height: 24),
 
@@ -1117,20 +1117,20 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                                 style: const TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xFF111827),
+                                  color: Color(0xFF222222),
                                 ),
                                 decoration: InputDecoration(
                                   counterText: '',
                                   contentPadding: EdgeInsets.zero,
                                   filled: true,
-                                  fillColor: const Color(0xFFF8FAFC),
+                                  fillColor: const Color(0xFFFCF9F6),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Color(0xFFE4E7EC), width: 1.2),
+                                    borderSide: const BorderSide(color: Color(0xFFEEE8E2), width: 1.2),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Color(0xFF2146A8), width: 2),
+                                    borderSide: const BorderSide(color: Color(0xFFF46B12), width: 2),
                                   ),
                                 ),
                                 onChanged: (value) {
@@ -1190,7 +1190,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                                   const SizedBox(
                                     width: 14,
                                     height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF2146A8)),
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF46B12)),
                                   ),
                                   const SizedBox(width: 6),
                                 ],
@@ -1199,7 +1199,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                                       ? 'Resend OTP in ${_resendCountdown}s'
                                       : 'Resend Code',
                                   style: TextStyle(
-                                    color: _resendCountdown > 0 ? const Color(0xFF94A3B8) : const Color(0xFF2146A8),
+                                    color: _resendCountdown > 0 ? const Color(0xFF77716C) : const Color(0xFFF46B12),
                                     fontWeight: FontWeight.w700,
                                     fontSize: 13.5,
                                   ),

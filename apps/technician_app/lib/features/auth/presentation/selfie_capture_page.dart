@@ -116,7 +116,7 @@ class _SelfieCapturePageState extends State<SelfieCapturePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF222222),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -162,7 +162,7 @@ class _SelfieCapturePageState extends State<SelfieCapturePage> {
                         child: Container(
                           width: 280,
                           height: 360,
-                          color: const Color(0xFF1E293B),
+                          color: const Color(0xFF222222),
                           child: _localPhotoPath != null
                               ? Image.file(
                                   File(_localPhotoPath!),
@@ -189,12 +189,12 @@ class _SelfieCapturePageState extends State<SelfieCapturePage> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(162),
                           border: Border.all(
-                            color: _isCaptured ? const Color(0xFF16A34A) : const Color(0xFF38BDF8),
+                            color: _isCaptured ? const Color(0xFF198754) : const Color(0xFFF46B12),
                             width: 3.5,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: (_isCaptured ? const Color(0xFF16A34A) : const Color(0xFF38BDF8)).withValues(alpha: 0.3),
+                              color: (_isCaptured ? const Color(0xFF198754) : const Color(0xFFF46B12)).withValues(alpha: 0.3),
                               blurRadius: 20,
                               spreadRadius: 2,
                             ),
@@ -217,7 +217,7 @@ class _SelfieCapturePageState extends State<SelfieCapturePage> {
                             children: [
                               Icon(
                                 _isCaptured ? Icons.check_circle : Icons.face,
-                                color: _isCaptured ? const Color(0xFF16A34A) : const Color(0xFF38BDF8),
+                                color: _isCaptured ? const Color(0xFF198754) : const Color(0xFFF46B12),
                                 size: 16,
                               ),
                               const SizedBox(width: 6),
@@ -291,7 +291,7 @@ class _SelfieCapturePageState extends State<SelfieCapturePage> {
                               child: ElevatedButton(
                                 onPressed: _confirmPhoto,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF16A34A),
+                                  backgroundColor: const Color(0xFF198754),
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(vertical: 14),
                                   elevation: 0,
@@ -318,7 +318,7 @@ class _SelfieCapturePageState extends State<SelfieCapturePage> {
                                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, letterSpacing: 0.5),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF2563EB),
+                                  backgroundColor: const Color(0xFFF46B12),
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -351,7 +351,7 @@ class _RuleItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, color: const Color(0xFF38BDF8), size: 20),
+        Icon(icon, color: const Color(0xFFF46B12), size: 20),
         const SizedBox(height: 4),
         Text(
           label,

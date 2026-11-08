@@ -261,16 +261,16 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: const Color(0xFFFCF9F6),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFD9E2F2)),
+                      border: Border.all(color: const Color(0xFFEEE8E2)),
                     ),
                     child: TextField(
                       controller: _textController,
                       textCapitalization: TextCapitalization.sentences,
                       decoration: const InputDecoration(
                         hintText: 'Ask about services, prices, refunds...',
-                        hintStyle: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+                        hintStyle: TextStyle(fontSize: 13, color: Color(0xFF77716C)),
                         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         border: InputBorder.none,
                       ),
@@ -313,19 +313,19 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: isUser ? kBrandPrimary : const Color(0xFFEEF3FF),
+              color: isUser ? kBrandPrimary : const Color(0xFFFBE4D5),
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(14),
                 topRight: const Radius.circular(14),
                 bottomLeft: Radius.circular(isUser ? 14 : 2),
                 bottomRight: Radius.circular(isUser ? 2 : 14),
               ),
-              border: isUser ? null : Border.all(color: const Color(0xFFD9E2F2)),
+              border: isUser ? null : Border.all(color: const Color(0xFFEEE8E2)),
             ),
             child: Text(
               msg.text,
               style: TextStyle(
-                color: isUser ? Colors.white : const Color(0xFF111827),
+                color: isUser ? Colors.white : const Color(0xFF222222),
                 fontSize: 13.5,
                 height: 1.45,
                 fontWeight: isUser ? FontWeight.w500 : FontWeight.normal,
@@ -342,7 +342,7 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFD9E2F2), width: 1.2),
+                border: Border.all(color: const Color(0xFFEEE8E2), width: 1.2),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,7 +352,7 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
-                      color: Color(0xFF111827),
+                      color: Color(0xFF222222),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -360,7 +360,7 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
                     msg.actionCard!.subtitle,
                     style: const TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF667085),
+                      color: Color(0xFF77716C),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -398,19 +398,19 @@ class _AiAssistantSheetState extends ConsumerState<AiAssistantSheet> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFEEF3FF),
+          color: const Color(0xFFFBE4D5),
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(14),
             topRight: Radius.circular(14),
             bottomRight: Radius.circular(14),
             bottomLeft: Radius.circular(2),
           ),
-          border: Border.all(color: const Color(0xFFD9E2F2)),
+          border: Border.all(color: const Color(0xFFEEE8E2)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Bookur Assistant is typing ', style: TextStyle(fontSize: 12, color: Color(0xFF667085))),
+            Text('Bookur Assistant is typing ', style: TextStyle(fontSize: 12, color: Color(0xFF77716C))),
             Text('● ● ●', style: TextStyle(color: kBrandPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
           ],
         ),

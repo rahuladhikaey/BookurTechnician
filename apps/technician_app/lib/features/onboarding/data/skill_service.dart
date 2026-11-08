@@ -60,20 +60,17 @@ class SkillService {
 
   /// Fetch the logged in technician's configured skills and ratings
   Future<TechnicianSkillProfileModel?> fetchMySkillProfile() async {
-    var userId = await SecureStorage().getUserId();
-    if (userId == null || userId.isEmpty || userId == 'BT-PARTNER') {
-      final userDetails = await SecureStorage().getUserDetails();
-      final phone = userDetails['phone'];
-      final email = userDetails['email'];
-      if (phone != null && phone.isNotEmpty) {
-        userId = 'tech_${phone.replaceAll(RegExp(r'\D'), '')}';
-      } else if (email != null && email.isNotEmpty) {
-        userId = 'tech_${email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
-      } else {
-        userId = 'tech_partner_01';
-      }
-      await SecureStorage().saveUserId(userId);
-    }
+    final userDetails = await SecureStorage().getUserDetails();
+    final phone = userDetails['phone'] ?? '';
+    final email = userDetails['email'] ?? '';
+    var rawUserId = await SecureStorage().getUserId();
+    final userId = FirestoreRestClient.resolveCanonicalTechUid(
+      (rawUserId != null && rawUserId.isNotEmpty && rawUserId != 'BT-PARTNER')
+          ? rawUserId
+          : (phone.isNotEmpty ? phone : email),
+      phone: phone,
+    );
+    await SecureStorage().saveUserId(userId);
     final token = await SecureStorage().getToken();
 
     try {
@@ -96,13 +93,13 @@ class SkillService {
           return TechnicianSkillProfileModel.fromJson({
             'skills': raw['data'],
             'technicianId': userId,
-            'fullName': 'Partner Technician',
+            'fullName': userDetails['name'] ?? 'Partner Technician',
           });
         } else if (raw['skills'] is List) {
           return TechnicianSkillProfileModel.fromJson({
             'skills': raw['skills'],
             'technicianId': userId,
-            'fullName': 'Partner Technician',
+            'fullName': userDetails['name'] ?? 'Partner Technician',
           });
         }
       }
@@ -138,24 +135,42 @@ class SkillService {
             return TechnicianSkillProfileModel.fromJson({
               'skills': raw['data'],
               'technicianId': userId,
-              'fullName': 'Partner Technician',
+              'fullName': userDetails['name'] ?? 'Partner Technician',
             });
           }
         }
       } catch (_) {}
     }
 
-    final details = await SecureStorage().getUserDetails();
-    final realName = details['name'] ?? 'Partner Technician';
-    final effectiveId = userId.isNotEmpty ? userId : 'tech_partner_01';
-    final digits = effectiveId.replaceAll(RegExp(r'\D'), '');
-    final codeDigits = digits.length >= 6 ? digits.substring(0, 6) : digits.padLeft(6, '0');
+    // Check Cloud Firestore directly if backend API is unreachable
+    try {
+      final doc = await FirestoreRestClient.getDocument('technician_profiles', userId);
+      if (doc != null) {
+        final docSkills = (doc['selectedSkills'] is List && (doc['selectedSkills'] as List).isNotEmpty)
+            ? doc['selectedSkills'] as List
+            : (doc['skills'] is List ? doc['skills'] as List : <dynamic>[]);
+        if (docSkills.isNotEmpty) {
+          return TechnicianSkillProfileModel.fromJson({
+            'technicianId': userId,
+            'technicianCode': doc['technicianCode'] ?? FirestoreRestClient.resolveTechnicianCode(userId, phone: phone),
+            'fullName': doc['fullName'] ?? doc['name'] ?? userDetails['name'] ?? 'Partner Technician',
+            'rating': doc['rating'] ?? 4.9,
+            'totalRatingsCount': doc['totalRatingsCount'] ?? 0,
+            'totalJobsCompleted': doc['totalJobsCompleted'] ?? 0,
+            'skills': docSkills,
+          });
+        }
+      }
+    } catch (_) {}
+
+    final realName = userDetails['name'] ?? 'Partner Technician';
+    final partnerCode = FirestoreRestClient.resolveTechnicianCode(userId, phone: phone);
 
     // Check local persistent cache if network/quota is limited
     List<TechnicianSkillItemModel> fallbackSkills = [];
     try {
       final prefs = await SharedPreferences.getInstance();
-      final rawCached = prefs.getString('cached_technician_skills_$effectiveId');
+      final rawCached = prefs.getString('cached_technician_skills_$userId');
       if (rawCached != null && rawCached.isNotEmpty) {
         final decoded = jsonDecode(rawCached) as List<dynamic>;
         fallbackSkills = decoded
@@ -165,8 +180,8 @@ class SkillService {
     } catch (_) {}
 
     return TechnicianSkillProfileModel(
-      technicianId: effectiveId,
-      technicianCode: 'BT-$codeDigits',
+      technicianId: userId,
+      technicianCode: partnerCode,
       fullName: realName,
       rating: 4.9,
       totalRatingsCount: 0,
@@ -180,26 +195,38 @@ class SkillService {
 
   /// Bulk-save newly selected skills
   Future<TechnicianSkillProfileModel?> saveSelectedSkills(List<Map<String, dynamic>> skillsPayload) async {
-    var userId = await SecureStorage().getUserId();
     final userDetails = await SecureStorage().getUserDetails();
     final phone = userDetails['phone'] ?? '';
     final email = userDetails['email'] ?? '';
     final realName = userDetails['name'] ?? 'Partner Technician';
+    final rawUserId = await SecureStorage().getUserId();
 
-    if (userId == null || userId.isEmpty || userId == 'BT-PARTNER') {
-      if (phone.isNotEmpty) {
-        userId = 'tech_${phone.replaceAll(RegExp(r'\D'), '')}';
-      } else if (email.isNotEmpty) {
-        userId = 'tech_${email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
-      } else {
-        userId = 'tech_partner_01';
-      }
-      await SecureStorage().saveUserId(userId);
-    }
+    final userId = FirestoreRestClient.resolveCanonicalTechUid(
+      (rawUserId != null && rawUserId.isNotEmpty && rawUserId != 'BT-PARTNER')
+          ? rawUserId
+          : (phone.isNotEmpty ? phone : email),
+      phone: phone,
+    );
+    await SecureStorage().saveUserId(userId);
     final token = await SecureStorage().getToken();
 
+    final normalizedSkillsPayload = skillsPayload.map((s) {
+      final sName = (s['skillName'] ?? s['name'] ?? '').toString();
+      final sId = (s['canonicalServiceId'] ?? s['skillId'] ?? s['id'] ?? '').toString();
+      final canonicalId = FirestoreRestClient.resolveCanonicalServiceId(sId, skillName: sName);
+      return <String, dynamic>{
+        ...s,
+        'id': canonicalId,
+        'skillId': canonicalId,
+        'canonicalServiceId': canonicalId,
+        'skillName': sName.isNotEmpty ? sName : canonicalId,
+        'verificationStatus': (s['verificationStatus'] ?? 'VERIFIED').toString().toUpperCase(),
+        'enabled': s['enabled'] != false,
+      };
+    }).toList();
+
     final declaredCategories = <String>{};
-    for (final s in skillsPayload) {
+    for (final s in normalizedSkillsPayload) {
       final cName = s['categoryName']?.toString();
       if (cName != null && cName.isNotEmpty) {
         declaredCategories.add(cName);
@@ -210,14 +237,13 @@ class SkillService {
     // 1. Immediately cache locally in SharedPreferences (Guarantees persistence across restarts)
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('cached_technician_skills_$userId', jsonEncode(skillsPayload));
+      await prefs.setString('cached_technician_skills_$userId', jsonEncode(normalizedSkillsPayload));
       await prefs.setString('cached_technician_category_$userId', primaryCategory);
       await prefs.setStringList('cached_technician_categories_$userId', declaredCategories.toList());
     } catch (_) {}
 
     final nowUtc = DateTime.now().toUtc().toIso8601String();
-    final digits = userId.replaceAll(RegExp(r'\D'), '');
-    final partnerCode = 'BT-${(digits.length >= 6 ? digits.substring(digits.length - 6) : digits.padLeft(6, '0'))}';
+    final partnerCode = FirestoreRestClient.resolveTechnicianCode(userId, phone: phone);
 
     // 2. Direct write to Cloud Firestore with updateMask (Strictly updates skills & category only; NEVER modifies GPS coordinates, lastLocationUpdate, or online presence)
     try {
@@ -229,22 +255,25 @@ class SkillService {
         'fullName': realName,
         'name': realName,
         'phone': phone,
+        'phoneNumber': phone,
         'email': email,
-        'skills': skillsPayload,
+        'selectedSkills': normalizedSkillsPayload,
+        'skills': normalizedSkillsPayload,
+        'serviceCategories': declaredCategories.toList(),
         'categories': declaredCategories.toList(),
         'category': primaryCategory,
-        'totalSkillsCount': skillsPayload.length,
-        'verifiedSkillsCount': skillsPayload.length,
+        'totalSkillsCount': normalizedSkillsPayload.length,
+        'verifiedSkillsCount': normalizedSkillsPayload.length,
         'pendingSkillsCount': 0,
         'updatedAt': nowUtc,
       });
-      debugPrint('✅ [SkillService] Successfully saved ${skillsPayload.length} skills to Cloud Firestore for $userId (GPS/presence untouched)');
+      debugPrint('✅ [SkillService] Successfully saved ${normalizedSkillsPayload.length} canonical skills to Cloud Firestore for $userId (GPS/presence untouched)');
     } catch (fsErr) {
       debugPrint('⚠️ [SkillService] Firestore direct skill save notice: $fsErr');
     }
 
     final payload = {
-      'skills': skillsPayload,
+      'skills': normalizedSkillsPayload,
       if (userId.isNotEmpty) 'technicianId': userId,
     };
 
@@ -266,7 +295,8 @@ class SkillService {
           return TechnicianSkillProfileModel.fromJson({
             'skills': raw['data'],
             'technicianId': userId,
-            'fullName': 'Partner Technician',
+            'technicianCode': partnerCode,
+            'fullName': realName,
           });
         }
       }
@@ -302,28 +332,35 @@ class SkillService {
     }
 
     return TechnicianSkillProfileModel.fromJson({
-      'skills': skillsPayload,
+      'skills': normalizedSkillsPayload,
       'technicianId': userId,
-      'fullName': 'Partner Technician',
+      'technicianCode': partnerCode,
+      'fullName': realName,
     });
   }
 
   /// Toggle single skill active status
   Future<bool> toggleSkill(String technicianSkillId) async {
     try {
-      final userId = await SecureStorage().getUserId() ?? 'tech_partner_01';
+      final userDetails = await SecureStorage().getUserDetails();
+      final phone = userDetails['phone'] ?? '';
+      final rawUserId = await SecureStorage().getUserId();
+      final userId = FirestoreRestClient.resolveCanonicalTechUid(rawUserId, phone: phone);
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('cached_technician_skills_$userId');
       if (raw != null && raw.isNotEmpty) {
         final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
         for (final item in list) {
-          if (item['id'] == technicianSkillId || item['skillId'] == technicianSkillId) {
+          if (item['id'] == technicianSkillId ||
+              item['skillId'] == technicianSkillId ||
+              item['canonicalServiceId'] == technicianSkillId) {
             item['enabled'] = !(item['enabled'] == true);
           }
         }
         final nowUtc = DateTime.now().toUtc().toIso8601String();
         await prefs.setString('cached_technician_skills_$userId', jsonEncode(list));
         await FirestoreRestClient.upsertDocument('technician_profiles', userId, {
+          'selectedSkills': list,
           'skills': list,
           'updatedAt': nowUtc,
         });
@@ -336,115 +373,83 @@ class SkillService {
     }
   }
 
-  /// Fallback static category dataset in case of network unavailability
+  /// Fallback static category dataset mapped to canonical Central Catalog service IDs
   List<SkillCategoryModel> _getFallbackCategories() {
+    SkillItemModel buildSkill(String id, String name, String catId, String catName) {
+      return SkillItemModel(
+        id: id,
+        canonicalServiceId: id,
+        categoryId: catId,
+        categoryName: catName,
+        name: name,
+        slug: name.toLowerCase().replaceAll(' ', '-').replaceAll('/', '-'),
+      );
+    }
+
     return [
       SkillCategoryModel(
-        id: 'cat_electrical',
-        name: 'Electrical & Home Electrical',
-        slug: 'electrical-services',
-        displayOrder: 1,
-        skills: [
-          'Basic Electrician', 'Light Repair', 'LED Installation/Repair',
-          'Ceiling Fan Installation', 'Ceiling Fan Repair', 'Stand Fan Repair', 'Exhaust Fan',
-          'Switch Board Repair', 'Socket Repair', 'MCB Installation', 'MCB/Distribution Board Repair',
-          'Wiring Repair', 'Short Circuit Troubleshooting', 'Full House Wiring',
-          'New Electrical Installation', 'Inverter Installation', 'Inverter Repair',
-          'Motor Wiring', 'Water Pump/Motor Repair', 'Doorbell Installation',
-          'Electrical Appliance Connection'
-        ].map((name) => SkillItemModel(
-          id: 'sk_${name.toLowerCase().replaceAll(' ', '_').replaceAll('/', '_')}',
-          categoryId: 'cat_electrical',
-          categoryName: 'Electrical & Home Electrical',
-          name: name,
-          slug: name.toLowerCase().replaceAll(' ', '-').replaceAll('/', '-'),
-        )).toList(),
-      ),
-      SkillCategoryModel(
-        id: 'cat_ac',
+        id: 'ac_services',
         name: 'AC Services',
         slug: 'ac-services',
+        displayOrder: 1,
+        skills: [
+          buildSkill('ac_install', 'AC installation', 'ac_services', 'AC Services'),
+          buildSkill('ac_uninstall', 'AC uninstallation', 'ac_services', 'AC Services'),
+          buildSkill('ac_deep_cleaning', 'Deep cleaning service', 'ac_services', 'AC Services'),
+          buildSkill('ac_repair_general', 'AC repair', 'ac_services', 'AC Services'),
+          buildSkill('ac_pcb_repair', 'AC PCB repair', 'ac_services', 'AC Services'),
+          buildSkill('ac_relocation', 'AC relocation', 'ac_services', 'AC Services'),
+          buildSkill('ac_general_service', 'AC general servicing', 'ac_services', 'AC Services'),
+          buildSkill('ac_gas_refill', 'Gas refill / leakage fix', 'ac_services', 'AC Services'),
+          buildSkill('ac_cooling_issue', 'Cooling problem diagnosis', 'ac_services', 'AC Services'),
+          buildSkill('ac_compressor_repair', 'Compressor repair', 'ac_services', 'AC Services'),
+        ],
+      ),
+      SkillCategoryModel(
+        id: 'electrical_services',
+        name: 'Electrical Services',
+        slug: 'electrical-services',
         displayOrder: 2,
         skills: [
-          'AC Installation', 'AC Uninstallation', 'AC General Service',
-          'AC Deep Cleaning', 'AC Gas Charging', 'AC Gas Leakage Inspection',
-          'AC Cooling Problem', 'AC Electrical Repair', 'Split AC', 'Window AC', 'Inverter AC'
-        ].map((name) => SkillItemModel(
-          id: 'sk_${name.toLowerCase().replaceAll(' ', '_')}',
-          categoryId: 'cat_ac',
-          categoryName: 'AC Services',
-          name: name,
-          slug: name.toLowerCase().replaceAll(' ', '-'),
-        )).toList(),
+          buildSkill('fan_install', 'Ceiling fan installation', 'electrical_services', 'Electrical Services'),
+          buildSkill('fan_repair', 'Fan repair', 'electrical_services', 'Electrical Services'),
+          buildSkill('switch_replace', 'Switch replacement', 'electrical_services', 'Electrical Services'),
+          buildSkill('socket_replace', 'Socket replacement', 'electrical_services', 'Electrical Services'),
+          buildSkill('switchboard_repair', 'Switchboard repair', 'electrical_services', 'Electrical Services'),
+          buildSkill('mcb_replace', 'MCB replacement', 'electrical_services', 'Electrical Services'),
+          buildSkill('wiring_fault_check', 'Wiring fault check', 'electrical_services', 'Electrical Services'),
+          buildSkill('inverter_install', 'Inverter installation', 'electrical_services', 'Electrical Services'),
+          buildSkill('inverter_repair', 'Inverter repair', 'electrical_services', 'Electrical Services'),
+          buildSkill('led_light_install', 'LED light installation', 'electrical_services', 'Electrical Services'),
+        ],
       ),
       SkillCategoryModel(
-        id: 'cat_refrigerator',
-        name: 'Refrigerator',
-        slug: 'refrigerator-services',
+        id: 'appliances_services',
+        name: 'Appliances Repair',
+        slug: 'appliances-services',
         displayOrder: 3,
         skills: [
-          'Refrigerator Repair', 'Refrigerator Cooling Problem', 'Gas Charging',
-          'Compressor Related Service', 'Refrigerator Electrical Repair', 'Door/Gasket Repair'
-        ].map((name) => SkillItemModel(
-          id: 'sk_${name.toLowerCase().replaceAll(' ', '_')}',
-          categoryId: 'cat_refrigerator',
-          categoryName: 'Refrigerator',
-          name: name,
-          slug: name.toLowerCase().replaceAll(' ', '-'),
-        )).toList(),
+          buildSkill('fridge_cooling_fix', 'Refrigerator cooling issue', 'appliances_services', 'Appliances Repair'),
+          buildSkill('fridge_gas_refill', 'Refrigerator gas refill', 'appliances_services', 'Appliances Repair'),
+          buildSkill('wm_repair', 'Washing machine repair', 'appliances_services', 'Appliances Repair'),
+          buildSkill('wm_install', 'Washing machine installation', 'appliances_services', 'Appliances Repair'),
+          buildSkill('ro_service', 'Water purifier service', 'appliances_services', 'Appliances Repair'),
+          buildSkill('geyser_repair', 'Geyser repair', 'appliances_services', 'Appliances Repair'),
+          buildSkill('microwave_repair', 'Microwave repair', 'appliances_services', 'Appliances Repair'),
+        ],
       ),
       SkillCategoryModel(
-        id: 'cat_washing_machine',
-        name: 'Washing Machine',
-        slug: 'washing-machine-services',
+        id: 'computer_networking',
+        name: 'Computer & Networking',
+        slug: 'computer-networking',
         displayOrder: 4,
         skills: [
-          'Washing Machine Repair', 'Washing Machine Installation', 'Front Load',
-          'Top Load', 'Semi Automatic', 'Drainage Problem', 'Spin Problem',
-          'Water Inlet Problem', 'Washing Machine Electrical Repair'
-        ].map((name) => SkillItemModel(
-          id: 'sk_${name.toLowerCase().replaceAll(' ', '_')}',
-          categoryId: 'cat_washing_machine',
-          categoryName: 'Washing Machine',
-          name: name,
-          slug: name.toLowerCase().replaceAll(' ', '-'),
-        )).toList(),
-      ),
-      SkillCategoryModel(
-        id: 'cat_computer_laptop',
-        name: 'Computer & Laptop',
-        slug: 'computer-laptop-services',
-        displayOrder: 5,
-        skills: [
-          'Computer Repair', 'Laptop Repair', 'Laptop Screen Replacement',
-          'Keyboard Replacement', 'Battery Replacement', 'Charging Port Repair',
-          'Windows/OS Installation', 'Software Troubleshooting', 'Hardware Troubleshooting',
-          'Desktop Assembly', 'Computer Networking'
-        ].map((name) => SkillItemModel(
-          id: 'sk_${name.toLowerCase().replaceAll(' ', '_')}',
-          categoryId: 'cat_computer_laptop',
-          categoryName: 'Computer & Laptop',
-          name: name,
-          slug: name.toLowerCase().replaceAll(' ', '-'),
-        )).toList(),
-      ),
-      SkillCategoryModel(
-        id: 'cat_tv_entertainment',
-        name: 'TV & Entertainment',
-        slug: 'tv-entertainment-services',
-        displayOrder: 6,
-        skills: [
-          'LED TV Repair', 'Smart TV Repair', 'TV Installation',
-          'TV Wall Mounting', 'Set-top Box Installation', 'Speaker Installation',
-          'CCTV Installation', 'Wi-Fi/Router Setup', 'Door Lock Repair',
-          'Appliance Installation', 'General Home Maintenance'
-        ].map((name) => SkillItemModel(
-          id: 'sk_${name.toLowerCase().replaceAll(' ', '_')}',
-          categoryId: 'cat_tv_entertainment',
-          categoryName: 'TV & Entertainment',
-          name: name,
-          slug: name.toLowerCase().replaceAll(' ', '-'),
-        )).toList(),
+          buildSkill('laptop_general_repair', 'Laptop general repair', 'computer_networking', 'Computer & Networking'),
+          buildSkill('laptop_screen_replace', 'Laptop screen replacement', 'computer_networking', 'Computer & Networking'),
+          buildSkill('os_install', 'Windows / OS installation', 'computer_networking', 'Computer & Networking'),
+          buildSkill('wifi_router_setup', 'WiFi router setup', 'computer_networking', 'Computer & Networking'),
+          buildSkill('cctv_install', 'CCTV camera installation', 'computer_networking', 'Computer & Networking'),
+        ],
       ),
     ];
   }

@@ -109,7 +109,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFCBD5E1),
+                        color: const Color(0xFFEEE8E2),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -120,11 +120,11 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                     children: [
                       const Text(
                         'Instant Payout Transfer',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF222222)),
                       ),
                       IconButton(
                         onPressed: () => Navigator.pop(modalCtx),
-                        icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                        icon: const Icon(Icons.close_rounded, color: Color(0xFF77716C)),
                       ),
                     ],
                   ),
@@ -132,47 +132,47 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEFCE8),
+                      color: const Color(0xFFFFF4E0),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFDE047)),
+                      border: Border.all(color: const Color(0xFFFBE4D5)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFFB45309), size: 22),
+                        const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFFE5A126), size: 22),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Payout Destination (UPI)', style: TextStyle(fontSize: 11, color: Color(0xFF78350F), fontWeight: FontWeight.w600)),
-                              Text(currentUpi, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                              const Text('Payout Destination (UPI)', style: TextStyle(fontSize: 11, color: Color(0xFFE85B08), fontWeight: FontWeight.w600)),
+                              Text(currentUpi, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: Color(0xFF222222))),
                             ],
                           ),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
-                          child: const Text('✓ Instant 24x7', style: TextStyle(color: Color(0xFF15803D), fontSize: 10.5, fontWeight: FontWeight.w800)),
+                          decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(6)),
+                          child: const Text('✓ Instant 24x7', style: TextStyle(color: Color(0xFF198754), fontSize: 10.5, fontWeight: FontWeight.w800)),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Enter Withdrawal Amount (₹)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF334155))),
+                  const Text('Enter Withdrawal Amount (₹)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF222222))),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _amountController,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF222222)),
                     decoration: InputDecoration(
                       prefixText: '₹ ',
-                      prefixStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                      prefixStyle: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF222222)),
                       hintText: '0',
                       filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFFDB813), width: 2)),
+                      fillColor: const Color(0xFFFCF9F6),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFEEE8E2))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFEEE8E2))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFF46B12), width: 2)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
                   ),
@@ -184,8 +184,8 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         padding: const EdgeInsets.only(right: 8),
                         child: ActionChip(
                           label: Text('₹$preset', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-                          backgroundColor: const Color(0xFFF1F5F9),
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          backgroundColor: const Color(0xFFFCF9F6),
+                          side: const BorderSide(color: Color(0xFFEEE8E2)),
                           onPressed: () {
                             if (preset <= availableBalance) {
                               setModalState(() {
@@ -200,9 +200,9 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         Padding(
                           padding: const EdgeInsets.only(right: 0),
                           child: ActionChip(
-                            label: const Text('Full Balance', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF0F172A))),
-                            backgroundColor: const Color(0xFFFDB813),
-                            side: const BorderSide(color: Color(0xFFFDB813)),
+                            label: const Text('Full Balance', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF222222))),
+                            backgroundColor: const Color(0xFFF46B12),
+                            side: const BorderSide(color: Color(0xFFF46B12)),
                             onPressed: () {
                               setModalState(() {
                                 _amountController.text = availableBalance.toStringAsFixed(0);
@@ -243,7 +243,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F172A),
+                        backgroundColor: const Color(0xFF222222),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -251,7 +251,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.bolt_rounded, color: Color(0xFFFDB813), size: 20),
+                          Icon(Icons.bolt_rounded, color: Color(0xFFF46B12), size: 20),
                           SizedBox(width: 8),
                           Text('TRANSFER TO BANK NOW', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
                         ],
@@ -274,22 +274,22 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
     final savedUpi = dashState.savedUpiId;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: const Color(0xFF222222),
         elevation: 0,
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFFDB813),
+                color: const Color(0xFFF46B12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 'WALLET',
                 style: TextStyle(
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF222222),
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.8,
@@ -319,7 +319,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                  colors: [Color(0xFFF46B12), Color(0xFFE85B08)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -341,7 +341,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                       const Text(
                         'TOTAL WITHDRAWABLE BALANCE',
                         style: TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: Color(0xFF77716C),
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.8,
@@ -350,17 +350,17 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFDB813).withValues(alpha: 0.15),
+                          color: const Color(0xFFF46B12).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFFDB813).withValues(alpha: 0.4)),
+                          border: Border.all(color: const Color(0xFFF46B12).withValues(alpha: 0.4)),
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.bolt_rounded, color: Color(0xFFFDB813), size: 14),
+                            Icon(Icons.bolt_rounded, color: Color(0xFFF46B12), size: 14),
                             SizedBox(width: 3),
                             Text(
                               'Instant 24x7',
-                              style: TextStyle(color: Color(0xFFFDB813), fontSize: 10.5, fontWeight: FontWeight.w900),
+                              style: TextStyle(color: Color(0xFFF46B12), fontSize: 10.5, fontWeight: FontWeight.w900),
                             ),
                           ],
                         ),
@@ -392,16 +392,16 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Today Net', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            const Text('Today Net', style: TextStyle(color: Color(0xFF77716C), fontSize: 10.5, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 2),
-                            Text('₹${(netEarnings * 0.4).toStringAsFixed(0)}', style: const TextStyle(color: Color(0xFF86EFAC), fontSize: 13, fontWeight: FontWeight.w900)),
+                            Text('₹${(netEarnings * 0.4).toStringAsFixed(0)}', style: const TextStyle(color: Color(0xFFE8F5E9), fontSize: 13, fontWeight: FontWeight.w900)),
                           ],
                         ),
                         Container(width: 1, height: 24, color: Colors.white24),
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Cash in Hand', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            Text('Cash in Hand', style: TextStyle(color: Color(0xFF77716C), fontSize: 10.5, fontWeight: FontWeight.bold)),
                             SizedBox(height: 2),
                             Text('₹0', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900)),
                           ],
@@ -410,9 +410,9 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Fee Tier', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            Text('Fee Tier', style: TextStyle(color: Color(0xFF77716C), fontSize: 10.5, fontWeight: FontWeight.bold)),
                             SizedBox(height: 2),
-                            Text('10% Flat', style: TextStyle(color: Color(0xFFFDE047), fontSize: 13, fontWeight: FontWeight.w900)),
+                            Text('10% Flat', style: TextStyle(color: Color(0xFFFBE4D5), fontSize: 13, fontWeight: FontWeight.w900)),
                           ],
                         ),
                       ],
@@ -432,8 +432,8 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                             }
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFDB813),
-                        foregroundColor: const Color(0xFF0F172A),
+                        backgroundColor: const Color(0xFFF46B12),
+                        foregroundColor: const Color(0xFF222222),
                         disabledBackgroundColor: Colors.white24,
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -468,7 +468,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: const Color(0xFFEEE8E2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -478,14 +478,14 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                     children: [
                       Text(
                         'Registered Payout UPI ID',
-                        style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                        style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: Color(0xFF222222)),
                       ),
-                      Icon(Icons.verified_user_rounded, size: 18, color: Color(0xFF16A34A)),
+                      Icon(Icons.verified_user_rounded, size: 18, color: Color(0xFF198754)),
                     ],
                   ),
                   const SizedBox(height: 8),
                   if (_isVerifyingPin) ...[
-                    const Text('Enter your 4-digit Security PIN to confirm:', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                    const Text('Enter your 4-digit Security PIN to confirm:', style: TextStyle(fontSize: 12, color: Color(0xFF77716C))),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _pinController,
@@ -510,7 +510,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: _submitPinAndUpdateUpi,
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF222222), foregroundColor: Colors.white),
                             child: const Text('Confirm PIN'),
                           ),
                         ),
@@ -520,18 +520,18 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: const Color(0xFFFCF9F6),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: const Color(0xFFEEE8E2)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.payment_rounded, color: Color(0xFF0F172A), size: 20),
+                          const Icon(Icons.payment_rounded, color: Color(0xFF222222), size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               savedUpi,
-                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFF222222)),
                             ),
                           ),
                           InkWell(
@@ -541,7 +541,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                             },
                             child: const Text(
                               'Edit',
-                              style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.w800, fontSize: 12.5),
+                              style: TextStyle(color: Color(0xFFF46B12), fontWeight: FontWeight.w800, fontSize: 12.5),
                             ),
                           ),
                         ],
@@ -569,7 +569,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: _handleSaveUpi,
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF222222), foregroundColor: Colors.white),
                             child: const Text('Save UPI'),
                           ),
                         ),
@@ -585,14 +585,14 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
             // ─── 4. SETTLED TRANSACTIONS ─────────────────────────────────────
             const Text(
               'Settled Payout Transactions',
-              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: Color(0xFF222222)),
             ),
             const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: const Color(0xFFEEE8E2)),
               ),
               child: dashState.payoutHistory.isEmpty
                   ? const Padding(
@@ -600,17 +600,17 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(Icons.receipt_long_rounded, color: Color(0xFFCBD5E1), size: 36),
+                            Icon(Icons.receipt_long_rounded, color: Color(0xFFEEE8E2), size: 36),
                             SizedBox(height: 8),
                             Text(
                               'No Payouts Recorded Yet',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF334155)),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF222222)),
                             ),
                             SizedBox(height: 4),
                             Text(
                               'Transferred amounts to your UPI ID will show in this log with settlement receipts.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                              style: TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                             ),
                           ],
                         ),
@@ -627,16 +627,16 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                           leading: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: const BoxDecoration(
-                              color: Color(0xFFDCFCE7),
+                              color: Color(0xFFE8F5E9),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.arrow_downward_rounded, color: Color(0xFF15803D), size: 18),
+                            child: const Icon(Icons.arrow_downward_rounded, color: Color(0xFF198754), size: 18),
                           ),
                           title: Text('Txn Ref: ${item.id}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          subtitle: Text('Released: ${item.date} • ${item.status}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                          subtitle: Text('Released: ${item.date} • ${item.status}', style: const TextStyle(fontSize: 11, color: Color(0xFF77716C))),
                           trailing: Text(
                             '₹${item.amount.toStringAsFixed(0)}',
-                            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF15803D), fontSize: 14),
+                            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF198754), fontSize: 14),
                           ),
                         );
                       },
@@ -660,20 +660,20 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
 
     switch (currentTier) {
       case TechnicianTier.gold:
-        gradientColors = const [Color(0xFF78350F), Color(0xFFB45309), Color(0xFFD97706)];
-        accentColor = const Color(0xFFFDE68A);
+        gradientColors = const [Color(0xFFE85B08), Color(0xFFE5A126), Color(0xFFE5A126)];
+        accentColor = const Color(0xFFFBE4D5);
         badgeEmoji = '🥇';
         badgeName = 'Gold VIP Elite';
         break;
       case TechnicianTier.silver:
-        gradientColors = const [Color(0xFF334155), Color(0xFF475569), Color(0xFF64748B)];
-        accentColor = const Color(0xFFE2E8F0);
+        gradientColors = const [Color(0xFF222222), Color(0xFF77716C), Color(0xFF77716C)];
+        accentColor = const Color(0xFFEEE8E2);
         badgeEmoji = '🥈';
         badgeName = 'Silver Pro Partner';
         break;
       case TechnicianTier.copper:
         gradientColors = const [Color(0xFF5C2C16), Color(0xFF804A26), Color(0xFFB87333)];
-        accentColor = const Color(0xFFFFEDD5);
+        accentColor = const Color(0xFFFBE4D5);
         badgeEmoji = '🥉';
         badgeName = 'Copper Starter Pass';
         break;
@@ -684,7 +684,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0A000000),
@@ -753,10 +753,10 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEFCE8),
+                    color: const Color(0xFFFFF4E0),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.insights_rounded, color: Color(0xFFB45309), size: 22),
+                  child: const Icon(Icons.insights_rounded, color: Color(0xFFE5A126), size: 22),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(
@@ -765,12 +765,12 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                     children: [
                       Text(
                         'Daily Income & Working Hours Graph',
-                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFF222222)),
                       ),
                       SizedBox(height: 2),
                       Text(
                         'Track today, yesterday, weekly income & hours worked',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        style: TextStyle(fontSize: 11, color: Color(0xFF77716C)),
                       ),
                     ],
                   ),
@@ -784,8 +784,8 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F172A),
-                    foregroundColor: const Color(0xFFFDB813),
+                    backgroundColor: const Color(0xFF222222),
+                    foregroundColor: const Color(0xFFF46B12),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),

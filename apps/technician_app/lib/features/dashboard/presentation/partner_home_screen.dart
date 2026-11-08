@@ -147,11 +147,11 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
         : 'Rahul Partner';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFFCF9F6),
       body: SafeArea(
         child: RefreshIndicator(
-          color: const Color(0xFF0F172A),
-          backgroundColor: const Color(0xFFFDB813),
+          color: const Color(0xFFF46B12),
+          backgroundColor: Colors.white,
           onRefresh: () async {
             await dashNotifier.fetchAndUpdateLocation();
             await ref.read(jobStateProvider.notifier).fetchAssignedJobs();
@@ -162,7 +162,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ─── 1. RAPIDO CAPTAIN TOP APP BAR ───────────────────────────
+                // ─── 1. CAPTAIN TOP APP BAR ───────────────────────────
                 _buildCaptainHeader(technicianName, dashState, dashNotifier),
                 const SizedBox(height: 12),
 
@@ -170,7 +170,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 _buildMasterDutyCard(dashState, dashNotifier),
                 const SizedBox(height: 14),
 
-                // ─── 3. ACTIVE RUNNING JOB CARD (FLOATING RAPIDO BANNER) ─────
+                // ─── 3. ACTIVE RUNNING JOB CARD (FLOATING BANNER) ─────
                 _buildActiveRunningJobCard(context, dashState, jobState),
                 if (jobState.activeJob != null && jobState.activeJob!.status != TechJobStatus.completed)
                   const SizedBox(height: 14),
@@ -179,7 +179,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 _buildDailyIncentiveGoalCard(jobState),
                 const SizedBox(height: 14),
 
-                // ─── 5. PERFORMANCE & EARNINGS 4-GRID (RAPIDO STYLE) ─────────
+                // ─── 5. PERFORMANCE & EARNINGS 4-GRID ─────────
                 _buildPerformanceMetricsGrid(dashState, jobState),
                 const SizedBox(height: 14),
 
@@ -203,11 +203,12 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFEEE8E2), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.2),
+            color: const Color(0xFF222222).withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -229,13 +230,13 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: state.isOnline ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                            color: state.isOnline ? const Color(0xFF198754) : const Color(0xFFEEE8E2),
                             width: 2.2,
                           ),
                         ),
                         child: const CircleAvatar(
-                          backgroundColor: Color(0xFF1E293B),
-                          child: Icon(Icons.engineering_rounded, color: Color(0xFFFDB813), size: 24),
+                          backgroundColor: Color(0xFFFBE4D5),
+                          child: Icon(Icons.engineering_rounded, color: Color(0xFFF46B12), size: 24),
                         ),
                       ),
                       Positioned(
@@ -245,7 +246,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                           width: 12,
                           height: 12,
                           decoration: BoxDecoration(
-                            color: state.isOnline ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                            color: state.isOnline ? const Color(0xFF198754) : const Color(0xFF77716C),
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2),
                           ),
@@ -267,14 +268,14 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,
-                                color: Colors.white,
+                                color: Color(0xFF222222),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF38BDF8)),
+                          const Icon(Icons.verified_rounded, size: 16, color: Color(0xFFF46B12)),
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -285,7 +286,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: state.isOnline ? const Color(0xFF86EFAC) : const Color(0xFF94A3B8),
+                          color: state.isOnline ? const Color(0xFF198754) : const Color(0xFF77716C),
                         ),
                       ),
                     ],
@@ -301,7 +302,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 tooltip: 'Notifications',
-                icon: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 22),
+                icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF222222), size: 22),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -316,7 +317,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 tooltip: _skillProfile != null
                     ? '${_skillProfile!.primaryCategory} (${_skillProfile!.totalSelectedSkills} Skills)'
                     : 'My Skills',
-                icon: const Icon(Icons.badge_outlined, color: Color(0xFFFDB813), size: 22),
+                icon: const Icon(Icons.badge_outlined, color: Color(0xFFF46B12), size: 22),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -331,7 +332,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     );
   }
 
-  // ─── 2. Master Rapido Online/Offline Duty Card with Radar ────────────────────
+  // ─── 2. Master Online/Offline Duty Card with Radar ────────────────────
   Widget _buildMasterDutyCard(DashboardState state, DashboardNotifier notifier) {
     final cleanAddr = formatCleanAddress(state.currentLocationAddress);
 
@@ -341,14 +342,14 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: state.isOnline ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+          color: state.isOnline ? const Color(0xFF198754) : const Color(0xFFEEE8E2),
           width: state.isOnline ? 1.8 : 1.2,
         ),
         boxShadow: [
           BoxShadow(
             color: state.isOnline
-                ? const Color(0xFF10B981).withValues(alpha: 0.12)
-                : Colors.black.withValues(alpha: 0.04),
+                ? const Color(0xFF198754).withValues(alpha: 0.12)
+                : const Color(0xFF222222).withValues(alpha: 0.04),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -374,7 +375,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                               height: 46 + (_radarAnimController.value * 16),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: const Color(0xFF10B981).withValues(
+                                color: const Color(0xFF198754).withValues(
                                   alpha: (1.0 - _radarAnimController.value) * 0.4,
                                 ),
                               ),
@@ -385,12 +386,12 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: state.isOnline ? const Color(0xFF10B981) : const Color(0xFFF1F5F9),
+                          color: state.isOnline ? const Color(0xFF198754) : const Color(0xFFFBE4D5),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           state.isOnline ? Icons.radar_rounded : Icons.power_settings_new_rounded,
-                          color: state.isOnline ? Colors.white : const Color(0xFF64748B),
+                          color: state.isOnline ? Colors.white : const Color(0xFFF46B12),
                           size: 24,
                         ),
                       ),
@@ -406,7 +407,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.4,
-                          color: state.isOnline ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                          color: state.isOnline ? const Color(0xFF222222) : const Color(0xFF77716C),
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -414,7 +415,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                         state.isOnline
                             ? 'Scanning high-demand 15km area'
                             : 'Go Online to receive instant orders',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -425,9 +426,9 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 child: Switch(
                   value: state.isOnline,
                   activeThumbColor: Colors.white,
-                  activeTrackColor: const Color(0xFF10B981),
+                  activeTrackColor: const Color(0xFF198754),
                   inactiveThumbColor: Colors.white,
-                  inactiveTrackColor: const Color(0xFFCBD5E1),
+                  inactiveTrackColor: const Color(0xFFEEE8E2),
                   onChanged: (val) {
                     HapticFeedback.heavyImpact();
                     notifier.toggleOnline(val, context: context);
@@ -438,12 +439,12 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
             ],
           ),
           const SizedBox(height: 14),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const Divider(height: 1, color: Color(0xFFEEE8E2)),
           const SizedBox(height: 12),
           // Live GPS Location bar
           Row(
             children: [
-              const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF0F172A)),
+              const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFFF46B12)),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -451,7 +452,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF334155),
+                    color: Color(0xFF222222),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -462,17 +463,17 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: const Color(0xFFFBE4D5),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.refresh_rounded, size: 12, color: Color(0xFF0F172A)),
+                      Icon(Icons.refresh_rounded, size: 12, color: Color(0xFFE85B08)),
                       SizedBox(width: 4),
                       Text(
                         'Refresh GPS',
-                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFFE85B08)),
                       ),
                     ],
                   ),
@@ -485,7 +486,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     );
   }
 
-  // ─── 3. Active Running Job Card (Floating Rapido Banner) ─────────────────────
+  // ─── 3. Active Running Job Card ─────────────────────
   Widget _buildActiveRunningJobCard(BuildContext context, DashboardState dashState, JobState jobState) {
     final activeJob = jobState.activeJob;
     if (activeJob == null || activeJob.status == TechJobStatus.completed) {
@@ -499,25 +500,25 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     final customerPhone = activeJob.customerPhone ?? '';
 
     String stepBadge = 'JOB IN PROGRESS';
-    Color badgeColor = const Color(0xFF0F172A);
-    Color badgeBg = const Color(0xFFFEFCE8);
+    Color badgeColor = const Color(0xFFE85B08);
+    Color badgeBg = const Color(0xFFFBE4D5);
 
     if (activeJob.status == TechJobStatus.accepted) {
       stepBadge = 'READY TO DISPATCH';
-      badgeColor = const Color(0xFFB45309);
-      badgeBg = const Color(0xFFFEF3C7);
+      badgeColor = const Color(0xFFE85B08);
+      badgeBg = const Color(0xFFFBE4D5);
     } else if (activeJob.status == TechJobStatus.onTheWay) {
       stepBadge = 'ON THE WAY TO LOCATION';
-      badgeColor = const Color(0xFF0284C7);
-      badgeBg = const Color(0xFFE0F2FE);
+      badgeColor = const Color(0xFFF46B12);
+      badgeBg = const Color(0xFFFBE4D5);
     } else if (activeJob.status == TechJobStatus.arrived) {
       stepBadge = 'ARRIVED • ENTER START OTP';
-      badgeColor = const Color(0xFF15803D);
-      badgeBg = const Color(0xFFDCFCE7);
+      badgeColor = const Color(0xFF198754);
+      badgeBg = const Color(0xFFE8F5E9);
     } else if (activeJob.status == TechJobStatus.serviceStarted) {
       stepBadge = 'SERVICE WORK UNDERWAY';
-      badgeColor = const Color(0xFF16A34A);
-      badgeBg = const Color(0xFFDCFCE7);
+      badgeColor = const Color(0xFF198754);
+      badgeBg = const Color(0xFFE8F5E9);
     }
 
     return Container(
@@ -526,10 +527,10 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFDB813), width: 1.8),
+        border: Border.all(color: const Color(0xFFF46B12), width: 1.8),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFDB813).withValues(alpha: 0.15),
+            color: const Color(0xFFF46B12).withValues(alpha: 0.14),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -563,7 +564,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF059669),
+                  color: Color(0xFF198754),
                 ),
               ),
             ],
@@ -571,21 +572,21 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
           const SizedBox(height: 10),
           Text(
             title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF222222)),
           ),
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF64748B)),
+              const Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF77716C)),
               const SizedBox(width: 4),
-              Text(customerName, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+              Text(customerName, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF222222))),
               const SizedBox(width: 10),
-              const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+              const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFFF46B12)),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   address,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF77716C)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -601,8 +602,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                   icon: const Icon(Icons.navigation_outlined, size: 16),
                   label: const Text('Navigate'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0F172A),
-                    side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.4),
+                    foregroundColor: const Color(0xFF222222),
+                    side: const BorderSide(color: Color(0xFFEEE8E2), width: 1.4),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -614,13 +615,13 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
+                    color: const Color(0xFFE8F5E9),
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFF86EFAC)),
+                    border: Border.all(color: const Color(0xFF198754).withValues(alpha: 0.4)),
                   ),
                   child: IconButton(
                     padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.call, color: Color(0xFF16A34A), size: 20),
+                    icon: const Icon(Icons.call, color: Color(0xFF198754), size: 20),
                     onPressed: () => _callCustomer(customerPhone, customerName),
                   ),
                 ),
@@ -639,8 +640,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F172A),
-                    foregroundColor: const Color(0xFFFDB813),
+                    backgroundColor: const Color(0xFFF46B12),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -665,9 +666,9 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEFCE8),
+        color: const Color(0xFFFBE4D5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFDE047)),
+        border: Border.all(color: const Color(0xFFF46B12).withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -684,7 +685,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                     style: const TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF78350F),
+                      color: Color(0xFF222222),
                     ),
                   ),
                 ],
@@ -692,12 +693,12 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFDB813),
+                  color: const Color(0xFFF46B12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
                   '+₹150 Bonus',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
                 ),
               ),
             ],
@@ -708,16 +709,16 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 8,
-              backgroundColor: const Color(0xFFFEF08A),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF59E0B)),
+              backgroundColor: Colors.white,
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF46B12)),
             ),
           ),
           const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('$completed / $target Trips Completed', style: const TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w600)),
-              Text('${(progress * 100).toInt()}% Done', style: const TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w800)),
+              Text('$completed / $target Trips Completed', style: const TextStyle(fontSize: 11, color: Color(0xFF77716C), fontWeight: FontWeight.w600)),
+              Text('${(progress * 100).toInt()}% Done', style: const TextStyle(fontSize: 11, color: Color(0xFFE85B08), fontWeight: FontWeight.w800)),
             ],
           ),
         ],
@@ -725,7 +726,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     );
   }
 
-  // ─── 5. Performance & Earnings 4-Grid (Rapido Style) ─────────────────────────
+  // ─── 5. Performance & Earnings 4-Grid ─────────────────────────
   Widget _buildPerformanceMetricsGrid(DashboardState state, JobState jobState) {
     final earningsText = '₹${state.todayEarnings.toStringAsFixed(0)}';
     final completedCount = jobState.completedJobs.isNotEmpty
@@ -741,7 +742,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
           style: TextStyle(
             fontSize: 15.5,
             fontWeight: FontWeight.w900,
-            color: Color(0xFF0F172A),
+            color: Color(0xFF222222),
             letterSpacing: -0.3,
           ),
         ),
@@ -752,8 +753,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
             Expanded(
               child: _buildMetricTile(
                 icon: Icons.account_balance_wallet_rounded,
-                iconColor: const Color(0xFF10B981),
-                bgColor: const Color(0xFFECFDF5),
+                iconColor: const Color(0xFF198754),
+                bgColor: const Color(0xFFE8F5E9),
                 title: "Earnings",
                 value: earningsText,
                 badgeText: "Instant UPI",
@@ -764,8 +765,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
             Expanded(
               child: _buildMetricTile(
                 icon: Icons.check_circle_outline_rounded,
-                iconColor: const Color(0xFF2563EB),
-                bgColor: const Color(0xFFEFF6FF),
+                iconColor: const Color(0xFFF46B12),
+                bgColor: const Color(0xFFFBE4D5),
                 title: "Jobs Done",
                 value: '$completedCount / $totalCount',
                 badgeText: "Target 8",
@@ -780,8 +781,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
             Expanded(
               child: _buildMetricTile(
                 icon: Icons.timer_outlined,
-                iconColor: const Color(0xFFD97706),
-                bgColor: const Color(0xFFFFFBEB),
+                iconColor: const Color(0xFFE5A126),
+                bgColor: const Color(0xFFFFF4E0),
                 title: "Duty Hours",
                 value: state.isOnline ? "Active" : "0.0 h",
                 badgeText: "Shift",
@@ -792,8 +793,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
             Expanded(
               child: _buildMetricTile(
                 icon: Icons.verified_user_outlined,
-                iconColor: const Color(0xFF7C3AED),
-                bgColor: const Color(0xFFF5F3FF),
+                iconColor: const Color(0xFFE85B08),
+                bgColor: const Color(0xFFFBE4D5),
                 title: "Acceptance",
                 value: "98.5%",
                 badgeText: "VIP Tier",
@@ -818,10 +819,10 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: const Color(0xFF222222).withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -845,11 +846,11 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
             ],
           ),
           const SizedBox(height: 10),
-          Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          Text(title, style: const TextStyle(fontSize: 12, color: Color(0xFF77716C), fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A), letterSpacing: -0.3),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF222222), letterSpacing: -0.3),
           ),
         ],
       ),
@@ -862,27 +863,19 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     final tierInfo = analyticsState.tierInfo;
     final currentTier = tierInfo?.tier ?? TechnicianTier.copper;
 
-    List<Color> gradientColors;
-    Color accentColor;
     String badgeTitle;
     String badgeEmoji;
 
     switch (currentTier) {
       case TechnicianTier.gold:
-        gradientColors = const [Color(0xFF78350F), Color(0xFFB45309), Color(0xFFD97706)];
-        accentColor = const Color(0xFFFDE68A);
         badgeTitle = 'GOLD VIP CAPTAIN';
         badgeEmoji = '🥇';
         break;
       case TechnicianTier.silver:
-        gradientColors = const [Color(0xFF334155), Color(0xFF475569), Color(0xFF64748B)];
-        accentColor = const Color(0xFFE2E8F0);
         badgeTitle = 'SILVER PRO PARTNER';
         badgeEmoji = '🥈';
         break;
       case TechnicianTier.copper:
-        gradientColors = const [Color(0xFF5C2C16), Color(0xFF804A26), Color(0xFFB87333)];
-        accentColor = const Color(0xFFFFEDD5);
         badgeTitle = 'COPPER STARTER PASS';
         badgeEmoji = '🥉';
         break;
@@ -900,11 +893,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: gradientColors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: const Color(0xFFF46B12),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -915,7 +904,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(badgeTitle, style: TextStyle(color: accentColor, fontWeight: FontWeight.w900, fontSize: 12)),
+                  Text(badgeTitle, style: const TextStyle(color: Color(0xFFFBE4D5), fontWeight: FontWeight.w900, fontSize: 12)),
                   const SizedBox(height: 2),
                   const Text('Reduced commission fee & daily bonus tier active', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
                 ],
@@ -943,7 +932,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
               style: const TextStyle(
                 fontSize: 15.5,
                 fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF222222),
                 letterSpacing: -0.3,
               ),
             ),
@@ -951,7 +940,7 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
               onTap: () => widget.onNavigateTab?.call(1),
               child: const Text(
                 'View All →',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFFF46B12)),
               ),
             ),
           ],
@@ -965,21 +954,21 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: const Color(0xFFEEE8E2)),
             ),
             child: const Center(
               child: Column(
                 children: [
-                  Icon(Icons.event_available_rounded, size: 36, color: Color(0xFF94A3B8)),
+                  Icon(Icons.event_available_rounded, size: 36, color: Color(0xFFF46B12)),
                   SizedBox(height: 8),
                   Text(
                     'No scheduled jobs for today',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF222222)),
                   ),
                   SizedBox(height: 2),
                   Text(
                     'New customer bookings within 15km will ring here automatically.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                    style: TextStyle(fontSize: 12, color: Color(0xFF77716C)),
                   ),
                 ],
               ),
@@ -1016,10 +1005,10 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFDB813), width: 1.2),
+                    border: Border.all(color: const Color(0xFFF46B12).withValues(alpha: 0.4), width: 1.2),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
+                        color: const Color(0xFF222222).withValues(alpha: 0.02),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -1031,10 +1020,10 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEFCE8),
+                          color: const Color(0xFFFBE4D5),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.handyman_rounded, color: Color(0xFFB45309), size: 24),
+                        child: const Icon(Icons.handyman_rounded, color: Color(0xFFF46B12), size: 24),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -1043,25 +1032,25 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                           children: [
                             Text(
                               job.title,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF222222)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 3),
                             Row(
                               children: [
-                                const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF0F172A)),
+                                const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFFF46B12)),
                                 const SizedBox(width: 4),
                                 Text(
                                   job.scheduleSlot ?? 'Standard Slot',
-                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF222222)),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 2),
                             Text(
                               formatCleanAddress(job.customerAddress),
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF77716C)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1074,18 +1063,18 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
                         children: [
                           Text(
                             '₹${job.price.toStringAsFixed(0)}',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF059669)),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF198754)),
                           ),
                           const SizedBox(height: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A),
+                              color: const Color(0xFFF46B12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
                               'Open →',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFDB813)),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
                             ),
                           ),
                         ],

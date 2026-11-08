@@ -122,7 +122,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('⚠️ ${res.message}'),
-                  backgroundColor: const Color(0xFFD97706),
+                  backgroundColor: const Color(0xFFE5A126),
                   duration: const Duration(seconds: 4),
                 ),
               );
@@ -167,7 +167,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF1E3A8A).withValues(alpha: 0.12),
+                        color: const Color(0xFFF46B12).withValues(alpha: 0.12),
                         blurRadius: 18,
                         offset: const Offset(0, 6),
                       ),
@@ -186,7 +186,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF1E3A8A),
+                    color: Color(0xFFF46B12),
                     letterSpacing: -0.5,
                   ),
                   textAlign: TextAlign.center,
@@ -207,7 +207,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
+                    color: const Color(0xFFEEE8E2),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
@@ -242,7 +242,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                                   Icon(
                                     Icons.login_rounded,
                                     size: 16,
-                                    color: _selectedMode == 0 ? const Color(0xFF1E3A8A) : AppColors.textSecondary,
+                                    color: _selectedMode == 0 ? const Color(0xFFF46B12) : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
@@ -250,7 +250,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                                     style: TextStyle(
                                       fontSize: 13.5,
                                       fontWeight: _selectedMode == 0 ? FontWeight.w800 : FontWeight.w600,
-                                      color: _selectedMode == 0 ? const Color(0xFF1E3A8A) : AppColors.textSecondary,
+                                      color: _selectedMode == 0 ? const Color(0xFFF46B12) : AppColors.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -289,7 +289,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                                   Icon(
                                     Icons.person_add_outlined,
                                     size: 16,
-                                    color: _selectedMode == 1 ? const Color(0xFF1E3A8A) : AppColors.textSecondary,
+                                    color: _selectedMode == 1 ? const Color(0xFFF46B12) : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
@@ -297,7 +297,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                                     style: TextStyle(
                                       fontSize: 13.5,
                                       fontWeight: _selectedMode == 1 ? FontWeight.w800 : FontWeight.w600,
-                                      color: _selectedMode == 1 ? const Color(0xFF1E3A8A) : AppColors.textSecondary,
+                                      color: _selectedMode == 1 ? const Color(0xFFF46B12) : AppColors.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -361,7 +361,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                             decoration: InputDecoration(
                               labelText: 'Registered Email Address',
                               hintText: 'e.g. partner@example.com',
-                              prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF1E3A8A)),
+                              prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFFF46B12)),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -386,7 +386,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                             decoration: InputDecoration(
                               labelText: 'Full Name',
                               hintText: 'Enter your full name',
-                              prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF1E3A8A)),
+                              prefixIcon: const Icon(Icons.person_outline, color: Color(0xFFF46B12)),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -409,7 +409,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                               labelText: 'Age (in years)',
                               hintText: 'e.g. 28',
                               counterText: '',
-                              prefixIcon: const Icon(Icons.cake_outlined, color: Color(0xFF1E3A8A)),
+                              prefixIcon: const Icon(Icons.cake_outlined, color: Color(0xFFF46B12)),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -436,7 +436,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                               labelText: 'Mobile Number',
                               hintText: '10 digit mobile number',
                               counterText: '',
-                              prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFF1E3A8A)),
+                              prefixIcon: const Icon(Icons.phone_outlined, color: Color(0xFFF46B12)),
                               prefixText: '+91 ',
                               prefixStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                               border: OutlineInputBorder(
@@ -459,7 +459,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                             decoration: InputDecoration(
                               labelText: 'Email Address',
                               hintText: 'Enter email to receive OTP',
-                              prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF1E3A8A)),
+                              prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFFF46B12)),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -479,18 +479,18 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFEF2F2),
+                              color: const Color(0xFFFDECEC),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFFCA5A5)),
+                              border: Border.all(color: const Color(0xFFFDECEC)),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC2626)),
+                                const Icon(Icons.error_outline, size: 16, color: Color(0xFFDC3545)),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _errorMsg!,
-                                    style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(color: Color(0xFFDC3545), fontSize: 12, fontWeight: FontWeight.w600),
                                   ),
                                 ),
                               ],
@@ -524,7 +524,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                                 style: const TextStyle(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF1E3A8A),
+                                  color: Color(0xFFF46B12),
                                 ),
                               ),
                             ),
@@ -549,7 +549,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                                   'Partner Agreement',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Color(0xFF1E3A8A),
+                                    color: Color(0xFFF46B12),
                                     fontWeight: FontWeight.bold,
                                     decoration: TextDecoration.underline,
                                   ),
@@ -568,7 +568,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                                   'Privacy Policy',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Color(0xFF1E3A8A),
+                                    color: Color(0xFFF46B12),
                                     fontWeight: FontWeight.bold,
                                     decoration: TextDecoration.underline,
                                   ),

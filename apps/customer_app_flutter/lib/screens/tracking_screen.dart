@@ -614,7 +614,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
-            const Icon(Icons.shield_outlined, color: Color(0xFF16A34A), size: 48),
+            const Icon(Icons.shield_outlined, color: Color(0xFF198754), size: 48),
             const SizedBox(height: 12),
             const Text(
               'Privacy-Protected Call',
@@ -636,14 +636,14 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('📞 Connecting via BT Telecom Bridge: 1800-889-TECH'),
-                      backgroundColor: Color(0xFF16A34A),
+                      backgroundColor: Color(0xFF198754),
                     ),
                   );
                 },
                 icon: const Icon(Icons.call),
                 label: const Text('Connect via Virtual Bridge'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF16A34A),
+                  backgroundColor: const Color(0xFF198754),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -663,7 +663,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.build_circle, color: Color(0xFFD97706)),
+            Icon(Icons.build_circle, color: Color(0xFFE5A126)),
             SizedBox(width: 8),
             Text('Spare Parts Add-on Approval', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
@@ -680,21 +680,21 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFBEB),
+                color: const Color(0xFFFFF4E0),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFFDE68A)),
+                border: Border.all(color: const Color(0xFFFBE4D5)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     addon['item_title'] ?? addon['itemTitle'] ?? 'Spare Part',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF92400E)),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFFE85B08)),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Price: ₹${addon['amount']}',
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFFB45309)),
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFFE5A126)),
                   ),
                   if (addon['description'] != null && addon['description'].toString().isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -725,7 +725,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      backgroundColor: Color(0xFF16A34A),
+                      backgroundColor: Color(0xFF198754),
                       content: Text('Add-on approved! Amount added to final invoice.'),
                     ),
                   );
@@ -734,7 +734,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
               _fetchProofAndAddons();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF16A34A),
+              backgroundColor: const Color(0xFF198754),
               foregroundColor: Colors.white,
             ),
             child: const Text('Approve & Add to Bill'),
@@ -765,7 +765,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
             children: [
               Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 16),
-              const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 48),
+              const Icon(Icons.star_rounded, color: Color(0xFFE5A126), size: 48),
               const SizedBox(height: 8),
               const Text('Rate Your Technician', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               const SizedBox(height: 4),
@@ -779,7 +779,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                     iconSize: 36,
                     icon: Icon(
                       starVal <= selectedRating ? Icons.star_rounded : Icons.star_outline_rounded,
-                      color: const Color(0xFFF59E0B),
+                      color: const Color(0xFFE5A126),
                     ),
                     onPressed: () => setSheetState(() => selectedRating = starVal),
                   );
@@ -815,7 +815,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            backgroundColor: Color(0xFF16A34A),
+                            backgroundColor: Color(0xFF198754),
                             content: Text('Thank you! Rating submitted successfully.'),
                           ),
                         );
@@ -823,7 +823,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A8A),
+                    backgroundColor: const Color(0xFFF46B12),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -863,7 +863,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
               const SizedBox(height: 16),
               const Row(
                 children: [
-                  Icon(Icons.verified_user_rounded, color: Color(0xFF16A34A), size: 28),
+                  Icon(Icons.verified_user_rounded, color: Color(0xFF198754), size: 28),
                   SizedBox(width: 8),
                   Text('Claim 30-Day Free Warranty Revisit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5)),
                 ],
@@ -926,7 +926,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            backgroundColor: const Color(0xFF16A34A),
+                            backgroundColor: const Color(0xFF198754),
                             content: Text(msg),
                           ),
                         );
@@ -936,7 +936,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                   icon: const Icon(Icons.replay_rounded),
                   label: const Text('Schedule Free Warranty Revisit', style: TextStyle(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
+                    backgroundColor: const Color(0xFF198754),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
@@ -1014,7 +1014,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
         Polyline(
           polylineId: const PolylineId('technician_route_polyline'),
           points: [effectiveTechPos, _customerLocation],
-          color: const Color(0xFF2563EB),
+          color: const Color(0xFFF46B12),
           width: 5,
           jointType: JointType.round,
           startCap: Cap.roundCap,
@@ -1028,8 +1028,8 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
         circleId: const CircleId('service_discovery_circle'),
         center: _customerLocation,
         radius: 1500, // 1.5km visual discovery zone
-        fillColor: const Color(0x182563EB),
-        strokeColor: const Color(0x662563EB),
+        fillColor: const Color(0x26F46B12),
+        strokeColor: const Color(0x59F46B12),
         strokeWidth: 2,
       ),
     };
@@ -1075,7 +1075,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                           backgroundColor: Colors.white,
                           radius: 20,
                           child: IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 16),
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF222222), size: 16),
                             onPressed: () => Navigator.pop(context),
                           ),
                         ),
@@ -1093,10 +1093,10 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                 Container(
                                   padding: const EdgeInsets.all(5),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF6FF),
+                                    color: const Color(0xFFFBE4D5),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: const Icon(Icons.radar_rounded, color: Color(0xFF2563EB), size: 18),
+                                  child: const Icon(Icons.radar_rounded, color: Color(0xFFF46B12), size: 18),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -1105,11 +1105,11 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     children: [
                                       const Text(
                                         '15 km Geo-Scan Active',
-                                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: Color(0xFF0F172A)),
+                                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: Color(0xFF222222)),
                                       ),
                                       Text(
                                         '#${booking.id} • $serviceTitle',
-                                        style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                                        style: const TextStyle(fontSize: 10.5, color: Color(0xFF77716C)),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -1119,13 +1119,13 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: _socketStatus == 'CONNECTED' ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                                    color: _socketStatus == 'CONNECTED' ? const Color(0xFFE8F5E9) : const Color(0xFFFFF4E0),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     _socketStatus == 'CONNECTED' ? 'LIVE' : _socketStatus,
                                     style: TextStyle(
-                                      color: _socketStatus == 'CONNECTED' ? const Color(0xFF16A34A) : const Color(0xFFB45309),
+                                      color: _socketStatus == 'CONNECTED' ? const Color(0xFF198754) : const Color(0xFFE5A126),
                                       fontSize: 9.5,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -1144,7 +1144,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF16A34A),
+                          color: const Color(0xFF198754),
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
                         ),
@@ -1176,7 +1176,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                 FloatingActionButton.small(
                   heroTag: 'btn_fit',
                   backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF0F172A),
+                  foregroundColor: const Color(0xFF222222),
                   onPressed: _fitRouteBounds,
                   tooltip: 'Fit Route (Both)',
                   child: const Icon(Icons.crop_free_rounded, size: 20),
@@ -1185,7 +1185,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                 FloatingActionButton.small(
                   heroTag: 'btn_tech',
                   backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF16A34A),
+                  foregroundColor: const Color(0xFF198754),
                   onPressed: _focusTechnician,
                   tooltip: 'Focus Technician',
                   child: const Icon(Icons.two_wheeler_rounded, size: 20),
@@ -1194,7 +1194,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                 FloatingActionButton.small(
                   heroTag: 'btn_user',
                   backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF0284C7),
+                  foregroundColor: const Color(0xFFF46B12),
                   onPressed: _focusCustomer,
                   tooltip: 'Focus My Location',
                   child: const Icon(Icons.my_location_rounded, size: 20),
@@ -1233,7 +1233,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                         width: 38,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFCBD5E1),
+                          color: const Color(0xFFEEE8E2),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -1260,7 +1260,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                                 : hasTechPos
                                                     ? '🛵 Partner Assigned & En Route'
                                                     : '🔍 Finding Nearest Expert (15km)',
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF0F172A)),
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF222222)),
                               ),
                               const SizedBox(height: 2),
                               Text(
@@ -1268,7 +1268,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     ? 'ETA: ${_calculateEta()}'
                                     : 'Scanning 15 km radius for active verified partners...',
                                 style: TextStyle(
-                                  color: hasTechPos ? const Color(0xFF0284C7) : const Color(0xFF64748B),
+                                  color: hasTechPos ? const Color(0xFFF46B12) : const Color(0xFF77716C),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12.5,
                                 ),
@@ -1279,13 +1279,13 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
+                            color: const Color(0xFFFBE4D5),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                            border: Border.all(color: const Color(0xFFFBE4D5)),
                           ),
                           child: Text(
                             '₹${booking.grandTotal > 0 ? booking.grandTotal.toStringAsFixed(0) : (booking.baseCost > 0 ? booking.baseCost.toStringAsFixed(0) : '0')}',
-                            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E40AF), fontSize: 14),
+                            style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFF46B12), fontSize: 14),
                           ),
                         ),
                       ],
@@ -1297,7 +1297,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                     _buildStepperTimeline(booking.status),
 
                     const SizedBox(height: 12),
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    const Divider(height: 1, color: Color(0xFFFCF9F6)),
                     const SizedBox(height: 12),
 
                     // Real Technician Profile Card
@@ -1322,9 +1322,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: const Color(0xFFFCF9F6),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(color: const Color(0xFFEEE8E2)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1339,11 +1339,11 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                         height: 48,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: const Color(0xFFEFF6FF),
-                                          border: Border.all(color: const Color(0xFF2563EB), width: 1.5),
+                                          color: const Color(0xFFFBE4D5),
+                                          border: Border.all(color: const Color(0xFFF46B12), width: 1.5),
                                         ),
                                         child: const Center(
-                                          child: Icon(Icons.engineering_rounded, color: Color(0xFF2563EB), size: 28),
+                                          child: Icon(Icons.engineering_rounded, color: Color(0xFFF46B12), size: 28),
                                         ),
                                       ),
                                       Positioned(
@@ -1353,7 +1353,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                           width: 13,
                                           height: 13,
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF16A34A),
+                                            color: const Color(0xFF198754),
                                             shape: BoxShape.circle,
                                             border: Border.all(color: Colors.white, width: 2),
                                           ),
@@ -1371,13 +1371,13 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                             Flexible(
                                               child: Text(
                                                 techName,
-                                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A)),
+                                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF222222)),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                             const SizedBox(width: 6),
-                                            const Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 16),
+                                            const Icon(Icons.verified_rounded, color: Color(0xFFF46B12), size: 16),
                                           ],
                                         ),
                                         const SizedBox(height: 2),
@@ -1386,14 +1386,14 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: const Color(0xFFEFF6FF),
+                                                color: const Color(0xFFFBE4D5),
                                                 borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: const Color(0xFFBFDBFE)),
+                                                border: Border.all(color: const Color(0xFFFBE4D5)),
                                               ),
                                               child: Text(
                                                 techCode,
                                                 style: const TextStyle(
-                                                  color: Color(0xFF1E40AF),
+                                                  color: Color(0xFFF46B12),
                                                   fontWeight: FontWeight.w800,
                                                   fontSize: 10.5,
                                                   letterSpacing: 0.4,
@@ -1401,16 +1401,16 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 15),
+                                            const Icon(Icons.star_rounded, color: Color(0xFFE5A126), size: 15),
                                             const SizedBox(width: 2),
                                             Text(
                                               techRating.toStringAsFixed(1),
-                                              style: const TextStyle(color: Color(0xFF0F172A), fontSize: 11.5, fontWeight: FontWeight.w800),
+                                              style: const TextStyle(color: Color(0xFF222222), fontSize: 11.5, fontWeight: FontWeight.w800),
                                             ),
                                             const SizedBox(width: 4),
                                             const Text(
                                               '• 15km Verified',
-                                              style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w600),
+                                              style: TextStyle(color: Color(0xFF77716C), fontSize: 11, fontWeight: FontWeight.w600),
                                             ),
                                           ],
                                         ),
@@ -1423,12 +1423,12 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     width: 42,
                                     height: 42,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFEFF6FF),
+                                      color: const Color(0xFFFBE4D5),
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: const Color(0xFF93C5FD), width: 1.2),
+                                      border: Border.all(color: const Color(0xFFFBE4D5), width: 1.2),
                                     ),
                                     child: IconButton(
-                                      icon: const Icon(Icons.chat_bubble_rounded, size: 19, color: Color(0xFF2563EB)),
+                                      icon: const Icon(Icons.chat_bubble_rounded, size: 19, color: Color(0xFFF46B12)),
                                       onPressed: () {
                                         Navigator.pushNamed(
                                           context,
@@ -1449,12 +1449,12 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     width: 42,
                                     height: 42,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFDCFCE7),
+                                      color: const Color(0xFFE8F5E9),
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+                                      border: Border.all(color: const Color(0xFFE8F5E9), width: 1.2),
                                     ),
                                     child: IconButton(
-                                      icon: const Icon(Icons.phone_rounded, size: 20, color: Color(0xFF16A34A)),
+                                      icon: const Icon(Icons.phone_rounded, size: 20, color: Color(0xFF198754)),
                                       onPressed: () => _callTechnician(techPhone),
                                       tooltip: 'Call Technician',
                                     ),
@@ -1476,14 +1476,14 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFFEEF2FF), Color(0xFFE0E7FF)],
+                            colors: [Color(0xFFFBE4D5), Color(0xFFFBE4D5)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: const Color(0xFFC7D2FE), width: 1.5),
+                          border: Border.all(color: const Color(0xFFFBE4D5), width: 1.5),
                           boxShadow: const [
-                            BoxShadow(color: Color(0x144338CA), blurRadius: 10, offset: Offset(0, 3)),
+                            BoxShadow(color: Color(0x26F46B12), blurRadius: 10, offset: Offset(0, 3)),
                           ],
                         ),
                         child: Column(
@@ -1494,22 +1494,22 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                 Container(
                                   padding: const EdgeInsets.all(5),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF4338CA).withValues(alpha: 0.12),
+                                    color: const Color(0xFFF46B12).withValues(alpha: 0.12),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.key_rounded, size: 16, color: Color(0xFF3730A3)),
+                                  child: const Icon(Icons.key_rounded, size: 16, color: Color(0xFFF46B12)),
                                 ),
                                 const SizedBox(width: 8),
                                 const Text(
                                   'SERVICE START OTP',
-                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF3730A3), letterSpacing: 0.8),
+                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFFF46B12), letterSpacing: 0.8),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 4),
                             const Text(
                               'Share this 4-digit verification code with your technician upon arrival to start work:',
-                              style: TextStyle(fontSize: 11.5, color: Color(0xFF4B5563), fontWeight: FontWeight.w500),
+                              style: TextStyle(fontSize: 11.5, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 10),
@@ -1521,9 +1521,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFF818CF8), width: 1.5),
+                                    border: Border.all(color: const Color(0xFFF46B12), width: 1.5),
                                     boxShadow: const [
-                                      BoxShadow(color: Color(0x1F4F46E5), blurRadius: 8, offset: Offset(0, 3)),
+                                      BoxShadow(color: Color(0x26F46B12), blurRadius: 8, offset: Offset(0, 3)),
                                     ],
                                   ),
                                   child: Text(
@@ -1531,14 +1531,14 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w900,
                                       fontSize: 28,
-                                      color: Color(0xFF3730A3),
+                                      color: Color(0xFFF46B12),
                                       letterSpacing: 8,
                                     ),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
                                 IconButton(
-                                  icon: const Icon(Icons.copy_rounded, color: Color(0xFF4338CA), size: 22),
+                                  icon: const Icon(Icons.copy_rounded, color: Color(0xFFF46B12), size: 22),
                                   tooltip: 'Copy OTP',
                                   onPressed: () {
                                     final code = _liveStartOtp ?? (booking.otpCode.isNotEmpty ? booking.otpCode : '');
@@ -1547,7 +1547,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('Start OTP copied to clipboard!'),
-                                        backgroundColor: Color(0xFF4338CA),
+                                        backgroundColor: Color(0xFFF46B12),
                                         duration: Duration(seconds: 2),
                                       ),
                                     );
@@ -1562,12 +1562,12 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                   ? const SizedBox(
                                       width: 12,
                                       height: 12,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4F46E5)),
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF46B12)),
                                     )
-                                  : const Icon(Icons.refresh_rounded, size: 15, color: Color(0xFF4F46E5)),
+                                  : const Icon(Icons.refresh_rounded, size: 15, color: Color(0xFFF46B12)),
                               label: Text(
                                 _isResendingOtp ? 'Resending...' : 'Resend Start OTP',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFF46B12)),
                               ),
                             ),
                           ],
@@ -1580,27 +1580,27 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
+                          color: const Color(0xFFE8F5E9),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+                          border: Border.all(color: const Color(0xFFE8F5E9), width: 1.2),
                         ),
                         child: Column(
                           children: [
                             const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.build_circle_rounded, color: Color(0xFF16A34A), size: 18),
+                                Icon(Icons.build_circle_rounded, color: Color(0xFF198754), size: 18),
                                 SizedBox(width: 6),
                                 Text(
                                   'Work In Progress',
-                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF166534)),
+                                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF198754)),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 2),
                             const Text(
                               'Technician is executing service. Share Ending OTP only after completion:',
-                              style: TextStyle(fontSize: 11, color: Color(0xFF4B5563)),
+                              style: TextStyle(fontSize: 11, color: Color(0xFF77716C)),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
@@ -1609,9 +1609,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFF34D399)),
+                                border: Border.all(color: const Color(0xFF198754)),
                                 boxShadow: const [
-                                  BoxShadow(color: Color(0x1A16A34A), blurRadius: 6, offset: Offset(0, 2)),
+                                  BoxShadow(color: Color(0x1A198754), blurRadius: 6, offset: Offset(0, 2)),
                                 ],
                               ),
                               child: Text(
@@ -1619,7 +1619,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   fontSize: 24,
-                                  color: Color(0xFF166534),
+                                  color: Color(0xFF198754),
                                   letterSpacing: 6,
                                 ),
                               ),
@@ -1631,12 +1631,12 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                   ? const SizedBox(
                                       width: 12,
                                       height: 12,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF16A34A)),
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF198754)),
                                     )
-                                  : const Icon(Icons.refresh_rounded, size: 15, color: Color(0xFF16A34A)),
+                                  : const Icon(Icons.refresh_rounded, size: 15, color: Color(0xFF198754)),
                               label: Text(
                                 _isResendingOtp ? 'Resending...' : 'Resend Ending OTP',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF198754)),
                               ),
                             ),
                           ],
@@ -1649,18 +1649,18 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDF4),
+                          color: const Color(0xFFE8F5E9),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFBBF7D0)),
+                          border: Border.all(color: const Color(0xFFE8F5E9)),
                         ),
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 22),
+                            Icon(Icons.check_circle_rounded, color: Color(0xFF198754), size: 22),
                             SizedBox(width: 8),
                             Text(
                               'Service Finished & Settled Successfully!',
-                              style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF166534), fontSize: 13.5),
+                              style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF198754), fontSize: 13.5),
                             ),
                           ],
                         ),
@@ -1671,20 +1671,20 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
+                          color: const Color(0xFFFCF9F6),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          border: Border.all(color: const Color(0xFFEEE8E2)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Row(
                               children: [
-                                Icon(Icons.verified_outlined, size: 16, color: Color(0xFF1E3A8A)),
+                                Icon(Icons.verified_outlined, size: 16, color: Color(0xFFF46B12)),
                                 SizedBox(width: 6),
                                 Text(
                                   'Proof of Work & Inspection Photos',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0F172A)),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF222222)),
                                 ),
                               ],
                             ),
@@ -1697,7 +1697,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                      border: Border.all(color: const Color(0xFFEEE8E2)),
                                     ),
                                     child: _proofOfWork != null && (_proofOfWork!['before_photo_url'] != null || _proofOfWork!['beforePhotoUrl'] != null)
                                         ? ClipRRect(
@@ -1708,9 +1708,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                               errorBuilder: (context, error, stackTrace) => const Column(
                                                 mainAxisAlignment: MainAxisAlignment.center,
                                                 children: [
-                                                  Icon(Icons.photo_camera, size: 20, color: Color(0xFF2563EB)),
+                                                  Icon(Icons.photo_camera, size: 20, color: Color(0xFFF46B12)),
                                                   SizedBox(height: 4),
-                                                  Text('Before Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                                                  Text('Before Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFF46B12))),
                                                 ],
                                               ),
                                             ),
@@ -1718,10 +1718,10 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                         : const Column(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
-                                              Icon(Icons.photo_camera, size: 20, color: Color(0xFF2563EB)),
+                                              Icon(Icons.photo_camera, size: 20, color: Color(0xFFF46B12)),
                                               SizedBox(height: 4),
-                                              Text('Before Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
-                                              Text('GPS Verified', style: TextStyle(fontSize: 9, color: Color(0xFF16A34A))),
+                                              Text('Before Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFF46B12))),
+                                              Text('GPS Verified', style: TextStyle(fontSize: 9, color: Color(0xFF198754))),
                                             ],
                                           ),
                                   ),
@@ -1733,7 +1733,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                      border: Border.all(color: const Color(0xFFEEE8E2)),
                                     ),
                                     child: _proofOfWork != null && (_proofOfWork!['after_photo_url'] != null || _proofOfWork!['afterPhotoUrl'] != null)
                                         ? ClipRRect(
@@ -1744,9 +1744,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                               errorBuilder: (context, error, stackTrace) => const Column(
                                                 mainAxisAlignment: MainAxisAlignment.center,
                                                 children: [
-                                                  Icon(Icons.check_circle_outline, size: 20, color: Color(0xFF16A34A)),
+                                                  Icon(Icons.check_circle_outline, size: 20, color: Color(0xFF198754)),
                                                   SizedBox(height: 4),
-                                                  Text('After Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
+                                                  Text('After Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF198754))),
                                                 ],
                                               ),
                                             ),
@@ -1754,10 +1754,10 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                         : const Column(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
-                                              Icon(Icons.check_circle_outline, size: 20, color: Color(0xFF16A34A)),
+                                              Icon(Icons.check_circle_outline, size: 20, color: Color(0xFF198754)),
                                               SizedBox(height: 4),
-                                              Text('After Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF166534))),
-                                              Text('GPS Verified', style: TextStyle(fontSize: 9, color: Color(0xFF16A34A))),
+                                              Text('After Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF198754))),
+                                              Text('GPS Verified', style: TextStyle(fontSize: 9, color: Color(0xFF198754))),
                                             ],
                                           ),
                                   ),
@@ -1775,13 +1775,13 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: _hasRated ? null : _showRatingModal,
-                              icon: const Icon(Icons.star_rate_rounded, size: 16, color: Color(0xFFF59E0B)),
+                              icon: const Icon(Icons.star_rate_rounded, size: 16, color: Color(0xFFE5A126)),
                               label: Text(
                                 _hasRated ? 'Rated ★★★★★' : 'Rate Partner',
                                 style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
                               ),
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFFF59E0B)),
+                                side: const BorderSide(color: Color(0xFFE5A126)),
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                               ),
                             ),
@@ -1790,13 +1790,13 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: _hasClaimedWarranty ? null : _claimWarrantyModal,
-                              icon: const Icon(Icons.replay_circle_filled_rounded, size: 16, color: Color(0xFF16A34A)),
+                              icon: const Icon(Icons.replay_circle_filled_rounded, size: 16, color: Color(0xFF198754)),
                               label: Text(
                                 _hasClaimedWarranty ? 'Revisit Booked' : '30-Day Warranty',
                                 style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
                               ),
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFF16A34A)),
+                                side: const BorderSide(color: Color(0xFF198754)),
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                               ),
                             ),
@@ -1814,7 +1814,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                           icon: const Icon(Icons.receipt_long_rounded, size: 18),
                           label: const Text('View & Download GST Tax Invoice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A8A),
+                            backgroundColor: const Color(0xFFF46B12),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
@@ -1827,9 +1827,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFFBEB),
+                          color: const Color(0xFFFFF4E0),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
+                          border: Border.all(color: const Color(0xFFFBE4D5)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1839,18 +1839,18 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.build_circle_outlined, size: 16, color: Color(0xFFD97706)),
+                                    const Icon(Icons.build_circle_outlined, size: 16, color: Color(0xFFE5A126)),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Spare Parts Add-ons (${_pendingAddons.length})',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF92400E)),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFFE85B08)),
                                     ),
                                   ],
                                 ),
                                 if (_pendingAddons.any((a) => a['status'] == 'PENDING'))
                                   InkWell(
                                     onTap: () => _showAddonApprovalDialog(_pendingAddons.firstWhere((a) => a['status'] == 'PENDING')),
-                                    child: const Text('Review', style: TextStyle(color: Color(0xFFB45309), fontWeight: FontWeight.bold, fontSize: 12)),
+                                    child: const Text('Review', style: TextStyle(color: Color(0xFFE5A126), fontWeight: FontWeight.bold, fontSize: 12)),
                                   ),
                               ],
                             ),
@@ -1871,7 +1871,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
-                                          color: addon['status'] == 'APPROVED' ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                                          color: addon['status'] == 'APPROVED' ? const Color(0xFF198754) : const Color(0xFFE5A126),
                                         ),
                                       ),
                                     ],
@@ -1928,9 +1928,9 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                     height: 20,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isDone ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                      color: isDone ? const Color(0xFFF46B12) : const Color(0xFFEEE8E2),
                       border: idx == currentIdx
-                          ? Border.all(color: const Color(0xFF93C5FD), width: 3)
+                          ? Border.all(color: const Color(0xFFFBE4D5), width: 3)
                           : null,
                     ),
                     child: isDone
@@ -1943,7 +1943,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                     style: TextStyle(
                       fontSize: 9.5,
                       fontWeight: isDone ? FontWeight.w800 : FontWeight.normal,
-                      color: isDone ? const Color(0xFF1E40AF) : const Color(0xFF94A3B8),
+                      color: isDone ? const Color(0xFFF46B12) : const Color(0xFF77716C),
                     ),
                   ),
                 ],
@@ -1953,7 +1953,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                   child: Container(
                     height: 2,
                     margin: const EdgeInsets.only(bottom: 14),
-                    color: idx < currentIdx ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                    color: idx < currentIdx ? const Color(0xFFF46B12) : const Color(0xFFEEE8E2),
                   ),
                 ),
             ],

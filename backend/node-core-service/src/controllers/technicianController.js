@@ -5,9 +5,26 @@ const postgres = require('../config/postgres');
 const mongo = require('../config/mongo');
 const postgresSpatialScanner = require('../services/postgresSpatialScanner');
 const ledgerService = require('../services/ledgerService');
+const { resolveToCatalogService, resolveServiceIdsFromSkill } = require('../services/catalogSkillMapper');
 
-// In-memory fallback cache for fast standalone operations
-const { inMemorySkills, inMemoryDocs, inMemoryTechProfiles } = require('../config/inMemoryTechStore');
+// Persistent & In-memory store with Public/Private collection separation
+const {
+  inMemorySkills,
+  inMemoryDocs,
+  inMemoryTechProfiles,
+  inMemoryTechPrivate,
+  maskVoterId,
+  maskAadhaar,
+  maskUpiId,
+  resolveCanonicalTechUid,
+  resolveTechnicianCode,
+  setTechnicianProfile,
+  setTechnicianPrivateProfile,
+  getTechnicianPrivateProfile,
+  recordTechnicianAuditLog,
+} = require('../config/inMemoryTechStore');
+
+const recentKycSubmissionLocks = new Map();
 
 const CLOUDINARY_DOC_BADGES = {
   AADHAAR: 'https://res.cloudinary.com/p1ish280/image/upload/v1788799174/npirtdof27t2ogvu2hnj.svg',
@@ -32,19 +49,36 @@ function resolveDocUrl(url, docType = '') {
 }
 
 /**
- * Helper to format skillId into human-readable skill and category
+ * Helper to format skillId into canonical catalog service metadata
  */
 const resolveSkillMeta = (skillIdOrName) => {
   if (!skillIdOrName) {
-    return { skillId: 'sk_general', skillName: 'General Service', categoryId: 'cat_electrical', categoryName: 'Electrical Services' };
+    return {
+      skillId: 'fan_repair',
+      canonicalServiceId: 'fan_repair',
+      skillName: 'Fan repair',
+      categoryId: 'cat_electrical',
+      categoryName: 'Electrical Services',
+    };
   }
   const str = String(skillIdOrName);
+  const catalogMatch = resolveToCatalogService(str);
+  if (catalogMatch) {
+    return {
+      skillId: str,
+      canonicalServiceId: catalogMatch.serviceId,
+      skillName: catalogMatch.serviceName,
+      categoryId: catalogMatch.categoryId,
+      categoryName: catalogMatch.categoryName,
+    };
+  }
+
   const clean = str.replace(/^sk_/, '').replace(/^cat_/, '');
   const words = clean.split(/[_-]/).map(w => w.charAt(0).toUpperCase() + w.slice(1));
   const skillName = words.join(' ') || str;
 
   let categoryId = 'cat_electrical';
-  let categoryName = 'Electrical & Home Electrical';
+  let categoryName = 'Electrical Services';
 
   const lower = str.toLowerCase();
   if (lower.includes('ac') || lower.includes('cooling') || lower.includes('gas')) {
@@ -52,22 +86,25 @@ const resolveSkillMeta = (skillIdOrName) => {
     categoryName = 'AC Services';
   } else if (lower.includes('refrigerator') || lower.includes('fridge') || lower.includes('compressor')) {
     categoryId = 'cat_refrigerator';
-    categoryName = 'Refrigerator';
+    categoryName = 'Refrigerator Services';
   } else if (lower.includes('washing') || lower.includes('machine') || lower.includes('dryer')) {
-    categoryId = 'cat_washing_machine';
-    categoryName = 'Washing Machine';
-  } else if (lower.includes('plumb') || lower.includes('pipe') || lower.includes('tap') || lower.includes('leak') || lower.includes('motor')) {
-    categoryId = 'cat_plumbing';
-    categoryName = 'Plumbing Services';
-  } else if (lower.includes('clean') || lower.includes('pest') || lower.includes('disinfect')) {
-    categoryId = 'cat_cleaning';
-    categoryName = 'Cleaning & Pest Control';
+    categoryId = 'cat_washing';
+    categoryName = 'Washing Machine Services';
+  } else if (lower.includes('computer') || lower.includes('laptop') || lower.includes('pc')) {
+    categoryId = 'cat_computer';
+    categoryName = 'Laptop & Computer';
   } else if (lower.includes('cctv') || lower.includes('camera') || lower.includes('security')) {
     categoryId = 'cat_cctv';
     categoryName = 'CCTV & Security';
+  } else if (lower.includes('wire') || lower.includes('wiring') || lower.includes('mcb') || lower.includes('inverter')) {
+    categoryId = 'cat_wiring';
+    categoryName = 'Home Wiring & Projects';
+  } else if (lower.includes('ro_') || lower.includes('microwave') || lower.includes('chimney') || lower.includes('appliance')) {
+    categoryId = 'cat_appliances';
+    categoryName = 'Home Appliances';
   }
 
-  return { skillId: str, skillName, categoryId, categoryName };
+  return { skillId: str, canonicalServiceId: str, skillName, categoryId, categoryName };
 };
 
 /**
@@ -441,25 +478,33 @@ const toggleOnlineStatus = async (req, res) => {
  */
 const getSkills = async (req, res) => {
   try {
-    const technicianId = req.params.id || req.params.techId || req.query.technicianId ||
-      req.headers['x-technician-id'] || req.headers['x-user-id'] || req.user?.id ||
-      (inMemoryTechProfiles.size > 0 ? Array.from(inMemoryTechProfiles.keys())[0] : 'BT-PARTNER');
+    const rawId = req.params?.id || req.params?.techId || req.query?.technicianId ||
+      req.headers?.['x-technician-id'] || req.headers?.['x-user-id'] || req.user?.id ||
+      (inMemoryTechProfiles.size > 0 ? Array.from(inMemoryTechProfiles.keys())[0] : 'uid_tech_partner');
+    const technicianId = resolveCanonicalTechUid(rawId, req.user?.phone);
 
     let profile = null;
 
     if (mongo.isMongoHealthy()) {
       try {
-        profile = await MongoTechnicianProfile.findOne({ technicianId });
+        profile = await MongoTechnicianProfile.findOne({ $or: [{ technicianId }, { technicianId: rawId }] });
       } catch (e) { }
     }
 
-    let rawSkills = profile?.skills || inMemorySkills.get(technicianId) || [];
+    const memProfile = inMemoryTechProfiles.get(technicianId) || inMemoryTechProfiles.get(rawId);
+    let rawSkills =
+      inMemorySkills.get(technicianId) ||
+      inMemorySkills.get(rawId) ||
+      memProfile?.selectedSkills ||
+      memProfile?.skills ||
+      profile?.skills ||
+      [];
 
     if ((!rawSkills || rawSkills.length === 0) && postgres.isPgHealthy()) {
       try {
         const dbRes = await postgres.query(`
-          SELECT skills FROM technician_profiles WHERE technician_id = $1 OR id = $1;
-        `, [technicianId]);
+          SELECT skills FROM technician_profiles WHERE technician_id = $1 OR id = $1 OR technician_id = $2 OR id = $2;
+        `, [technicianId, rawId]);
         if (dbRes.rows.length > 0 && dbRes.rows[0].skills) {
           rawSkills = Array.isArray(dbRes.rows[0].skills) ? dbRes.rows[0].skills : [];
         }
@@ -475,15 +520,16 @@ const getSkills = async (req, res) => {
           FROM technician_services ts
           JOIN services s ON s.id = ts.service_id
           LEFT JOIN categories c ON c.id = s.category_id
-          WHERE ts.technician_id = $1 OR ts.technician_id = (SELECT id FROM technician_profiles WHERE technician_id = $1 LIMIT 1);
-        `, [technicianId]);
+          WHERE ts.technician_id = $1 OR ts.technician_id = $2 OR ts.technician_id = (SELECT id FROM technician_profiles WHERE technician_id = $1 LIMIT 1);
+        `, [technicianId, rawId]);
         for (const row of srvRes.rows) {
           serviceMap.set(row.service_id, {
             id: row.link_id || `ts_${row.service_id}`,
             skillId: row.service_id,
+            canonicalServiceId: row.service_id,
             skillName: row.service_name || row.service_id,
-            categoryId: row.category_id || 'cat_home',
-            categoryName: row.category_name || 'Home Services',
+            categoryId: row.category_id || 'cat_electrical',
+            categoryName: row.category_name || 'Electrical Services',
             experienceYears: 2,
             verificationStatus: 'VERIFIED',
             enabled: row.active !== false,
@@ -493,39 +539,47 @@ const getSkills = async (req, res) => {
     }
 
     const formattedSkills = rawSkills.map((s, idx) => {
-      const skillId = typeof s === 'string' ? s : (s.skillId || s.id || `sk_${idx}`);
+      const skillId = typeof s === 'string' ? s : (s.skillId || s.canonicalServiceId || s.id || `sk_${idx}`);
       const exp = typeof s === 'object' ? (parseInt(s.experienceYears || 2, 10)) : 2;
       const meta = resolveSkillMeta(skillId);
-      const mappedSrv = serviceMap.get(skillId);
+      const mappedSrv = serviceMap.get(skillId) || serviceMap.get(meta.canonicalServiceId);
+      const canonicalServiceId = (typeof s === 'object' && s.canonicalServiceId)
+        ? s.canonicalServiceId
+        : (meta.canonicalServiceId || meta.skillId);
       return {
         id: (typeof s === 'object' && s.id) ? s.id : (mappedSrv?.id || `ts_${idx + 1}`),
         skillId: meta.skillId,
-        skillName: (typeof s === 'object' && s.skillName) ? s.skillName : (mappedSrv?.skillName || meta.skillName),
+        canonicalServiceId,
+        skillName: (typeof s === 'object' && (s.skillName || s.name)) ? (s.skillName || s.name) : (mappedSrv?.skillName || meta.skillName),
+        name: (typeof s === 'object' && (s.skillName || s.name)) ? (s.skillName || s.name) : (mappedSrv?.skillName || meta.skillName),
         categoryId: (typeof s === 'object' && s.categoryId) ? s.categoryId : (mappedSrv?.categoryId || meta.categoryId),
         categoryName: (typeof s === 'object' && s.categoryName) ? s.categoryName : (mappedSrv?.categoryName || meta.categoryName),
         experienceYears: exp,
         verificationStatus: (typeof s === 'object' && s.verificationStatus) ? s.verificationStatus : 'VERIFIED',
-        enabled: (typeof s === 'object' && s.enabled !== undefined) ? s.enabled : true,
+        enabled: (typeof s === 'object' && s.enabled !== undefined) ? Boolean(s.enabled) : true,
       };
     });
 
     // Add any services found in technician_services not already in formattedSkills
     for (const [srvId, srvObj] of serviceMap.entries()) {
-      if (!formattedSkills.some(f => f.skillId === srvId)) {
+      if (!formattedSkills.some(f => f.skillId === srvId || f.canonicalServiceId === srvId)) {
         formattedSkills.push(srvObj);
       }
     }
 
     const verifiedCount = formattedSkills.filter(s => s.verificationStatus === 'VERIFIED').length;
     const pendingCount = formattedSkills.filter(s => s.verificationStatus !== 'VERIFIED').length;
+    const techCode = resolveTechnicianCode(technicianId, memProfile?.phoneNumber || memProfile?.phone, memProfile?.technicianCode);
 
     const responseData = {
+      uid: technicianId,
       technicianId,
-      technicianCode: `BT-TECH-${String(technicianId).slice(-6).toUpperCase()}`,
-      fullName: profile?.fullName || req.user?.name || 'Partner Technician',
-      rating: profile?.rating ? parseFloat(profile.rating) : 5.0,
-      totalRatingsCount: profile?.totalRatingsCount || 0,
-      totalJobsCompleted: profile?.totalJobsCompleted || 0,
+      technicianCode: techCode,
+      fullName: memProfile?.fullName || profile?.fullName || req.user?.name || 'Partner Technician',
+      rating: memProfile?.rating ? parseFloat(memProfile.rating) : (profile?.rating ? parseFloat(profile.rating) : 4.9),
+      totalRatingsCount: memProfile?.totalRatingsCount || profile?.totalRatingsCount || 0,
+      totalJobsCompleted: memProfile?.totalJobsCompleted || profile?.totalJobsCompleted || 0,
+      selectedSkills: formattedSkills,
       skills: formattedSkills,
       totalSkillsCount: formattedSkills.length,
       verifiedSkillsCount: verifiedCount,
@@ -537,6 +591,7 @@ const getSkills = async (req, res) => {
       data: responseData,
       profile: responseData,
       skills: formattedSkills,
+      selectedSkills: formattedSkills,
       count: formattedSkills.length,
     });
   } catch (error) {
@@ -546,39 +601,89 @@ const getSkills = async (req, res) => {
 
 /**
  * POST /api/v1/technicians/skills/bulk
+ * Partial field-mask update: updates selectedSkills & serviceCategories without overwriting
+ * personal details, GPS coordinates, KYC status, or UPI details.
  */
 const saveSkillsBulk = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.body.technicianId || req.query.technicianId ||
-      req.headers['x-technician-id'] || req.headers['x-user-id'] || 'BT-PARTNER';
+    const rawId = req.user?.id || req.body.uid || req.body.technicianId || req.query.technicianId ||
+      req.headers['x-technician-id'] || req.headers['x-user-id'] || 'uid_tech_partner';
+    const technicianId = resolveCanonicalTechUid(rawId, req.user?.phone || req.body.phone);
 
-    const rawInput = req.body.skills || req.body.data || [];
+    const rawInput = req.body.skills || req.body.selectedSkills || req.body.data || [];
     const skills = Array.isArray(rawInput) ? rawInput : [rawInput];
 
-    const formattedSkills = skills.map((s, idx) => {
-      const skillId = typeof s === 'string' ? s : (s.skillId || s.id || s.name || `sk_${idx}`);
+    // Preserve existing verificationStatus or enabled state if the skill already existed
+    const existingSkillsList = inMemorySkills.get(technicianId) || inMemoryTechProfiles.get(technicianId)?.selectedSkills || [];
+    const existingSkillMap = new Map();
+    for (const ex of existingSkillsList) {
+      if (ex && typeof ex === 'object') {
+        const k = ex.canonicalServiceId || ex.skillId || ex.id;
+        if (k) existingSkillMap.set(k, ex);
+      }
+    }
+
+    const seenKeys = new Set();
+    const formattedSkills = [];
+
+    skills.forEach((s, idx) => {
+      const rawSkillId = typeof s === 'string' ? s : (s.canonicalServiceId || s.skillId || s.id || s.name || `sk_${idx}`);
       const exp = typeof s === 'object' ? (parseInt(s.experienceYears || 2, 10)) : 2;
-      const meta = resolveSkillMeta(skillId);
-      return {
-        id: `ts_${idx + 1}`,
+      const meta = resolveSkillMeta(rawSkillId);
+      const canonicalServiceId = (typeof s === 'object' && s.canonicalServiceId)
+        ? s.canonicalServiceId
+        : (meta.canonicalServiceId || meta.skillId);
+      const dedupeKey = canonicalServiceId || meta.skillId;
+      if (seenKeys.has(dedupeKey)) return;
+      seenKeys.add(dedupeKey);
+
+      const prev = existingSkillMap.get(dedupeKey) || existingSkillMap.get(meta.skillId);
+      const enabled = (typeof s === 'object' && s.enabled !== undefined)
+        ? Boolean(s.enabled)
+        : (prev?.enabled !== undefined ? Boolean(prev.enabled) : true);
+      const verificationStatus = (typeof s === 'object' && s.verificationStatus)
+        ? s.verificationStatus
+        : (prev?.verificationStatus || 'VERIFIED');
+
+      formattedSkills.push({
+        id: prev?.id || `ts_${idx + 1}`,
         skillId: meta.skillId,
-        skillName: (typeof s === 'object' && s.skillName) ? s.skillName : meta.skillName,
+        canonicalServiceId,
+        skillName: (typeof s === 'object' && (s.skillName || s.name)) ? (s.skillName || s.name) : meta.skillName,
+        name: (typeof s === 'object' && (s.skillName || s.name)) ? (s.skillName || s.name) : meta.skillName,
         categoryId: (typeof s === 'object' && s.categoryId) ? s.categoryId : meta.categoryId,
         categoryName: (typeof s === 'object' && s.categoryName) ? s.categoryName : meta.categoryName,
         experienceYears: exp,
-        verificationStatus: 'VERIFIED',
-        enabled: true,
-      };
+        verificationStatus,
+        enabled,
+      });
     });
 
-    // 0. Update in-memory stores
-    inMemorySkills.set(technicianId, formattedSkills);
-    if (inMemoryTechProfiles.has(technicianId)) {
-      const p = inMemoryTechProfiles.get(technicianId);
-      p.skills = formattedSkills;
-    }
+    const serviceCategories = [...new Set(formattedSkills.map(s => s.categoryId).filter(Boolean))];
 
-    const stringSkills = formattedSkills.map(s => s.skillId);
+    // 0. Update in-memory & Firestore via partial field mask (never overwrites personal details, GPS, KYC, or UPI)
+    inMemorySkills.set(technicianId, formattedSkills);
+    const updatedProfile = setTechnicianProfile(
+      technicianId,
+      {
+        selectedSkills: formattedSkills,
+        skills: formattedSkills,
+        serviceCategories,
+        categories: serviceCategories,
+      },
+      [
+        'selectedSkills',
+        'skills',
+        'serviceCategories',
+        'categories',
+        'onboardingStep',
+        'onboardingCompleted',
+        'profileCompletionPercentage',
+        'updatedAt',
+      ]
+    );
+
+    const stringSkills = formattedSkills.map(s => s.canonicalServiceId || s.skillId);
 
     // 1. Update MongoDB
     if (mongo.isMongoHealthy()) {
@@ -609,16 +714,15 @@ const saveSkillsBulk = async (req, res) => {
           WHERE technician_id = $2 OR id = $2;
         `, [JSON.stringify(stringSkills), technicianId]);
 
-        // Clean & Re-sync technician_services mapping table with canonical catalog service IDs
         try {
-          const { resolveServiceIdsFromSkill } = require('../services/catalogSkillMapper');
           await postgres.query(`DELETE FROM technician_services WHERE technician_id = $1`, [technicianId]);
 
           const allLinkedServiceIds = new Set();
           for (const s of formattedSkills) {
-            const rawId = s.skillId || s.id;
-            allLinkedServiceIds.add(rawId);
-            const resolved = resolveServiceIdsFromSkill(rawId);
+            if (!s.enabled) continue;
+            const rawIdKey = s.canonicalServiceId || s.skillId || s.id;
+            allLinkedServiceIds.add(rawIdKey);
+            const resolved = resolveServiceIdsFromSkill(rawIdKey);
             resolved.forEach(id => allLinkedServiceIds.add(id));
             if (s.skillName) {
               const fromName = resolveServiceIdsFromSkill(s.skillName);
@@ -643,16 +747,22 @@ const saveSkillsBulk = async (req, res) => {
     }
 
     const responseData = {
+      uid: technicianId,
       technicianId,
-      technicianCode: `BT-TECH-${String(technicianId).slice(-6).toUpperCase()}`,
-      fullName: req.user?.name || 'Partner Technician',
-      rating: 5.0,
-      totalRatingsCount: 0,
-      totalJobsCompleted: 0,
+      technicianCode: updatedProfile.technicianCode,
+      fullName: updatedProfile.fullName || req.user?.name || 'Partner Technician',
+      rating: updatedProfile.rating || 4.9,
+      totalRatingsCount: updatedProfile.totalRatingsCount || 0,
+      totalJobsCompleted: updatedProfile.totalJobsCompleted || 0,
+      selectedSkills: formattedSkills,
       skills: formattedSkills,
+      serviceCategories,
+      onboardingStep: updatedProfile.onboardingStep,
+      onboardingCompleted: updatedProfile.onboardingCompleted,
+      profileCompletionPercentage: updatedProfile.profileCompletionPercentage,
       totalSkillsCount: formattedSkills.length,
-      verifiedSkillsCount: formattedSkills.length,
-      pendingSkillsCount: 0,
+      verifiedSkillsCount: formattedSkills.filter(s => s.verificationStatus === 'VERIFIED').length,
+      pendingSkillsCount: formattedSkills.filter(s => s.verificationStatus !== 'VERIFIED').length,
     };
 
     if (global.io) {
@@ -660,56 +770,135 @@ const saveSkillsBulk = async (req, res) => {
       global.io.emit('availability:updated', { technicianId, timestamp: Date.now() });
     }
 
-    console.log(`🎯 [Skills Saved] Saved ${formattedSkills.length} skills for technician ${technicianId}.`);
+    console.log(`🎯 [Skills Saved] Saved ${formattedSkills.length} skills for technician ${technicianId} (${updatedProfile.technicianCode}).`);
     return res.json({
       success: true,
-      message: 'Skills saved successfully',
+      saveState: 'SAVED_TO_SERVER',
+      message: 'Skills saved permanently to server',
       data: responseData,
       profile: responseData,
       skills: formattedSkills,
+      selectedSkills: formattedSkills,
       count: formattedSkills.length,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, saveState: 'FAILED_TO_SAVE', error: error.message });
   }
 };
 
 /**
  * PATCH /api/v1/technicians/skills/:id/toggle
+ * Toggles a single skill's enabled status while preserving its verificationStatus and all other profile fields.
  */
 const toggleSkill = async (req, res) => {
-  return res.json({ success: true, message: 'Skill status toggled successfully' });
+  try {
+    const skillIdParam = req.params.id;
+    const rawTechId = req.user?.id || req.body.technicianId || req.headers['x-technician-id'] || req.headers['x-user-id'];
+    const technicianId = resolveCanonicalTechUid(rawTechId, req.user?.phone);
+    const requestedEnabled = req.body.enabled;
+
+    let skills = inMemorySkills.get(technicianId) || inMemoryTechProfiles.get(technicianId)?.selectedSkills || [];
+    let toggledSkill = null;
+
+    skills = skills.map(s => {
+      if (typeof s === 'object' && (s.id === skillIdParam || s.skillId === skillIdParam || s.canonicalServiceId === skillIdParam)) {
+        const nextEnabled = requestedEnabled !== undefined ? Boolean(requestedEnabled) : !s.enabled;
+        toggledSkill = { ...s, enabled: nextEnabled };
+        return toggledSkill;
+      }
+      return s;
+    });
+
+    if (toggledSkill) {
+      inMemorySkills.set(technicianId, skills);
+      setTechnicianProfile(
+        technicianId,
+        { selectedSkills: skills, skills },
+        ['selectedSkills', 'skills', 'updatedAt']
+      );
+    }
+
+    if (global.io) {
+      global.io.emit('availability:updated', { technicianId, timestamp: Date.now() });
+    }
+
+    return res.json({
+      success: true,
+      saveState: 'SAVED_TO_SERVER',
+      message: 'Skill status toggled and persisted',
+      skill: toggledSkill,
+      skills,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 /**
  * POST /api/v1/technicians/skills/admin/:id/verify
- * Allows Admin to approve or reject individual technician skills
+ * Allows Admin to approve or reject individual technician skills with audit logging
  */
 const verifySkillAdmin = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { status = 'VERIFIED', rejectionReason = '' } = req.body;
+    const { id } = req.params || {};
+    const status = req.body?.verificationStatus || req.body?.status || 'VERIFIED';
+    const rejectionReason = req.body?.rejectionReason || '';
+    const bodyTechId = req.body?.technicianId;
+    const adminUid = req.user?.id || req.headers?.['x-admin-id'] || 'admin_console';
+    let targetTechUid = bodyTechId ? resolveCanonicalTechUid(bodyTechId) : null;
+    let previousStatus = 'PENDING';
+
+    if (req.user?.id && String(req.user.role || '').toUpperCase() === 'TECHNICIAN') {
+      return res.status(403).json({
+        success: false,
+        code: 'SELF_APPROVAL_FORBIDDEN',
+        error: 'Forbidden: Technicians cannot self-approve their own skills.',
+      });
+    }
 
     // Update in inMemorySkills
     for (const [techId, skills] of inMemorySkills.entries()) {
       for (const s of skills) {
-        if (s.id === id || s.skillId === id) {
-          s.verificationStatus = status;
-          s.rejectionReason = rejectionReason;
+        if (s.id === id || s.skillId === id || s.canonicalServiceId === id) {
+          if (!targetTechUid || targetTechUid === techId) {
+            previousStatus = s.verificationStatus || 'PENDING';
+            s.verificationStatus = status;
+            s.rejectionReason = rejectionReason;
+            targetTechUid = techId;
+          }
         }
       }
     }
 
     // Update in inMemoryTechProfiles
     for (const [techId, profile] of inMemoryTechProfiles.entries()) {
-      if (Array.isArray(profile.skills)) {
-        for (const s of profile.skills) {
-          if (s.id === id || s.skillId === id) {
-            s.verificationStatus = status;
+      const skillArr = profile.selectedSkills || profile.skills;
+      if (Array.isArray(skillArr)) {
+        let modified = false;
+        for (const s of skillArr) {
+          if (s.id === id || s.skillId === id || s.canonicalServiceId === id) {
+            if (!targetTechUid || targetTechUid === techId) {
+              s.verificationStatus = status;
+              s.rejectionReason = rejectionReason;
+              targetTechUid = techId;
+              modified = true;
+            }
           }
+        }
+        if (modified) {
+          setTechnicianProfile(techId, { selectedSkills: skillArr, skills: skillArr }, ['selectedSkills', 'skills', 'updatedAt']);
         }
       }
     }
+
+    recordTechnicianAuditLog({
+      adminUid,
+      action: status === 'VERIFIED' ? 'APPROVE_SKILL' : 'REJECT_SKILL',
+      targetTechnicianUid: targetTechUid || id,
+      previousStatus,
+      updatedStatus: status,
+      notes: rejectionReason || `Skill ${id} marked ${status}`,
+    });
 
     // Update in PostgreSQL
     if (postgres.isPgHealthy()) {
@@ -723,15 +912,24 @@ const verifySkillAdmin = async (req, res) => {
     }
 
     if (global.io) {
-      global.io.emit('skills:updated', { skillId: id, status, rejectionReason });
+      global.io.emit('skills:updated', { skillId: id, technicianId: targetTechUid, status, rejectionReason });
     }
 
     return res.json({
       success: true,
       message: `Skill ${id} status updated to ${status}`,
       skillId: id,
+      technicianId: targetTechUid,
       status,
+      verificationStatus: status,
       rejectionReason,
+      data: {
+        skillId: id,
+        technicianId: targetTechUid,
+        status,
+        verificationStatus: status,
+        rejectionReason,
+      },
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: error.message });
@@ -740,12 +938,51 @@ const verifySkillAdmin = async (req, res) => {
 
 /**
  * POST /api/v1/technicians/documents/admin/:id/verify
- * Allows Admin to approve or reject individual KYC documents
+ * Allows Admin to approve or reject individual KYC documents with audit logging
  */
 const verifyDocumentAdmin = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status = 'VERIFIED', rejectionReason = '' } = req.body;
+    const { status = 'VERIFIED', rejectionReason = '', technicianId: bodyTechId } = req.body;
+    const adminUid = req.user?.id || req.headers['x-admin-id'] || 'admin_console';
+    const targetTechUid = bodyTechId ? resolveCanonicalTechUid(bodyTechId) : resolveCanonicalTechUid(id);
+
+    // Prevent self-approval if a technician attempts to call admin verify on their own profile
+    if (req.user?.id && req.user.id === targetTechUid && String(req.user.role || '').toUpperCase() === 'TECHNICIAN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Technicians cannot self-approve their own KYC documents.',
+      });
+    }
+
+    const priv = getTechnicianPrivateProfile(targetTechUid) || {};
+    const previousStatus = priv.voterIdVerificationStatus || 'PENDING';
+
+    setTechnicianPrivateProfile(targetTechUid, {
+      voterIdVerificationStatus: status,
+      aadhaarVerificationStatus: status,
+      verifiedAt: new Date().toISOString(),
+      verifiedByAdminUid: adminUid,
+      rejectionReason: rejectionReason || '',
+    });
+
+    setTechnicianProfile(
+      targetTechUid,
+      {
+        kycStatus: status,
+        voterIdVerificationStatus: status,
+      },
+      ['kycStatus', 'voterIdVerificationStatus', 'onboardingStep', 'onboardingCompleted', 'updatedAt']
+    );
+
+    recordTechnicianAuditLog({
+      adminUid,
+      action: status === 'VERIFIED' ? 'APPROVE_KYC_DOCUMENT' : 'REJECT_KYC_DOCUMENT',
+      targetTechnicianUid: targetTechUid,
+      previousStatus,
+      updatedStatus: status,
+      notes: rejectionReason || `Document ${id} marked ${status}`,
+    });
 
     if (postgres.isPgHealthy()) {
       try {
@@ -758,13 +995,14 @@ const verifyDocumentAdmin = async (req, res) => {
     }
 
     if (global.io) {
-      global.io.emit('kyc:updated', { docId: id, status, rejectionReason });
+      global.io.emit('kyc:updated', { docId: id, technicianId: targetTechUid, status, rejectionReason });
     }
 
     return res.json({
       success: true,
       message: `Document ${id} status updated to ${status}`,
       docId: id,
+      technicianId: targetTechUid,
       status,
     });
   } catch (error) {
@@ -775,13 +1013,19 @@ const verifyDocumentAdmin = async (req, res) => {
 
 /**
  * GET /api/v1/technicians/profile
+ * Returns permanent technician profile. Masks sensitive KYC & UPI unless caller is owner or Admin.
  */
 const getProfile = async (req, res) => {
   try {
-    const technicianId = req.params.id || req.query.technicianId || req.headers['x-technician-id'] || req.headers['x-user-id'] || req.user?.id;
-    if (!technicianId) {
+    const rawId = req.params?.id || req.query?.technicianId || req.headers?.['x-technician-id'] || req.headers?.['x-user-id'] || req.user?.id;
+    if (!rawId) {
       return res.status(400).json({ success: false, error: 'Technician ID is required' });
     }
+    const technicianId = resolveCanonicalTechUid(rawId, req.user?.phone);
+    const callerRole = String(req.user?.role || '').toUpperCase();
+    const isAdmin = callerRole === 'ADMIN' || callerRole === 'SUPER_ADMIN';
+    const isOwner = !req.user?.id || resolveCanonicalTechUid(req.user.id) === technicianId || req.user.id === rawId;
+
     let profile = null;
     let pgProfile = null;
 
@@ -789,9 +1033,9 @@ const getProfile = async (req, res) => {
       try {
         const pgRes = await postgres.query(`
           SELECT * FROM technician_profiles 
-          WHERE technician_id = $1 OR id = $1 OR phone = $1 OR technician_code = $1
+          WHERE technician_id = $1 OR id = $1 OR phone = $1 OR technician_code = $1 OR technician_id = $2
           LIMIT 1;
-        `, [technicianId]);
+        `, [technicianId, rawId]);
         if (pgRes.rows.length > 0) {
           pgProfile = pgRes.rows[0];
         }
@@ -801,44 +1045,66 @@ const getProfile = async (req, res) => {
     }
 
     try {
-      profile = await MongoTechnicianProfile.findOne({ $or: [{ technicianId }, { phone: technicianId }] });
+      profile = await MongoTechnicianProfile.findOne({ $or: [{ technicianId }, { technicianId: rawId }, { phone: rawId }] });
     } catch (e) { }
 
-    const memProfile = inMemoryTechProfiles.get(technicianId);
+    const memProfile = inMemoryTechProfiles.get(technicianId) || inMemoryTechProfiles.get(rawId);
+    const privProfile = getTechnicianPrivateProfile(technicianId) || {};
 
-    const currentSkills = pgProfile?.skills || profile?.skills || inMemorySkills.get(technicianId) || [
-      'Wiring',
-      'Switchboard Repair',
-      'Fan Installation',
-    ];
+    const currentSkills =
+      memProfile?.selectedSkills ||
+      memProfile?.skills ||
+      inMemorySkills.get(technicianId) ||
+      pgProfile?.skills ||
+      profile?.skills ||
+      [];
 
-    const techCode = pgProfile?.technician_code || memProfile?.technicianCode || (technicianId.startsWith('BT-') ? technicianId : `BT-TECH-${technicianId.slice(-6).toUpperCase()}`);
-    const fullName = pgProfile?.full_name || profile?.fullName || memProfile?.fullName || req.user?.name || 'Partner Technician';
-    const phone = pgProfile?.phone || profile?.phone || memProfile?.phone || req.user?.phone || '';
-    const email = req.user?.email || profile?.email || '';
-    const rating = parseFloat(pgProfile?.rating || profile?.rating || 4.9);
-    const totalJobsCompleted = parseInt(pgProfile?.total_jobs_completed || profile?.totalJobsCompleted || 0, 10);
-    const isOnline = pgProfile?.is_online ?? profile?.isOnline ?? memProfile?.isOnline ?? true;
-    const upiId = pgProfile?.upi_id || pgProfile?.upi_number || profile?.upiId || profile?.upiNumber || '';
+    const phone = memProfile?.phoneNumber || memProfile?.phone || pgProfile?.phone || profile?.phone || req.user?.phone || '';
+    const techCode = resolveTechnicianCode(technicianId, phone, memProfile?.technicianCode || pgProfile?.technician_code);
+    const fullName = memProfile?.fullName || pgProfile?.full_name || profile?.fullName || req.user?.name || 'Partner Technician';
+    const email = memProfile?.email || req.user?.email || profile?.email || '';
+    const rating = parseFloat(memProfile?.rating || pgProfile?.rating || profile?.rating || 4.9);
+    const totalJobsCompleted = parseInt(memProfile?.totalJobsCompleted || pgProfile?.total_jobs_completed || profile?.totalJobsCompleted || 0, 10);
+    const isOnline = memProfile?.isOnline ?? pgProfile?.is_online ?? profile?.isOnline ?? true;
+    const rawUpiId = privProfile.upiId || pgProfile?.upi_id || pgProfile?.upi_number || profile?.upiId || '';
+    const maskedUpi = privProfile.maskedUpiId || maskUpiId(rawUpiId);
 
     const data = {
+      uid: technicianId,
       id: technicianId,
-      technicianId: pgProfile?.technician_id || technicianId,
+      technicianId,
       technicianCode: techCode,
       fullName,
+      phoneNumber: phone,
       phone,
       email,
-      profileImageUrl: profile?.selfieImageUrl || '',
+      profilePhotoUrl: memProfile?.profilePhotoUrl || profile?.selfieImageUrl || '',
+      profileImageUrl: memProfile?.profilePhotoUrl || profile?.selfieImageUrl || '',
+      experienceYears: Number(memProfile?.experienceYears || pgProfile?.experience_years || 2),
       rating,
-      totalRatingsCount: parseInt(pgProfile?.total_ratings_count || profile?.totalRatingsCount || 0, 10),
+      totalRatingsCount: parseInt(memProfile?.totalRatingsCount || pgProfile?.total_ratings_count || profile?.totalRatingsCount || 0, 10),
       totalJobsCompleted,
-      kycStatus: pgProfile?.kyc_status || profile?.kycStatus || 'VERIFIED',
+      accountStatus: memProfile?.accountStatus || pgProfile?.account_status || 'ACTIVE',
+      kycStatus: memProfile?.kycStatus || pgProfile?.kyc_status || profile?.kycStatus || 'VERIFIED',
+      voterIdVerificationStatus: privProfile.voterIdVerificationStatus || memProfile?.voterIdVerificationStatus || 'NOT_SUBMITTED',
+      maskedVoterId: privProfile.maskedVoterId || memProfile?.maskedVoterId || '',
+      upiVerificationStatus: privProfile.upiVerificationStatus || (rawUpiId ? 'VERIFIED' : 'NOT_SUBMITTED'),
+      maskedUpiId: maskedUpi,
+      upiId: (isOwner || isAdmin) ? rawUpiId : maskedUpi,
+      isUpiVerified: !!rawUpiId,
       isOnline,
-      availabilityStatus: pgProfile?.availability_status || 'AVAILABLE',
+      availabilityStatus: memProfile?.availabilityStatus || pgProfile?.availability_status || 'AVAILABLE',
       walletBalance: parseFloat(pgProfile?.wallet_balance || 0.0),
-      upiId,
-      isUpiVerified: !!upiId,
+      selectedSkills: currentSkills,
       skills: currentSkills,
+      serviceCategories: memProfile?.serviceCategories || [],
+      serviceArea: memProfile?.serviceArea || '15 km radius',
+      addressSummary: memProfile?.addressSummary || '',
+      onboardingStep: memProfile?.onboardingStep || 'SKILLS_SAVED',
+      onboardingCompleted: memProfile?.onboardingCompleted ?? true,
+      profileCompletionPercentage: memProfile?.profileCompletionPercentage || 80,
+      createdAt: memProfile?.createdAt || new Date().toISOString(),
+      updatedAt: memProfile?.updatedAt || new Date().toISOString(),
     };
 
     return res.json({ success: true, data, profile: data });
@@ -849,30 +1115,128 @@ const getProfile = async (req, res) => {
 
 /**
  * PATCH /api/v1/technicians/profile
+ * Updates personal/UPI details using partial field masks so skills and GPS presence are never lost.
  */
 const updateProfile = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.body.technicianId;
-    if (!technicianId) {
+    const rawId = req.user?.id || req.body.uid || req.body.technicianId;
+    if (!rawId) {
       return res.status(401).json({ success: false, error: 'Unauthorized: valid technician token required' });
     }
-    const { fullName, upiId, phone, email, avatar, photo, experienceYears, category } = req.body;
+    const technicianId = resolveCanonicalTechUid(rawId, req.body.phone || req.body.phoneNumber || req.user?.phone);
+    const {
+      fullName,
+      upiId,
+      phone,
+      phoneNumber,
+      email,
+      avatar,
+      photo,
+      profilePhotoUrl,
+      experienceYears,
+      category,
+      serviceArea,
+      addressSummary,
+      address,
+      voterIdNumber,
+      latitude,
+      longitude,
+      isOnline,
+      availabilityStatus,
+    } = req.body;
+
+    // Validate UPI format if provided
+    if (upiId && String(upiId).trim()) {
+      const cleanUpi = String(upiId).trim();
+      if (!/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(cleanUpi)) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_UPI_FORMAT',
+          error: 'Invalid UPI ID format. Expected format like name@bank or 9876543210@ybl.',
+        });
+      }
+      setTechnicianPrivateProfile(technicianId, {
+        upiId: cleanUpi,
+        maskedUpiId: maskUpiId(cleanUpi),
+        upiVerificationStatus: 'VERIFIED',
+      }, ['upiId', 'maskedUpiId', 'upiVerificationStatus', 'updatedAt']);
+    }
+
+    // Validate optional Voter ID format if provided
+    if (voterIdNumber && String(voterIdNumber).trim()) {
+      const cleanVoter = String(voterIdNumber).trim().toUpperCase();
+      if (!/^[A-Z0-9]{6,16}$/.test(cleanVoter)) {
+        return res.status(400).json({
+          success: false,
+          code: 'INVALID_VOTER_ID_FORMAT',
+          error: 'Invalid Voter ID format. Expected 10-character EPIC code (e.g. ABC1234567).',
+        });
+      }
+      setTechnicianPrivateProfile(technicianId, {
+        voterIdNumber: cleanVoter,
+        maskedVoterId: maskVoterId(cleanVoter),
+        voterIdVerificationStatus: 'PENDING_VERIFICATION',
+        kycSubmittedAt: new Date().toISOString(),
+      }, ['voterIdNumber', 'maskedVoterId', 'voterIdVerificationStatus', 'kycSubmittedAt', 'updatedAt']);
+    }
 
     const updates = {};
-    if (fullName) updates.fullName = fullName;
-    if (upiId) {
-      updates.upiId = upiId;
-      updates.upiNumber = upiId;
+    const updateMask = ['updatedAt', 'onboardingStep', 'onboardingCompleted', 'profileCompletionPercentage'];
+    if (fullName) {
+      updates.fullName = fullName;
+      updates.name = fullName;
+      updateMask.push('fullName', 'name');
     }
-    if (phone) updates.phone = phone;
-    if (email) updates.email = email;
-    if (avatar || photo) {
-      updates.avatar = avatar || photo;
-      updates.selfieImageUrl = avatar || photo;
-      updates.livePicUrl = avatar || photo;
+    if (phone || phoneNumber) {
+      updates.phone = phone || phoneNumber;
+      updates.phoneNumber = phone || phoneNumber;
+      updateMask.push('phone', 'phoneNumber');
     }
-    if (experienceYears) updates.experienceYears = parseInt(experienceYears, 10);
-    if (category) updates.category = category;
+    if (email !== undefined) {
+      updates.email = email;
+      updateMask.push('email');
+    }
+    const resolvedPhoto = profilePhotoUrl || avatar || photo;
+    if (resolvedPhoto) {
+      updates.profilePhotoUrl = resolvedPhoto;
+      updates.avatar = resolvedPhoto;
+      updates.selfieImageUrl = resolvedPhoto;
+      updates.livePicUrl = resolvedPhoto;
+      updateMask.push('profilePhotoUrl', 'avatar', 'livePicUrl');
+    }
+    if (experienceYears !== undefined) {
+      updates.experienceYears = parseInt(experienceYears, 10) || 2;
+      updateMask.push('experienceYears');
+    }
+    if (category) {
+      updates.category = category;
+      updateMask.push('category');
+    }
+    if (serviceArea) {
+      updates.serviceArea = serviceArea;
+      updateMask.push('serviceArea');
+    }
+    if (addressSummary || address) {
+      updates.addressSummary = addressSummary || address;
+      updateMask.push('addressSummary');
+    }
+    if (latitude !== undefined && longitude !== undefined) {
+      updates.latitude = Number(latitude);
+      updates.longitude = Number(longitude);
+      updates.currentLatitude = Number(latitude);
+      updates.currentLongitude = Number(longitude);
+      updates.lastLocationUpdate = new Date().toISOString();
+      updateMask.push('latitude', 'longitude', 'currentLatitude', 'currentLongitude', 'lastLocationUpdate');
+    }
+    if (isOnline !== undefined) {
+      updates.isOnline = Boolean(isOnline);
+      updates.online = Boolean(isOnline);
+      updateMask.push('isOnline', 'online');
+    }
+    if (availabilityStatus) {
+      updates.availabilityStatus = availabilityStatus;
+      updateMask.push('availabilityStatus');
+    }
 
     // 1. Persist to PostgreSQL technician_profiles & users
     if (postgres.isPgHealthy()) {
@@ -891,27 +1255,11 @@ const updateProfile = async (req, res) => {
           WHERE technician_id = $7 OR id = $7;
         `, [
           fullName || null,
-          phone || null,
+          phone || phoneNumber || null,
           upiId || null,
-          avatar || photo || null,
+          resolvedPhoto || null,
           experienceYears ? parseInt(experienceYears, 10) : null,
           category || null,
-          technicianId
-        ]);
-
-        await postgres.query(`
-          UPDATE users
-          SET full_name = COALESCE(NULLIF($1, ''), full_name),
-              phone = COALESCE(NULLIF($2, ''), phone),
-              email = COALESCE(NULLIF($3, ''), email),
-              profile_image_url = COALESCE(NULLIF($4, ''), profile_image_url),
-              updated_at = NOW()
-          WHERE id = $5;
-        `, [
-          fullName || null,
-          phone || null,
-          email || null,
-          avatar || photo || null,
           technicianId
         ]);
       } catch (pgErr) {
@@ -928,37 +1276,23 @@ const updateProfile = async (req, res) => {
       );
     } catch (e) { }
 
-    // 3. Update in-memory store
-    const existing = inMemoryTechProfiles.get(technicianId) || {};
-    inMemoryTechProfiles.set(technicianId, {
-      ...existing,
-      ...updates,
-      id: technicianId,
-      technicianId,
-      fullName: fullName || existing.fullName || 'Technician',
-      name: fullName || existing.fullName || 'Technician',
-      phone: phone || existing.phone || '',
-      email: email || existing.email || '',
-      upiId: upiId || existing.upiId || '',
-      avatar: avatar || photo || existing.avatar || '',
-      livePicUrl: avatar || photo || existing.livePicUrl || '',
-      photo: avatar || photo || existing.photo || '',
-      updatedAt: new Date().toISOString(),
-    });
+    // 3. Update persistent & Firestore store with partial field mask (never overwrites selectedSkills!)
+    const updated = setTechnicianProfile(technicianId, updates, updateMask);
 
     // 4. Real-time broadcast to Admin Panel
     if (global.io) {
       global.io.emit('admin:technician_updated', {
         id: technicianId,
+        uid: technicianId,
         technicianId,
-        fullName: fullName || existing.fullName,
-        name: fullName || existing.fullName,
-        phone: phone || existing.phone,
-        email: email || existing.email,
-        upiId: upiId || existing.upiId,
-        avatar: avatar || photo || existing.avatar,
-        photo: avatar || photo || existing.photo,
-        updatedAt: new Date().toISOString(),
+        technicianCode: updated.technicianCode,
+        fullName: updated.fullName,
+        name: updated.fullName,
+        phone: updated.phone,
+        email: updated.email,
+        maskedUpiId: updated.maskedUpiId,
+        avatar: updated.profilePhotoUrl,
+        updatedAt: updated.updatedAt,
       });
       global.io.emit('technicians:updated', { technicianId, action: 'PROFILE_UPDATED' });
     }
@@ -1193,39 +1527,118 @@ const uploadProfilePhoto = async (req, res) => {
  * POST /api/v1/technicians/documents & /api/v1/technicians/kyc
  */
 const submitDocument = async (req, res) => {
-  const technicianId = req.user?.id || req.body.technicianId || req.query.technicianId ||
-    req.headers['x-technician-id'] || req.headers['x-user-id'] || 'BT-PARTNER';
+  const rawId = req.user?.id || req.body.uid || req.body.technicianId || req.query.technicianId ||
+    req.headers['x-technician-id'] || req.headers['x-user-id'] || 'uid_tech_partner';
+  const technicianId = resolveCanonicalTechUid(rawId, req.user?.phone || req.body.phone);
 
   const { documentType = 'AADHAAR', fileUrl = '', photoUrl = '', maskedNumber, fileSizeMb } = req.body;
   const docTypeUpper = String(documentType).toUpperCase();
   const rawFileUrl = fileUrl || photoUrl || '';
+
+  // Prevent accidental rapid duplicate KYC submissions (within 3 seconds for identical docType + maskedNumber)
+  const lockKey = `${technicianId}:${docTypeUpper}:${maskedNumber || ''}`;
+  const lastSubMs = recentKycSubmissionLocks.get(lockKey) || 0;
+  if (Date.now() - lastSubMs < 3000) {
+    return res.status(409).json({
+      success: false,
+      code: 'DUPLICATE_KYC_SUBMISSION',
+      error: 'Duplicate KYC submission detected. Your document is already being processed.',
+    });
+  }
+  recentKycSubmissionLocks.set(lockKey, Date.now());
+
+  if (docTypeUpper.includes('VOTER') && maskedNumber && String(maskedNumber).trim() && !String(maskedNumber).includes('*') && String(maskedNumber) !== 'OPTIONAL_VOTER_CARD') {
+    const cleanVoter = String(maskedNumber).trim().toUpperCase().replace(/[\s\-]/g, '');
+    if (!/^[A-Z]{3}[0-9]{7}$/.test(cleanVoter)) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_VOTER_ID',
+        error: 'Invalid Voter ID number format. Expected 3 letters followed by 7 digits (e.g. ABC1234567).',
+      });
+    }
+  }
+
   const finalFileUrl = resolveDocUrl(rawFileUrl, docTypeUpper);
   const docId = `doc_${docTypeUpper.toLowerCase()}_${Date.now()}`;
+  const nowIso = new Date().toISOString();
+
+  const safeMasked = docTypeUpper.includes('VOTER')
+    ? (maskVoterId(maskedNumber) || maskedNumber || 'VOTER_SUBMITTED')
+    : docTypeUpper.includes('AADHAAR')
+      ? (maskAadhaar(maskedNumber) || maskedNumber || 'AADHAAR_SUBMITTED')
+      : docTypeUpper.includes('UPI')
+        ? (maskUpiId(maskedNumber) || maskedNumber || 'UPI_SUBMITTED')
+        : (maskedNumber || `${docTypeUpper}_RECORD`);
 
   const newDoc = {
     id: docId,
     documentType: docTypeUpper,
     fileUrl: finalFileUrl,
     secureCloudinaryUrl: finalFileUrl,
-    maskedNumber: maskedNumber || `${docTypeUpper}_RECORD`,
+    maskedNumber: safeMasked,
     verificationStatus: 'PENDING',
-    uploadedAt: new Date().toISOString(),
+    uploadedAt: nowIso,
   };
 
-  // 1. In-memory update
+  // 1. In-memory & Private Vault update (technician_private/{uid})
   const existing = inMemoryDocs.get(technicianId) || [];
   const filtered = existing.filter(d => (d.documentType || '').toUpperCase() !== docTypeUpper);
   filtered.push(newDoc);
   inMemoryDocs.set(technicianId, filtered);
 
-  if (inMemoryTechProfiles.has(technicianId)) {
-    const p = inMemoryTechProfiles.get(technicianId);
-    if (docTypeUpper.includes('AADHAAR')) { p.hasAadhaar = true; p.aadhaarUrl = finalFileUrl; p.aadhaarNumber = newDoc.maskedNumber; }
-    else if (docTypeUpper.includes('VOTER')) { p.hasVoterCard = true; p.voterCardUrl = finalFileUrl; p.voterCardNumber = newDoc.maskedNumber; }
-    else if (docTypeUpper.includes('SELFIE') || docTypeUpper.includes('LIVE') || docTypeUpper.includes('PHOTO')) { p.hasLivePic = true; p.livePicUrl = finalFileUrl; p.avatar = finalFileUrl; }
-    p.profileCompletion = (p.hasAadhaar ? 25 : 0) + (p.hasVoterCard ? 25 : 0) + (p.hasLivePic ? 25 : 0) + 25;
-    p.isProfileComplete = p.profileCompletion === 100;
+  const privExisting = getTechnicianPrivateProfile(technicianId) || {};
+  const existingRefs = Array.isArray(privExisting.secureDocumentRefs) ? privExisting.secureDocumentRefs : [];
+  const updatedRefs = [
+    ...existingRefs.filter(r => r.documentType !== docTypeUpper),
+    {
+      id: docId,
+      documentType: docTypeUpper,
+      storageRef: finalFileUrl,
+      maskedNumber: safeMasked,
+      uploadedAt: nowIso,
+    },
+  ];
+
+  const privPatch = {
+    secureDocumentRefs: updatedRefs,
+    kycSubmittedAt: nowIso,
+  };
+  if (docTypeUpper.includes('VOTER')) {
+    privPatch.voterIdNumber = maskedNumber || '';
+    privPatch.maskedVoterId = safeMasked;
+    privPatch.voterIdVerificationStatus = 'PENDING_VERIFICATION';
+  } else if (docTypeUpper.includes('AADHAAR')) {
+    privPatch.aadhaarNumber = maskedNumber || '';
+    privPatch.maskedAadhaar = safeMasked;
+    privPatch.aadhaarVerificationStatus = 'PENDING_VERIFICATION';
+  } else if (docTypeUpper.includes('UPI')) {
+    privPatch.upiId = maskedNumber || '';
+    privPatch.maskedUpiId = safeMasked;
+    privPatch.upiVerificationStatus = 'VERIFIED';
   }
+  setTechnicianPrivateProfile(technicianId, privPatch);
+
+  // Update public profile summary fields only (never store unmasked numbers or raw KYC doc URLs in public collection)
+  const pubPatch = {
+    kycSubmittedAt: nowIso,
+  };
+  const pubMask = ['kycSubmittedAt', 'onboardingStep', 'onboardingCompleted', 'profileCompletionPercentage', 'updatedAt'];
+  if (docTypeUpper.includes('SELFIE') || docTypeUpper.includes('LIVE') || docTypeUpper.includes('PHOTO')) {
+    pubPatch.profilePhotoUrl = finalFileUrl;
+    pubPatch.avatar = finalFileUrl;
+    pubMask.push('profilePhotoUrl', 'avatar');
+  }
+  if (docTypeUpper.includes('VOTER')) {
+    pubPatch.voterIdVerificationStatus = 'PENDING_VERIFICATION';
+    pubPatch.maskedVoterId = safeMasked;
+    pubMask.push('voterIdVerificationStatus', 'maskedVoterId');
+  }
+  if (docTypeUpper.includes('UPI')) {
+    pubPatch.upiVerificationStatus = 'VERIFIED';
+    pubPatch.maskedUpiId = safeMasked;
+    pubMask.push('upiVerificationStatus', 'maskedUpiId');
+  }
+  setTechnicianProfile(technicianId, pubPatch, pubMask);
 
   // 2. MongoDB update
   if (mongo.isMongoHealthy()) {

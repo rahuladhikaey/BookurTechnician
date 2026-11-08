@@ -56,6 +56,7 @@ class SkillCategoryModel {
 
 class SkillItemModel {
   final String id;
+  final String canonicalServiceId;
   final String categoryId;
   final String categoryName;
   final String name;
@@ -65,22 +66,28 @@ class SkillItemModel {
 
   SkillItemModel({
     required this.id,
+    String? canonicalServiceId,
     required this.categoryId,
     this.categoryName = '',
     required this.name,
     required this.slug,
     this.description = '',
     this.displayOrder = 0,
-  });
+  }) : canonicalServiceId = canonicalServiceId ?? id;
 
   factory SkillItemModel.fromJson(Map<String, dynamic> json, {String defaultCatId = '', String defaultCatName = ''}) {
-    final skillId = json['id']?.toString() ?? json['serviceId']?.toString() ?? json['skillId']?.toString() ?? '';
+    final skillId = json['canonicalServiceId']?.toString() ??
+        json['id']?.toString() ??
+        json['serviceId']?.toString() ??
+        json['skillId']?.toString() ??
+        '';
     final skillName = json['name']?.toString() ?? json['title']?.toString() ?? 'Service';
     final resolvedCatId = json['categoryId']?.toString() ?? defaultCatId;
     final resolvedCatName = json['categoryName']?.toString() ?? defaultCatName;
 
     return SkillItemModel(
       id: skillId,
+      canonicalServiceId: json['canonicalServiceId']?.toString() ?? skillId,
       categoryId: resolvedCatId,
       categoryName: resolvedCatName,
       name: skillName,
@@ -94,6 +101,7 @@ class SkillItemModel {
 class TechnicianSkillItemModel {
   final String id;
   final String skillId;
+  final String canonicalServiceId;
   final String skillName;
   final String categoryId;
   final String categoryName;
@@ -105,6 +113,7 @@ class TechnicianSkillItemModel {
   TechnicianSkillItemModel({
     required this.id,
     required this.skillId,
+    String? canonicalServiceId,
     required this.skillName,
     required this.categoryId,
     required this.categoryName,
@@ -112,7 +121,7 @@ class TechnicianSkillItemModel {
     this.verificationStatus = 'PENDING',
     this.enabled = true,
     this.rejectionReason,
-  });
+  }) : canonicalServiceId = canonicalServiceId ?? skillId;
 
   factory TechnicianSkillItemModel.fromJson(Map<String, dynamic> json) {
     int parsedExp = 2;
@@ -124,12 +133,16 @@ class TechnicianSkillItemModel {
       parsedExp = int.tryParse(json['experienceYears'].toString()) ?? 2;
     }
 
-    final sId = json['skillId']?.toString() ?? json['id']?.toString() ?? '';
+    final sId = json['canonicalServiceId']?.toString() ??
+        json['skillId']?.toString() ??
+        json['id']?.toString() ??
+        '';
     final sName = json['skillName']?.toString() ?? json['name']?.toString() ?? sId;
 
     return TechnicianSkillItemModel(
       id: json['id']?.toString() ?? sId,
       skillId: sId,
+      canonicalServiceId: json['canonicalServiceId']?.toString() ?? sId,
       skillName: sName,
       categoryId: json['categoryId']?.toString() ?? '',
       categoryName: json['categoryName']?.toString() ?? '',
@@ -147,6 +160,7 @@ class TechnicianSkillItemModel {
     return TechnicianSkillItemModel(
       id: id,
       skillId: skillId,
+      canonicalServiceId: canonicalServiceId,
       skillName: skillName,
       categoryId: categoryId,
       categoryName: categoryName,

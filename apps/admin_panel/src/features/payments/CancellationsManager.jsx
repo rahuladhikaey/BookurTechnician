@@ -36,7 +36,7 @@ export default function CancellationsManager({ auditLogAction }) {
       <div className="section-header">
         <div>
           <h2>Cancellation Policy & Automated Eligibility Rules</h2>
-          <p style={{ fontSize: '13px', color: '#64748B' }}>
+          <p style={{ fontSize: '13px', color: '#77716C' }}>
             Configure client cancellation windows and automated refund calculations for BookurTechnician.
           </p>
         </div>
@@ -74,9 +74,9 @@ export default function CancellationsManager({ auditLogAction }) {
               </label>
             </div>
 
-            <div className="detail-section" style={{ background: '#F8FAFC', marginBottom: '20px' }}>
+            <div className="detail-section" style={{ background: '#FCF9F6', marginBottom: '20px' }}>
               <h4>📌 Automated Refund Terms Displayed to Customer:</h4>
-              <ul style={{ fontSize: '12px', color: '#64748B', paddingLeft: '18px', marginTop: '6px', lineHeight: '1.5' }}>
+              <ul style={{ fontSize: '12px', color: '#77716C', paddingLeft: '18px', marginTop: '6px', lineHeight: '1.5' }}>
                 <li>Free cancellation available up to {cancellationWindowHours} hour before scheduled service.</li>
                 <li>Booking Charge (₹99.00) is strictly non-refundable.</li>
                 <li>GST/taxes are non-refundable.</li>
@@ -93,13 +93,13 @@ export default function CancellationsManager({ auditLogAction }) {
         {/* ─── CANCELLATION REASONS LIST ─── */}
         <div className="settings-card">
           <h3>📋 Customer Cancellation Reasons</h3>
-          <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '14px' }}>
+          <p style={{ fontSize: '12px', color: '#77716C', marginBottom: '14px' }}>
             These options are presented to the customer when cancelling in the mobile app:
           </p>
 
           <ul className="reasons-list" style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {cancellationReasons.map((r, i) => (
-              <li key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#F1F5F9', borderRadius: '8px', fontSize: '13px' }}>
+              <li key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#FCF9F6', borderRadius: '8px', fontSize: '13px' }}>
                 <span>• {r}</span>
                 {cancellationReasons.length > 2 && (
                   <button

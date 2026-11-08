@@ -89,7 +89,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
       builder: (context, scrollController) {
         return Container(
           decoration: const BoxDecoration(
-            color: Color(0xFFF8FAFC),
+            color: Color(0xFFFCF9F6),
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             boxShadow: [
               BoxShadow(
@@ -129,7 +129,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                                  color: const Color(0xFF198754).withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
@@ -139,7 +139,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                                       width: 7,
                                       height: 7,
                                       decoration: const BoxDecoration(
-                                        color: Color(0xFF10B981),
+                                        color: Color(0xFF198754),
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -147,7 +147,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                                     const Text(
                                       'LIVE 15 KM POSTGIS SCAN',
                                       style: TextStyle(
-                                        color: Color(0xFF047857),
+                                        color: Color(0xFF198754),
                                         fontWeight: FontWeight.w700,
                                         fontSize: 10.5,
                                         letterSpacing: 0.5,
@@ -173,7 +173,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                             style: const TextStyle(
                               fontSize: 19,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF222222),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -185,7 +185,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                                 : '$onlineCount verified partner${onlineCount == 1 ? '' : 's'} available right now',
                             style: TextStyle(
                               fontSize: 13,
-                              color: onlineCount > 0 ? const Color(0xFF059669) : Colors.grey.shade600,
+                              color: onlineCount > 0 ? const Color(0xFF198754) : Colors.grey.shade600,
                               fontWeight: onlineCount > 0 ? FontWeight.w600 : FontWeight.normal,
                             ),
                           ),
@@ -193,7 +193,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.refresh, color: Color(0xFF2563EB)),
+                      icon: const Icon(Icons.refresh, color: Color(0xFFF46B12)),
                       tooltip: 'Refresh nearby scan',
                       onPressed: _isLoading ? null : _fetchTechnicians,
                     ),
@@ -205,7 +205,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                 ),
               ),
 
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              const Divider(height: 1, color: Color(0xFFEEE8E2)),
 
               // Content Area
               Expanded(
@@ -229,7 +229,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
               height: 38,
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF46B12)),
               ),
             ),
             const SizedBox(height: 16),
@@ -237,7 +237,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
               'Scanning 15 KM radius...',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1E293B),
+                color: Color(0xFF222222),
                 fontSize: 15,
               ),
             ),
@@ -263,7 +263,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF222222)),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
@@ -271,7 +271,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('Try Again'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
+                  backgroundColor: const Color(0xFFF46B12),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
@@ -293,14 +293,14 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                 width: 76,
                 height: 76,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: const Color(0xFFFBE4D5),
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
+                  border: Border.all(color: const Color(0xFFFBE4D5), width: 1.5),
                 ),
                 child: const Icon(
                   Icons.radar,
                   size: 38,
-                  color: Color(0xFF2563EB),
+                  color: Color(0xFFF46B12),
                 ),
               ),
               const SizedBox(height: 16),
@@ -310,7 +310,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF222222),
                 ),
               ),
               const SizedBox(height: 8),
@@ -339,7 +339,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                   icon: const Icon(Icons.calendar_today, size: 18),
                   label: const Text('Book & Schedule Service'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
+                    backgroundColor: const Color(0xFFF46B12),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -368,7 +368,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -389,7 +389,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                 children: [
                   CircleAvatar(
                     radius: 28,
-                    backgroundColor: const Color(0xFFEFF6FF),
+                    backgroundColor: const Color(0xFFFBE4D5),
                     backgroundImage: tech.profileImageUrl.isNotEmpty
                         ? NetworkImage(tech.profileImageUrl)
                         : null,
@@ -399,7 +399,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 22,
-                              color: Color(0xFF2563EB),
+                              color: Color(0xFFF46B12),
                             ),
                           )
                         : null,
@@ -411,7 +411,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                       width: 13,
                       height: 13,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981),
+                        color: const Color(0xFF198754),
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                       ),
@@ -434,7 +434,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 16,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF222222),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -444,7 +444,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                         const Icon(
                           Icons.verified,
                           size: 16,
-                          color: Color(0xFF2563EB),
+                          color: Color(0xFFF46B12),
                         ),
                       ],
                     ),
@@ -464,20 +464,20 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
+                            color: const Color(0xFFFFF4E0),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.star, size: 13, color: Color(0xFFD97706)),
+                              const Icon(Icons.star, size: 13, color: Color(0xFFE5A126)),
                               const SizedBox(width: 3),
                               Text(
                                 tech.rating.toStringAsFixed(1),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 11.5,
-                                  color: Color(0xFF92400E),
+                                  color: Color(0xFFE85B08),
                                 ),
                               ),
                             ],
@@ -501,7 +501,7 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
           ),
 
           const SizedBox(height: 12),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const Divider(height: 1, color: Color(0xFFFCF9F6)),
           const SizedBox(height: 10),
 
           // Proximity and Dispatch Bar
@@ -514,20 +514,20 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: const Color(0xFFFCF9F6),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.near_me, size: 13, color: Color(0xFF475569)),
+                        const Icon(Icons.near_me, size: 13, color: Color(0xFF77716C)),
                         const SizedBox(width: 4),
                         Text(
                           tech.displayDistance,
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155),
+                            color: Color(0xFF222222),
                           ),
                         ),
                       ],
@@ -537,20 +537,20 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
+                      color: const Color(0xFFE8F5E9),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.timer_outlined, size: 13, color: Color(0xFF059669)),
+                        const Icon(Icons.timer_outlined, size: 13, color: Color(0xFF198754)),
                         const SizedBox(width: 4),
                         Text(
                           'ETA ${tech.displayEta}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF047857),
+                            color: Color(0xFF198754),
                           ),
                         ),
                       ],
@@ -571,12 +571,12 @@ class _NearbyTechniciansSheetState extends ConsumerState<NearbyTechniciansSheet>
                           '${widget.serviceItem!.name} booked with ${tech.fullName} nearby!',
                         ),
                         behavior: SnackBarBehavior.floating,
-                        backgroundColor: const Color(0xFF059669),
+                        backgroundColor: const Color(0xFF198754),
                       ),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
+                    backgroundColor: const Color(0xFFF46B12),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

@@ -167,7 +167,7 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
           );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
         title: const Text(
           'All Services',
@@ -309,7 +309,7 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
                           )
                         : null,
                     filled: true,
-                    fillColor: const Color(0xFFF1F5F9),
+                    fillColor: const Color(0xFFFCF9F6),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -317,7 +317,7 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                      borderSide: const BorderSide(color: Color(0xFFEEE8E2), width: 1),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -407,10 +407,10 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
                           child: FilterChip(
                             label: Text(priceOpt.label),
                             selected: isSel,
-                            selectedColor: const Color(0xFFEFF6FF),
+                            selectedColor: const Color(0xFFFBE4D5),
                             checkmarkColor: kBrandPrimary,
                             side: BorderSide(
-                              color: isSel ? kBrandPrimary : const Color(0xFFCBD5E1),
+                              color: isSel ? kBrandPrimary : const Color(0xFFEEE8E2),
                               width: isSel ? 1.5 : 1,
                             ),
                             labelStyle: TextStyle(
@@ -437,20 +437,20 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
                         label: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.star_rounded, size: 15, color: Color(0xFFF59E0B)),
+                            Icon(Icons.star_rounded, size: 15, color: Color(0xFFE5A126)),
                             SizedBox(width: 4),
                             Text('4.8+ Rating'),
                           ],
                         ),
                         selected: _onlyHighRated,
-                        selectedColor: const Color(0xFFFEF3C7),
-                        checkmarkColor: const Color(0xFFD97706),
+                        selectedColor: const Color(0xFFFFF4E0),
+                        checkmarkColor: const Color(0xFFE5A126),
                         side: BorderSide(
-                          color: _onlyHighRated ? const Color(0xFFD97706) : const Color(0xFFCBD5E1),
+                          color: _onlyHighRated ? const Color(0xFFE5A126) : const Color(0xFFEEE8E2),
                           width: _onlyHighRated ? 1.5 : 1,
                         ),
                         labelStyle: TextStyle(
-                          color: _onlyHighRated ? const Color(0xFF92400E) : kPrimaryText,
+                          color: _onlyHighRated ? const Color(0xFFE85B08) : kPrimaryText,
                           fontWeight: _onlyHighRated ? FontWeight.bold : FontWeight.w500,
                           fontSize: 12,
                         ),
@@ -471,7 +471,7 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
           // 2. Results Header Status Bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            color: const Color(0xFFF1F5F9),
+            color: const Color(0xFFFCF9F6),
             child: Row(
               children: [
                 Text(
@@ -487,7 +487,7 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFDBEAFE),
+                      color: const Color(0xFFFBE4D5),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Text(
@@ -555,7 +555,7 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
       ),
       backgroundColor: Colors.white,
       side: BorderSide(
-        color: isSelected ? kBrandPrimary : const Color(0xFFCBD5E1),
+        color: isSelected ? kBrandPrimary : const Color(0xFFEEE8E2),
         width: 1,
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -576,13 +576,13 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
     return ChoiceChip(
       label: Text(title),
       selected: isSelected,
-      selectedColor: const Color(0xFF1E293B),
+      selectedColor: const Color(0xFF222222),
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : const Color(0xFF334155),
+        color: isSelected ? Colors.white : const Color(0xFF222222),
         fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
         fontSize: 11.5,
       ),
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFFCF9F6),
       side: BorderSide.none,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       onSelected: (_) {
@@ -628,10 +628,10 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: _selectedSort != ServiceSortOption.recommended ? const Color(0xFFEFF6FF) : Colors.white,
+          color: _selectedSort != ServiceSortOption.recommended ? const Color(0xFFFBE4D5) : Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: _selectedSort != ServiceSortOption.recommended ? kBrandPrimary : const Color(0xFFCBD5E1),
+            color: _selectedSort != ServiceSortOption.recommended ? kBrandPrimary : const Color(0xFFEEE8E2),
             width: _selectedSort != ServiceSortOption.recommended ? 1.5 : 1,
           ),
         ),
@@ -670,7 +670,7 @@ class _AllServicesScreenState extends ConsumerState<AllServicesScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: const Color(0xFFFCF9F6),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.search_off_rounded, size: 48, color: kSecondaryText),
@@ -750,7 +750,7 @@ class _AllServiceCardItem extends ConsumerWidget {
           border: Border.all(color: kBorderColor, width: 1),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x0A0B1F63),
+              color: Color(0x0A222222),
               blurRadius: 8,
               offset: Offset(0, 3),
             ),
@@ -770,7 +770,7 @@ class _AllServiceCardItem extends ConsumerWidget {
                     service.imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: const Color(0xFFF8FAFC),
+                      color: const Color(0xFFFCF9F6),
                       alignment: Alignment.center,
                       child: const Icon(Icons.build_outlined, size: 36, color: kSecondaryText),
                     ),
@@ -834,7 +834,7 @@ class _AllServiceCardItem extends ConsumerWidget {
                   // Rating & Warranty
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 17),
+                      const Icon(Icons.star_rounded, color: Color(0xFFE5A126), size: 17),
                       const SizedBox(width: 3),
                       Text(
                         '${service.rating.toStringAsFixed(1)} ',
@@ -887,10 +887,10 @@ class _AllServiceCardItem extends ConsumerWidget {
                       margin: const EdgeInsets.only(top: 3, bottom: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: hasTechs ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+                        color: hasTechs ? const Color(0xFFE8F5E9) : const Color(0xFFFCF9F6),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: hasTechs ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0),
+                          color: hasTechs ? const Color(0xFFE8F5E9) : const Color(0xFFEEE8E2),
                           width: 1,
                         ),
                       ),
@@ -901,11 +901,11 @@ class _AllServiceCardItem extends ConsumerWidget {
                             width: 7,
                             height: 7,
                             decoration: BoxDecoration(
-                              color: hasTechs ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                              color: hasTechs ? const Color(0xFF198754) : const Color(0xFF77716C),
                               shape: BoxShape.circle,
                               boxShadow: hasTechs ? const [
                                 BoxShadow(
-                                  color: Color(0x6610B981),
+                                  color: Color(0x66198754),
                                   blurRadius: 4,
                                   spreadRadius: 1,
                                 ),
@@ -919,7 +919,7 @@ class _AllServiceCardItem extends ConsumerWidget {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: hasTechs ? const Color(0xFF065F46) : const Color(0xFF64748B),
+                                color: hasTechs ? const Color(0xFF198754) : const Color(0xFF77716C),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -992,7 +992,7 @@ class _AllServiceCardItem extends ConsumerWidget {
                             ref.read(bookingProvider.notifier).toggleCartItem(service);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: inCart ? const Color(0xFFDCFCE7) : kBlack,
+                            backgroundColor: inCart ? const Color(0xFFE8F5E9) : kBlack,
                             foregroundColor: inCart ? kSuccessGreen : Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -1040,7 +1040,7 @@ class _AllServiceCardItem extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.block_rounded, color: Color(0xFFEF4444)),
+            Icon(Icons.block_rounded, color: Color(0xFFDC3545)),
             SizedBox(width: 8),
             Text('No Technician Online', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],

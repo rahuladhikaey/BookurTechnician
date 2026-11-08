@@ -108,9 +108,9 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: is100 ? const Color(0xFFF0FDF4) : const Color(0xFFEEF3FF),
+                color: is100 ? const Color(0xFFE8F5E9) : const Color(0xFFFBE4D5),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: is100 ? const Color(0xFFBBF7D0) : const Color(0xFFD9E2F2)),
+                border: Border.all(color: is100 ? const Color(0xFFE8F5E9) : const Color(0xFFEEE8E2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,7 +123,7 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
-                          color: is100 ? const Color(0xFF15803D) : kBrandPrimary,
+                          color: is100 ? const Color(0xFF198754) : kBrandPrimary,
                         ),
                       ),
                       Text(
@@ -131,7 +131,7 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
-                          color: is100 ? const Color(0xFF15803D) : kBrandPrimary,
+                          color: is100 ? const Color(0xFF198754) : kBrandPrimary,
                         ),
                       ),
                     ],
@@ -144,7 +144,7 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
                       minHeight: 10,
                       backgroundColor: Colors.white,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        is100 ? const Color(0xFF22C55E) : kBrandPrimary,
+                        is100 ? const Color(0xFF198754) : kBrandPrimary,
                       ),
                     ),
                   ),
@@ -155,7 +155,7 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
                         : 'Add your details below to reach 100% and unlock seamless booking & warranty.',
                     style: TextStyle(
                       fontSize: 12.5,
-                      color: is100 ? const Color(0xFF166534) : const Color(0xFF475569),
+                      color: is100 ? const Color(0xFF198754) : const Color(0xFF77716C),
                       height: 1.35,
                     ),
                   ),
@@ -281,7 +281,7 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
               child: ElevatedButton(
                 onPressed: _handleContinue,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: is100 ? kBrandPrimary : const Color(0xFF111827),
+                  backgroundColor: is100 ? kBrandPrimary : const Color(0xFF222222),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
@@ -312,7 +312,7 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDone ? const Color(0xFFD9E2F2) : const Color(0xFFFED7AA)),
+        border: Border.all(color: isDone ? const Color(0xFFEEE8E2) : const Color(0xFFFBE4D5)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,12 +321,12 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: isDone ? const Color(0xFFDCFCE7) : const Color(0xFFFFF7ED),
+              color: isDone ? const Color(0xFFE8F5E9) : const Color(0xFFFBE4D5),
               shape: BoxShape.circle,
             ),
             child: Icon(
               isDone ? Icons.check_rounded : Icons.priority_high_rounded,
-              color: isDone ? const Color(0xFF16A34A) : const Color(0xFFEA580C),
+              color: isDone ? const Color(0xFF198754) : const Color(0xFFF46B12),
               size: 18,
             ),
           ),
@@ -343,7 +343,7 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: isDone ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                          color: isDone ? const Color(0xFFE8F5E9) : const Color(0xFFFDECEC),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -351,7 +351,7 @@ class _ProfileCompletionWizardScreenState extends ConsumerState<ProfileCompletio
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.bold,
-                            color: isDone ? const Color(0xFF15803D) : kRedError,
+                            color: isDone ? const Color(0xFF198754) : kRedError,
                           ),
                         ),
                       ),

@@ -82,9 +82,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: const Color(0xFFFBE4D5),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
+                border: Border.all(color: const Color(0xFFFBE4D5)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,9 +144,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: const Color(0xFFFCF9F6),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFD9E2F2)),
+              border: Border.all(color: const Color(0xFFEEE8E2)),
             ),
             child: Row(
               children: [
@@ -174,8 +174,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
-                            child: const Text('✓ Verified Customer', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                            decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(6)),
+                            child: const Text('✓ Verified Customer', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF198754))),
                           ),
                         ],
                       ),
@@ -196,9 +196,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: is100 ? const Color(0xFFF0FDF4) : const Color(0xFFFFF7ED),
+              color: is100 ? const Color(0xFFE8F5E9) : const Color(0xFFFBE4D5),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: is100 ? const Color(0xFFBBF7D0) : const Color(0xFFFED7AA)),
+              border: Border.all(color: is100 ? const Color(0xFFE8F5E9) : const Color(0xFFFBE4D5)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,7 +210,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         Icon(
                           is100 ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-                          color: is100 ? const Color(0xFF16A34A) : const Color(0xFFEA580C),
+                          color: is100 ? const Color(0xFF198754) : const Color(0xFFF46B12),
                           size: 18,
                         ),
                         const SizedBox(width: 8),
@@ -219,7 +219,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13.5,
-                            color: is100 ? const Color(0xFF15803D) : const Color(0xFFC2410C),
+                            color: is100 ? const Color(0xFF198754) : const Color(0xFFE85B08),
                           ),
                         ),
                       ],
@@ -229,7 +229,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       style: TextStyle(
                         fontWeight: FontWeight.w900,
                         fontSize: 14,
-                        color: is100 ? const Color(0xFF15803D) : const Color(0xFFC2410C),
+                        color: is100 ? const Color(0xFF198754) : const Color(0xFFE85B08),
                       ),
                     ),
                   ],
@@ -242,7 +242,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     minHeight: 6,
                     backgroundColor: Colors.white,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      is100 ? const Color(0xFF22C55E) : const Color(0xFFF97316),
+                      is100 ? const Color(0xFF198754) : const Color(0xFFF46B12),
                     ),
                   ),
                 ),
@@ -257,7 +257,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             : 'Your profile is ${profile.profileCompletion}% complete. Add your ${profile.missingFieldsReadable}.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: is100 ? const Color(0xFF166534) : const Color(0xFF9A3412),
+                          color: is100 ? const Color(0xFF198754) : const Color(0xFFE85B08),
                         ),
                       ),
                     ),
@@ -266,7 +266,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ElevatedButton(
                         onPressed: () => Navigator.pushNamed(context, '/profile_completion_wizard'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEA580C),
+                          backgroundColor: const Color(0xFFF46B12),
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -435,7 +435,7 @@ class SupportScreen extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(gradient: const LinearGradient(colors: [kBrandPrimary, Color(0xFF1D4ED8)]),
+            decoration: BoxDecoration(gradient: const LinearGradient(colors: [kBrandPrimary, Color(0xFFF46B12)]),
                 borderRadius: BorderRadius.circular(14)),
             child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('We\'re here to help!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),

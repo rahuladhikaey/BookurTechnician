@@ -135,7 +135,7 @@ export default function SupportManager({
               <button className="modal-close-btn" onClick={() => setSelectedTicket(null)}>×</button>
             </div>
             <div className="modal-body">
-              <div style={{ padding: '12px', background: '#F8FAFC', border: '1px solid var(--border-color)', borderRadius: '4px', marginBottom: '14px' }}>
+              <div style={{ padding: '12px', background: '#FCF9F6', border: '1px solid var(--border-color)', borderRadius: '4px', marginBottom: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>Customer:</span>
                   <strong>{selectedTicket.customer}</strong>

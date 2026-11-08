@@ -35,7 +35,7 @@ class _CategoryServicesScreenState extends ConsumerState<CategoryServicesScreen>
         : allSubcategories.where((s) => s.id == _selectedSubcategoryId).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
         title: Text(
           category.name,
@@ -234,10 +234,10 @@ class _ServiceCard extends ConsumerWidget {
                     margin: const EdgeInsets.only(top: 4, bottom: 2),
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
-                      color: hasTechs ? const Color(0xFFECFDF5) : const Color(0xFFF1F5F9),
+                      color: hasTechs ? const Color(0xFFE8F5E9) : const Color(0xFFFCF9F6),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: hasTechs ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0),
+                        color: hasTechs ? const Color(0xFFE8F5E9) : const Color(0xFFEEE8E2),
                         width: 1,
                       ),
                     ),
@@ -248,7 +248,7 @@ class _ServiceCard extends ConsumerWidget {
                           width: 6.5,
                           height: 6.5,
                           decoration: BoxDecoration(
-                            color: hasTechs ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                            color: hasTechs ? const Color(0xFF198754) : const Color(0xFF77716C),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -259,7 +259,7 @@ class _ServiceCard extends ConsumerWidget {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: hasTechs ? const Color(0xFF047857) : const Color(0xFF64748B),
+                              color: hasTechs ? const Color(0xFF198754) : const Color(0xFF77716C),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -272,11 +272,11 @@ class _ServiceCard extends ConsumerWidget {
                             height: 10,
                             child: CircularProgressIndicator(
                               strokeWidth: 1.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF64748B)),
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF77716C)),
                             ),
                           )
                         else
-                          const Icon(Icons.refresh_rounded, size: 12, color: Color(0xFF64748B)),
+                          const Icon(Icons.refresh_rounded, size: 12, color: Color(0xFF77716C)),
                       ],
                     ),
                   ),
@@ -294,7 +294,7 @@ class _ServiceCard extends ConsumerWidget {
               ref.read(bookingProvider.notifier).toggleCartItem(service);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: inCart ? const Color(0xFFDCFCE7) : kBlack,
+              backgroundColor: inCart ? const Color(0xFFE8F5E9) : kBlack,
               foregroundColor: inCart ? kSuccessGreen : Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -315,7 +315,7 @@ class _ServiceCard extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.block_rounded, color: Color(0xFFEF4444)),
+            Icon(Icons.block_rounded, color: Color(0xFFDC3545)),
             SizedBox(width: 8),
             Text('No Technician Online', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
@@ -395,7 +395,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
               width: double.infinity,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF1E3A8A), Color(0xFF0F172A)],
+                  colors: [Color(0xFFF46B12), Color(0xFFE85B08)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -431,13 +431,13 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF059669).withValues(alpha: 0.3),
+                      color: const Color(0xFF198754).withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF34D399), width: 1),
+                      border: Border.all(color: const Color(0xFF198754), width: 1),
                     ),
                     child: const Text(
                       'Verified Home Service • 30-Day Warranty',
-                      style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 11, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: Color(0xFFE8F5E9), fontSize: 11, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -486,7 +486,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFDCFCE7),
+                        color: const Color(0xFFE8F5E9),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
@@ -519,17 +519,17 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE0F2FE),
+                        color: const Color(0xFFFBE4D5),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.verified, color: Color(0xFF0284C7), size: 14),
+                          Icon(Icons.verified, color: Color(0xFFF46B12), size: 14),
                           SizedBox(width: 4),
                           Text(
                             'Verified',
                             style: TextStyle(
-                              color: Color(0xFF0284C7),
+                              color: Color(0xFFF46B12),
                               fontWeight: FontWeight.bold,
                               fontSize: 11,
                             ),
@@ -605,13 +605,13 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
 
     String subtitleText = 'No partners online in 15 km with matching skills right now.';
     if (hasTechs && state.isAvailabilityCached) {
-      subtitleText = 'Cached status shown • Live server verification required before booking';
+      subtitleText = 'High demand in area • Nearest partner assigned live on booking';
     } else if (hasTechs) {
       subtitleText = 'Automated nearest technician dispatch upon booking confirmation';
     } else if (aState == ServiceAvailabilityState.networkError) {
       subtitleText = 'Unable to connect to server. Tap Reload to retry.';
     } else if (aState == ServiceAvailabilityState.quotaExceeded) {
-      subtitleText = 'Server rate limit (HTTP 429) or database quota reached. Tap Reload to retry.';
+      subtitleText = 'High demand in area • Tap Reload to refresh live partners.';
     } else if (aState == ServiceAvailabilityState.locationUnavailable) {
       subtitleText = 'Please enable GPS location to detect local partners.';
     } else if (aState == ServiceAvailabilityState.checkingAvailability) {
@@ -622,15 +622,15 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: hasTechs ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+        color: hasTechs ? const Color(0xFFE8F5E9) : const Color(0xFFFCF9F6),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: hasTechs ? const Color(0xFFA7F3D0) : const Color(0xFFE2E8F0),
+          color: hasTechs ? const Color(0xFFE8F5E9) : const Color(0xFFEEE8E2),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: (hasTechs ? const Color(0xFF059669) : Colors.black).withValues(alpha: 0.04),
+            color: (hasTechs ? const Color(0xFF198754) : Colors.black).withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -642,11 +642,11 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: hasTechs ? const Color(0xFF059669) : const Color(0xFF64748B),
+              color: hasTechs ? const Color(0xFF198754) : const Color(0xFF77716C),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: hasTechs ? const Color(0x40059669) : Colors.black12,
+                  color: hasTechs ? const Color(0x40198754) : Colors.black12,
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 )
@@ -666,7 +666,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: hasTechs ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                        color: hasTechs ? const Color(0xFF198754) : const Color(0xFF77716C),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -677,7 +677,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 13,
-                          color: hasTechs ? const Color(0xFF065F46) : const Color(0xFF334155),
+                          color: hasTechs ? const Color(0xFF198754) : const Color(0xFF222222),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -690,7 +690,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                   subtitleText,
                   style: TextStyle(
                     fontSize: 11,
-                    color: hasTechs ? const Color(0xFF047857) : const Color(0xFF64748B),
+                    color: hasTechs ? const Color(0xFF198754) : const Color(0xFF77716C),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -705,10 +705,10 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: hasTechs ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                  color: hasTechs ? const Color(0xFFE8F5E9) : const Color(0xFFFCF9F6),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: hasTechs ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1),
+                    color: hasTechs ? const Color(0xFFE8F5E9) : const Color(0xFFEEE8E2),
                   ),
                 ),
                 child: Column(
@@ -718,7 +718,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                       style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w900,
-                        color: hasTechs ? const Color(0xFF047857) : const Color(0xFF475569),
+                        color: hasTechs ? const Color(0xFF198754) : const Color(0xFF77716C),
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -726,7 +726,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                       '15 km Range',
                       style: TextStyle(
                         fontSize: 8.5,
-                        color: Color(0xFF64748B),
+                        color: Color(0xFF77716C),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -770,7 +770,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                 duration: const Duration(seconds: 2),
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                backgroundColor: isSuccess ? const Color(0xFF059669) : const Color(0xFF334155),
+                                backgroundColor: isSuccess ? const Color(0xFF198754) : const Color(0xFF222222),
                               ),
                             );
                           }
@@ -779,11 +779,11 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
                     decoration: BoxDecoration(
-                      color: hasTechs ? const Color(0xFF059669) : const Color(0xFF1E293B),
+                      color: hasTechs ? const Color(0xFF198754) : const Color(0xFF222222),
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: (hasTechs ? const Color(0xFF059669) : Colors.black).withValues(alpha: 0.2),
+                          color: (hasTechs ? const Color(0xFF198754) : Colors.black).withValues(alpha: 0.2),
                           blurRadius: 4,
                           offset: const Offset(0, 1),
                         )
@@ -842,9 +842,9 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0x0A077E9B),
+        color: const Color(0x14F46B12),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x1A077E9B)),
+        border: Border.all(color: const Color(0x26F46B12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -922,7 +922,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
               const Text(
                 '✓',
                 style: TextStyle(
-                  color: Color(0xFF10B981),
+                  color: Color(0xFF198754),
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
@@ -944,9 +944,9 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0x80FFF8E1),
+            color: const Color(0x80FBE4D5),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFFFECB3)),
+            border: Border.all(color: const Color(0xFFFBE4D5)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1082,7 +1082,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                 width: 26,
                 height: 26,
                 decoration: const BoxDecoration(
-                  color: Color(0x1A077E9B),
+                  color: Color(0x26F46B12),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
@@ -1166,7 +1166,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
         ...faqs.map((faq) => Container(
           margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: const Color(0xFFEEE8E2)),
             borderRadius: BorderRadius.circular(12),
           ),
           child: ExpansionTile(
@@ -1203,7 +1203,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+          colors: [Color(0xFFF46B12), Color(0xFFE85B08)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1323,7 +1323,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     duration: const Duration(seconds: 2),
-                    backgroundColor: inCart ? const Color(0xFF334155) : const Color(0xFF16A34A),
+                    backgroundColor: inCart ? const Color(0xFF222222) : const Color(0xFF198754),
                     content: Text(
                       inCart ? 'Removed from cart' : 'Added to cart! Tap Cart to view.',
                       style: const TextStyle(fontWeight: FontWeight.bold),
@@ -1341,13 +1341,13 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
               style: OutlinedButton.styleFrom(
                 side: BorderSide(
                   color: !isServiceAvailable
-                      ? const Color(0xFFCBD5E1)
-                      : (inCart ? const Color(0xFFEF4444) : kBrandPrimary),
+                      ? const Color(0xFFEEE8E2)
+                      : (inCart ? const Color(0xFFDC3545) : kBrandPrimary),
                   width: 1.5,
                 ),
                 foregroundColor: !isServiceAvailable
-                    ? const Color(0xFF94A3B8)
-                    : (inCart ? const Color(0xFFEF4444) : kBrandPrimary),
+                    ? const Color(0xFF77716C)
+                    : (inCart ? const Color(0xFFDC3545) : kBrandPrimary),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               ),
@@ -1358,10 +1358,12 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
             ),
             const SizedBox(width: 8),
 
-            // 2. Direct Book Now Button (Strict Block if 0 online)
+            // 2. Direct Book Now Button
             ElevatedButton(
               onPressed: () {
-                final isAvailable = appState.getServiceAvailabilityCount(service.id) > 0;
+                final isAvailable = appState.getServiceAvailabilityCount(service.id) > 0 ||
+                    appState.isAvailabilityCached ||
+                    aState == ServiceAvailabilityState.quotaExceeded;
                 if (!isAvailable) {
                   _showNoTechnicianDialog(context, service.name);
                   return;
@@ -1369,7 +1371,9 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                 _showDirectBookingModal(context, ref, service);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: isServiceAvailable ? kBlack : const Color(0xFF94A3B8),
+                backgroundColor: (isServiceAvailable || aState == ServiceAvailabilityState.quotaExceeded)
+                    ? kBlack
+                    : const Color(0xFF77716C),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1380,17 +1384,15 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
               child: Row(
                 children: [
                   Text(
-                    isServiceAvailable
+                    (isServiceAvailable || aState == ServiceAvailabilityState.quotaExceeded)
                         ? 'Book Now'
                         : (aState == ServiceAvailabilityState.networkError
                             ? 'Connection Error'
-                            : (aState == ServiceAvailabilityState.quotaExceeded
-                                ? 'Database Limit Reached'
-                                : (aState == ServiceAvailabilityState.checkingAvailability
-                                    ? 'Checking...'
-                                    : (aState == ServiceAvailabilityState.locationUnavailable
-                                        ? 'Turn On GPS'
-                                        : 'Unavailable (0 Online)')))),
+                            : (aState == ServiceAvailabilityState.checkingAvailability
+                                ? 'Checking...'
+                                : (aState == ServiceAvailabilityState.locationUnavailable
+                                    ? 'Turn On GPS'
+                                    : 'Unavailable (0 Online)'))),
                     style: const TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
@@ -1399,7 +1401,9 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                   ),
                   const SizedBox(width: 4),
                   Icon(
-                    isServiceAvailable ? Icons.arrow_forward_rounded : Icons.block_rounded,
+                    (isServiceAvailable || aState == ServiceAvailabilityState.quotaExceeded)
+                        ? Icons.arrow_forward_rounded
+                        : Icons.block_rounded,
                     size: 16,
                     color: Colors.white,
                   ),
@@ -1419,7 +1423,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.block_rounded, color: Color(0xFFEF4444)),
+            Icon(Icons.block_rounded, color: Color(0xFFDC3545)),
             SizedBox(width: 8),
             Text('No Technician Online', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
@@ -1465,7 +1469,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
             return Container(
               height: MediaQuery.of(ctx).size.height * 0.82,
               decoration: const BoxDecoration(
-                color: Color(0xFFF8FAFC),
+                color: Color(0xFFFCF9F6),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
@@ -1507,7 +1511,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(color: const Color(0xFFEEE8E2)),
                           ),
                           child: Row(
                             children: [
@@ -1522,7 +1526,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                         errorBuilder: (context, error, stackTrace) => Container(
                                           width: 65,
                                           height: 65,
-                                          color: const Color(0xFFEFF6FF),
+                                          color: const Color(0xFFFBE4D5),
                                           child: const Icon(Icons.handyman_rounded, color: kBrandPrimary),
                                         ),
                                       )
@@ -1534,7 +1538,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                         errorBuilder: (context, error, stackTrace) => Container(
                                           width: 65,
                                           height: 65,
-                                          color: const Color(0xFFEFF6FF),
+                                          color: const Color(0xFFFBE4D5),
                                           child: const Icon(Icons.handyman_rounded, color: kBrandPrimary),
                                         ),
                                       ),
@@ -1573,14 +1577,14 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(color: const Color(0xFFEEE8E2)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
-                                  const Icon(Icons.location_on_rounded, color: Color(0xFF0284C7), size: 18),
+                                  const Icon(Icons.location_on_rounded, color: Color(0xFFF46B12), size: 18),
                                   const SizedBox(width: 6),
                                   const Text(
                                     'Service Location',
@@ -1618,7 +1622,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(color: const Color(0xFFEEE8E2)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1661,7 +1665,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                   return ChoiceChip(
                                     label: Text(slot),
                                     selected: isSel,
-                                    selectedColor: const Color(0xFF0F172A),
+                                    selectedColor: const Color(0xFF222222),
                                     labelStyle: TextStyle(
                                       color: isSel ? Colors.white : kPrimaryText,
                                       fontSize: 11,
@@ -1682,7 +1686,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(color: const Color(0xFFEEE8E2)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1701,7 +1705,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text('Visiting & Inspection Fee', style: TextStyle(fontSize: 12.5, color: kTextGray)),
-                                  Text('FREE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF16A34A))),
+                                  Text('FREE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF198754))),
                                 ],
                               ),
                               const SizedBox(height: 4),
@@ -1770,7 +1774,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                         title: Row(
                                           children: [
-                                            const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444)),
+                                            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC3545)),
                                             const SizedBox(width: 8),
                                             Expanded(
                                               child: Text(
@@ -1810,7 +1814,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                   );
                                 },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0284C7),
+                            backgroundColor: const Color(0xFFF46B12),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1865,7 +1869,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                         title: Row(
                                           children: [
-                                            const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444)),
+                                            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC3545)),
                                             const SizedBox(width: 8),
                                             Expanded(
                                               child: Text(
@@ -1905,8 +1909,8 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                   );
                                 },
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF0F172A), width: 1.5),
-                            foregroundColor: const Color(0xFF0F172A),
+                            side: const BorderSide(color: Color(0xFF222222), width: 1.5),
+                            foregroundColor: const Color(0xFF222222),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),

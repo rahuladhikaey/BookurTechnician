@@ -62,7 +62,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                 SizedBox(width: 8),
                 Text(
                   'Public Verification QR Code',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF0B1635)),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF222222)),
                 ),
               ],
             ),
@@ -70,7 +70,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
             const Text(
               'Customers or building security can scan this QR code to verify your identity and certification status.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: Color(0xFF667085), height: 1.4),
+              style: TextStyle(fontSize: 12.5, color: Color(0xFF77716C), height: 1.4),
             ),
             const SizedBox(height: 20),
 
@@ -80,7 +80,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+                border: Border.all(color: const Color(0xFFEEE8E2), width: 1.5),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -97,7 +97,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: const Color(0xFFFCF9F6),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -105,18 +105,18 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.lock_outline, size: 14, color: Color(0xFF64748B)),
+                      const Icon(Icons.lock_outline, size: 14, color: Color(0xFF77716C)),
                       const SizedBox(width: 6),
                       Text(
                         'Verification ID: ${widget.technicianCode}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF222222)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     verificationUrl,
-                    style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                    style: TextStyle(fontSize: 10, color: Color(0xFF77716C)),
                   ),
                 ],
               ),
@@ -164,17 +164,17 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
     final isApproved = _verificationStatus == 'APPROVED';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF0B1635), size: 18),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF222222), size: 18),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'My Technician ID',
-          style: TextStyle(color: Color(0xFF0B1635), fontWeight: FontWeight.w800, fontSize: 17),
+          style: TextStyle(color: Color(0xFF222222), fontWeight: FontWeight.w800, fontSize: 17),
         ),
         centerTitle: true,
       ),
@@ -192,12 +192,12 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF0B1F63).withValues(alpha: 0.14),
+                      color: const Color(0xFF222222).withValues(alpha: 0.14),
                       blurRadius: 24,
                       offset: const Offset(0, 10),
                     ),
                   ],
-                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+                  border: Border.all(color: const Color(0xFFEEE8E2), width: 1.2),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Column(
@@ -208,7 +208,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Color(0xFF0B1F63), Color(0xFF17399A)],
+                          colors: [Color(0xFFF46B12), Color(0xFFE85B08)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -250,7 +250,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                             child: const Text(
                               'TECHNICIAN MEMBER',
                               style: TextStyle(
-                                color: Color(0xFF93C5FD),
+                                color: Color(0xFFFBE4D5),
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.2,
@@ -276,14 +276,14 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFF0B1F63), Color(0xFF17399A)],
+                                    colors: [Color(0xFFF46B12), Color(0xFFE85B08)],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
-                                  border: Border.all(color: const Color(0xFF38BDF8), width: 3),
+                                  border: Border.all(color: const Color(0xFFF46B12), width: 3),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF17399A).withValues(alpha: 0.25),
+                                      color: const Color(0xFFF46B12).withValues(alpha: 0.25),
                                       blurRadius: 12,
                                       offset: const Offset(0, 4),
                                     ),
@@ -304,7 +304,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                                 Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: const BoxDecoration(
-                                    color: Color(0xFF16A34A),
+                                    color: Color(0xFF198754),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(Icons.check, color: Colors.white, size: 16),
@@ -319,14 +319,14 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF0B1635),
+                              color: Color(0xFF222222),
                               letterSpacing: -0.3,
                             ),
                           ),
                           const SizedBox(height: 2),
                           const Text(
                             'Certified Field Technician',
-                            style: TextStyle(fontSize: 12.5, color: Color(0xFF667085), fontWeight: FontWeight.w500),
+                            style: TextStyle(fontSize: 12.5, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
                           ),
                           const SizedBox(height: 16),
 
@@ -334,16 +334,16 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                           Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
+                              color: const Color(0xFFFCF9F6),
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              border: Border.all(color: const Color(0xFFEEE8E2)),
                             ),
                             child: Column(
                               children: [
                                 _buildInfoRow('Technician ID', widget.technicianCode, isHighlight: true),
-                                const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                                const Divider(height: 16, color: Color(0xFFEEE8E2)),
                                 _buildInfoRow('Joined Date', widget.joinDate),
-                                const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                                const Divider(height: 16, color: Color(0xFFEEE8E2)),
                                 _buildInfoRow('Service Skills', widget.skills.join(' • ')),
                               ],
                             ),
@@ -355,10 +355,10 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                             decoration: BoxDecoration(
-                              color: isApproved ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                              color: isApproved ? const Color(0xFFE8F5E9) : const Color(0xFFFFF4E0),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: isApproved ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
+                                color: isApproved ? const Color(0xFFE8F5E9) : const Color(0xFFFBE4D5),
                               ),
                             ),
                             child: Row(
@@ -367,7 +367,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                                 Icon(
                                   isApproved ? Icons.verified_user : Icons.hourglass_top,
                                   size: 16,
-                                  color: isApproved ? const Color(0xFF166534) : const Color(0xFF92400E),
+                                  color: isApproved ? const Color(0xFF198754) : const Color(0xFFE85B08),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
@@ -376,7 +376,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 0.4,
-                                    color: isApproved ? const Color(0xFF166534) : const Color(0xFF92400E),
+                                    color: isApproved ? const Color(0xFF198754) : const Color(0xFFE85B08),
                                   ),
                                 ),
                               ],
@@ -392,7 +392,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
+                                border: Border.all(color: const Color(0xFFEEE8E2), style: BorderStyle.solid),
                               ),
                               child: Row(
                                 children: [
@@ -407,18 +407,18 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
                                           style: TextStyle(
                                             fontSize: 12.5,
                                             fontWeight: FontWeight.bold,
-                                            color: Color(0xFF0B1635),
+                                            color: Color(0xFF222222),
                                           ),
                                         ),
                                         SizedBox(height: 2),
                                         Text(
                                           'Tap to view large verification QR token',
-                                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                          style: TextStyle(fontSize: 11, color: Color(0xFF77716C)),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  const Icon(Icons.fullscreen, color: Color(0xFF17399A), size: 22),
+                                  const Icon(Icons.fullscreen, color: Color(0xFFF46B12), size: 22),
                                 ],
                               ),
                             ),
@@ -478,7 +478,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF77716C), fontWeight: FontWeight.w500),
         ),
         const SizedBox(width: 8),
         Flexible(
@@ -488,7 +488,7 @@ class _DigitalIdCardPageState extends State<DigitalIdCardPage> {
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.bold,
-              color: isHighlight ? const Color(0xFF17399A) : const Color(0xFF0F172A),
+              color: isHighlight ? const Color(0xFFF46B12) : const Color(0xFF222222),
               fontFamily: isHighlight ? 'monospace' : null,
             ),
           ),
@@ -518,7 +518,7 @@ class _QrPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF0F172A)
+      ..color = const Color(0xFF222222)
       ..style = PaintingStyle.fill;
 
     // Corner Alignment Squares

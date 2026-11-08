@@ -1,0 +1,63 @@
+{
+  "executedAt": "2026-11-08T02:59:42.850Z",
+  "catalogVersion": 1,
+  "totalCategories": 8,
+  "totalSubcategories": 21,
+  "totalOriginalServices": 158,
+  "totalMigratedServices": 158,
+  "duplicateIdsPrevented": 0,
+  "missingCategoryReferences": 0,
+  "failedItemsCount": 0,
+  "firestoreSyncedCategories": 8,
+  "firestoreSyncedServices": 158,
+  "categoryBreakdown": [
+    {
+      "categoryId": "cat_electrical",
+      "categoryName": "Electrical Services",
+      "subcategoryCount": 5,
+      "serviceCount": 22
+    },
+    {
+      "categoryId": "cat_wiring",
+      "categoryName": "Home Wiring & Projects",
+      "subcategoryCount": 4,
+      "serviceCount": 30
+    },
+    {
+      "categoryId": "cat_ac",
+      "categoryName": "AC Services",
+      "subcategoryCount": 2,
+      "serviceCount": 17
+    },
+    {
+      "categoryId": "cat_refrigerator",
+      "categoryName": "Refrigerator Services",
+      "subcategoryCount": 1,
+      "serviceCount": 12
+    },
+    {
+      "categoryId": "cat_washing",
+      "categoryName": "Washing Machine Services",
+      "subcategoryCount": 1,
+      "serviceCount": 12
+    },
+    {
+      "categoryId": "cat_computer",
+      "categoryName": "Laptop & Computer",
+      "subcategoryCount": 3,
+      "serviceCount": 28
+    },
+    {
+      "categoryId": "cat_cctv",
+      "categoryName": "CCTV & Security",
+      "subcategoryCount": 4,
+      "serviceCount": 28
+    },
+    {
+      "categoryId": "cat_appliances",
+      "categoryName": "Home Appliances",
+      "subcategoryCount": 1,
+      "serviceCount": 9
+    }
+  ]
+}

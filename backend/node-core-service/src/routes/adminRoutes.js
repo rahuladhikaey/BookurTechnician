@@ -8,6 +8,15 @@ const { authenticateToken, requireAdminRole } = require('../middleware/authMiddl
 router.use(authenticateToken);
 router.use(requireAdminRole);
 
+// Administrator Identity & Session Verification
+router.get('/me', (req, res) => {
+  return res.json({
+    success: true,
+    user: req.user,
+    data: req.user,
+  });
+});
+
 // Admin Dispatch Engine Endpoints (Section 15 & 17)
 router.get('/dispatch/live', dispatchController.getAdminLiveDispatch);
 router.get('/dispatch/:bookingId/history', dispatchController.getAdminDispatchHistory);

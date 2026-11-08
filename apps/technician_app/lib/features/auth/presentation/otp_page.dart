@@ -9,6 +9,7 @@ import '../../../shared/widgets/primary_button.dart';
 import '../../dashboard/presentation/main_shell_page.dart';
 import '../../onboarding/data/skill_service.dart';
 import '../../onboarding/presentation/document_upload_onboarding_page.dart';
+import '../../onboarding/presentation/skill_selection_page.dart';
 import 'auth_provider.dart';
 import '../../../core/network/api_result.dart';
 
@@ -87,6 +88,17 @@ class _OtpPageState extends ConsumerState<OtpPage> {
       
       if (res is ApiSuccess<String>) {
         if (mounted) {
+          final currentAuth = ref.read(authProvider);
+          if (currentAuth.onboardingCompleted ||
+              currentAuth.onboardingStep == 'COMPLETED') {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const MainShellPage()),
+              (route) => false,
+            );
+            return;
+          }
+
           // Check if existing technician already has skills and documents configured
           try {
             final skillService = SkillService();
@@ -103,13 +115,24 @@ class _OtpPageState extends ConsumerState<OtpPage> {
             }
           } catch (_) {}
 
-          // For new technician signup: Route to Document Upload Step (Max 10 MB)
           if (mounted) {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => const DocumentUploadOnboardingPage()),
-              (route) => false,
-            );
+            if (currentAuth.onboardingStep == 'SKILL_SELECTION') {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SkillSelectionPage(isOnboarding: true),
+                ),
+                (route) => false,
+              );
+            } else {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const DocumentUploadOnboardingPage(),
+                ),
+                (route) => false,
+              );
+            }
           }
         }
       } else if (res is ApiFailure<String>) {
@@ -138,14 +161,14 @@ class _OtpPageState extends ConsumerState<OtpPage> {
         _startCountdown();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF166534),
+            backgroundColor: const Color(0xFF198754),
             content: Text('New verification code sent to ${widget.emailAddress}!'),
           ),
         );
       } else if (res is ApiFailure<bool>) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: const Color(0xFFDC3545),
             content: Text(res.message),
           ),
         );
@@ -188,7 +211,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF1E3A8A).withValues(alpha: 0.12),
+                            color: const Color(0xFFF46B12).withValues(alpha: 0.12),
                             blurRadius: 14,
                             offset: const Offset(0, 4),
                           ),
@@ -217,7 +240,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       maxLength: 6,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8, color: Color(0xFF1E3A8A)),
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8, color: Color(0xFFF46B12)),
                       decoration: const InputDecoration(
                         labelText: 'Enter 6-digit OTP',
                         hintText: '• • • • • •',
@@ -236,7 +259,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                       const SizedBox(height: AppSpacing.xs),
                       Text(
                         _errorMsg!,
-                        style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12),
+                        style: const TextStyle(color: Color(0xFFDC3545), fontSize: 12),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -256,7 +279,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                             const SizedBox(
                               width: 14,
                               height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1E3A8A)),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF46B12)),
                             ),
                             const SizedBox(width: 6),
                           ],
@@ -265,7 +288,7 @@ class _OtpPageState extends ConsumerState<OtpPage> {
                                 ? 'Resend OTP in ${_countdown}s'
                                 : 'Resend Code',
                             style: TextStyle(
-                              color: _countdown > 0 ? AppColors.textSecondary : const Color(0xFF1E3A8A),
+                              color: _countdown > 0 ? AppColors.textSecondary : const Color(0xFFF46B12),
                               fontWeight: FontWeight.bold,
                             ),
                           ),

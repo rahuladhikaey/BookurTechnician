@@ -108,7 +108,7 @@ const technicianAssignmentLocks = new Set(); // technicianId atomic mutex lock
 const createBooking = async (req, res) => {
   try {
     const customerId = req.user?.id || req.body.customerId || 'cust-' + uuidv4().slice(0, 8);
-    const idempotencyKey = (req.headers['idempotency-key'] || req.body.idempotencyKey || '').toString().trim();
+    const idempotencyKey = (req.headers?.['idempotency-key'] || req.body?.idempotencyKey || '').toString().trim();
 
     if (idempotencyKey && idempotencyBookingsMap.has(`${customerId}:${idempotencyKey}`)) {
       const existingId = idempotencyBookingsMap.get(`${customerId}:${idempotencyKey}`);
@@ -148,12 +148,40 @@ const createBooking = async (req, res) => {
 
     const finalAddress = fullAddress || address;
 
-    // Authoritative Backend Pricing Calculation (Zero trust in client-provided totals)
-    const { getFlattenedServices } = require('../config/masterCatalog');
+    // Authoritative Backend Pricing & Active Service Validation (Zero trust in client-provided totals)
+    const { getFlattenedServices, incrementServiceBookingCount } = require('../config/masterCatalog');
     const catalogServices = getFlattenedServices();
-    const matchedService = catalogServices.find(s => s.id === serviceId || s.slug === serviceId);
+    const matchedService = catalogServices.find(s => s.id === serviceId || s.canonicalServiceId === serviceId || s.slug === serviceId);
 
-    const authoritativeBasePrice = matchedService ? parseFloat(matchedService.price || matchedService.basePrice || 299) : parseFloat(basePrice || 299);
+    if (matchedService && (matchedService.isActive === false || matchedService.active === false)) {
+      return res.status(400).json({
+        success: false,
+        error: `Service '${matchedService.name}' (${matchedService.id}) is currently disabled and cannot be booked.`,
+        code: 'SERVICE_DISABLED',
+      });
+    }
+
+    if (Array.isArray(services) && services.length > 0) {
+      for (const item of services) {
+        const itemSrvId = typeof item === 'string' ? item : (item?.id || item?.serviceId || item?.canonicalServiceId);
+        if (itemSrvId) {
+          const foundItem = catalogServices.find(s => s.id === itemSrvId || s.canonicalServiceId === itemSrvId);
+          if (foundItem && (foundItem.isActive === false || foundItem.active === false)) {
+            return res.status(400).json({
+              success: false,
+              error: `Service '${foundItem.name}' (${foundItem.id}) is currently disabled and cannot be booked.`,
+              code: 'SERVICE_DISABLED',
+            });
+          }
+        }
+      }
+    }
+
+    if (matchedService) {
+      incrementServiceBookingCount(matchedService.id);
+    }
+
+    const authoritativeBasePrice = matchedService ? parseFloat(matchedService.discountPrice || matchedService.price || matchedService.basePrice || 299) : parseFloat(basePrice || 299);
     const authoritativeVisitFee = 49.00;
     const authoritativeGstTax = parseFloat(((authoritativeBasePrice + authoritativeVisitFee) * 0.18).toFixed(2));
     const calculatedGrandTotal = parseFloat((authoritativeBasePrice + authoritativeVisitFee + authoritativeGstTax).toFixed(2));

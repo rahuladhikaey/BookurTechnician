@@ -142,6 +142,42 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Register unauthorized callback to fail securely and wipe sessions on 401/403
+    api.onUnauthorized(() => {
+      console.warn('[App] Administrative session invalid or expired. Logging out.');
+      setIsAuthenticated(false);
+      setAdminUser(null);
+    });
+
+    // Verify existing token against authoritative backend endpoint
+    const token = api.getToken();
+    if (token) {
+      setIsCheckingAuth(true);
+      api.getAdminMe()
+        .then(res => {
+          const authUser = res?.user || res?.data;
+          if (authUser) {
+            setAdminUser(authUser);
+            setIsAuthenticated(true);
+          } else {
+            api.clearToken();
+            setIsAuthenticated(false);
+            setAdminUser(null);
+          }
+        })
+        .catch(err => {
+          console.warn('[App] Session verification failed on startup:', err.message);
+          api.clearToken();
+          setIsAuthenticated(false);
+          setAdminUser(null);
+        })
+        .finally(() => {
+          setIsCheckingAuth(false);
+        });
+    }
+  }, []);
+
+  useEffect(() => {
     if (isAuthenticated) {
       loadAllAdminData();
     }
@@ -190,6 +226,15 @@ export default function App() {
     setAdminUser(null);
     setIsAuthenticated(false);
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FCF9F6', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '4px solid #FBE4D5', borderTopColor: '#F46B12', animation: 'spin 0.8s linear infinite' }} />
+        <p style={{ color: '#77716C', fontSize: '13.5px', fontWeight: '600' }}>Verifying Administrator Session...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -402,7 +447,7 @@ export default function App() {
               style={{
                 background: 'rgba(239, 68, 68, 0.1)',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
-                color: '#EF4444',
+                color: '#DC3545',
                 padding: '6px 8px',
                 borderRadius: '6px',
                 fontSize: '11px',

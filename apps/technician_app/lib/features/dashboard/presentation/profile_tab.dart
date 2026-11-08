@@ -71,9 +71,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.edit_note_rounded, color: Color(0xFF0F172A), size: 26),
+            Icon(Icons.edit_note_rounded, color: Color(0xFF222222), size: 26),
             SizedBox(width: 8),
-            Text('Edit Captain Profile', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+            Text('Edit Captain Profile', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: Color(0xFF222222))),
           ],
         ),
         content: Column(
@@ -83,9 +83,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               controller: nameController,
               decoration: InputDecoration(
                 labelText: 'Full Name',
-                prefixIcon: const Icon(Icons.person_rounded, color: Color(0xFF0F172A)),
+                prefixIcon: const Icon(Icons.person_rounded, color: Color(0xFF222222)),
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: const Color(0xFFFCF9F6),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
@@ -94,10 +94,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               controller: upiController,
               decoration: InputDecoration(
                 labelText: 'Payout UPI ID (VPA)',
-                prefixIcon: const Icon(Icons.payment_rounded, color: Color(0xFF0F172A)),
+                prefixIcon: const Icon(Icons.payment_rounded, color: Color(0xFF222222)),
                 hintText: 'e.g. 9876543210@upi',
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: const Color(0xFFFCF9F6),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
@@ -106,12 +106,12 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF77716C), fontWeight: FontWeight.w700)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F172A),
-              foregroundColor: const Color(0xFFFDB813),
+              backgroundColor: const Color(0xFF222222),
+              foregroundColor: const Color(0xFFF46B12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
@@ -183,7 +183,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFCBD5E1),
+                    color: const Color(0xFFEEE8E2),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -191,20 +191,20 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               const SizedBox(height: 16),
               Text(
                 'Upload $docTitle Photo',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16.5, color: Color(0xFF0F172A)),
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16.5, color: Color(0xFF222222)),
               ),
               const SizedBox(height: 6),
               const Text(
                 'Select a clear photo of your document. Verification takes under 15 minutes.',
-                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                style: TextStyle(fontSize: 12, color: Color(0xFF77716C)),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 18),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: const BoxDecoration(color: Color(0xFFFEFCE8), shape: BoxShape.circle),
-                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFFB45309)),
+                  decoration: const BoxDecoration(color: Color(0xFFFFF4E0), shape: BoxShape.circle),
+                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFFE5A126)),
                 ),
                 title: const Text('Take Live Photo with Camera', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 onTap: () async {
@@ -218,8 +218,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: const BoxDecoration(color: Color(0xFFEFF6FF), shape: BoxShape.circle),
-                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFF1D4ED8)),
+                  decoration: const BoxDecoration(color: Color(0xFFFBE4D5), shape: BoxShape.circle),
+                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFFF46B12)),
                 ),
                 title: const Text('Choose Image from Gallery', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
                 onTap: () async {
@@ -282,13 +282,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   : Image.file(File(file.path), fit: BoxFit.cover),
             ),
             const SizedBox(height: 10),
-            Text('Size: ${sizeMb.toStringAsFixed(2)} MB • Cloudinary CDN', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            Text('Size: ${sizeMb.toStringAsFixed(2)} MB • Cloudinary CDN', style: const TextStyle(fontSize: 12, color: Color(0xFF77716C))),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F172A), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF222222), foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
               final String? uploadedUrl = await CloudinaryUploadService.uploadImageFile(file, folder: 'kyc_${docType.toLowerCase()}');
@@ -357,22 +357,22 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     final hasSelfie = _kycDocuments.any((d) => d.documentType.toUpperCase().contains('SELFIE')) || isApproved;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFFCF9F6),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: const Color(0xFF222222),
         elevation: 0,
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFFDB813),
+                color: const Color(0xFFF46B12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 'HUB',
                 style: TextStyle(
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF222222),
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.8,
@@ -402,11 +402,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
         ],
       ),
       body: RefreshIndicator(
-        color: const Color(0xFF0F172A),
-        backgroundColor: const Color(0xFFFDB813),
+        color: const Color(0xFF222222),
+        backgroundColor: const Color(0xFFF46B12),
         onRefresh: _loadLiveProfile,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF0F172A)))
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF222222)))
             : SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(14),
@@ -420,7 +420,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                          colors: [Color(0xFFF46B12), Color(0xFFE85B08)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -449,7 +449,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         gradient: const LinearGradient(
-                                          colors: [Color(0xFFFDB813), Color(0xFFF59E0B)],
+                                          colors: [Color(0xFFF46B12), Color(0xFFE85B08)],
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                         ),
@@ -459,7 +459,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                                         child: Text(
                                           technicianName.isNotEmpty ? technicianName[0].toUpperCase() : 'C',
                                           style: const TextStyle(
-                                            color: Color(0xFF0F172A),
+                                            color: Color(0xFF222222),
                                             fontWeight: FontWeight.w900,
                                             fontSize: 28,
                                           ),
@@ -471,10 +471,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                                       child: Container(
                                         padding: const EdgeInsets.all(4),
                                         decoration: const BoxDecoration(
-                                          color: Color(0xFF0F172A),
+                                          color: Color(0xFF222222),
                                           shape: BoxShape.circle,
                                         ),
-                                        child: const Icon(Icons.camera_alt_rounded, color: Color(0xFFFDB813), size: 13),
+                                        child: const Icon(Icons.camera_alt_rounded, color: Color(0xFFF46B12), size: 13),
                                       ),
                                     ),
                                   ],
@@ -500,7 +500,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                                             ),
                                           ),
                                           const SizedBox(width: 6),
-                                          const Icon(Icons.verified_rounded, size: 17, color: Color(0xFF38BDF8)),
+                                          const Icon(Icons.verified_rounded, size: 17, color: Color(0xFFF46B12)),
                                         ],
                                       ),
                                       const SizedBox(height: 3),
@@ -509,21 +509,21 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                                         style: const TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w800,
-                                          color: Color(0xFFFDB813),
+                                          color: Color(0xFFF46B12),
                                           letterSpacing: 0.4,
                                         ),
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
                                         _profileData?.phone.isNotEmpty == true ? _profileData!.phone : (authState.phone ?? ''),
-                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                                       ),
                                     ],
                                   ),
                                 ),
                                 IconButton(
                                   onPressed: _openEditProfileDialog,
-                                  icon: const Icon(Icons.edit_rounded, color: Color(0xFFFDB813), size: 20),
+                                  icon: const Icon(Icons.edit_rounded, color: Color(0xFFF46B12), size: 20),
                                   tooltip: 'Edit Profile',
                                 ),
                               ],
@@ -544,7 +544,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                                     children: [
                                       Row(
                                         children: [
-                                          const Icon(Icons.star_rounded, color: Color(0xFFFDB813), size: 16),
+                                          const Icon(Icons.star_rounded, color: Color(0xFFF46B12), size: 16),
                                           const SizedBox(width: 3),
                                           Text(
                                             rating.toStringAsFixed(1),
@@ -553,7 +553,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                                         ],
                                       ),
                                       const SizedBox(height: 2),
-                                      Text('$totalRatings Ratings', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                                      Text('$totalRatings Ratings', style: const TextStyle(color: Color(0xFF77716C), fontSize: 10)),
                                     ],
                                   ),
                                   Container(width: 1, height: 24, color: Colors.white24),
@@ -564,7 +564,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                                         style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
                                       ),
                                       const SizedBox(height: 2),
-                                      const Text('Trips Done', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                                      const Text('Trips Done', style: TextStyle(color: Color(0xFF77716C), fontSize: 10)),
                                     ],
                                   ),
                                   Container(width: 1, height: 24, color: Colors.white24),
@@ -573,16 +573,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFDCFCE7),
+                                          color: const Color(0xFFE8F5E9),
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
                                           isApproved ? 'VERIFIED' : 'PENDING',
-                                          style: const TextStyle(color: Color(0xFF15803D), fontSize: 9.5, fontWeight: FontWeight.w900),
+                                          style: const TextStyle(color: Color(0xFF198754), fontSize: 9.5, fontWeight: FontWeight.w900),
                                         ),
                                       ),
                                       const SizedBox(height: 2),
-                                      const Text('KYC Status', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                                      const Text('KYC Status', style: TextStyle(color: Color(0xFF77716C), fontSize: 10)),
                                     ],
                                   ),
                                 ],
@@ -600,15 +600,15 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     // ═════════════════════════════════════════════════════════
                     const Text(
                       'Captain Hub Services',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF222222)),
                     ),
                     const SizedBox(height: 10),
 
                     // 2.1 My Skills & Services
                     _buildHubCard(
                       icon: Icons.handyman_rounded,
-                      iconColor: const Color(0xFFF59E0B),
-                      iconBg: const Color(0xFFFEFCE8),
+                      iconColor: const Color(0xFFE5A126),
+                      iconBg: const Color(0xFFFFF4E0),
                       title: 'My Skills & Services',
                       subtitle: '${skillsList.length} Categories Configured (${skillsList.take(2).join(", ")}...)',
                       trailingText: 'Manage',
@@ -623,8 +623,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     // 2.2 Performance & Work Hours Analytics
                     _buildHubCard(
                       icon: Icons.insights_rounded,
-                      iconColor: const Color(0xFF0284C7),
-                      iconBg: const Color(0xFFE0F2FE),
+                      iconColor: const Color(0xFFF46B12),
+                      iconBg: const Color(0xFFFBE4D5),
                       title: 'Work Hours & Income Graph',
                       subtitle: 'View daily performance charts and incentive milestones',
                       trailingText: 'Analytics',
@@ -639,8 +639,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     // 2.3 Bank & UPI Payout Details
                     _buildHubCard(
                       icon: Icons.account_balance_wallet_rounded,
-                      iconColor: const Color(0xFF16A34A),
-                      iconBg: const Color(0xFFDCFCE7),
+                      iconColor: const Color(0xFF198754),
+                      iconBg: const Color(0xFFE8F5E9),
                       title: 'Bank & UPI Payout Details',
                       subtitle: _profileData?.upiId.isNotEmpty == true ? _profileData!.upiId : 'Linked with 24x7 Instant Transfer',
                       trailingText: 'Edit',
@@ -650,8 +650,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     // 2.4 Documents & KYC Center
                     _buildHubCard(
                       icon: Icons.document_scanner_rounded,
-                      iconColor: const Color(0xFF7C3AED),
-                      iconBg: const Color(0xFFF3E8FF),
+                      iconColor: const Color(0xFFF46B12),
+                      iconBg: const Color(0xFFFBE4D5),
                       title: 'Documents & KYC Verification',
                       subtitle: 'Aadhaar: ${hasAadhaar ? "✓" : "Pending"} • Voter ID: ${hasVoter ? "✓" : "Pending"} • Photo: ${hasSelfie ? "✓" : "Pending"}',
                       trailingText: 'Upload',
@@ -663,8 +663,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     // 2.5 24x7 Emergency SOS Support
                     _buildHubCard(
                       icon: Icons.emergency_rounded,
-                      iconColor: const Color(0xFFDC2626),
-                      iconBg: const Color(0xFFFEE2E2),
+                      iconColor: const Color(0xFFDC3545),
+                      iconBg: const Color(0xFFFDECEC),
                       title: '24x7 Captain Support & Safety',
                       subtitle: 'Direct line to BookUrTechnician Dispatch Helpdesk',
                       trailingText: 'Call',
@@ -674,8 +674,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     // 2.6 Partner Terms & Legal
                     _buildHubCard(
                       icon: Icons.policy_rounded,
-                      iconColor: const Color(0xFF475569),
-                      iconBg: const Color(0xFFF1F5F9),
+                      iconColor: const Color(0xFF77716C),
+                      iconBg: const Color(0xFFFCF9F6),
                       title: 'Partner Policy & Service Terms',
                       subtitle: 'Platform fee structure, code of conduct & safety norms',
                       onTap: () {
@@ -705,7 +705,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                                 ElevatedButton(
-                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC3545), foregroundColor: Colors.white),
                                   onPressed: () => Navigator.pop(ctx, true),
                                   child: const Text('Log Out'),
                                 ),
@@ -724,18 +724,18 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                             }
                           }
                         },
-                        icon: const Icon(Icons.logout_rounded, color: Color(0xFFDC2626), size: 18),
+                        icon: const Icon(Icons.logout_rounded, color: Color(0xFFDC3545), size: 18),
                         label: const Text(
                           'LOG OUT FROM CAPTAIN ACCOUNT',
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFFDC2626),
+                            color: Color(0xFFDC3545),
                             letterSpacing: 0.4,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFFFECACA), width: 1.5),
+                          side: const BorderSide(color: Color(0xFFFDECEC), width: 1.5),
                           backgroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
@@ -754,7 +754,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF94A3B8),
+                            color: Color(0xFF77716C),
                             decoration: TextDecoration.underline,
                           ),
                         ),
@@ -783,7 +783,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               '• Active in-flight jobs must be completed before deletion.\n'
               '• Outstanding wallet balances will be finalized.\n'
               '• Legally mandated tax invoices and payment ledgers are retained pursuant to Indian statutory regulations.',
-              style: TextStyle(fontSize: 12.5, color: Color(0xFF475569), height: 1.4),
+              style: TextStyle(fontSize: 12.5, color: Color(0xFF77716C), height: 1.4),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -800,7 +800,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC3545), foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Confirm Account Deletion'),
           ),
@@ -818,7 +818,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Your partner account has been closed and personal data anonymized.'),
-              backgroundColor: Color(0xFF0F172A),
+              backgroundColor: Color(0xFF222222),
             ),
           );
           Navigator.pushAndRemoveUntil(
@@ -832,7 +832,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Account closure notice: ${err.toString().replaceAll("Exception: ", "")}'),
-              backgroundColor: const Color(0xFFDC2626),
+              backgroundColor: const Color(0xFFDC3545),
             ),
           );
         }
@@ -854,7 +854,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFEEE8E2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -892,13 +892,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF222222),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -910,17 +910,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: const Color(0xFFFCF9F6),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     trailingText,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF222222)),
                   ),
                 ),
               ],
               const SizedBox(width: 4),
-              const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFF94A3B8)),
+              const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFF77716C)),
             ],
           ),
         ),
@@ -946,18 +946,18 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 child: Container(
                   width: 40,
                   height: 4,
-                  decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(color: const Color(0xFFEEE8E2), borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               const SizedBox(height: 16),
               const Text(
                 'Captain KYC & Documents Verification',
-                style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w900, color: Color(0xFF222222)),
               ),
               const SizedBox(height: 4),
               const Text(
                 'Upload valid government identity proof for instant verification.',
-                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                style: TextStyle(fontSize: 12, color: Color(0xFF77716C)),
               ),
               const SizedBox(height: 16),
               _buildKycRow(
@@ -998,20 +998,20 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Expanded(
-          child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+          child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF222222))),
         ),
         if (isVerified)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
-            child: const Text('✓ Verified', style: TextStyle(color: Color(0xFF15803D), fontSize: 11, fontWeight: FontWeight.w900)),
+            decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(6)),
+            child: const Text('✓ Verified', style: TextStyle(color: Color(0xFF198754), fontSize: 11, fontWeight: FontWeight.w900)),
           )
         else
           ElevatedButton(
             onPressed: onUpload,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F172A),
-              foregroundColor: const Color(0xFFFDB813),
+              backgroundColor: const Color(0xFF222222),
+              foregroundColor: const Color(0xFFF46B12),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),

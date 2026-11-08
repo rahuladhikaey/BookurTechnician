@@ -221,7 +221,7 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                 Expanded(child: Text('Job Accepted! Opening Map and Execution details...')),
               ],
             ),
-            backgroundColor: Color(0xFF10B981),
+            backgroundColor: Color(0xFF198754),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -281,24 +281,24 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
     return PopScope(
       canPop: false, // Prevent accidental back button dismissal
       child: Scaffold(
-        backgroundColor: const Color(0xF5102A63), // Deep Navy Full-Screen Overlay
+        backgroundColor: const Color(0xFF222222).withValues(alpha: 0.85),
         body: SafeArea(
           child: Center(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF173B8F), // Royal Blue Background (#173B8F)
+                color: const Color(0xFFFCF9F6), // Warm Background (#FCF9F6)
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
                   color: _remainingSeconds <= 10
-                      ? const Color(0xFFD64545)
-                      : const Color(0xFFFFC928),
-                  width: 2.0,
+                      ? const Color(0xFFDC3545)
+                      : const Color(0xFFF46B12),
+                  width: 2.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF102A63).withAlpha(140),
+                    color: const Color(0xFF222222).withAlpha(110),
                     blurRadius: 30,
                     spreadRadius: 4,
                   ),
@@ -307,12 +307,13 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 1. NEW BOOKING REQUEST Banner (Bright Yellow #FFC928)
+                  // 1. NEW BOOKING REQUEST Banner (Soft Peach #FBE4D5 + Primary Orange #F46B12)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFC928),
+                      color: const Color(0xFFFBE4D5),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFF46B12).withValues(alpha: 0.35)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -323,7 +324,7 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                             width: 10,
                             height: 10,
                             decoration: const BoxDecoration(
-                              color: Color(0xFFD64545),
+                              color: Color(0xFFF46B12),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -332,7 +333,7 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                         const Text(
                           'NEW SERVICE BOOKING REQUEST',
                           style: TextStyle(
-                            color: Color(0xFF102A63),
+                            color: Color(0xFFE85B08),
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.0,
@@ -352,9 +353,9 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                         child: Container(
                           width: 132,
                           height: 132,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFFFFC928).withAlpha(36),
+                            color: Color(0xFFFBE4D5),
                           ),
                         ),
                       ),
@@ -364,21 +365,21 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                         child: CircularProgressIndicator(
                           value: progress,
                           strokeWidth: 8,
-                          backgroundColor: const Color(0xFF102A63),
+                          backgroundColor: const Color(0xFFEEE8E2),
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            progress > 0.3 ? const Color(0xFFFFC928) : const Color(0xFFD64545),
+                            progress > 0.3 ? const Color(0xFFF46B12) : const Color(0xFFDC3545),
                           ),
                         ),
                       ),
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.notifications_active, color: Color(0xFFFFC928), size: 28),
+                          const Icon(Icons.notifications_active, color: Color(0xFFF46B12), size: 28),
                           const SizedBox(height: 4),
                           Text(
                             '${_remainingSeconds}s',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: Color(0xFF222222),
                               fontSize: 22,
                               fontWeight: FontWeight.w900,
                             ),
@@ -395,7 +396,7 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE4E9F1)),
+                      border: Border.all(color: const Color(0xFFEEE8E2)),
                     ),
                     child: Column(
                       children: [
@@ -409,7 +410,7 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                                   Text(
                                     widget.serviceType,
                                     style: const TextStyle(
-                                      color: Color(0xFF202938),
+                                      color: Color(0xFF222222),
                                       fontSize: 16,
                                       fontWeight: FontWeight.w800,
                                     ),
@@ -420,7 +421,7 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                                   Text(
                                     '${widget.distanceKm} km away • Est. 60 mins',
                                     style: const TextStyle(
-                                      color: Color(0xFF173B8F),
+                                      color: Color(0xFFF46B12),
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -431,13 +432,13 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEAF7F0),
+                                color: const Color(0xFFE8F5E9),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
                                 '₹${widget.payout}',
                                 style: const TextStyle(
-                                  color: Color(0xFF18864B),
+                                  color: Color(0xFF198754),
                                   fontSize: 18,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -446,18 +447,18 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                           ],
                         ),
                         const SizedBox(height: 12),
-                        const Divider(color: Color(0xFFE4E9F1), height: 1),
+                        const Divider(color: Color(0xFFEEE8E2), height: 1),
                         const SizedBox(height: 12),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.location_on, color: Color(0xFFD64545), size: 18),
+                            const Icon(Icons.location_on, color: Color(0xFFF46B12), size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 widget.customerAddress,
                                 style: const TextStyle(
-                                  color: Color(0xFF202938),
+                                  color: Color(0xFF222222),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -472,33 +473,33 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                   ),
                   const SizedBox(height: 22),
 
-                  // 4. Primary Yellow ACCEPT BOOKING + Secondary REJECT Button
+                  // 4. Primary Orange ACCEPT BOOKING + Secondary REJECT Button
                   SizedBox(
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
                       onPressed: _isProcessing ? null : _handleAccept,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFC928), // Bright Yellow (#FFC928)
-                        foregroundColor: const Color(0xFF102A63), // Deep Navy (#102A63)
+                        backgroundColor: const Color(0xFFF46B12), // Primary Orange (#F46B12)
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        elevation: 4,
+                        elevation: 2,
                       ),
                       child: _isProcessing
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(color: Color(0xFF102A63), strokeWidth: 2.5),
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                             )
                           : const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.check_circle_rounded, size: 22, color: Color(0xFF102A63)),
+                                Icon(Icons.check_circle_rounded, size: 22, color: Colors.white),
                                 SizedBox(width: 8),
                                 Text(
                                   'ACCEPT BOOKING',
                                   style: TextStyle(
-                                    color: Color(0xFF102A63),
+                                    color: Colors.white,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 0.5,
@@ -515,13 +516,14 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
                     child: OutlinedButton(
                       onPressed: _isProcessing ? null : _handleDecline,
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFEDF3FF), width: 1.5),
+                        side: const BorderSide(color: Color(0xFFEEE8E2), width: 1.5),
+                        backgroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                       child: const Text(
                         'REJECT',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Color(0xFF77716C),
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),

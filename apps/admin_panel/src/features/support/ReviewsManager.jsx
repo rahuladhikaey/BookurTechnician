@@ -131,7 +131,7 @@ export default function ReviewsManager({ auditLogAction, onReload, isSyncing = f
                   return (
                     <tr key={r.id} style={{ opacity: r.hidden ? 0.5 : 1 }}>
                       <td>
-                        <span style={{ color: '#D97706', fontWeight: '700', fontSize: '13.5px' }}>
+                        <span style={{ color: '#E5A126', fontWeight: '700', fontSize: '13.5px' }}>
                           {'★'.repeat(rating)}{'☆'.repeat(Math.max(0, 5 - rating))} ({rating}.0)
                         </span>
                       </td>

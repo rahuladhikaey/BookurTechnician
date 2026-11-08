@@ -23,13 +23,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF222222)),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Settings',
           style: TextStyle(
-            color: Color(0xFF0F172A),
+            color: Color(0xFF222222),
             fontWeight: FontWeight.w800,
             fontSize: 18,
           ),
@@ -47,7 +47,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF0F172A),
+              color: Color(0xFF222222),
               letterSpacing: -0.3,
             ),
           ),
@@ -58,9 +58,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF9C3).withValues(alpha: 0.6),
+              color: const Color(0xFFFFF4E0).withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFEF08A)),
+              border: Border.all(color: const Color(0xFFFBE4D5)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,7 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
+                    color: Color(0xFF222222),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -78,7 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Notifications are currently off. You can enable them from settings.',
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: Color(0xFF334155),
+                    color: Color(0xFF222222),
                     height: 1.35,
                   ),
                 ),
@@ -94,8 +94,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                   style: OutlinedButton.styleFrom(
                     backgroundColor: Colors.transparent,
-                    foregroundColor: const Color(0xFF0F172A),
-                    side: const BorderSide(color: Color(0xFF0F172A), width: 1.2),
+                    foregroundColor: const Color(0xFF222222),
+                    side: const BorderSide(color: Color(0xFF222222), width: 1.2),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     minimumSize: const Size(120, 36),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -117,7 +117,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: _whatsAppEnabled,
             onChanged: (val) => setState(() => _whatsAppEnabled = val),
           ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const Divider(height: 1, color: Color(0xFFFCF9F6)),
 
           _buildToggleRow(
             icon: Icons.notifications_none_rounded,
@@ -125,7 +125,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: _pushNotificationsEnabled,
             onChanged: (val) => setState(() => _pushNotificationsEnabled = val),
           ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const Divider(height: 1, color: Color(0xFFFCF9F6)),
 
           _buildToggleRow(
             icon: Icons.mail_outline_rounded,
@@ -133,7 +133,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: _emailEnabled,
             onChanged: (val) => setState(() => _emailEnabled = val),
           ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const Divider(height: 1, color: Color(0xFFFCF9F6)),
 
           _buildToggleRow(
             icon: Icons.sms_outlined,
@@ -141,7 +141,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: _smsEnabled,
             onChanged: (val) => setState(() => _smsEnabled = val),
           ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const Divider(height: 1, color: Color(0xFFFCF9F6)),
 
           _buildToggleRow(
             icon: Icons.phone_outlined,
@@ -156,7 +156,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: const Color(0xFFFCF9F6),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Column(
@@ -167,7 +167,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
+                    color: Color(0xFF222222),
                   ),
                 ),
                 SizedBox(height: 4),
@@ -175,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Order related messages can\'t be turned off as they are important for service experience',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF64748B),
+                    color: Color(0xFF77716C),
                     height: 1.35,
                   ),
                 ),
@@ -190,7 +190,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF0F172A),
+              color: Color(0xFF222222),
               letterSpacing: -0.3,
             ),
           ),
@@ -203,10 +203,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(
                 fontSize: 14.5,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF222222),
               ),
             ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF64748B)),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF77716C)),
             onTap: () {
               Navigator.push(
                 context,
@@ -230,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(icon, size: 22, color: const Color(0xFF334155)),
+          Icon(icon, size: 22, color: const Color(0xFF222222)),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
@@ -238,16 +238,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: const TextStyle(
                 fontSize: 14.5,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF0F172A),
+                color: Color(0xFF222222),
               ),
             ),
           ),
           Switch.adaptive(
             value: value,
             activeThumbColor: Colors.white,
-            activeTrackColor: const Color(0xFF15803D),
+            activeTrackColor: const Color(0xFF198754),
             inactiveThumbColor: Colors.white,
-            inactiveTrackColor: const Color(0xFFCBD5E1),
+            inactiveTrackColor: const Color(0xFFEEE8E2),
             onChanged: onChanged,
           ),
         ],
@@ -275,20 +275,20 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'Delete Account permanently?',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF0F172A)),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF222222)),
         ),
         content: const Text(
           'This action is irreversible. All your profile data, active warranties, history, and saved addresses will be deleted immediately.',
-          style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
+          style: TextStyle(fontSize: 13, color: Color(0xFF77716C), height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF77716C), fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
+              backgroundColor: const Color(0xFFDC3545),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -303,7 +303,7 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Your account and personal data have been deleted successfully.'),
-                      backgroundColor: Color(0xFF0F172A),
+                      backgroundColor: Color(0xFF222222),
                     ),
                   );
                   Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
@@ -314,7 +314,7 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Deletion notice: ${e.toString().replaceAll("Exception: ", "")}'),
-                      backgroundColor: const Color(0xFFDC2626),
+                      backgroundColor: const Color(0xFFDC3545),
                     ),
                   );
                 }
@@ -337,10 +337,10 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
           child: Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: const Color(0xFFEEE8E2)),
             ),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, size: 18, color: Color(0xFF0F172A)),
+              icon: const Icon(Icons.arrow_back, size: 18, color: Color(0xFF222222)),
               padding: EdgeInsets.zero,
               onPressed: () => Navigator.pop(context),
             ),
@@ -349,7 +349,7 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
         title: const Text(
           'Privacy Center',
           style: TextStyle(
-            color: Color(0xFF0F172A),
+            color: Color(0xFF222222),
             fontWeight: FontWeight.w800,
             fontSize: 18,
           ),
@@ -369,7 +369,7 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF222222),
                   letterSpacing: -0.4,
                 ),
               ),
@@ -393,8 +393,8 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
                 onPressed: _isDeleting ? null : _confirmAccountDeletion,
                 style: OutlinedButton.styleFrom(
                   backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFFB91C1C),
-                  side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+                  foregroundColor: const Color(0xFFDC3545),
+                  side: const BorderSide(color: Color(0xFFEEE8E2), width: 1.2),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   elevation: 0,
@@ -403,12 +403,12 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFB91C1C)),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFDC3545)),
                       )
                     : const Text(
                         'Delete Account',
                         style: TextStyle(
-                          color: Color(0xFFB91C1C),
+                          color: Color(0xFFDC3545),
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -430,7 +430,7 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF0F172A),
+            color: Color(0xFF222222),
           ),
         ),
         const SizedBox(width: 8),
@@ -440,7 +440,7 @@ class _PrivacyCenterScreenState extends ConsumerState<PrivacyCenterScreen> {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Color(0xFF1E293B),
+              color: Color(0xFF222222),
               height: 1.4,
             ),
           ),

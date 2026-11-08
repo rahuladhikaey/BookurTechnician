@@ -23,10 +23,14 @@ enum PaymentStatus {
 
 class ServiceItem {
   final String id;
+  final String canonicalServiceId;
+  final String categoryId;
+  final String subcategoryId;
   final String name;
   final double price;
   final double basePrice;
   final double offerPrice;
+  final double discountPrice;
   final double bookingCharge;
   final int advancePrepaymentPct;
   final double technicianPayoutAmount;
@@ -39,13 +43,21 @@ class ServiceItem {
   final List<String> exclusions;
   final List<MapEntry<String, String>> faqs;
   final String imageUrl;
+  final bool isActive;
+  final int displayOrder;
+  final int usageCount;
+  final int bookingCount;
 
   const ServiceItem({
     required this.id,
+    this.canonicalServiceId = '',
+    this.categoryId = '',
+    this.subcategoryId = '',
     required this.name,
     required this.price,
     this.basePrice = 0.0,
     this.offerPrice = 0.0,
+    this.discountPrice = 0.0,
     this.bookingCharge = 49.0,
     this.advancePrepaymentPct = 30,
     this.technicianPayoutAmount = 0.0,
@@ -58,29 +70,50 @@ class ServiceItem {
     this.exclusions = const [],
     this.faqs = const [],
     this.imageUrl = '',
+    this.isActive = true,
+    this.displayOrder = 0,
+    this.usageCount = 0,
+    this.bookingCount = 0,
   });
 
   factory ServiceItem.fromJson(Map<String, dynamic> json) {
-    final rawPrice = (json['price'] as num?)?.toDouble() ?? (json['basePrice'] as num?)?.toDouble() ?? 0.0;
-    final rawBase = (json['basePrice'] as num?)?.toDouble() ?? rawPrice;
-    final rawOffer = (json['offerPrice'] as num?)?.toDouble() ?? rawPrice;
-    final rawBooking = (json['bookingCharge'] as num?)?.toDouble() ?? (rawPrice >= 1000 ? 99.0 : 49.0);
-    final rawPct = json['advancePrepaymentPct'] as int? ?? 30;
-    final rawPayout = (json['technicianPayoutAmount'] as num?)?.toDouble() ?? (rawPrice * 0.8);
+    final rawDiscount = (json['discountPrice'] as num?)?.toDouble() ??
+        (json['offerPrice'] as num?)?.toDouble() ??
+        (json['price'] as num?)?.toDouble() ??
+        (json['basePrice'] as num?)?.toDouble() ??
+        0.0;
+    final rawBase = (json['basePrice'] as num?)?.toDouble() ?? rawDiscount;
+    final rawBooking = (json['bookingCharge'] as num?)?.toDouble() ?? (rawDiscount >= 1000 ? 99.0 : 49.0);
+    final rawPct = (json['advancePrepaymentPct'] as num?)?.toInt() ?? 30;
+    final rawPayout = (json['technicianPayoutAmount'] as num?)?.toDouble() ?? (rawDiscount * 0.8);
+    final rawActive = json['isActive'] != null
+        ? json['isActive'] == true
+        : (json['active'] != null ? json['active'] == true : true);
+    final idStr = json['id']?.toString() ?? '';
 
     return ServiceItem(
-      id: json['id']?.toString() ?? '',
+      id: idStr,
+      canonicalServiceId: json['canonicalServiceId']?.toString() ?? idStr,
+      categoryId: json['categoryId']?.toString() ?? '',
+      subcategoryId: json['subcategoryId']?.toString() ?? '',
       name: json['name']?.toString() ?? json['title']?.toString() ?? '',
-      price: rawPrice,
+      price: rawDiscount,
       basePrice: rawBase,
-      offerPrice: rawOffer,
+      offerPrice: rawDiscount,
+      discountPrice: rawDiscount,
       bookingCharge: rawBooking,
       advancePrepaymentPct: rawPct,
       technicianPayoutAmount: rawPayout,
-      durationMinutes: json['durationMinutes'] as int? ?? (json['estimatedDurationMinutes'] as int?) ?? 45,
+      durationMinutes: (json['durationMinutes'] as num?)?.toInt() ??
+          (json['estimatedDurationMinutes'] as num?)?.toInt() ??
+          45,
       warrantyText: json['warrantyText']?.toString() ?? '30 Days Warranty',
       description: json['description']?.toString() ?? '',
       imageUrl: json['imageUrl']?.toString() ?? '',
+      isActive: rawActive,
+      displayOrder: (json['displayOrder'] as num?)?.toInt() ?? 0,
+      usageCount: (json['usageCount'] as num?)?.toInt() ?? 0,
+      bookingCount: (json['bookingCount'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -92,10 +125,15 @@ class Subcategory {
   const Subcategory({required this.id, required this.name, required this.services});
 
   factory Subcategory.fromJson(Map<String, dynamic> json) {
+    final parsedServices = (json['services'] as List?)
+            ?.map((s) => ServiceItem.fromJson(s as Map<String, dynamic>))
+            .where((s) => s.isActive)
+            .toList() ??
+        [];
     return Subcategory(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
-      services: (json['services'] as List?)?.map((s) => ServiceItem.fromJson(s as Map<String, dynamic>)).toList() ?? [],
+      services: parsedServices,
     );
   }
 }

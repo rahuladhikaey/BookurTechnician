@@ -393,14 +393,207 @@ let MASTER_CATALOG = [
   },
 ];
 
-// Helper: Flatten all services into tabular items for Admin Table / Pricing Table
-function getFlattenedServices() {
-  const result = [];
+const fs = require('fs');
+const path = require('path');
+
+const DATA_DIR = path.join(__dirname, '../../data');
+const CATALOG_STORE_FILE = path.join(DATA_DIR, 'catalog_store.json');
+const CATALOG_AUDIT_FILE = path.join(DATA_DIR, 'catalog_audit_log.json');
+
+let CATALOG_VERSION = 1;
+let CATALOG_AUDIT_LOGS = [];
+
+function normalizeCatalogSchema(catalog) {
+  const nowIso = new Date().toISOString();
+  (catalog || []).forEach((cat, catIdx) => {
+    cat.id = cat.id || cat.categoryId || `cat_${catIdx + 1}`;
+    cat.categoryId = cat.id;
+    cat.isActive = cat.isActive !== undefined ? Boolean(cat.isActive) : (cat.active !== false);
+    cat.active = cat.isActive;
+    cat.displayOrder = Number(cat.displayOrder || (catIdx + 1));
+    cat.createdAt = cat.createdAt || '2026-01-01T00:00:00.000Z';
+    cat.updatedAt = cat.updatedAt || nowIso;
+
+    (cat.subcategories || []).forEach((sub, subIdx) => {
+      sub.id = sub.id || `sub_${catIdx + 1}_${subIdx + 1}`;
+      sub.categoryId = cat.id;
+      sub.displayOrder = Number(sub.displayOrder || (subIdx + 1));
+      (sub.services || []).forEach((srv, srvIdx) => {
+        srv.id = srv.id || `srv_${catIdx + 1}_${subIdx + 1}_${srvIdx + 1}`;
+        srv.canonicalServiceId = srv.canonicalServiceId || srv.id;
+        srv.categoryId = cat.id;
+        srv.subcategoryId = sub.id;
+        const basePrice = Number(srv.basePrice ?? srv.price ?? 249);
+        const discountPrice = Number(srv.discountPrice ?? srv.offerPrice ?? srv.price ?? basePrice);
+        srv.basePrice = basePrice;
+        srv.discountPrice = discountPrice;
+        srv.offerPrice = discountPrice;
+        srv.price = discountPrice;
+        srv.icon = srv.icon || cat.icon || 'build';
+        srv.imageUrl = srv.imageUrl || cat.imageUrl || '';
+        const isActive = srv.isActive !== undefined ? Boolean(srv.isActive) : (srv.active !== false);
+        srv.isActive = isActive;
+        srv.active = isActive;
+        srv.displayOrder = Number(srv.displayOrder || (srvIdx + 1));
+        srv.usageCount = Number(srv.usageCount || 0);
+        srv.bookingCount = Number(srv.bookingCount || 0);
+        srv.createdAt = srv.createdAt || '2026-01-01T00:00:00.000Z';
+        srv.updatedAt = srv.updatedAt || nowIso;
+        srv.createdBy = srv.createdBy || 'system_seed';
+        srv.updatedBy = srv.updatedBy || 'system_seed';
+      });
+    });
+  });
+  return catalog;
+}
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+function saveCatalogStore() {
+  try {
+    ensureDataDir();
+    normalizeCatalogSchema(MASTER_CATALOG);
+    fs.writeFileSync(
+      CATALOG_STORE_FILE,
+      JSON.stringify({
+        catalogVersion: CATALOG_VERSION,
+        updatedAt: new Date().toISOString(),
+        categories: MASTER_CATALOG,
+      }, null, 2),
+      'utf8'
+    );
+  } catch (err) {
+    console.warn('[MasterCatalog] Failed to persist catalog_store.json:', err.message);
+  }
+}
+
+function recordCatalogAuditLog({ adminUid = 'admin_system', action, targetId, targetType = 'service', previousValue = null, updatedValue = null }) {
+  try {
+    ensureDataDir();
+    const entry = {
+      id: `aud_cat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      adminUid,
+      action,
+      targetType,
+      targetId,
+      previousValue,
+      updatedValue,
+      catalogVersion: CATALOG_VERSION,
+      timestamp: new Date().toISOString(),
+    };
+    CATALOG_AUDIT_LOGS.unshift(entry);
+    if (CATALOG_AUDIT_LOGS.length > 500) {
+      CATALOG_AUDIT_LOGS = CATALOG_AUDIT_LOGS.slice(0, 500);
+    }
+    fs.writeFileSync(CATALOG_AUDIT_FILE, JSON.stringify(CATALOG_AUDIT_LOGS, null, 2), 'utf8');
+    return entry;
+  } catch (err) {
+    console.warn('[MasterCatalog] Audit log write warning:', err.message);
+    return null;
+  }
+}
+
+function loadCatalogStore() {
+  try {
+    ensureDataDir();
+    if (fs.existsSync(CATALOG_AUDIT_FILE)) {
+      const rawAudit = JSON.parse(fs.readFileSync(CATALOG_AUDIT_FILE, 'utf8'));
+      if (Array.isArray(rawAudit)) CATALOG_AUDIT_LOGS = rawAudit;
+    }
+    if (fs.existsSync(CATALOG_STORE_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(CATALOG_STORE_FILE, 'utf8'));
+      if (parsed && Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+        MASTER_CATALOG = normalizeCatalogSchema(parsed.categories);
+        CATALOG_VERSION = Number(parsed.catalogVersion || 1);
+        return;
+      }
+    }
+    MASTER_CATALOG = normalizeCatalogSchema(MASTER_CATALOG);
+    saveCatalogStore();
+  } catch (err) {
+    console.warn('[MasterCatalog] Load catalog_store.json warning, using seed:', err.message);
+    MASTER_CATALOG = normalizeCatalogSchema(MASTER_CATALOG);
+  }
+}
+
+loadCatalogStore();
+
+function getCatalogVersion() {
+  return CATALOG_VERSION;
+}
+
+function getCatalogAuditLogs() {
+  return CATALOG_AUDIT_LOGS;
+}
+
+function getServiceById(serviceId) {
+  if (!serviceId) return null;
+  for (const cat of MASTER_CATALOG) {
+    for (const sub of (cat.subcategories || [])) {
+      for (const srv of (sub.services || [])) {
+        if (srv.id === serviceId || srv.canonicalServiceId === serviceId) {
+          return {
+            ...srv,
+            categoryId: cat.id,
+            categoryName: cat.name,
+            subcategoryId: sub.id,
+            subcategoryName: sub.name,
+          };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function incrementServiceBookingCount(serviceId) {
+  let updated = null;
   MASTER_CATALOG.forEach(cat => {
     (cat.subcategories || []).forEach(sub => {
       (sub.services || []).forEach(srv => {
+        if (srv.id === serviceId || srv.canonicalServiceId === serviceId) {
+          srv.bookingCount = Number(srv.bookingCount || 0) + 1;
+          srv.usageCount = Number(srv.usageCount || 0) + 1;
+          srv.updatedAt = new Date().toISOString();
+          updated = srv;
+        }
+      });
+    });
+  });
+  if (updated) {
+    saveCatalogStore();
+  }
+  return updated;
+}
+
+// Helper: Flatten all services into tabular items for Admin Table / Pricing Table
+function getFlattenedServices(options = {}) {
+  const includeInactive = options.includeInactive !== undefined ? Boolean(options.includeInactive) : true;
+  const result = [];
+  MASTER_CATALOG.forEach(cat => {
+    (cat.subcategories || []).forEach(sub => {
+      (sub.services || []).forEach((srv, idx) => {
+        const isActive = srv.isActive !== undefined ? Boolean(srv.isActive) : (srv.active !== false);
+        if (!includeInactive && !isActive) return;
+        const basePrice = Number(srv.basePrice ?? srv.price ?? 249);
+        const discountPrice = Number(srv.discountPrice ?? srv.offerPrice ?? srv.price ?? basePrice);
         result.push({
           ...srv,
+          canonicalServiceId: srv.canonicalServiceId || srv.id,
+          basePrice,
+          discountPrice,
+          offerPrice: discountPrice,
+          price: discountPrice,
+          isActive,
+          active: isActive,
+          displayOrder: Number(srv.displayOrder || (idx + 1)),
+          usageCount: Number(srv.usageCount || 0),
+          bookingCount: Number(srv.bookingCount || 0),
+          icon: srv.icon || cat.icon || 'build',
           categoryId: cat.id,
           categoryName: cat.name,
           category: { id: cat.id, name: cat.name },
@@ -418,13 +611,17 @@ function getFlattenedServices() {
 function getAdminCategories() {
   return MASTER_CATALOG.map((cat, idx) => {
     const srvCount = (cat.subcategories || []).reduce((sum, sub) => sum + (sub.services || []).length, 0);
+    const isActive = cat.isActive !== undefined ? Boolean(cat.isActive) : (cat.active !== false);
     return {
       id: cat.id,
       categoryId: cat.categoryId || cat.id,
       name: cat.name,
+      icon: cat.icon || 'build',
       iconUrl: cat.imageUrl,
+      imageUrl: cat.imageUrl,
       bannerUrl: cat.imageUrl,
-      active: cat.active !== false,
+      active: isActive,
+      isActive,
       displayOrder: cat.displayOrder || (idx + 1),
       servicesCount: srvCount,
       subcategories: cat.subcategories || [],
@@ -433,45 +630,114 @@ function getAdminCategories() {
 }
 
 // Helper: Update pricing for a specific service ID
-function updateServicePricing(serviceId, pricingData) {
-  let found = false;
+function updateServicePricing(serviceId, pricingData, adminUid = 'admin_system') {
   let updatedService = null;
+  let previousSnapshot = null;
 
   MASTER_CATALOG.forEach(cat => {
     (cat.subcategories || []).forEach(sub => {
       (sub.services || []).forEach(srv => {
-        if (srv.id === serviceId) {
-          found = true;
-          if (pricingData.price !== undefined) srv.price = parseFloat(pricingData.price) || srv.price;
+        if (srv.id === serviceId || srv.canonicalServiceId === serviceId) {
+          previousSnapshot = { ...srv };
           if (pricingData.basePrice !== undefined) srv.basePrice = parseFloat(pricingData.basePrice) || srv.basePrice;
-          if (pricingData.offerPrice !== undefined) srv.offerPrice = parseFloat(pricingData.offerPrice) || srv.offerPrice;
+          if (pricingData.discountPrice !== undefined) {
+            const dp = parseFloat(pricingData.discountPrice) || srv.discountPrice;
+            srv.discountPrice = dp;
+            srv.offerPrice = dp;
+            srv.price = dp;
+          }
+          if (pricingData.offerPrice !== undefined) {
+            const op = parseFloat(pricingData.offerPrice) || srv.offerPrice;
+            srv.offerPrice = op;
+            srv.discountPrice = op;
+            srv.price = op;
+          }
+          if (pricingData.price !== undefined) {
+            const p = parseFloat(pricingData.price) || srv.price;
+            srv.price = p;
+            if (pricingData.discountPrice === undefined && pricingData.offerPrice === undefined) {
+              srv.discountPrice = p;
+              srv.offerPrice = p;
+            }
+          }
           if (pricingData.bookingCharge !== undefined) srv.bookingCharge = parseFloat(pricingData.bookingCharge) || srv.bookingCharge;
           if (pricingData.advancePrepaymentPct !== undefined) srv.advancePrepaymentPct = parseInt(pricingData.advancePrepaymentPct, 10) || srv.advancePrepaymentPct;
           if (pricingData.technicianPayoutAmount !== undefined) srv.technicianPayoutAmount = parseFloat(pricingData.technicianPayoutAmount) || srv.technicianPayoutAmount;
           if (pricingData.durationMinutes !== undefined) srv.durationMinutes = parseInt(pricingData.durationMinutes, 10) || srv.durationMinutes;
           if (pricingData.warrantyText !== undefined) srv.warrantyText = pricingData.warrantyText;
-          if (pricingData.active !== undefined) srv.active = pricingData.active;
-          updatedService = { ...srv, categoryId: cat.id, categoryName: cat.name, subcategoryId: sub.id, subcategoryName: sub.name };
+          if (pricingData.isActive !== undefined || pricingData.active !== undefined) {
+            const nextActive = pricingData.isActive !== undefined ? Boolean(pricingData.isActive) : Boolean(pricingData.active);
+            srv.isActive = nextActive;
+            srv.active = nextActive;
+          }
+          if (pricingData.displayOrder !== undefined) srv.displayOrder = parseInt(pricingData.displayOrder, 10) || srv.displayOrder;
+          srv.updatedAt = new Date().toISOString();
+          srv.updatedBy = pricingData.updatedBy || adminUid;
+          updatedService = {
+            ...srv,
+            categoryId: cat.id,
+            categoryName: cat.name,
+            subcategoryId: sub.id,
+            subcategoryName: sub.name,
+          };
         }
       });
     });
   });
 
+  if (updatedService) {
+    CATALOG_VERSION += 1;
+    saveCatalogStore();
+    recordCatalogAuditLog({
+      adminUid: pricingData.updatedBy || adminUid,
+      action: 'UPDATE_SERVICE_PRICING',
+      targetType: 'service',
+      targetId: serviceId,
+      previousValue: previousSnapshot,
+      updatedValue: updatedService,
+    });
+  }
+
   return updatedService;
 }
 
 // Helper: Update service full metadata
-function updateServiceItem(serviceId, updateData) {
+function updateServiceItem(serviceId, updateData, adminUid = 'admin_system') {
   let updatedService = null;
+  let previousSnapshot = null;
 
   MASTER_CATALOG.forEach(cat => {
     (cat.subcategories || []).forEach(sub => {
-      const idx = (sub.services || []).findIndex(s => s.id === serviceId);
+      const idx = (sub.services || []).findIndex(s => s.id === serviceId || s.canonicalServiceId === serviceId);
       if (idx !== -1) {
+        const current = sub.services[idx];
+        previousSnapshot = { ...current };
+        const nextActive = updateData.isActive !== undefined
+          ? Boolean(updateData.isActive)
+          : (updateData.active !== undefined ? Boolean(updateData.active) : current.isActive);
+        const nextBasePrice = updateData.basePrice !== undefined
+          ? Number(updateData.basePrice)
+          : current.basePrice;
+        const nextDiscountPrice = updateData.discountPrice !== undefined
+          ? Number(updateData.discountPrice)
+          : (updateData.offerPrice !== undefined
+              ? Number(updateData.offerPrice)
+              : (updateData.price !== undefined ? Number(updateData.price) : current.discountPrice));
+
         sub.services[idx] = {
-          ...sub.services[idx],
+          ...current,
           ...updateData,
-          id: serviceId,
+          id: current.id,
+          canonicalServiceId: current.canonicalServiceId || current.id,
+          basePrice: nextBasePrice,
+          discountPrice: nextDiscountPrice,
+          offerPrice: nextDiscountPrice,
+          price: nextDiscountPrice,
+          isActive: nextActive,
+          active: nextActive,
+          displayOrder: updateData.displayOrder !== undefined ? Number(updateData.displayOrder) : current.displayOrder,
+          updatedAt: new Date().toISOString(),
+          updatedBy: updateData.updatedBy || adminUid,
         };
         updatedService = {
           ...sub.services[idx],
@@ -484,15 +750,28 @@ function updateServiceItem(serviceId, updateData) {
     });
   });
 
+  if (updatedService) {
+    CATALOG_VERSION += 1;
+    saveCatalogStore();
+    recordCatalogAuditLog({
+      adminUid: updateData.updatedBy || adminUid,
+      action: updateData.isActive !== undefined || updateData.active !== undefined ? 'TOGGLE_OR_UPDATE_SERVICE' : 'UPDATE_SERVICE',
+      targetType: 'service',
+      targetId: serviceId,
+      previousValue: previousSnapshot,
+      updatedValue: updatedService,
+    });
+  }
+
   return updatedService;
 }
 
 // Helper: Create a new service under a category/subcategory
-function createServiceItem(serviceData) {
+function createServiceItem(serviceData, adminUid = 'admin_system') {
   const targetCatId = serviceData.categoryId || 'cat_electrical';
   const targetSubId = serviceData.subcategoryId || 'sub_fan';
-  
-  let targetCat = MASTER_CATALOG.find(c => c.id === targetCatId);
+
+  let targetCat = MASTER_CATALOG.find(c => c.id === targetCatId || c.categoryId === targetCatId);
   if (!targetCat) {
     targetCat = MASTER_CATALOG[0];
   }
@@ -506,118 +785,245 @@ function createServiceItem(serviceData) {
     targetSub = targetCat.subcategories[0];
   }
 
+  const nowIso = new Date().toISOString();
+  const generatedId = serviceData.id || serviceData.canonicalServiceId || `srv_${Date.now().toString(36)}`;
+  const basePrice = parseFloat(serviceData.basePrice || serviceData.price) || 249;
+  const discountPrice = parseFloat(serviceData.discountPrice || serviceData.offerPrice || serviceData.price) || 199;
+  const isActive = serviceData.isActive !== undefined ? Boolean(serviceData.isActive) : (serviceData.active !== false);
+
   const newService = {
-    id: serviceData.id || `srv_${Date.now().toString(36)}`,
+    id: generatedId,
+    canonicalServiceId: serviceData.canonicalServiceId || generatedId,
+    categoryId: targetCat.id,
+    subcategoryId: targetSub.id,
     name: serviceData.name || serviceData.title || 'New Custom Service',
-    price: parseFloat(serviceData.price || serviceData.basePrice) || 199,
-    basePrice: parseFloat(serviceData.basePrice || serviceData.price) || 249,
-    offerPrice: parseFloat(serviceData.offerPrice || serviceData.price) || 199,
+    price: discountPrice,
+    basePrice,
+    discountPrice,
+    offerPrice: discountPrice,
     bookingCharge: parseFloat(serviceData.bookingCharge) || 49,
     advancePrepaymentPct: parseInt(serviceData.advancePrepaymentPct, 10) || 30,
-    technicianPayoutAmount: parseFloat(serviceData.technicianPayoutAmount) || 159,
+    technicianPayoutAmount: parseFloat(serviceData.technicianPayoutAmount) || Math.round(discountPrice * 0.8),
     durationMinutes: parseInt(serviceData.durationMinutes || serviceData.estimatedDurationMinutes, 10) || 45,
     warrantyText: serviceData.warrantyText || '30 Days Warranty',
     description: serviceData.description || '',
+    icon: serviceData.icon || targetCat.icon || 'build',
     imageUrl: serviceData.imageUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500&auto=format&fit=crop',
-    active: serviceData.active !== false,
+    active: isActive,
+    isActive,
+    displayOrder: Number(serviceData.displayOrder || ((targetSub.services || []).length + 1)),
+    usageCount: Number(serviceData.usageCount || 0),
+    bookingCount: Number(serviceData.bookingCount || 0),
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    createdBy: serviceData.createdBy || adminUid,
+    updatedBy: serviceData.updatedBy || adminUid,
   };
 
   targetSub.services.push(newService);
-  return {
+  CATALOG_VERSION += 1;
+  saveCatalogStore();
+
+  const enriched = {
     ...newService,
     categoryId: targetCat.id,
     categoryName: targetCat.name,
     subcategoryId: targetSub.id,
     subcategoryName: targetSub.name,
   };
+
+  recordCatalogAuditLog({
+    adminUid: serviceData.createdBy || adminUid,
+    action: 'CREATE_SERVICE',
+    targetType: 'service',
+    targetId: newService.id,
+    previousValue: null,
+    updatedValue: enriched,
+  });
+
+  return enriched;
 }
 
 // Helper: Delete service item
-function deleteServiceItem(serviceId) {
+function deleteServiceItem(serviceId, adminUid = 'admin_system') {
   let deleted = false;
+  let removedSnapshot = null;
   MASTER_CATALOG.forEach(cat => {
     (cat.subcategories || []).forEach(sub => {
+      const found = (sub.services || []).find(s => s.id === serviceId || s.canonicalServiceId === serviceId);
+      if (found) removedSnapshot = { ...found };
       const initialLen = sub.services.length;
-      sub.services = (sub.services || []).filter(s => s.id !== serviceId);
+      sub.services = (sub.services || []).filter(s => s.id !== serviceId && s.canonicalServiceId !== serviceId);
       if (sub.services.length < initialLen) {
         deleted = true;
       }
     });
   });
+  if (deleted) {
+    CATALOG_VERSION += 1;
+    saveCatalogStore();
+    recordCatalogAuditLog({
+      adminUid,
+      action: 'DELETE_SERVICE',
+      targetType: 'service',
+      targetId: serviceId,
+      previousValue: removedSnapshot,
+      updatedValue: null,
+    });
+  }
   return deleted;
 }
 
 // Helper: Create category
-function createCategoryItem(catData) {
+function createCategoryItem(catData, adminUid = 'admin_system') {
+  const nowIso = new Date().toISOString();
+  const id = catData.id || catData.categoryId || `cat_${Date.now().toString(36)}`;
+  const isActive = catData.isActive !== undefined ? Boolean(catData.isActive) : (catData.active !== false);
   const newCat = {
-    id: catData.id || `cat_${Date.now().toString(36)}`,
-    categoryId: catData.categoryId || `cat_${Date.now().toString(36)}`,
+    id,
+    categoryId: id,
     name: catData.name || 'New Category',
     icon: catData.icon || 'build',
     imageUrl: catData.imageUrl || catData.iconUrl || 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?w=500&auto=format&fit=crop',
-    active: catData.active !== false,
-    displayOrder: MASTER_CATALOG.length + 1,
+    active: isActive,
+    isActive,
+    displayOrder: Number(catData.displayOrder || (MASTER_CATALOG.length + 1)),
+    createdAt: nowIso,
+    updatedAt: nowIso,
     subcategories: catData.subcategories || [
       { id: `sub_${Date.now().toString(36)}`, name: 'General Services', services: [] },
     ],
   };
   MASTER_CATALOG.push(newCat);
+  CATALOG_VERSION += 1;
+  saveCatalogStore();
+  recordCatalogAuditLog({
+    adminUid,
+    action: 'CREATE_CATEGORY',
+    targetType: 'category',
+    targetId: newCat.id,
+    previousValue: null,
+    updatedValue: newCat,
+  });
   return newCat;
 }
 
 // Helper: Update category
-function updateCategoryItem(catId, catData) {
+function updateCategoryItem(catId, catData, adminUid = 'admin_system') {
   const index = MASTER_CATALOG.findIndex(c => c.id === catId || c.categoryId === catId);
   if (index === -1) return null;
+  const prev = { ...MASTER_CATALOG[index] };
+  const isActive = catData.isActive !== undefined
+    ? Boolean(catData.isActive)
+    : (catData.active !== undefined ? Boolean(catData.active) : MASTER_CATALOG[index].isActive);
   MASTER_CATALOG[index] = {
     ...MASTER_CATALOG[index],
     ...catData,
     id: MASTER_CATALOG[index].id,
+    categoryId: MASTER_CATALOG[index].id,
+    active: isActive,
+    isActive,
+    updatedAt: new Date().toISOString(),
   };
+  CATALOG_VERSION += 1;
+  saveCatalogStore();
+  recordCatalogAuditLog({
+    adminUid,
+    action: 'UPDATE_CATEGORY',
+    targetType: 'category',
+    targetId: catId,
+    previousValue: prev,
+    updatedValue: MASTER_CATALOG[index],
+  });
   return MASTER_CATALOG[index];
 }
 
 // Helper: Delete category
-function deleteCategoryItem(catId) {
+function deleteCategoryItem(catId, adminUid = 'admin_system') {
   const initialLen = MASTER_CATALOG.length;
+  const prev = MASTER_CATALOG.find(c => c.id === catId || c.categoryId === catId);
   MASTER_CATALOG = MASTER_CATALOG.filter(c => c.id !== catId && c.categoryId !== catId);
-  return MASTER_CATALOG.length < initialLen;
+  const deleted = MASTER_CATALOG.length < initialLen;
+  if (deleted) {
+    CATALOG_VERSION += 1;
+    saveCatalogStore();
+    recordCatalogAuditLog({
+      adminUid,
+      action: 'DELETE_CATEGORY',
+      targetType: 'category',
+      targetId: catId,
+      previousValue: prev || null,
+      updatedValue: null,
+    });
+  }
+  return deleted;
 }
 
-function getCatalogHierarchy() {
-  return MASTER_CATALOG.map(cat => {
-    const allSkills = [];
-    if (Array.isArray(cat.subcategories)) {
-      for (const sub of cat.subcategories) {
-        if (Array.isArray(sub.services)) {
-          for (const s of sub.services) {
-            allSkills.push({
-              id: s.id,
-              categoryId: cat.id || cat.categoryId,
-              categoryName: cat.name,
-              name: s.name,
-              slug: (s.slug || s.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-              description: s.description || '',
-              price: s.price || s.offerPrice || 149,
-              displayOrder: s.displayOrder || 0,
-            });
+function getCatalogHierarchy(options = {}) {
+  const includeInactive = Boolean(options.includeInactive);
+  return MASTER_CATALOG
+    .filter(cat => includeInactive || (cat.isActive !== false && cat.active !== false))
+    .map(cat => {
+      const allSkills = [];
+      if (Array.isArray(cat.subcategories)) {
+        for (const sub of cat.subcategories) {
+          if (Array.isArray(sub.services)) {
+            for (const s of sub.services) {
+              const sActive = s.isActive !== undefined ? Boolean(s.isActive) : (s.active !== false);
+              if (!includeInactive && !sActive) continue;
+              allSkills.push({
+                id: s.id,
+                canonicalServiceId: s.canonicalServiceId || s.id,
+                categoryId: cat.id || cat.categoryId,
+                subcategoryId: sub.id,
+                categoryName: cat.name,
+                subcategoryName: sub.name,
+                name: s.name,
+                slug: (s.slug || s.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                description: s.description || '',
+                basePrice: s.basePrice || s.price || 249,
+                discountPrice: s.discountPrice || s.offerPrice || s.price || 149,
+                price: s.discountPrice || s.offerPrice || s.price || 149,
+                isActive: sActive,
+                displayOrder: s.displayOrder || 0,
+              });
+            }
           }
         }
       }
-    }
-    return {
-      id: cat.id || cat.categoryId,
-      name: cat.name,
-      slug: (cat.slug || cat.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      iconUrl: cat.imageUrl || cat.icon || '',
-      displayOrder: cat.displayOrder || 0,
-      skills: allSkills,
-      subcategories: cat.subcategories || [],
-    };
-  });
+      return {
+        id: cat.id || cat.categoryId,
+        categoryId: cat.id || cat.categoryId,
+        name: cat.name,
+        slug: (cat.slug || cat.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        icon: cat.icon || 'build',
+        iconUrl: cat.imageUrl || cat.icon || '',
+        imageUrl: cat.imageUrl || '',
+        isActive: cat.isActive !== false && cat.active !== false,
+        displayOrder: cat.displayOrder || 0,
+        skills: allSkills,
+        subcategories: (cat.subcategories || []).map(sub => ({
+          ...sub,
+          services: includeInactive
+            ? (sub.services || [])
+            : (sub.services || []).filter(s => (s.isActive !== undefined ? Boolean(s.isActive) : (s.active !== false))),
+        })),
+      };
+    });
 }
 
-function getMasterCatalog() {
+function getMasterCatalog(options = {}) {
+  if (options.activeOnly) {
+    return MASTER_CATALOG
+      .filter(cat => cat.isActive !== false && cat.active !== false)
+      .map(cat => ({
+        ...cat,
+        subcategories: (cat.subcategories || []).map(sub => ({
+          ...sub,
+          services: (sub.services || []).filter(s => (s.isActive !== undefined ? Boolean(s.isActive) : (s.active !== false))),
+        })),
+      }));
+  }
   return MASTER_CATALOG;
 }
 
@@ -626,6 +1032,12 @@ module.exports = {
   getCatalogHierarchy,
   getFlattenedServices,
   getAdminCategories,
+  getCatalogVersion,
+  getCatalogAuditLogs,
+  recordCatalogAuditLog,
+  getServiceById,
+  incrementServiceBookingCount,
+  saveCatalogStore,
   updateServicePricing,
   updateServiceItem,
   createServiceItem,

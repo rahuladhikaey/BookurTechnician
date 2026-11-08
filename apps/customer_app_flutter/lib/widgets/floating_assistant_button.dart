@@ -76,7 +76,7 @@ class _FloatingAssistantButtonState extends State<FloatingAssistantButton>
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
+                    color: const Color(0xFF222222),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: const [
                       BoxShadow(
@@ -120,10 +120,10 @@ class _FloatingAssistantButtonState extends State<FloatingAssistantButton>
                 decoration: BoxDecoration(
                   color: kBrandPrimary,
                   borderRadius: BorderRadius.circular(26),
-                  border: Border.all(color: const Color(0xFF17357F), width: 1.5),
+                  border: Border.all(color: const Color(0xFFF46B12), width: 1.5),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x332146A8),
+                      color: Color(0x33F46B12),
                       blurRadius: 8,
                       offset: Offset(0, 3),
                     )
@@ -163,7 +163,7 @@ class _FloatingAssistantButtonState extends State<FloatingAssistantButton>
                         Text(
                           'AI Help & Policy',
                           style: TextStyle(
-                            color: Color(0xFFEEF3FF),
+                            color: Color(0xFFFBE4D5),
                             fontSize: 9.5,
                             fontWeight: FontWeight.w500,
                           ),

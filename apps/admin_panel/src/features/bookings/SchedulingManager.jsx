@@ -41,7 +41,7 @@ export default function SchedulingManager({ auditLogAction }) {
       <div className="section-header">
         <div>
           <h2>Service Scheduling & 3-Day Slot Configuration</h2>
-          <p style={{ fontSize: '13px', color: '#64748B' }}>
+          <p style={{ fontSize: '13px', color: '#77716C' }}>
             Enforce client booking date limits (1 to 3 days advance max), slot duration, capacity limits, and operating blackout windows.
           </p>
         </div>
@@ -62,7 +62,7 @@ export default function SchedulingManager({ auditLogAction }) {
                 max="7"
                 required
               />
-              <span className="helper-text" style={{ color: '#16A34A', fontWeight: 'bold' }}>
+              <span className="helper-text" style={{ color: '#198754', fontWeight: 'bold' }}>
                 ✓ Set to 3 Days (Today, Tomorrow, Day After Tomorrow) as per platform rule.
               </span>
             </div>
@@ -114,20 +114,20 @@ export default function SchedulingManager({ auditLogAction }) {
           <h3>🕒 Active Daily Service Time Slots</h3>
           <div className="slots-chips-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', margin: '12px 0 20px' }}>
             {activeTimeSlots.map((slot, i) => (
-              <div key={i} style={{ padding: '10px', background: '#F1F5F9', borderRadius: '8px', border: '1px solid #CBD5E1', textAlign: 'center', fontSize: '12.5px', fontWeight: 'bold', color: '#0B1635' }}>
+              <div key={i} style={{ padding: '10px', background: '#FCF9F6', borderRadius: '8px', border: '1px solid #EEE8E2', textAlign: 'center', fontSize: '12.5px', fontWeight: 'bold', color: '#222222' }}>
                 {slot}
               </div>
             ))}
           </div>
 
           <h3 style={{ marginTop: '16px' }}>🚫 Blackout & Holiday Dates</h3>
-          <p style={{ fontSize: '12px', color: '#64748B', marginBottom: '10px' }}>
+          <p style={{ fontSize: '12px', color: '#77716C', marginBottom: '10px' }}>
             Dates where service booking is disabled on the Customer App:
           </p>
 
           <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
             {blackoutDates.map(d => (
-              <li key={d} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#FEE2E2', borderRadius: '6px', fontSize: '12px', color: '#991B1B' }}>
+              <li key={d} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#FDECEC', borderRadius: '6px', fontSize: '12px', color: '#DC3545' }}>
                 <span>📅 {d} (National Holiday / Blackout)</span>
                 <button className="text-btn danger" onClick={() => setBlackoutDates(prev => prev.filter(x => x !== d))}>✕</button>
               </li>

@@ -102,7 +102,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kRoyalBlue,
+      backgroundColor: kWarmBackground,
       body: SafeArea(
         child: Center(
           child: AnimatedBuilder(
@@ -118,14 +118,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                       child: Container(
                         width: 118,
                         height: 118,
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: kWhite,
-                          border: Border.all(color: kBrightYellow, width: 3.5),
+                          border: Border.all(color: kPrimaryOrange, width: 3.5),
                           boxShadow: [
                             BoxShadow(
-                              color: kDeepNavy.withValues(alpha: 0.35),
+                              color: kPrimaryOrange.withValues(alpha: 0.18),
                               blurRadius: 28,
                               spreadRadius: 2,
                               offset: const Offset(0, 10),
@@ -139,9 +139,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                             height: 110,
                             fit: BoxFit.contain,
                             errorBuilder: (_, _, _) => const Icon(
-                              Icons.handyman_rounded,
-                              size: 54,
-                              color: kRoyalBlue,
+                              Icons.bolt_rounded,
+                              size: 56,
+                              color: kPrimaryOrange,
                             ),
                           ),
                         ),
@@ -162,16 +162,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                             ),
                             children: [
                               TextSpan(
-                                text: 'bookur',
+                                text: 'Bookur',
                                 style: TextStyle(
-                                  color: kWhite,
+                                  color: kPrimaryTextColor,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
                               TextSpan(
-                                text: 'technician',
+                                text: 'Technician',
                                 style: TextStyle(
-                                  color: kBrightYellow,
+                                  color: kPrimaryOrange,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
@@ -180,11 +180,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Trusted Home Services • Instant Live Dispatch',
+                          'Trusted Electrical & Home Services • Live Dispatch',
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
-                            color: kLightBlueTint,
+                            color: kSecondaryTextColor,
                             letterSpacing: 0.2,
                           ),
                         ),
@@ -193,7 +193,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                           width: 28,
                           height: 28,
                           child: CircularProgressIndicator(
-                            color: kBrightYellow,
+                            color: kPrimaryOrange,
                             strokeWidth: 3,
                           ),
                         ),

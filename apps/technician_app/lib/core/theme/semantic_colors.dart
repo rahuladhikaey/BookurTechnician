@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 class SemanticColors {
-  static const Color success = Color(0xFF10B981); // Green
-  static const Color warning = Color(0xFFF59E0B); // Amber
-  static const Color error = Color(0xFFEF4444); // Red
-  static const Color info = Color(0xFF3B82F6); // Blue info
+  static const Color success = Color(0xFF198754); // Success Green (#198754)
+  static const Color warning = Color(0xFFE5A126); // Warning Amber (#E5A126)
+  static const Color error = Color(0xFFDC3545);   // Error Red (#DC3545)
+  static const Color info = Color(0xFFF46B12);    // Primary Orange (#F46B12)
 }

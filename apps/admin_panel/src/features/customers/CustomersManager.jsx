@@ -172,7 +172,7 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
               <button
                 className="btn btn-outline"
                 onClick={handleClearAllCustomers}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#EF4444', color: '#EF4444' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#DC3545', color: '#DC3545' }}
                 title="Clear all mock/test customer records for clean production slate"
               >
                 <span>🗑️</span> Reset Test Customers
@@ -273,16 +273,16 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
-                          <div style={{ flex: 1, height: '6px', background: '#E2E8F0', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ flex: 1, height: '6px', background: '#EEE8E2', borderRadius: '3px', overflow: 'hidden' }}>
                             <div
                               style={{
                                 width: `${p.score}%`,
                                 height: '100%',
-                                background: p.score === 100 ? '#16A34A' : p.score >= 50 ? '#EA580C' : '#DC2626'
+                                background: p.score === 100 ? '#198754' : p.score >= 50 ? '#F46B12' : '#DC3545'
                               }}
                             ></div>
                           </div>
-                          <strong style={{ fontSize: '12px', color: p.score === 100 ? '#15803D' : '#C2410C' }}>
+                          <strong style={{ fontSize: '12px', color: p.score === 100 ? '#198754' : '#E85B08' }}>
                             {p.score}%
                           </strong>
                         </div>
@@ -296,7 +296,7 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
                         </span>
                       </td>
                       <td style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {c.address || <span style={{ color: '#DC2626', fontStyle: 'italic' }}>Missing Address</span>}
+                        {c.address || <span style={{ color: '#DC3545', fontStyle: 'italic' }}>Missing Address</span>}
                       </td>
                       <td>
                         <span className={`badge ${
@@ -344,17 +344,17 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
                 {/* Score Header */}
                 <div style={{
                   padding: '16px',
-                  background: p.score === 100 ? '#F0FDF4' : '#FFF7ED',
-                  border: `1px solid ${p.score === 100 ? '#BBF7D0' : '#FED7AA'}`,
+                  background: p.score === 100 ? '#E8F5E9' : '#FBE4D5',
+                  border: `1px solid ${p.score === 100 ? '#E8F5E9' : '#FBE4D5'}`,
                   borderRadius: '6px',
                   marginBottom: '16px'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <strong style={{ fontSize: '15px', color: p.score === 100 ? '#15803D' : '#C2410C' }}>
+                      <strong style={{ fontSize: '15px', color: p.score === 100 ? '#198754' : '#E85B08' }}>
                         {p.score === 100 ? '✓ 100% Profile Complete' : `⚠ Incomplete Profile (${p.score}%)`}
                       </strong>
-                      <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                      <div style={{ fontSize: '12px', color: '#77716C', marginTop: '2px' }}>
                         Backend verified calculation (Name: 25%, Phone: 25%, Email: 25%, Address: 25%)
                       </div>
                     </div>
@@ -364,14 +364,14 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
                   </div>
 
                   {p.missingFields.length > 0 && (
-                    <div style={{ marginTop: '10px', fontSize: '12px', color: '#DC2626' }}>
+                    <div style={{ marginTop: '10px', fontSize: '12px', color: '#DC3545' }}>
                       <strong>Missing Action Items:</strong> {p.missingFields.join(', ')}
                     </div>
                   )}
                 </div>
 
                 {/* Core Field Verification Checklist */}
-                <div style={{ padding: '14px', background: '#F8FAFC', border: '1px solid var(--border-color)', borderRadius: '6px', marginBottom: '16px' }}>
+                <div style={{ padding: '14px', background: '#FCF9F6', border: '1px solid var(--border-color)', borderRadius: '6px', marginBottom: '16px' }}>
                   <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary)', marginBottom: '10px' }}>
                     IDENTITY & VERIFICATION STATUS
                   </div>
@@ -386,11 +386,11 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
                     </div>
                     <div>
                       <span style={{ color: 'var(--text-secondary)' }}>Phone (OTP Verified):</span>
-                      <div><strong>{selectedCustomer.phone}</strong> <span style={{ color: '#16A34A' }}>✓</span></div>
+                      <div><strong>{selectedCustomer.phone}</strong> <span style={{ color: '#198754' }}>✓</span></div>
                     </div>
                     <div>
                       <span style={{ color: 'var(--text-secondary)' }}>Email (OTP Verified):</span>
-                      <div><strong>{selectedCustomer.email}</strong> <span style={{ color: '#16A34A' }}>✓</span></div>
+                      <div><strong>{selectedCustomer.email}</strong> <span style={{ color: '#198754' }}>✓</span></div>
                     </div>
                     <div style={{ gridColumn: '1 / -1' }}>
                       <span style={{ color: 'var(--text-secondary)' }}>Primary Service Address:</span>

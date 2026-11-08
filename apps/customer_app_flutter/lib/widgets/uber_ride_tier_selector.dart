@@ -270,7 +270,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
                   width: 42,
                   height: 4.5,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD4D4D8),
+                    color: const Color(0xFFEEE8E2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -416,7 +416,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F4F5),
+        color: const Color(0xFFFCF9F6),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -492,7 +492,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
+        color: const Color(0xFFFCF9F6),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: kBorderColor),
       ),
@@ -593,7 +593,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF27272A) : const Color(0xFFF4F4F5),
+                color: isSelected ? const Color(0xFF222222) : const Color(0xFFFCF9F6),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -644,7 +644,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
                     '${tier.eta} • ${tier.subtitle}',
                     style: TextStyle(
                       fontSize: 11.5,
-                      color: isSelected ? const Color(0xFFA1A1AA) : kSecondaryText,
+                      color: isSelected ? const Color(0xFF77716C) : kSecondaryText,
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,
@@ -671,7 +671,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
                   'incl. GST',
                   style: TextStyle(
                     fontSize: 10,
-                    color: isSelected ? const Color(0xFFA1A1AA) : kSecondaryText,
+                    color: isSelected ? const Color(0xFF77716C) : kSecondaryText,
                   ),
                 ),
               ],
@@ -686,7 +686,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
+        color: const Color(0xFFFCF9F6),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: kBorderColor),
       ),
@@ -724,7 +724,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
+        color: const Color(0xFFFCF9F6),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: kBorderColor),
       ),
@@ -814,7 +814,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
+        color: const Color(0xFFFCF9F6),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: kBorderColor),
       ),

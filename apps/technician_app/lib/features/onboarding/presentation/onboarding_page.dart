@@ -21,8 +21,8 @@ class _TechnicianOnboardingPageState extends State<TechnicianOnboardingPage> {
           'Connect instantly with thousands of verified local customers needing expert appliance, electrical & plumbing repairs.',
       badgeText: 'Instant Job Alerts',
       icon: Icons.notifications_active_rounded,
-      iconColor: Color(0xFF38BDF8),
-      bgGradient: [Color(0xFF0F172A), Color(0xFF1E293B)],
+      iconColor: Color(0xFFF46B12),
+      bgGradient: [Color(0xFFF46B12), Color(0xFFE85B08)],
     ),
     _OnboardingItem(
       title: 'Live GPS & Smart Navigation',
@@ -30,8 +30,8 @@ class _TechnicianOnboardingPageState extends State<TechnicianOnboardingPage> {
           'Turn-by-turn map directions directly to customer doorsteps with live ETA calculations and arrival updates.',
       badgeText: 'Turn-by-Turn GPS',
       icon: Icons.navigation_rounded,
-      iconColor: Color(0xFF10B981),
-      bgGradient: [Color(0xFF064E3B), Color(0xFF0F172A)],
+      iconColor: Color(0xFF198754),
+      bgGradient: [Color(0xFF198754), Color(0xFF222222)],
     ),
     _OnboardingItem(
       title: 'Instant Payouts & 5-Star Growth',
@@ -39,8 +39,8 @@ class _TechnicianOnboardingPageState extends State<TechnicianOnboardingPage> {
           'Track your earnings in real-time, get customer ratings, and receive seamless automated direct payouts.',
       badgeText: 'Secure Earnings & Wallet',
       icon: Icons.account_balance_wallet_rounded,
-      iconColor: Color(0xFFF59E0B),
-      bgGradient: [Color(0xFF312E81), Color(0xFF0F172A)],
+      iconColor: Color(0xFFE5A126),
+      bgGradient: [Color(0xFFF46B12), Color(0xFF222222)],
     ),
   ];
 
@@ -98,14 +98,14 @@ class _TechnicianOnboardingPageState extends State<TechnicianOnboardingPage> {
                         height: 36,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFF1E3A8A).withValues(alpha: 0.1),
+                          color: const Color(0xFFF46B12).withValues(alpha: 0.1),
                         ),
                         padding: const EdgeInsets.all(6),
                         child: Image.asset(
                           'assets/images/app_logo.png',
                           errorBuilder: (context, error, stackTrace) =>
                               const Icon(Icons.build_rounded,
-                                  color: Color(0xFF1E3A8A), size: 20),
+                                  color: Color(0xFFF46B12), size: 20),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -119,11 +119,11 @@ class _TechnicianOnboardingPageState extends State<TechnicianOnboardingPage> {
                           children: [
                             TextSpan(
                               text: 'bookur',
-                              style: TextStyle(color: Color(0xFF0F172A)),
+                              style: TextStyle(color: Color(0xFF222222)),
                             ),
                             TextSpan(
                               text: 'technician',
-                              style: TextStyle(color: Color(0xFF1E3A8A)),
+                              style: TextStyle(color: Color(0xFFF46B12)),
                             ),
                           ],
                         ),
@@ -293,8 +293,8 @@ class _TechnicianOnboardingPageState extends State<TechnicianOnboardingPage> {
                         width: _currentPage == index ? 24 : 7,
                         decoration: BoxDecoration(
                           color: _currentPage == index
-                              ? const Color(0xFF1E3A8A)
-                              : const Color(0xFFCBD5E1),
+                              ? const Color(0xFFF46B12)
+                              : const Color(0xFFEEE8E2),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -309,7 +309,7 @@ class _TechnicianOnboardingPageState extends State<TechnicianOnboardingPage> {
                     child: ElevatedButton(
                       onPressed: _onNextPressed,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E3A8A),
+                        backgroundColor: const Color(0xFFF46B12),
                         foregroundColor: Colors.white,
                         elevation: 2,
                         shape: RoundedRectangleBorder(
@@ -359,7 +359,7 @@ class _TechnicianOnboardingPageState extends State<TechnicianOnboardingPage> {
                               TextSpan(
                                 text: 'Log In',
                                 style: TextStyle(
-                                  color: Color(0xFF1E3A8A),
+                                  color: Color(0xFFF46B12),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

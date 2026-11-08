@@ -297,7 +297,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                   <td colSpan="9" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>
                     <div style={{ fontSize: '28px', marginBottom: '8px' }}>📋</div>
                     <strong>No bookings found.</strong>
-                    <p style={{ fontSize: '12.5px', marginTop: '4px', color: '#94A3B8' }}>
+                    <p style={{ fontSize: '12.5px', marginTop: '4px', color: '#77716C' }}>
                       When customers create bookings in the mobile app, their full details with live location will appear here automatically.
                     </p>
                   </td>
@@ -319,14 +319,14 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                           {b.bookingCode || b.id}
                         </strong>
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                          Start OTP: <strong style={{ color: '#0F172A', fontFamily: 'monospace' }}>{b.startOtp || '—'}</strong>
+                          Start OTP: <strong style={{ color: '#222222', fontFamily: 'monospace' }}>{b.startOtp || '—'}</strong>
                         </div>
                       </td>
                       <td>
                         <div><strong>{custName}</strong></div>
                         <small style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>📞 {custPhone}</small>
                         {b.address && (
-                          <div style={{ fontSize: '11px', color: '#64748B', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                          <div style={{ fontSize: '11px', color: '#77716C', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
                             📍 {b.address}
                           </div>
                         )}
@@ -341,8 +341,8 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                         {hasTech ? (
                           <div>
                             <strong>{techName}</strong>
-                            {b.technicianPhone && <div style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>📞 {b.technicianPhone}</div>}
-                            <div style={{ fontSize: '11px', color: '#15803D', fontWeight: '600' }}>🟢 Dispatched</div>
+                            {b.technicianPhone && <div style={{ fontSize: '11px', color: '#77716C', fontFamily: 'monospace' }}>📞 {b.technicianPhone}</div>}
+                            <div style={{ fontSize: '11px', color: '#198754', fontWeight: '600' }}>🟢 Dispatched</div>
                           </div>
                         ) : (
                           <span className="badge badge-pending">⚠️ Pending Dispatch</span>
@@ -373,7 +373,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                         <div style={{ display: 'inline-flex', gap: '6px' }}>
                           <button
                             className="btn btn-sm"
-                            style={{ background: '#2563EB', color: '#FFFFFF', fontWeight: '700', fontSize: '11.5px', padding: '4px 8px' }}
+                            style={{ background: '#F46B12', color: '#FFFFFF', fontWeight: '700', fontSize: '11.5px', padding: '4px 8px' }}
                             title="Open Real-time GPS Radar (Zomato/Blinkit Mode)"
                             onClick={() => setLiveTransitBooking(b)}
                           >
@@ -384,7 +384,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                           </button>
                           <button
                             className="btn btn-outline btn-sm"
-                            style={{ color: '#DC2626', borderColor: '#FECACA' }}
+                            style={{ color: '#DC3545', borderColor: '#FDECEC' }}
                             title="Delete this booking permanently"
                             onClick={() => handleDeleteBooking(b.id || b.bookingCode)}
                           >
@@ -417,7 +417,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                     {selectedBooking.status}
                   </span>
                 </h3>
-                <span style={{ fontSize: '12px', color: '#64748B' }}>
+                <span style={{ fontSize: '12px', color: '#77716C' }}>
                   Booked on: {new Date(selectedBooking.createdAt || Date.now()).toLocaleString()}
                 </span>
               </div>
@@ -428,7 +428,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
               {/* 1. Customer & Location Profile Card + Assigned Technician Card */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 {/* Customer & Location Details */}
-                <div style={{ padding: '14px', background: '#F8FAFC', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <div style={{ padding: '14px', background: '#FCF9F6', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
                       👤 Customer & Origin Location
@@ -436,7 +436,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                     <span className="badge badge-info" style={{ fontSize: '10px' }}>GPS Verified</span>
                   </div>
 
-                  <div style={{ fontWeight: '800', fontSize: '15px', color: '#0F172A' }}>
+                  <div style={{ fontWeight: '800', fontSize: '15px', color: '#222222' }}>
                     {selectedBooking.customerName || selectedBooking.customer || 'Customer'}
                   </div>
 
@@ -457,13 +457,13 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                   </div>
 
                   {/* Customer Full Address */}
-                  <div style={{ fontSize: '12px', color: '#334155', marginTop: '8px', lineHeight: '1.4', background: '#FFFFFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '12px', color: '#222222', marginTop: '8px', lineHeight: '1.4', background: '#FFFFFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #EEE8E2' }}>
                     <strong>📍 Booking Location:</strong>
-                    <div style={{ marginTop: '2px', color: '#64748B' }}>
+                    <div style={{ marginTop: '2px', color: '#77716C' }}>
                       {selectedBooking.fullAddress || selectedBooking.address || 'Address location provided upon booking'}
                     </div>
                     {selectedBooking.latitude && selectedBooking.longitude && (
-                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px', fontFamily: 'monospace' }}>
+                      <div style={{ fontSize: '11px', color: '#77716C', marginTop: '4px', fontFamily: 'monospace' }}>
                         Coordinates: {selectedBooking.latitude.toFixed(4)}, {selectedBooking.longitude.toFixed(4)}
                       </div>
                     )}
@@ -484,7 +484,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                 </div>
 
                 {/* Assigned Technician Profile Details */}
-                <div style={{ padding: '14px', background: '#F8FAFC', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
+                <div style={{ padding: '14px', background: '#FCF9F6', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                     <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
                       👨‍🔧 Assigned Technician
@@ -498,7 +498,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
 
                   {selectedBooking.technicianName && selectedBooking.technicianName !== 'Pending Dispatch' && selectedBooking.technicianName !== 'None Assigned' ? (
                     <div>
-                      <div style={{ fontWeight: '800', fontSize: '15px', color: '#0F172A' }}>
+                      <div style={{ fontWeight: '800', fontSize: '15px', color: '#222222' }}>
                         {selectedBooking.technicianName || selectedBooking.technician}
                       </div>
 
@@ -507,7 +507,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                           <>
                             <a
                               href={`tel:${selectedBooking.technicianPhone}`}
-                              style={{ fontSize: '13px', color: '#15803D', fontFamily: 'monospace', fontWeight: '700', textDecoration: 'none' }}
+                              style={{ fontSize: '13px', color: '#198754', fontFamily: 'monospace', fontWeight: '700', textDecoration: 'none' }}
                             >
                               📞 {selectedBooking.technicianPhone}
                             </a>
@@ -528,7 +528,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                         <span className="badge badge-info" style={{ fontSize: '11px' }}>
                           ⭐ {selectedBooking.technicianRating || 4.88} / 5.0
                         </span>
-                        <span className="badge" style={{ background: '#E2E8F0', color: '#334155', fontSize: '11px' }}>
+                        <span className="badge" style={{ background: '#EEE8E2', color: '#222222', fontSize: '11px' }}>
                           {selectedBooking.technicianCategory || 'Electrical & Appliances'}
                         </span>
                       </div>
@@ -536,7 +536,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
                         <button
                           className="btn btn-sm"
-                          style={{ width: '100%', background: '#2563EB', color: '#FFFFFF', fontWeight: '700', fontSize: '11.5px', padding: '7px' }}
+                          style={{ width: '100%', background: '#F46B12', color: '#FFFFFF', fontWeight: '700', fontSize: '11.5px', padding: '7px' }}
                           onClick={() => setLiveTransitBooking(selectedBooking)}
                         >
                           🛰️ Track Live GPS Transit (Zomato Map)
@@ -552,7 +552,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                     </div>
                   ) : (
                     <div style={{ padding: '12px 0', textAlign: 'center' }}>
-                      <p style={{ fontSize: '13px', color: '#DC2626', fontWeight: '700', marginBottom: '8px' }}>
+                      <p style={{ fontSize: '13px', color: '#DC3545', fontWeight: '700', marginBottom: '8px' }}>
                         ⚠️ No technician assigned yet
                       </p>
                       <button
@@ -567,15 +567,15 @@ export default function BookingsManager({ bookings = [], setBookings, technician
 
                   {/* Start OTP & End OTP verification boxes */}
                   <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <div style={{ padding: '6px 8px', background: '#EFF6FF', borderRadius: '4px', border: '1px solid #BFDBFE', textAlign: 'center' }}>
-                      <span style={{ fontSize: '10.5px', color: '#1E40AF', fontWeight: '700', display: 'block' }}>START OTP</span>
-                      <strong style={{ fontSize: '14px', color: '#1E40AF', letterSpacing: '2px', fontFamily: 'monospace' }}>
+                    <div style={{ padding: '6px 8px', background: '#FBE4D5', borderRadius: '4px', border: '1px solid #FBE4D5', textAlign: 'center' }}>
+                      <span style={{ fontSize: '10.5px', color: '#F46B12', fontWeight: '700', display: 'block' }}>START OTP</span>
+                      <strong style={{ fontSize: '14px', color: '#F46B12', letterSpacing: '2px', fontFamily: 'monospace' }}>
                         {selectedBooking.startOtp || '—'}
                       </strong>
                     </div>
-                    <div style={{ padding: '6px 8px', background: '#F0FDF4', borderRadius: '4px', border: '1px solid #BBF7D0', textAlign: 'center' }}>
-                      <span style={{ fontSize: '10.5px', color: '#166534', fontWeight: '700', display: 'block' }}>END OTP</span>
-                      <strong style={{ fontSize: '14px', color: '#166534', letterSpacing: '2px', fontFamily: 'monospace' }}>
+                    <div style={{ padding: '6px 8px', background: '#E8F5E9', borderRadius: '4px', border: '1px solid #E8F5E9', textAlign: 'center' }}>
+                      <span style={{ fontSize: '10.5px', color: '#198754', fontWeight: '700', display: 'block' }}>END OTP</span>
+                      <strong style={{ fontSize: '14px', color: '#198754', letterSpacing: '2px', fontFamily: 'monospace' }}>
                         {selectedBooking.endOtp || '—'}
                       </strong>
                     </div>
@@ -586,17 +586,17 @@ export default function BookingsManager({ bookings = [], setBookings, technician
               {/* 2. Booked Services List & Schedule */}
               <div style={{ padding: '12px 14px', background: '#FFFFFF', border: '1px solid var(--border-color)', borderRadius: '6px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#0F172A', textTransform: 'uppercase' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#222222', textTransform: 'uppercase' }}>
                     🛠️ Booked Services & Schedule
                   </span>
-                  <span style={{ fontSize: '12px', color: '#64748B', fontWeight: '600' }}>
+                  <span style={{ fontSize: '12px', color: '#77716C', fontWeight: '600' }}>
                     📅 {selectedBooking.scheduleDate || selectedBooking.date || 'Today'} • ⏰ {selectedBooking.scheduleSlot || selectedBooking.timeSlot || '3:00 PM – 4:00 PM'}
                   </span>
                 </div>
 
                 {Array.isArray(selectedBooking.services) && selectedBooking.services.length > 0 ? (
                   selectedBooking.services.map((srv, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: idx < selectedBooking.services.length - 1 ? '1px solid #F1F5F9' : 'none', fontSize: '13px' }}>
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: idx < selectedBooking.services.length - 1 ? '1px solid #FCF9F6' : 'none', fontSize: '13px' }}>
                       <span>• <strong>{srv.name || srv.title}</strong></span>
                       <strong style={{ fontFamily: 'monospace' }}>₹{srv.price}</strong>
                     </div>
@@ -626,9 +626,9 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                   <span>GST Tax (18% Invoiced):</span>
                   <span style={{ fontFamily: 'monospace' }}>₹{(selectedBooking.gstTax || ((selectedBooking.basePrice || selectedBooking.price || 0) * 0.18)).toFixed(2)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14.5px', fontWeight: '900', borderTop: '1px solid var(--border-color)', paddingTop: '8px', marginTop: '6px', color: '#0F172A' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14.5px', fontWeight: '900', borderTop: '1px solid var(--border-color)', paddingTop: '8px', marginTop: '6px', color: '#222222' }}>
                   <span>Customer Total Paid ({selectedBooking.paymentMethod || 'ONLINE'}):</span>
-                  <span style={{ color: '#15803D', fontFamily: 'monospace' }}>₹{(selectedBooking.totalAmount || selectedBooking.grandTotal || selectedBooking.price || 0).toFixed(2)}</span>
+                  <span style={{ color: '#198754', fontFamily: 'monospace' }}>₹{(selectedBooking.totalAmount || selectedBooking.grandTotal || selectedBooking.price || 0).toFixed(2)}</span>
                 </div>
               </div>
 
@@ -664,7 +664,7 @@ export default function BookingsManager({ bookings = [], setBookings, technician
               <button
                 type="button"
                 className="btn btn-outline"
-                style={{ color: '#D97706', borderColor: '#FDE68A' }}
+                style={{ color: '#E5A126', borderColor: '#FBE4D5' }}
                 onClick={() => handleCancelBooking(selectedBooking.id || selectedBooking.bookingCode)}
               >
                 Cancel Booking

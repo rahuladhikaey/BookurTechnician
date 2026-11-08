@@ -45,13 +45,58 @@ service cloud.firestore {
       allow write: if isOwner(custId) || isAdmin();
     }
 
-    // 3. Technician Profiles (Read by Authenticated Users, Write by Owner or Admin)
+    // 3. Technician Public Profiles (Read by Authenticated Users, Field-Guarded Write by Owner or Admin)
     match /technician_profiles/{techId} {
-      allow read: if isAuthenticated() || true;
-      allow write: if isOwner(techId) || isAdmin();
+      allow read: if isAuthenticated() || isAdmin();
+      allow create: if isAdmin() || (
+        isOwner(techId) &&
+        (!('verifiedByAdminUid' in request.resource.data)) &&
+        (!('kycStatus' in request.resource.data) || request.resource.data.kycStatus in ['NOT_SUBMITTED', 'PENDING']) &&
+        (!('skillVerificationStatus' in request.resource.data) || request.resource.data.skillVerificationStatus in ['PENDING'])
+      );
+      allow update: if isAdmin() || (
+        isOwner(techId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'verifiedByAdminUid',
+          'skillVerificationStatus',
+          'isAdminApproved',
+          'kycStatus',
+          'accountStatus',
+          'walletBalance',
+          'rating',
+          'totalRatingsCount',
+          'totalJobsCompleted'
+        ])
+      );
+      allow delete: if isAdmin();
     }
 
-    // 4. Bookings & Real-Time Dispatch (Strict Participant & Admin Access)
+    // 3b. Technician Private KYC & Payout Vault (Strictly Owner or Admin Only — Never Public)
+    match /technician_private/{techId} {
+      allow read: if isOwner(techId) || isAdmin();
+      allow create: if isAdmin() || (
+        isOwner(techId) &&
+        !request.resource.data.keys().hasAny([
+          'verifiedAt',
+          'verifiedByAdminUid'
+        ]) &&
+        (!('voterIdVerificationStatus' in request.resource.data) || request.resource.data.voterIdVerificationStatus in ['NOT_PROVIDED', 'PENDING']) &&
+        (!('upiVerificationStatus' in request.resource.data) || request.resource.data.upiVerificationStatus in ['NOT_PROVIDED', 'PENDING'])
+      );
+      allow update: if isAdmin() || (
+        isOwner(techId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'voterIdVerificationStatus',
+          'aadhaarVerificationStatus',
+          'upiVerificationStatus',
+          'verifiedAt',
+          'verifiedByAdminUid'
+        ])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 4. Bookings (Backend-Authoritative Assignment & Financial Security)
     match /bookings/{bookingId} {
       allow read: if isAuthenticated() && (
         resource == null ||
@@ -59,13 +104,73 @@ service cloud.firestore {
         resource.data.technicianId == request.auth.uid || 
         isAdmin()
       );
-      allow create: if isAuthenticated() && request.resource.data.customerId == request.auth.uid;
-      allow update: if isAuthenticated() && (
-        resource.data.customerId == request.auth.uid || 
-        resource.data.technicianId == request.auth.uid || 
-        isAdmin()
+      // Customers can create initial booking without assigning a technician
+      allow create: if isAuthenticated() && 
+        request.resource.data.customerId == request.auth.uid &&
+        request.resource.data.status in ['PENDING', 'SEARCHING', 'SUBMITTED', 'CONFIRMED'] &&
+        (!('technicianId' in request.resource.data) || request.resource.data.technicianId == null || request.resource.data.technicianId == '');
+
+      // Clients CANNOT alter authoritative assignment, pricing, OTP, or financial records
+      allow update: if isAdmin() || (
+        isAuthenticated() && (
+          // Customer can cancel their own pending booking
+          (resource.data.customerId == request.auth.uid &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancellationReason', 'cancelledAt', 'updatedAt']) &&
+           request.resource.data.status == 'CANCELLED') ||
+          // Assigned technician can update transit location and completion progress
+          (resource.data.technicianId == request.auth.uid &&
+           !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+             'customerId', 'technicianId', 'totalAmount', 'grandTotal', 'price',
+             'basePrice', 'discountPrice', 'paymentStatus', 'advancePaid',
+             'technicianPayoutAmount', 'startOtp', 'endOtp', 'bookingCharge'
+           ]))
+        )
       );
       allow delete: if isAdmin();
+    }
+
+    // 4b. Sequential Dispatch Offers (Technicians Access Only Their Assigned Offers)
+    match /dispatch_offers/{offerId} {
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        resource.data.technicianId == request.auth.uid ||
+        resource.data.targetTechnicianUid == request.auth.uid ||
+        isAdmin()
+      );
+      // Offers are created strictly by authoritative backend or admin
+      allow create: if isAdmin();
+      // Assigned technician can only accept or reject an active pending offer
+      allow update: if isAdmin() || (
+        isAuthenticated() &&
+        (resource.data.technicianId == request.auth.uid || resource.data.targetTechnicianUid == request.auth.uid) &&
+        resource.data.status in ['SENT', 'PENDING'] &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt', 'responseReason', 'updatedAt']) &&
+        request.resource.data.status in ['ACCEPTED', 'REJECTED']
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 4c. Dispatch Sessions & State Tracking (Server-Authoritative Only)
+    match /dispatch_sessions/{sessionId} {
+      allow read: if isAdmin() || (
+        isAuthenticated() && (
+          resource == null ||
+          resource.data.customerId == request.auth.uid ||
+          resource.data.assignedTechnicianId == request.auth.uid
+        )
+      );
+      allow write: if isAdmin();
+    }
+
+    // 4d. Booking Audit Timeline & Lifecycle Events (Server-Authoritative Only)
+    match /booking_events/{eventId} {
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        resource.data.customerId == request.auth.uid ||
+        resource.data.technicianId == request.auth.uid ||
+        isAdmin()
+      );
+      allow write: if isAdmin();
     }
 
     match /dispatch_requests/{requestId} {
@@ -87,8 +192,13 @@ service cloud.firestore {
       allow write: if isOwner(uid) || isAdmin();
     }
 
-    // 7. System Audit Logs (Admin Read Only, Write Denied for Direct Clients)
+    // 7. System Audit Logs & Dispatch Audit Logs (Admin Read Only, Write Denied for Direct Clients)
     match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /dispatch_audit_logs/{logId} {
       allow read: if isAdmin();
       allow write: if false;
     }
