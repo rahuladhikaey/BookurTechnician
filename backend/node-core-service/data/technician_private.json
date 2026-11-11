@@ -76,9 +76,25 @@
     "kycSubmittedAt": "2026-11-11T09:42:40.973Z",
     "verifiedAt": "2026-11-11T09:42:40.939Z",
     "verifiedByAdminUid": "admin_master",
-    "updatedAt": "2026-11-11T09:42:40.974Z",
+    "updatedAt": "2026-11-11T13:21:26.779Z",
     "aadhaarNumber": "123456789123",
     "voterIdNumber": "WBD1234567",
     "rejectionReason": ""
+  },
+  "tech-uuid-ram-988363": {
+    "uid": "tech-uuid-ram-988363",
+    "id": "tech-uuid-ram-988363",
+    "voterIdVerificationStatus": "NOT_SUBMITTED",
+    "maskedVoterId": "",
+    "aadhaarVerificationStatus": "NOT_SUBMITTED",
+    "maskedAadhaar": "",
+    "secureDocumentRefs": [],
+    "upiVerificationStatus": "NOT_SUBMITTED",
+    "upiId": "",
+    "maskedUpiId": "",
+    "kycSubmittedAt": null,
+    "verifiedAt": null,
+    "verifiedByAdminUid": null,
+    "updatedAt": "2026-11-11T13:29:26.618Z"
   }
 }

@@ -695,7 +695,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 const Text(
-                                  'By continuing, you agree to our ',
+                                  'By continuing, you confirm you are 18+ and agree to our ',
                                   style: TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                                 ),
                                 GestureDetector(
@@ -725,6 +725,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       decoration: TextDecoration.underline,
                                     ),
                                   ),
+                                ),
+                                const Text(
+                                  ' (DPDP Act 2023).',
+                                  style: TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                                 ),
                               ],
                             ),

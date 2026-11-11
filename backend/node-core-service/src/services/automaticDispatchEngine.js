@@ -487,6 +487,8 @@ function hasConflictingBooking(techId, bookingParams, excludeBookingId = null) {
         if (['COMPLETED', 'CANCELLED', 'REJECTED', 'FAILED', 'NO_TECHNICIAN_AVAILABLE'].includes(st)) {
           continue;
         }
+      } else {
+        continue;
       }
       if (!isScheduled && String(session.bookingMode || 'INSTANT').toUpperCase() === 'INSTANT') {
         return { conflict: true, conflictingBookingId: bId, reason: `ASSIGNED_SESSION_${bId}` };
@@ -2531,6 +2533,7 @@ module.exports = {
   getLiveAdminDispatchOverview,
   recordAuditLog,
   resetDispatchEngineStoresForTest,
+  clearAllSessions: resetDispatchEngineStoresForTest,
   dispatchSessionsStore,
   dispatchOffersStore,
   dispatchAuditLogsStore,

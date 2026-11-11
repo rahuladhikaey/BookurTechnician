@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grievance Redressal Portal | BookurTechnician</title>
+  <style>
+    :root {
+      --primary: #0F52BA;
+      --primary-dark: #083b8a;
+      --text: #1E293B;
+      --text-muted: #64748B;
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --border: #E2E8F0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      background: linear-gradient(135deg, #0F52BA, #1E293B);
+      color: white;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    header h1 { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+    header p { font-size: 14px; opacity: 0.9; }
+    .container {
+      max-width: 760px;
+      margin: -20px auto 40px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 36px 32px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+    }
+    .officer-card {
+      background: #F1F5F9;
+      border: 1px solid #CBD5E1;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .officer-card h3 { font-size: 18px; color: var(--primary); margin-bottom: 8px; }
+    .officer-card p { font-size: 14px; margin-bottom: 6px; }
+    h2 { font-size: 20px; color: var(--primary); margin: 24px 0 12px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .btn-submit {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      font-size: 15px;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-submit:hover { background: var(--primary-dark); }
+    footer { text-align: center; padding: 24px 20px; color: var(--text-muted); font-size: 13px; }
+    a { color: var(--primary); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>DPDP Grievance Redressal Portal</h1>
+  <p>In accordance with Section 13 of the Digital Personal Data Protection Act, 2023</p>
+</header>
+
+<div class="container">
+  <div class="officer-card">
+    <h3>Designated Grievance & Data Protection Officer</h3>
+    <p><strong>Name:</strong> Mr. Rahul Adhikary</p>
+    <p><strong>Designation:</strong> Grievance & Data Protection Officer (DPO)</p>
+    <p><strong>Entity:</strong> BookurTechnician Technologies Private Limited</p>
+    <p><strong>Official Email:</strong> <a href="mailto:grievance@bookurtechnician.com">grievance@bookurtechnician.com</a></p>
+    <p><strong>Helpline:</strong> +91 98300 00000 (Mon–Sat, 10:00 AM – 6:00 PM IST)</p>
+    <p><strong>Office Address:</strong> Salt Lake Sector V, Bidhannagar, Kolkata, West Bengal 700091, India</p>
+    <p><strong>Acknowledgement SLA:</strong> Within 24 hours &bull; <strong>Resolution SLA:</strong> Within 15 business days</p>
+  </div>
+
+  <h2>File a Formal Grievance</h2>
+  <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">
+    If you have any concerns regarding data privacy, personal data access, consent withdrawal, or service dispute, please submit your grievance below:
+  </p>
+
+  <form onsubmit="handleGrievance(event)">
+    <div class="form-group">
+      <label for="gName">Full Name *</label>
+      <input type="text" id="gName" required>
+    </div>
+    <div class="form-group">
+      <label for="gPhone">Registered Phone Number *</label>
+      <input type="tel" id="gPhone" required>
+    </div>
+    <div class="form-group">
+      <label for="gEmail">Email Address *</label>
+      <input type="email" id="gEmail" required>
+    </div>
+    <div class="form-group">
+      <label for="gType">Grievance Category *</label>
+      <select id="gType" required>
+        <option value="DATA_PRIVACY">DPDP Data Privacy / Consent Issue</option>
+        <option value="ACCOUNT_DATA_ERASURE">Account & Data Erasure Request</option>
+        <option value="NOMINATION">Nomination of Representative (Section 14)</option>
+        <option value="SERVICE_DISPUTE">Service Quality / Warranty Dispute</option>
+        <option value="OTHER">Other Query</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="gDetails">Description of Grievance *</label>
+      <textarea id="gDetails" rows="4" required></textarea>
+    </div>
+    <button type="submit" class="btn-submit">Submit Grievance</button>
+  </form>
+
+  <div id="gSuccess" style="display: none; background: #F0FDF4; border: 1px solid #86EFAC; color: #166534; padding: 16px; border-radius: 8px; margin-top: 20px;">
+    <h3>✅ Grievance Ticket Logged</h3>
+    <p>Your grievance has been formally registered with the Grievance Officer. A written acknowledgment with your ticket ID will be dispatched to your registered email/phone within 24 hours.</p>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 BookurTechnician Technologies Private Limited. All Rights Reserved.</p>
+  <p><a href="/privacy-policy">Privacy Policy</a> &bull; <a href="/terms-and-conditions">Terms of Service</a> &bull; <a href="/delete-account">Delete Account</a></p>
+</footer>
+
+<script>
+function handleGrievance(e) {
+  e.preventDefault();
+  e.target.style.display = 'none';
+  document.getElementById('gSuccess').style.display = 'block';
+}
+</script>
+
+</body>
+</html>

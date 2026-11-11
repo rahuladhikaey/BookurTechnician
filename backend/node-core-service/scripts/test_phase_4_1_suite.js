@@ -14,6 +14,7 @@ const bookingController = require('../src/controllers/bookingController');
 const redis = require('../src/config/redis');
 const { inMemoryTechProfiles, setTechnicianProfile } = require('../src/config/inMemoryTechStore');
 const bookingsStore = require('../src/config/bookingsStore');
+const automaticDispatchEngine = require('../src/services/automaticDispatchEngine');
 
 function createMockRes() {
   return {
@@ -120,6 +121,8 @@ async function runPhase41BackendSuite() {
   inMemoryTechProfiles.clear();
   bookingsStore.clearAllBookings();
   bookingController.clearMemoryBookings();
+  automaticDispatchEngine.resetDispatchEngineStoresForTest();
+  automaticDispatchEngine.clearAllSessions();
 
   const techId = 'tech-uuid-ram-988363';
   setTechnicianProfile(techId, {
@@ -175,6 +178,8 @@ async function runPhase41BackendSuite() {
   inMemoryTechProfiles.clear();
   bookingsStore.clearAllBookings();
   bookingController.clearMemoryBookings();
+  automaticDispatchEngine.resetDispatchEngineStoresForTest();
+  automaticDispatchEngine.clearAllSessions();
 
   const staleIso = new Date(Date.now() - 40 * 60 * 1000).toISOString(); // 40 minutes old
   setTechnicianProfile(techId, {
@@ -256,6 +261,7 @@ async function runPhase41BackendSuite() {
   console.log('▶ [Test 5] Simultaneous Dual-Customer Booking Race Condition on Single Technician...');
   bookingsStore.clearAllBookings();
   bookingController.clearMemoryBookings();
+  automaticDispatchEngine.clearAllSessions();
 
   setTechnicianProfile(techId, {
     ...inMemoryTechProfiles.get(techId),

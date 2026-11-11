@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/technician_banner_service.dart';
 import '../domain/technician_banner.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
 import '../../../core/services/location_tracking_service.dart';
@@ -260,11 +261,24 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
           ),
         ) {
     _initBanners();
+    _restoreOnlineStatus();
     fetchAndUpdateLocation().then((success) {
       if (success && state.isOnline) {
         LocationTrackingService().startTracking();
       }
     });
+  }
+
+  Future<void> _restoreOnlineStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedOnline = prefs.getBool('is_technician_online') ?? false;
+      if (savedOnline) {
+        state = state.copyWith(isOnline: true);
+        BookingRequestManager().setOnlineStatus(true);
+        LocationTrackingService().startTracking();
+      }
+    } catch (_) {}
   }
 
   Future<void> _initBanners() async {
@@ -305,6 +319,11 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       }
       await SecureStorage().saveUserId(savedUserId);
     }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_technician_online', val);
+    } catch (_) {}
 
     if (val) {
       // Attempt fresh GPS fix, but fallback to cached/default coords if indoors

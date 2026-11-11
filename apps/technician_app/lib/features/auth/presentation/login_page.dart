@@ -537,7 +537,7 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                             alignment: WrapAlignment.center,
                             children: [
                               const Text(
-                                'By continuing, you agree to our ',
+                                'By continuing, you confirm you are 18+ and agree to our ',
                                 style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                               ),
                               GestureDetector(
@@ -573,6 +573,10 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
                                     decoration: TextDecoration.underline,
                                   ),
                                 ),
+                              ),
+                              const Text(
+                                ' (DPDP Act, 2023).',
+                                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                               ),
                             ],
                           ),

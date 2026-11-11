@@ -140,11 +140,14 @@ class SecureStorage {
       final age = await _storage.read(key: _userAgeKey);
       final phone = await _storage.read(key: _userPhoneKey);
       final email = await _storage.read(key: _userEmailKey);
+      final userId = await getUserId();
       return {
         'name': name,
         'age': age,
         'phone': phone,
         'email': email,
+        'userId': userId,
+        'id': userId,
       };
     } catch (e) {
       debugPrint('SecureStorage.getUserDetails error: $e');

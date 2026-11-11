@@ -1742,7 +1742,10 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                               ? null
                               : () async {
                                   final currentCount = ref.read(bookingProvider).getServiceAvailabilityCount(service.id);
-                                  if (currentCount == 0) {
+                                  final aState = ref.read(bookingProvider).getServiceAvailabilityState(service.id);
+                                  if (currentCount == 0 &&
+                                      aState != ServiceAvailabilityState.quotaExceeded &&
+                                      aState != ServiceAvailabilityState.checkingAvailability) {
                                     _showNoTechnicianDialog(context, service.name);
                                     return;
                                   }
@@ -1837,7 +1840,10 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                               ? null
                               : () async {
                                   final currentCount = ref.read(bookingProvider).getServiceAvailabilityCount(service.id);
-                                  if (currentCount == 0) {
+                                  final aState = ref.read(bookingProvider).getServiceAvailabilityState(service.id);
+                                  if (currentCount == 0 &&
+                                      aState != ServiceAvailabilityState.quotaExceeded &&
+                                      aState != ServiceAvailabilityState.checkingAvailability) {
                                     _showNoTechnicianDialog(context, service.name);
                                     return;
                                   }

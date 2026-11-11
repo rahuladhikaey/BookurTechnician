@@ -1340,6 +1340,22 @@ class FirestoreRestClient {
           options.headers['x-user-id']?.toString() ??
           options.queryParameters['technicianId']?.toString();
       
+      bool isTechMatch(String oId, String xId) {
+        if (oId.isEmpty || xId.isEmpty) return true;
+        if (oId.toLowerCase() == xId.toLowerCase()) return true;
+        final cO = resolveCanonicalTechUid(oId).toLowerCase();
+        final cX = resolveCanonicalTechUid(xId).toLowerCase();
+        if (cO == cX) return true;
+        final oDigits = oId.replaceAll(RegExp(r'\D'), '');
+        final xDigits = xId.replaceAll(RegExp(r'\D'), '');
+        if (oDigits.isNotEmpty && xDigits.isNotEmpty) {
+          final o10 = oDigits.length >= 10 ? oDigits.substring(oDigits.length - 10) : oDigits;
+          final x10 = xDigits.length >= 10 ? xDigits.substring(xDigits.length - 10) : xDigits;
+          if (o10 == x10) return true;
+        }
+        return false;
+      }
+      
       final offers = await listCollection('dispatch_offers', forceRefresh: true);
       Map<String, dynamic>? pendingOffer;
 
@@ -1347,7 +1363,7 @@ class FirestoreRestClient {
         final st = (o['status']?.toString() ?? '').toUpperCase();
         if (st != 'SENT' && st != 'RINGING') continue;
         final oTechId = o['technicianId']?.toString() ?? '';
-        if (xTechId != null && xTechId.isNotEmpty && oTechId.isNotEmpty && oTechId != xTechId) {
+        if (xTechId != null && xTechId.isNotEmpty && oTechId.isNotEmpty && !isTechMatch(oTechId, xTechId)) {
           continue;
         }
         final expiresAtStr = o['expiresAt']?.toString();
@@ -1413,10 +1429,24 @@ class FirestoreRestClient {
         final parts = cleanPath.split('/');
         final offerId = parts.length >= 2 ? parts[parts.length - 2] : '';
         if (offerId.isNotEmpty) {
+          final nowIso = DateTime.now().toUtc().toIso8601String();
+          final existingOffer = await getDocument('dispatch_offers', offerId);
+          final bookingId = existingOffer?['bookingId']?.toString();
           await upsertDocument('dispatch_offers', offerId, {
             'status': 'ACCEPTED',
-            'acceptedAt': DateTime.now().toUtc().toIso8601String(),
+            'acceptedAt': nowIso,
           });
+          if (bookingId != null && bookingId.isNotEmpty) {
+            final xTechId = options.headers['x-technician-id']?.toString() ??
+                options.headers['x-user-id']?.toString() ??
+                existingOffer?['technicianId']?.toString();
+            await upsertDocument('bookings', bookingId, {
+              'status': 'ACCEPTED',
+              if (xTechId != null && xTechId.isNotEmpty) 'technicianId': xTechId,
+              'acceptedAt': nowIso,
+              'updatedAt': nowIso,
+            });
+          }
         }
         return Response(
           requestOptions: options,

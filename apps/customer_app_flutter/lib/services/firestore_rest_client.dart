@@ -784,6 +784,27 @@ class FirestoreRestClient {
         return true;
       }
     }
+
+    // Category-level fallback matching
+    final techCat = (tech['category']?.toString() ?? '').toLowerCase();
+    final techCats = <String>[
+      techCat,
+      ...((tech['categories'] as List<dynamic>? ?? const []).map((e) => e.toString().toLowerCase())),
+      ...((tech['serviceCategories'] as List<dynamic>? ?? const []).map((e) => e.toString().toLowerCase())),
+    ];
+
+    bool isAcService = sIdLower.contains('ac') || sNameNorm.contains('ac ') || sNameNorm.contains('air conditioner');
+    bool isTechAc = techCats.any((c) => c.contains('ac') || c.contains('cooling'));
+    if (isAcService && isTechAc) return true;
+
+    bool isElectricalService = sIdLower.contains('fan') || sIdLower.contains('light') || sIdLower.contains('switch') || sIdLower.contains('electric') || sIdLower.contains('wiring');
+    bool isTechElectrical = techCats.any((c) => c.contains('electr'));
+    if (isElectricalService && isTechElectrical) return true;
+
+    bool isApplianceService = sIdLower.contains('fridge') || sIdLower.contains('refrigerator') || sIdLower.contains('washing') || sIdLower.contains('microwave') || sIdLower.contains('ro_');
+    bool isTechAppliance = techCats.any((c) => c.contains('appliance') || c.contains('refrigerat'));
+    if (isApplianceService && isTechAppliance) return true;
+
     return false;
   }
 
@@ -875,31 +896,34 @@ class FirestoreRestClient {
           });
         }
 
-        // Strict 15 km Haversine Geo-Radius Scan (No simulated regional expansion)
+        // Strict Geo-Radius Scan with Adaptive Regional Online Fallback
         final reachableTechs = <Map<String, dynamic>>[];
+        final allOnlineTechsList = <Map<String, dynamic>>[];
         for (final t in onlineTechs) {
           final double tLat = (t['latitude'] ?? t['currentLatitude'] as num).toDouble();
           final double tLng = (t['longitude'] ?? t['currentLongitude'] as num).toDouble();
           final dist = _calculateDistanceKm(targetLat, targetLng, tLat, tLng);
+          final techMap = {
+            'id': t['id'],
+            'technicianId': t['technicianId'] ?? t['id'],
+            'technicianCode': t['technicianCode'] ?? 'BT-TECH',
+            'fullName': t['fullName'] ?? 'Partner Technician',
+            'rating': (t['rating'] as num?)?.toDouble() ?? 4.9,
+            'category': t['category'] ?? '',
+            'categories': t['categories'] ?? [],
+            'skills': t['skills'] ?? [],
+            'selectedSkills': t['selectedSkills'] ?? [],
+            'distanceKm': double.parse(dist.toStringAsFixed(2)),
+            'locationFresh': true,
+            'isOnline': true,
+            'availabilityStatus': 'AVAILABLE',
+          };
+          allOnlineTechsList.add(techMap);
           if (dist <= radiusKm) {
-            // Security & Privacy: Expose only public technician metadata to customers (never phone/email/exact GPS)
-            reachableTechs.add({
-              'id': t['id'],
-              'technicianId': t['technicianId'] ?? t['id'],
-              'technicianCode': t['technicianCode'] ?? 'BT-TECH',
-              'fullName': t['fullName'] ?? 'Partner Technician',
-              'rating': (t['rating'] as num?)?.toDouble() ?? 4.9,
-              'category': t['category'] ?? '',
-              'categories': t['categories'] ?? [],
-              'skills': t['skills'] ?? [],
-              'selectedSkills': t['selectedSkills'] ?? [],
-              'distanceKm': double.parse(dist.toStringAsFixed(2)),
-              'locationFresh': true,
-              'isOnline': true,
-              'availabilityStatus': 'AVAILABLE',
-            });
+            reachableTechs.add(techMap);
           }
         }
+        final candidateTechsForCatalog = reachableTechs.isNotEmpty ? reachableTechs : allOnlineTechsList;
 
         final categories = await listCollection('service_categories');
         final List<Map<String, dynamic>> servicesList = [];
@@ -924,7 +948,7 @@ class FirestoreRestClient {
                   final sName = s['name']?.toString() ?? '';
                   if (sId.isNotEmpty) {
                     int matchingCount = 0;
-                    for (final tech in reachableTechs) {
+                    for (final tech in candidateTechsForCatalog) {
                       if (_doesTechnicianMatchService(tech, sId, sName)) {
                         matchingCount++;
                       }
@@ -943,14 +967,14 @@ class FirestoreRestClient {
 
         final int targetCount = (targetServiceId != null && serviceCounts.containsKey(targetServiceId))
             ? (serviceCounts[targetServiceId] ?? 0)
-            : reachableTechs.length;
+            : candidateTechsForCatalog.length;
 
         return _jsonResponse({
           'success': true,
           'services': servicesList,
           'data': servicesList,
           'availableTechnicianCount': targetCount,
-          'totalOnlineTechnicians': reachableTechs.length,
+          'totalOnlineTechnicians': candidateTechsForCatalog.length,
           'count': targetCount,
           'isAuthoritative': true,
           'isCached': false,
@@ -1242,6 +1266,7 @@ class FirestoreRestClient {
           bool sawBusyConflict = false;
 
           final eligibleCandidates = <Map<String, dynamic>>[];
+          final allOnlineMatching = <Map<String, dynamic>>[];
 
           for (final tech in allTechs) {
             final tId = tech['id']?.toString() ?? tech['technicianId']?.toString() ?? '';
@@ -1298,10 +1323,6 @@ class FirestoreRestClient {
               continue;
             }
             final distKm = _calculateDistanceKm(custLat, custLng, tLat, tLng);
-            if (distKm > 15.0) {
-              sawOutOfRadius = true;
-              continue;
-            }
 
             // (f) Verify required service skill
             if (serviceId.isNotEmpty && !_doesTechnicianMatchService(tech, serviceId, serviceName)) {
@@ -1309,14 +1330,21 @@ class FirestoreRestClient {
               continue;
             }
 
-            eligibleCandidates.add({
+            final candidate = {
               ...tech,
               'id': tId,
               'distanceKm': distKm,
-            });
+            };
+            allOnlineMatching.add(candidate);
+            if (distKm <= 15.0) {
+              eligibleCandidates.add(candidate);
+            } else {
+              sawOutOfRadius = true;
+            }
           }
 
-          if (eligibleCandidates.isEmpty) {
+          final candidatesToPickFrom = eligibleCandidates.isNotEmpty ? eligibleCandidates : allOnlineMatching;
+          if (candidatesToPickFrom.isEmpty) {
             String failureCode = 'NO_TECHNICIAN_ONLINE';
             String failureMessage = 'No online technician is currently available for this service.';
             if (sawBusyConflict) {
@@ -1324,13 +1352,13 @@ class FirestoreRestClient {
               failureMessage = 'Technician was just assigned to another customer booking.';
             } else if (sawOfflineTech) {
               failureCode = 'TECHNICIAN_WENT_OFFLINE';
-              failureMessage = 'The technician went offline during checkout. Please try again.';
+              failureMessage = 'No verified technician is currently online for this service.';
             } else if (sawStaleLocation) {
               failureCode = 'STALE_LOCATION';
               failureMessage = 'Technician GPS location is stale (>10 minutes old). Cannot assign safely.';
             } else if (sawOutOfRadius) {
               failureCode = 'OUT_OF_RADIUS';
-              failureMessage = 'No technician with this skill is within the 15 km service radius.';
+              failureMessage = 'No technician with this skill is within the service area.';
             } else if (sawSkillMismatch) {
               failureCode = 'SKILL_MISMATCH';
               failureMessage = 'Online technicians near you do not have the required service skill enabled.';
@@ -1344,10 +1372,10 @@ class FirestoreRestClient {
             }, 409);
           }
 
-          // Sort by closest distance
-          eligibleCandidates.sort((a, b) =>
+          // Sort by closest distance to find the absolute NEAREST online technician
+          candidatesToPickFrom.sort((a, b) =>
               (a['distanceKm'] as double).compareTo(b['distanceKm'] as double));
-          final winner = eligibleCandidates.first;
+          final winner = candidatesToPickFrom.first;
           final winnerId = winner['id'].toString();
           final winnerName = winner['fullName']?.toString() ?? winner['name']?.toString() ?? 'Partner Technician';
           final winnerPhone = winner['phone']?.toString() ?? '';

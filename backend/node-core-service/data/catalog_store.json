@@ -1,6 +1,6 @@
 {
   "catalogVersion": 25,
-  "updatedAt": "2026-11-11T09:41:50.705Z",
+  "updatedAt": "2026-11-11T13:29:26.604Z",
   "categories": [
     {
       "id": "cat_electrical",
@@ -1592,10 +1592,10 @@
               "icon": "ac_unit",
               "isActive": true,
               "displayOrder": 1,
-              "usageCount": 0,
-              "bookingCount": 0,
+              "usageCount": 12,
+              "bookingCount": 12,
               "createdAt": "2026-01-01T00:00:00.000Z",
-              "updatedAt": "2026-11-08T02:59:35.975Z",
+              "updatedAt": "2026-11-11T13:29:26.604Z",
               "createdBy": "system_seed",
               "updatedBy": "system_seed"
             },

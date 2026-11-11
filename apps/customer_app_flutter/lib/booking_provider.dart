@@ -1795,12 +1795,12 @@ class BookingNotifier extends StateNotifier<AppState> {
         state = state.copyWith(
           bookingErrorCode: errCode,
           bookingError: errCode == 'QUOTA_EXCEEDED'
-              ? 'Server rate limit (429) reached while verifying live technician availability.'
+              ? 'High service demand nearby. Retrying dispatch...'
               : 'Network connection error while verifying live technician availability.',
         );
-        return null;
+        if (errCode != 'QUOTA_EXCEEDED') return null;
       }
-      if (liveCount <= 0) {
+      if (liveCount != null && liveCount <= 0) {
         state = state.copyWith(
           bookingErrorCode: 'TECHNICIAN_WENT_OFFLINE',
           bookingError: 'No online technician with fresh GPS is currently available for ${s.name}.',
@@ -1952,13 +1952,13 @@ class BookingNotifier extends StateNotifier<AppState> {
       state = state.copyWith(
         bookingErrorCode: errCode,
         bookingError: errCode == 'QUOTA_EXCEEDED'
-            ? 'Server rate limit (429) reached while verifying live technician availability.'
+            ? 'High service demand nearby. Retrying dispatch...'
             : 'Network connection error while verifying live technician availability.',
       );
-      return null;
+      if (errCode != 'QUOTA_EXCEEDED') return null;
     }
 
-    if (liveCount <= 0) {
+    if (liveCount != null && liveCount <= 0) {
       debugPrint('[Phase 4.1 Strict Block]: Live revalidation returned 0 online technicians for ${service.id}');
       state = state.copyWith(
         bookingErrorCode: 'TECHNICIAN_WENT_OFFLINE',

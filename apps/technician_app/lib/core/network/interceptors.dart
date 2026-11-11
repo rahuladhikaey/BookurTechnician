@@ -16,7 +16,16 @@ class AuthInterceptor extends Interceptor {
         options.headers['Authorization'] = 'Bearer $token';
       }
       final userDetails = await _storage.getUserDetails();
-      final techId = userDetails['userId'] ?? userDetails['id'];
+      var techId = userDetails['userId'] ?? userDetails['id'];
+      if (techId == null || techId.toString().isEmpty) {
+        techId = await _storage.getUserId();
+      }
+      if (techId == null || techId.toString().isEmpty) {
+        final phone = userDetails['phone'];
+        if (phone != null && phone.isNotEmpty) {
+          techId = FirestoreRestClient.resolveCanonicalTechUid(phone, phone: phone);
+        }
+      }
       if (techId != null && techId.toString().isNotEmpty) {
         options.headers['x-technician-id'] = techId.toString();
         options.headers['x-user-id'] = techId.toString();
@@ -47,8 +56,8 @@ class ErrorInterceptor extends Interceptor {
         );
         final fallbackDio = Dio(BaseOptions(
           baseUrl: AppConfig.renderApiBaseUrl,
-          connectTimeout: const Duration(seconds: 4),
-          receiveTimeout: const Duration(seconds: 4),
+          connectTimeout: const Duration(seconds: 2),
+          receiveTimeout: const Duration(seconds: 2),
         ));
         final response = await fallbackDio.request(
           originalRequest.path,
@@ -56,23 +65,23 @@ class ErrorInterceptor extends Interceptor {
           queryParameters: originalRequest.queryParameters,
           options: fallbackOptions,
         );
-        AppConfig.updateWorkingBaseUrl(AppConfig.renderApiBaseUrl);
-        return handler.resolve(response);
+        if (response.statusCode != null && response.statusCode! < 400) {
+          AppConfig.updateWorkingBaseUrl(AppConfig.renderApiBaseUrl);
+          return handler.resolve(response);
+        }
       } catch (retryErr) {
         // Fallback to Cloud Firestore below
       }
     }
 
     // Direct Cloud Firestore Fallback (bookmytechnician-53d94)
-    if (err.type == DioExceptionType.connectionTimeout ||
-        err.type == DioExceptionType.connectionError ||
-        err.type == DioExceptionType.receiveTimeout ||
-        err.type == DioExceptionType.unknown) {
-      try {
-        debugPrint('🔥 [TechnicianApp] Serving ${originalRequest.path} directly via Firebase Cloud Firestore');
-        final fbResp = await FirestoreRestClient.handleDioRequest(originalRequest);
-        return handler.resolve(fbResp);
-      } catch (_) {}
+    // Ensures real-time responsiveness when backend domains are unavailable or return 404/5xx
+    try {
+      debugPrint('🔥 [TechnicianApp] Serving ${originalRequest.path} directly via Firebase Cloud Firestore');
+      final fbResp = await FirestoreRestClient.handleDioRequest(originalRequest);
+      return handler.resolve(fbResp);
+    } catch (e) {
+      debugPrint('🔥 [TechnicianApp] Firestore fallback notice: $e');
     }
 
     if (err.response?.statusCode == 401) {

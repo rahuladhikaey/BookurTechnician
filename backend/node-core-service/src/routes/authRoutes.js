@@ -10,6 +10,7 @@ router.post('/logout', authController.logout);
 
 // Public Web Account Deletion (Google Play & Indus Appstore requirement)
 router.post('/account-deletion-request', authController.submitAccountDeletionRequest);
+router.post('/delete-account', authController.submitAccountDeletionRequest);
 router.get('/account-deletion-status/:requestId', authController.getAccountDeletionStatus);
 
 module.exports = router;

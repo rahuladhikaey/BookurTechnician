@@ -74,6 +74,14 @@ app.use(express.urlencoded({
   }
 }));
 
+// Public Web Legal & DPDP Act 2023 Compliance Routes (Google Play Console Requirements)
+const publicDir = path.join(__dirname, 'public');
+app.use('/public', express.static(publicDir));
+app.get(['/privacy-policy', '/privacy', '/privacy.html'], (req, res) => res.sendFile(path.join(publicDir, 'privacy-policy.html')));
+app.get(['/terms-and-conditions', '/terms', '/terms.html'], (req, res) => res.sendFile(path.join(publicDir, 'terms-and-conditions.html')));
+app.get(['/delete-account', '/delete_account', '/account-deletion'], (req, res) => res.sendFile(path.join(publicDir, 'delete-account.html')));
+app.get(['/grievance', '/grievance-portal', '/dpo'], (req, res) => res.sendFile(path.join(publicDir, 'grievance.html')));
+
 // Serve Static Admin Web Panel if built
 const potentialPaths = [
   path.join(__dirname, '../../../apps/admin_panel/dist'),
