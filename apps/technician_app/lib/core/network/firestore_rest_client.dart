@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../security/secure_storage.dart';
 import 'email_service.dart';
 
@@ -1150,6 +1151,16 @@ class FirestoreRestClient {
         };
 
         await upsertDocument('technician_profiles', techId, updateData);
+        _memoryCache['doc_technician_profiles_$techId'] = _CachedResult(DateTime.now(), updateData);
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final encoded = jsonEncode(enrichedSkills);
+          await prefs.setString('cached_technician_skills_$techId', encoded);
+          await prefs.setString('cached_technician_skills_global', encoded);
+          await prefs.setString('cached_technician_skills_default', encoded);
+          await prefs.setString('cached_technician_category_$techId', primaryCategory);
+          await prefs.setStringList('cached_technician_categories_$techId', declaredCategories.toList());
+        } catch (_) {}
 
         final profileResp = {
           'uid': techId,
@@ -1185,21 +1196,40 @@ class FirestoreRestClient {
       }
 
       // 2B. Fetch technician declared skills
-      final existingDocs = await listCollection('technician_profiles');
-      final techDoc = existingDocs.firstWhere(
-        (d) =>
-            d['uid'] == techId ||
-            d['id'] == techId ||
-            d['technicianId'] == techId ||
-            resolveCanonicalTechUid(d['id']?.toString() ?? '') == techId,
-        orElse: () => (existingDocs.isNotEmpty && (techId == 'uid_tech_partner' || techId.isEmpty))
-            ? existingDocs.first
-            : <String, dynamic>{},
-      );
+      Map<String, dynamic> techDoc = await getDocument('technician_profiles', techId) ?? <String, dynamic>{};
+      if (techDoc.isEmpty) {
+        final existingDocs = await listCollection('technician_profiles');
+        techDoc = existingDocs.firstWhere(
+          (d) =>
+              d['uid'] == techId ||
+              d['id'] == techId ||
+              d['technicianId'] == techId ||
+              resolveCanonicalTechUid(d['id']?.toString() ?? '') == techId,
+          orElse: () => (existingDocs.isNotEmpty && (techId == 'uid_tech_partner' || techId.isEmpty))
+              ? existingDocs.first
+              : <String, dynamic>{},
+        );
+      }
 
-      final rawSkills = techDoc['selectedSkills'] is List
-          ? techDoc['selectedSkills'] as List
-          : (techDoc['skills'] is List ? techDoc['skills'] as List : []);
+      List<dynamic> rawSkills = techDoc['selectedSkills'] is List
+          ? List<dynamic>.from(techDoc['selectedSkills'] as List)
+          : (techDoc['skills'] is List ? List<dynamic>.from(techDoc['skills'] as List) : <dynamic>[]);
+
+      // Fallback to local persistent cache if server/REST returns empty
+      if (rawSkills.isEmpty) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          var rawCached = prefs.getString('cached_technician_skills_$techId');
+          rawCached ??= prefs.getString('cached_technician_skills_global');
+          rawCached ??= prefs.getString('cached_technician_skills_default');
+          if (rawCached != null && rawCached.isNotEmpty) {
+            final decoded = jsonDecode(rawCached) as List<dynamic>;
+            if (decoded.isNotEmpty) {
+              rawSkills = decoded;
+            }
+          }
+        } catch (_) {}
+      }
       final partnerCode = techDoc['technicianCode']?.toString() ??
           resolveTechnicianCode(techId, phone: techDoc['phone']?.toString() ?? '');
       final profileResp = {

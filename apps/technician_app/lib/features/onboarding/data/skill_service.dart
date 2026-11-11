@@ -60,22 +60,26 @@ class SkillService {
       );
       if (res.statusCode == 200 && res.data != null) {
         final raw = res.data;
+        TechnicianSkillProfileModel? candidate;
         if (raw['data'] is Map<String, dynamic>) {
-          return TechnicianSkillProfileModel.fromJson(raw['data'] as Map<String, dynamic>);
+          candidate = TechnicianSkillProfileModel.fromJson(raw['data'] as Map<String, dynamic>);
         } else if (raw['profile'] is Map<String, dynamic>) {
-          return TechnicianSkillProfileModel.fromJson(raw['profile'] as Map<String, dynamic>);
+          candidate = TechnicianSkillProfileModel.fromJson(raw['profile'] as Map<String, dynamic>);
         } else if (raw['data'] is List) {
-          return TechnicianSkillProfileModel.fromJson({
+          candidate = TechnicianSkillProfileModel.fromJson({
             'skills': raw['data'],
             'technicianId': userId,
             'fullName': userDetails['name'] ?? 'Partner Technician',
           });
         } else if (raw['skills'] is List) {
-          return TechnicianSkillProfileModel.fromJson({
+          candidate = TechnicianSkillProfileModel.fromJson({
             'skills': raw['skills'],
             'technicianId': userId,
             'fullName': userDetails['name'] ?? 'Partner Technician',
           });
+        }
+        if (candidate != null && candidate.skills.isNotEmpty) {
+          return candidate;
         }
       }
     } catch (e) {
@@ -110,7 +114,12 @@ class SkillService {
     List<TechnicianSkillItemModel> fallbackSkills = [];
     try {
       final prefs = await SharedPreferences.getInstance();
-      final rawCached = prefs.getString('cached_technician_skills_$userId');
+      var rawCached = prefs.getString('cached_technician_skills_$userId');
+      rawCached ??= prefs.getString('cached_technician_skills_global');
+      rawCached ??= prefs.getString('cached_technician_skills_default');
+      if (rawCached == null && phone.isNotEmpty) {
+        rawCached = prefs.getString('cached_technician_skills_$phone');
+      }
       if (rawCached != null && rawCached.isNotEmpty) {
         final decoded = jsonDecode(rawCached) as List<dynamic>;
         fallbackSkills = decoded
@@ -176,7 +185,16 @@ class SkillService {
     // 1. Immediately cache locally in SharedPreferences (Guarantees persistence across restarts)
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('cached_technician_skills_$userId', jsonEncode(normalizedSkillsPayload));
+      final encodedSkills = jsonEncode(normalizedSkillsPayload);
+      await prefs.setString('cached_technician_skills_$userId', encodedSkills);
+      await prefs.setString('cached_technician_skills_global', encodedSkills);
+      await prefs.setString('cached_technician_skills_default', encodedSkills);
+      if (rawUserId != null && rawUserId.isNotEmpty && rawUserId != userId) {
+        await prefs.setString('cached_technician_skills_$rawUserId', encodedSkills);
+      }
+      if (phone.isNotEmpty) {
+        await prefs.setString('cached_technician_skills_$phone', encodedSkills);
+      }
       await prefs.setString('cached_technician_category_$userId', primaryCategory);
       await prefs.setStringList('cached_technician_categories_$userId', declaredCategories.toList());
     } catch (_) {}

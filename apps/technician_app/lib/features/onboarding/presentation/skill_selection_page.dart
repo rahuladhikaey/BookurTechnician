@@ -162,7 +162,7 @@ class _SkillSelectionPageState extends ConsumerState<SkillSelectionPage> {
           (route) => false,
         );
       } else {
-        Navigator.pop(context, true);
+        Navigator.pop(context, savedProfile);
       }
     }
   }

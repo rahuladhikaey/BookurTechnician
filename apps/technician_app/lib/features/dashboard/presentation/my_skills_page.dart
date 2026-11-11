@@ -122,10 +122,15 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
         actions: [
           TextButton.icon(
             onPressed: () async {
-              await Navigator.push(
+              final saved = await Navigator.push<TechnicianSkillProfileModel?>(
                 context,
                 MaterialPageRoute(builder: (_) => const SkillSelectionPage()),
               );
+              if (saved != null && saved.skills.isNotEmpty && mounted) {
+                setState(() {
+                  _profile = saved;
+                });
+              }
               _loadSkills();
             },
             icon: const Icon(Icons.add, size: 18, color: Color(0xFFF46B12)),
@@ -565,10 +570,15 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: () async {
-              await Navigator.push(
+              final saved = await Navigator.push<TechnicianSkillProfileModel?>(
                 context,
                 MaterialPageRoute(builder: (_) => const SkillSelectionPage()),
               );
+              if (saved != null && saved.skills.isNotEmpty && mounted) {
+                setState(() {
+                  _profile = saved;
+                });
+              }
               _loadSkills();
             },
             icon: const Icon(Icons.add, size: 18),
