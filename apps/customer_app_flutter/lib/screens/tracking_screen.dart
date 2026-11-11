@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:flutter/services.dart';
 import '../booking_provider.dart';
@@ -135,10 +134,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
 
   Future<void> _fetchLiveBookingDetails() async {
     try {
-      final res = await http.get(
-        Uri.parse('${AppConfig.apiBaseUrl}/bookings/${widget.bookingId}/live-tracking'),
-        headers: {'Content-Type': 'application/json'},
-      );
+      final res = await ApiClient.get('/bookings/${widget.bookingId}/live-tracking');
       if (res.statusCode == 200) {
         final decoded = jsonDecode(res.body);
         final data = decoded['data'] ?? decoded['booking'] ?? decoded['tracking'];
@@ -435,8 +431,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     if (_isResendingOtp) return;
     setState(() => _isResendingOtp = true);
     try {
-      final url = Uri.parse('${AppConfig.apiBaseUrl}/bookings/${widget.bookingId}/resend-start-otp');
-      final res = await http.post(url, headers: {'Content-Type': 'application/json'});
+      final res = await ApiClient.post('/bookings/${widget.bookingId}/resend-start-otp', {});
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final otp = data['startOtp']?.toString();
@@ -463,8 +458,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     if (_isResendingOtp) return;
     setState(() => _isResendingOtp = true);
     try {
-      final url = Uri.parse('${AppConfig.apiBaseUrl}/bookings/${widget.bookingId}/resend-end-otp');
-      final res = await http.post(url, headers: {'Content-Type': 'application/json'});
+      final res = await ApiClient.post('/bookings/${widget.bookingId}/resend-end-otp', {});
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final otp = data['endOtp']?.toString();

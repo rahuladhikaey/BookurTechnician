@@ -33,6 +33,17 @@ class AuthInterceptor extends Interceptor {
     } catch (e) {
       debugPrint('AuthInterceptor header attach notice: $e');
     }
+    // Pure Firebase Architecture: Route request directly to Cloud Firestore
+    if (AppConfig.isFirebasePrimary) {
+      try {
+        debugPrint('🔥 [TechnicianApp] Serving ${options.path} directly via Firebase Cloud Firestore');
+        final fbResp = await FirestoreRestClient.handleDioRequest(options);
+        return handler.resolve(fbResp);
+      } catch (e) {
+        debugPrint('🔥 [TechnicianApp] Firestore request error: $e');
+      }
+    }
+
     handler.next(options);
   }
 }
@@ -41,41 +52,8 @@ class ErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     final originalRequest = err.requestOptions;
-    
-    // Automatically retry against Render backend URL if primary domain is unreachable
-    if ((err.type == DioExceptionType.connectionTimeout ||
-         err.type == DioExceptionType.connectionError ||
-         err.type == DioExceptionType.unknown) &&
-        originalRequest.baseUrl.contains('api.bookurtechnician.online') &&
-        originalRequest.extra['retried_fallback'] != true) {
-      try {
-        final fallbackOptions = Options(
-          method: originalRequest.method,
-          headers: originalRequest.headers,
-          extra: {'retried_fallback': true},
-        );
-        final fallbackDio = Dio(BaseOptions(
-          baseUrl: AppConfig.renderApiBaseUrl,
-          connectTimeout: const Duration(seconds: 2),
-          receiveTimeout: const Duration(seconds: 2),
-        ));
-        final response = await fallbackDio.request(
-          originalRequest.path,
-          data: originalRequest.data,
-          queryParameters: originalRequest.queryParameters,
-          options: fallbackOptions,
-        );
-        if (response.statusCode != null && response.statusCode! < 400) {
-          AppConfig.updateWorkingBaseUrl(AppConfig.renderApiBaseUrl);
-          return handler.resolve(response);
-        }
-      } catch (retryErr) {
-        // Fallback to Cloud Firestore below
-      }
-    }
 
     // Direct Cloud Firestore Fallback (bookmytechnician-53d94)
-    // Ensures real-time responsiveness when backend domains are unavailable or return 404/5xx
     try {
       debugPrint('🔥 [TechnicianApp] Serving ${originalRequest.path} directly via Firebase Cloud Firestore');
       final fbResp = await FirestoreRestClient.handleDioRequest(originalRequest);

@@ -425,18 +425,15 @@ class BookingNotifier extends StateNotifier<AppState> {
     }
   }
 
-  /// Candidate URLs for resilient availability discovery
+  /// Candidate URLs for availability discovery (empty in pure Firebase mode to prioritize Firestore)
   List<String> get _availabilityCandidates {
-    final list = [
-      AppConfig.apiBaseUrl,
-      AppConfig.renderApiBaseUrl,
-      AppConfig.renderFallbackApiUrl,
-    ];
+    if (AppConfig.isFirebasePrimary) {
+      return const [];
+    }
+    final list = <String>[];
     if (!kReleaseMode) {
-      list.addAll([
-        AppConfig.localWifiApiBaseUrl,
-        AppConfig.localApiBaseUrl,
-      ]);
+      if (AppConfig.localWifiApiBaseUrl.isNotEmpty) list.add(AppConfig.localWifiApiBaseUrl);
+      if (AppConfig.localApiBaseUrl.isNotEmpty) list.add(AppConfig.localApiBaseUrl);
     }
     return list;
   }
@@ -1885,22 +1882,7 @@ class BookingNotifier extends StateNotifier<AppState> {
       }
 
       // Server rejected booking (e.g. 409 conflict, offline, stale GPS, duplicate, 429 quota)
-      String errCode = 'BOOKING_REJECTED';
-      String errMsg = 'Unable to assign technician. Please try again.';
-      try {
-        final decoded = jsonDecode(res.body);
-        if (decoded is Map) {
-          errCode = (decoded['code'] ?? decoded['error'] ?? errCode).toString();
-          errMsg = (decoded['message'] ?? decoded['error'] ?? errMsg).toString();
-        }
-      } catch (_) {}
-      if (res.statusCode == 429) {
-        errCode = 'QUOTA_EXCEEDED';
-      }
-      state = state.copyWith(
-        bookingErrorCode: errCode,
-        bookingError: errMsg,
-      );
+      _setBookingFailureFromResponse(res);
       return null;
     } catch (e) {
       debugPrint('Order booking failed due to network error: $e');
@@ -1910,6 +1892,58 @@ class BookingNotifier extends StateNotifier<AppState> {
       );
       return null;
     }
+  }
+
+  void _setBookingFailureFromResponse(http.Response res) {
+    String errCode = 'NO_TECHNICIAN_ONLINE';
+    String errMsg = 'No verified technician is currently available. Please try again shortly.';
+
+    if (res.statusCode == 429) {
+      errCode = 'QUOTA_EXCEEDED';
+      errMsg = 'High service demand nearby. Retrying dispatch...';
+    } else if (res.statusCode == 404) {
+      errCode = 'SERVICE_UNAVAILABLE';
+      errMsg = 'Booking service is temporarily unavailable. Please retry in a few moments.';
+    } else if (res.statusCode >= 500) {
+      errCode = 'SERVER_ERROR';
+      errMsg = 'Server is currently experiencing high load. Please try again.';
+    }
+
+    try {
+      final decoded = jsonDecode(res.body);
+      if (decoded is Map) {
+        if (decoded['code'] != null && decoded['code'].toString().isNotEmpty) {
+          errCode = decoded['code'].toString();
+        } else if (decoded['error'] != null && decoded['error'].toString().isNotEmpty) {
+          errCode = decoded['error'].toString();
+        }
+        if (decoded['message'] != null && decoded['message'].toString().isNotEmpty) {
+          errMsg = decoded['message'].toString();
+        } else if (decoded['error'] != null && decoded['error'].toString().isNotEmpty) {
+          errMsg = decoded['error'].toString();
+        }
+      }
+    } catch (_) {}
+
+    // Map raw backend error codes to clear, friendly customer messages
+    if (errCode == 'OUT_OF_RADIUS') {
+      errMsg = 'No technician with this skill is within the 15 km service area.';
+    } else if (errCode == 'NO_TECHNICIAN_ONLINE' || errCode == 'TECHNICIAN_WENT_OFFLINE') {
+      errMsg = 'No verified technician is currently online for this service.';
+    } else if (errCode == 'STALE_LOCATION') {
+      errMsg = 'Nearby technician GPS is updating. Please try again in 1 minute.';
+    } else if (errCode == 'TECHNICIAN_BUSY_CONFLICT') {
+      errMsg = 'Selected technician is currently assigned to another active booking.';
+    } else if (errCode == 'DUPLICATE_BOOKING') {
+      errMsg = 'A booking with this request is already active in your account.';
+    } else if (errCode == 'SKILL_MISMATCH') {
+      errMsg = 'No verified technician with AC installation skill is currently available.';
+    }
+
+    state = state.copyWith(
+      bookingErrorCode: errCode,
+      bookingError: errMsg,
+    );
   }
 
   Future<Booking?> confirmDirectServiceBooking({
@@ -2031,22 +2065,7 @@ class BookingNotifier extends StateNotifier<AppState> {
       }
 
       // Server rejected booking (e.g. 409 conflict, offline, stale GPS, duplicate, 429 quota)
-      String errCode = 'BOOKING_REJECTED';
-      String errMsg = 'Unable to assign technician. Please try again.';
-      try {
-        final decoded = jsonDecode(res.body);
-        if (decoded is Map) {
-          errCode = (decoded['code'] ?? decoded['error'] ?? errCode).toString();
-          errMsg = (decoded['message'] ?? decoded['error'] ?? errMsg).toString();
-        }
-      } catch (_) {}
-      if (res.statusCode == 429) {
-        errCode = 'QUOTA_EXCEEDED';
-      }
-      state = state.copyWith(
-        bookingErrorCode: errCode,
-        bookingError: errMsg,
-      );
+      _setBookingFailureFromResponse(res);
       return null;
     } catch (e) {
       debugPrint('Direct booking backend error: $e');

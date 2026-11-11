@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import '../config/app_config.dart';
-import '../network/dio_client.dart';
 import '../network/firestore_rest_client.dart';
 import '../security/secure_storage.dart';
 import 'audio_alert_service.dart';
@@ -248,36 +246,20 @@ class BookingRequestManager {
     }
   }
 
-  /// Resynchronizes pending dispatch requests from backend upon app open / socket reconnect
+  /// Resynchronizes pending dispatch requests directly from Cloud Firestore
   Future<void> syncPendingRequests() async {
     try {
-      debugPrint('🔄 [BookingRequestManager] Syncing pending dispatch proposals from backend...');
-      final dio = DioClient().dio;
-
-      Response response;
-      try {
-        response = await dio.get('${AppConfig.apiBaseUrl}/technician/offers');
-      } catch (_) {
-        try {
-          response = await dio.get('${AppConfig.apiBaseUrl}/dispatch/proposals/pending');
-        } catch (_) {
-          try {
-            response = await dio.get('${AppConfig.apiBaseUrl}/technician/dispatch/pending');
-          } catch (_) {
-            final myTechId = await SecureStorage().getUserId() ?? '';
-            response = await FirestoreRestClient.handleDioRequest(
-              RequestOptions(
-                path: '/technician/offers',
-                method: 'GET',
-                headers: {
-                  'x-technician-id': myTechId,
-                  'x-user-id': myTechId,
-                },
-              ),
-            );
-          }
-        }
-      }
+      final myTechId = await SecureStorage().getUserId() ?? '';
+      final response = await FirestoreRestClient.handleDioRequest(
+        RequestOptions(
+          path: '/technician/offers',
+          method: 'GET',
+          headers: {
+            'x-technician-id': myTechId,
+            'x-user-id': myTechId,
+          },
+        ),
+      );
 
       if (response.statusCode == 200 && response.data != null) {
         final resData = response.data;

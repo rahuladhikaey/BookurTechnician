@@ -21,19 +21,20 @@ class ApiClient {
   static String get activeBaseUrl => _cachedWorkingBaseUrl ?? AppConfig.apiBaseUrl;
 
   static List<String> get _candidateBaseUrls {
-    if (FirestoreRestClient.mockHttpHandler != null) {
+    if (AppConfig.isFirebasePrimary || FirestoreRestClient.mockHttpHandler != null) {
       return const [];
     }
-    final list = <String>[activeBaseUrl];
+    final list = <String>[];
     for (final u in [
+      activeBaseUrl,
       AppConfig.prodApiBaseUrl,
-      AppConfig.apiBaseUrl,
-      AppConfig.renderApiBaseUrl,
-      AppConfig.renderFallbackApiUrl,
       AppConfig.localWifiApiBaseUrl,
       AppConfig.localApiBaseUrl,
     ]) {
-      if (!list.contains(u)) {
+      if (u.isNotEmpty &&
+          !u.contains('onrender.com') &&
+          !u.contains('api.bookurtechnician.online') &&
+          !list.contains(u)) {
         list.add(u);
       }
     }
@@ -133,6 +134,37 @@ class ApiClient {
 
   static const Duration _fastTimeout = Duration(milliseconds: 3500);
 
+  /// Validates whether an HTTP response is an authoritative response from our application server,
+  /// rather than an infrastructure 404/5xx failure or reverse proxy error.
+  static bool _isAuthoritativeResponse(http.Response response, String endpoint) {
+    final status = response.statusCode;
+    // 2xx Success: Always authoritative
+    if (status >= 200 && status < 300) return true;
+
+    // 404 Not Found from an unconfigured host or missing proxy route is NOT authoritative
+    if (status == 404) {
+      final contentType = response.headers['content-type'] ?? '';
+      if (!contentType.contains('application/json')) return false;
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map && (decoded.containsKey('code') || decoded.containsKey('success'))) {
+          return true; // Authoritative application-level 404
+        }
+      } catch (_) {}
+      return false; // Infrastructure / Express route 404 ("Not Found" or "Cannot POST ...")
+    }
+
+    // 4xx Client Validation Errors (400, 401, 403, 409 Conflict, 422, 429):
+    // Authoritative server-side validations (e.g. DUPLICATE_BOOKING, TECHNICIAN_BUSY_CONFLICT)
+    // that must be respected and NEVER bypassed through fallback retries.
+    if (status >= 400 && status < 500) {
+      return true;
+    }
+
+    // 5xx Server errors / Gateway timeouts: Failover to next candidate or fallback
+    return false;
+  }
+
   static Future<http.Response> get(String endpoint) async {
     String? token = await getAccessToken();
 
@@ -148,8 +180,10 @@ class ApiClient {
             response = await http.get(uri, headers: _buildHeaders(token)).timeout(_fastTimeout);
           }
         }
-        if (response.statusCode < 500) {
-          _updateWorkingBaseUrl(base);
+        if (_isAuthoritativeResponse(response, endpoint)) {
+          if (response.statusCode < 400) {
+            _updateWorkingBaseUrl(base);
+          }
           return response;
         }
       } catch (e) {
@@ -184,8 +218,10 @@ class ApiClient {
             ).timeout(_fastTimeout);
           }
         }
-        if (response.statusCode < 500) {
-          _updateWorkingBaseUrl(base);
+        if (_isAuthoritativeResponse(response, endpoint)) {
+          if (response.statusCode < 400) {
+            _updateWorkingBaseUrl(base);
+          }
           return response;
         }
       } catch (e) {
@@ -220,8 +256,10 @@ class ApiClient {
             ).timeout(_fastTimeout);
           }
         }
-        if (response.statusCode < 500) {
-          _updateWorkingBaseUrl(base);
+        if (_isAuthoritativeResponse(response, endpoint)) {
+          if (response.statusCode < 400) {
+            _updateWorkingBaseUrl(base);
+          }
           return response;
         }
       } catch (e) {
@@ -256,8 +294,10 @@ class ApiClient {
             ).timeout(_fastTimeout);
           }
         }
-        if (response.statusCode < 500) {
-          _updateWorkingBaseUrl(base);
+        if (_isAuthoritativeResponse(response, endpoint)) {
+          if (response.statusCode < 400) {
+            _updateWorkingBaseUrl(base);
+          }
           return response;
         }
       } catch (e) {
@@ -290,8 +330,10 @@ class ApiClient {
             ).timeout(_fastTimeout);
           }
         }
-        if (response.statusCode < 500) {
-          _updateWorkingBaseUrl(base);
+        if (_isAuthoritativeResponse(response, endpoint)) {
+          if (response.statusCode < 400) {
+            _updateWorkingBaseUrl(base);
+          }
           return response;
         }
       } catch (e) {

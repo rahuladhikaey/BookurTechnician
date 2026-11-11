@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/firestore_rest_client.dart';
 import '../../../core/security/secure_storage.dart';
@@ -16,29 +15,6 @@ class SkillService {
 
   /// Fetch full dynamic hierarchy: Category -> Services -> Skills
   Future<List<SkillCategoryModel>> fetchCatalogHierarchy() async {
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 4),
-      receiveTimeout: const Duration(seconds: 4),
-    ));
-
-    for (final baseUrl in AppConfig.candidateBaseUrls) {
-      try {
-        final res = await dio.get('$baseUrl/catalog/hierarchy');
-        final rawList = (res.statusCode == 200) ? (res.data?['data'] ?? res.data?['categories'] ?? res.data) : null;
-        if (rawList is List && rawList.isNotEmpty) {
-          final parsed = rawList
-              .map((c) => SkillCategoryModel.fromJson(c as Map<String, dynamic>))
-              .where((c) => c.skills.isNotEmpty)
-              .toList();
-          if (parsed.isNotEmpty) {
-            return parsed;
-          }
-        }
-      } catch (e) {
-        debugPrint('Candidate hierarchy warning ($baseUrl): $e');
-      }
-    }
-
     try {
       final res = await _dioClient.dio.get('/catalog/categories');
       final rawList = res.data?['data'] ?? res.data?['categories'] ?? res.data;
@@ -71,7 +47,6 @@ class SkillService {
       phone: phone,
     );
     await SecureStorage().saveUserId(userId);
-    final token = await SecureStorage().getToken();
 
     try {
       final res = await _dioClient.dio.get(
@@ -107,42 +82,7 @@ class SkillService {
       debugPrint('Primary technician skill profile warning: $e');
     }
 
-    // Try candidate fallback endpoints
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 4),
-      receiveTimeout: const Duration(seconds: 4),
-      headers: {
-        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-        if (userId.isNotEmpty) 'x-technician-id': userId,
-      },
-    ));
-
-    for (final baseUrl in AppConfig.candidateBaseUrls) {
-      try {
-        final res = await dio.get(
-          '$baseUrl/technicians/skills',
-          queryParameters: {
-            if (userId.isNotEmpty) 'technicianId': userId,
-          },
-        );
-        if (res.statusCode == 200 && res.data != null) {
-          final raw = res.data;
-          if (raw['data'] is Map<String, dynamic>) {
-            return TechnicianSkillProfileModel.fromJson(raw['data'] as Map<String, dynamic>);
-          } else if (raw['profile'] is Map<String, dynamic>) {
-            return TechnicianSkillProfileModel.fromJson(raw['profile'] as Map<String, dynamic>);
-          } else if (raw['data'] is List) {
-            return TechnicianSkillProfileModel.fromJson({
-              'skills': raw['data'],
-              'technicianId': userId,
-              'fullName': userDetails['name'] ?? 'Partner Technician',
-            });
-          }
-        }
-      } catch (_) {}
-    }
-
-    // Check Cloud Firestore directly if backend API is unreachable
+    // Check Cloud Firestore directly if needed
     try {
       final doc = await FirestoreRestClient.getDocument('technician_profiles', userId);
       if (doc != null) {
@@ -208,7 +148,6 @@ class SkillService {
       phone: phone,
     );
     await SecureStorage().saveUserId(userId);
-    final token = await SecureStorage().getToken();
 
     final normalizedSkillsPayload = skillsPayload.map((s) {
       final sName = (s['skillName'] ?? s['name'] ?? '').toString();
@@ -304,32 +243,7 @@ class SkillService {
       debugPrint('Primary skills save warning: $e');
     }
 
-    // Try candidate fallback endpoints
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 4),
-      receiveTimeout: const Duration(seconds: 4),
-      headers: {
-        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
-        if (userId.isNotEmpty) 'x-technician-id': userId,
-      },
-    ));
 
-    for (final baseUrl in AppConfig.candidateBaseUrls) {
-      try {
-        final res = await dio.post(
-          '$baseUrl/technicians/skills/bulk',
-          data: payload,
-        );
-        if (res.statusCode == 200 && res.data != null) {
-          final raw = res.data;
-          if (raw['data'] is Map<String, dynamic>) {
-            return TechnicianSkillProfileModel.fromJson(raw['data'] as Map<String, dynamic>);
-          } else if (raw['profile'] is Map<String, dynamic>) {
-            return TechnicianSkillProfileModel.fromJson(raw['profile'] as Map<String, dynamic>);
-          }
-        }
-      } catch (_) {}
-    }
 
     return TechnicianSkillProfileModel.fromJson({
       'skills': normalizedSkillsPayload,

@@ -1,14 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config/app_config.dart';
 import '../network/firestore_rest_client.dart';
 
 class LocationTrackingService {
@@ -150,7 +147,6 @@ class LocationTrackingService {
         lastSyncedPos = position;
 
         final prefs = await SharedPreferences.getInstance();
-        final token = prefs.getString('auth_token');
         final userId = prefs.getString('user_id');
         final timeStr = DateFormat('hh:mm:ss a').format(now);
 
@@ -174,68 +170,30 @@ class LocationTrackingService {
           'timestamp': now.toIso8601String(),
         });
 
-        // Sync to backend candidates with real GPS payload & authentication headers
-        final payload = jsonEncode({
-          'technicianId': userId,
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-          'accuracy': position.accuracy,
-          'speed': position.speed,
-          'heading': position.heading,
-          'timestamp': now.toIso8601String(),
-        });
-
         // ─── DIRECT CLOUD FIRESTORE REAL-TIME GPS SYNC (Preserving Skills & Categories) ───
         try {
           final effectiveTechId = (userId != null && userId.isNotEmpty && userId != 'BT-PARTNER')
               ? userId
-              : 'tech_partner_01';
-          await FirestoreRestClient.upsertDocument('technician_profiles', effectiveTechId, {
-            'latitude': position.latitude,
-            'longitude': position.longitude,
-            'currentLatitude': position.latitude,
-            'currentLongitude': position.longitude,
-            'accuracy': position.accuracy,
-            'speed': position.speed,
-            'heading': position.heading,
-            'isOnline': true,
-            'online': true,
-            'availabilityStatus': 'AVAILABLE',
-            'lastLocationUpdate': now.toUtc().toIso8601String(),
-            'updatedAt': now.toUtc().toIso8601String(),
-          });
+              : (prefs.getString('technician_id') ?? prefs.getString('uid') ?? '');
+          if (effectiveTechId.isNotEmpty && effectiveTechId != 'tech_partner_01') {
+            await FirestoreRestClient.upsertDocument('technician_profiles', effectiveTechId, {
+              'latitude': position.latitude,
+              'longitude': position.longitude,
+              'currentLatitude': position.latitude,
+              'currentLongitude': position.longitude,
+              'accuracy': position.accuracy,
+              'speed': position.speed,
+              'heading': position.heading,
+              'isOnline': true,
+              'online': true,
+              'availabilityStatus': 'AVAILABLE',
+              'lastLocationUpdate': now.toUtc().toIso8601String(),
+              'updatedAt': now.toUtc().toIso8601String(),
+            });
+          }
         } catch (_) {}
 
-        for (final base in AppConfig.candidateBaseUrls) {
-          try {
-            final endpoints = [
-              '$base/technicians/location-sync',
-              '$base/technician/location',
-              '$base/technicians/location',
-            ];
-
-            for (final ep in endpoints) {
-              try {
-                final uri = Uri.parse(ep);
-                final headers = <String, String>{
-                  'Content-Type': 'application/json',
-                };
-                if (token != null && token.isNotEmpty) {
-                  headers['Authorization'] = 'Bearer $token';
-                }
-                if (userId != null && userId.isNotEmpty) {
-                  headers['x-technician-id'] = userId;
-                  headers['x-user-id'] = userId;
-                }
-
-                final res = await http.post(uri, headers: headers, body: payload).timeout(const Duration(seconds: 4));
-                if (res.statusCode < 400) {
-                  break;
-                }
-              } catch (_) {}
-            }
-          } catch (_) {}
-        }
+        // GPS coordinates are synchronized directly and atomically to Cloud Firestore above
       } catch (e) {
         debugPrint('Location sync error: $e');
       }

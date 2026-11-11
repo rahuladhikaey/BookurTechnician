@@ -1343,7 +1343,7 @@ class FirestoreRestClient {
             }
           }
 
-          final candidatesToPickFrom = eligibleCandidates.isNotEmpty ? eligibleCandidates : allOnlineMatching;
+          final candidatesToPickFrom = eligibleCandidates;
           if (candidatesToPickFrom.isEmpty) {
             String failureCode = 'NO_TECHNICIAN_ONLINE';
             String failureMessage = 'No online technician is currently available for this service.';
@@ -1470,7 +1470,33 @@ class FirestoreRestClient {
           }
         }
 
+        if ((cleanPath.contains('/resend-start-otp') || cleanPath.contains('/resend-end-otp')) && m == 'POST') {
+          final parts = cleanPath.split('/');
+          final bIndex = parts.indexOf('bookings');
+          final bId = bIndex != -1 && parts.length > bIndex + 1 ? parts[bIndex + 1] : '';
+          final booking = bId.isNotEmpty ? await getDocument('bookings', bId) : null;
+          return _jsonResponse({
+            'success': true,
+            'message': 'OTP resent successfully',
+            'data': booking,
+            'startOtp': booking?['startOtp'],
+            'endOtp': booking?['endOtp'],
+          });
+        }
+
         if (m == 'GET') {
+          final parts = cleanPath.split('/');
+          final bookingIdx = parts.indexOf('bookings');
+          if (bookingIdx != -1 && parts.length > bookingIdx + 1 && parts[bookingIdx + 1].isNotEmpty && parts[bookingIdx + 1] != 'my-bookings') {
+            final bId = parts[bookingIdx + 1];
+            final singleBooking = await getDocument('bookings', bId);
+            return _jsonResponse({
+              'success': true,
+              'data': singleBooking,
+              'booking': singleBooking,
+              'tracking': singleBooking,
+            });
+          }
           final bookings = await listCollection('bookings');
           return _jsonResponse({
             'success': true,

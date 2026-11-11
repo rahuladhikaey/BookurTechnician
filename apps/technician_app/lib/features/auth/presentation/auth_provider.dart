@@ -5,7 +5,6 @@ import 'package:geolocator/geolocator.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/firestore_rest_client.dart';
 import '../../../core/security/secure_storage.dart';
-import '../../../core/config/app_config.dart';
 import '../domain/auth_repository.dart';
 import '../../../core/network/api_result.dart';
 import '../../../core/services/socket_service.dart';
@@ -325,12 +324,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
     String? lastErrorMsg;
 
-    final routableCandidates = AppConfig.candidateBaseUrls.where((u) {
-      if (kReleaseMode && (u.contains('192.168.') || u.contains('10.0.2.2'))) {
-        return false;
-      }
-      return true;
-    }).take(2).toList();
+    final routableCandidates = <String>[];
 
     for (final baseUrl in routableCandidates) {
       try {

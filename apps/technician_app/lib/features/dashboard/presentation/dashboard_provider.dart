@@ -250,6 +250,7 @@ class DashboardState {
 
 class DashboardNotifier extends StateNotifier<DashboardState> {
   Timer? _countdownTimer;
+  Timer? _presenceHeartbeatTimer;
 
   DashboardNotifier()
       : super(
@@ -339,6 +340,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       );
       BookingRequestManager().setOnlineStatus(true);
       await LocationTrackingService().startTracking();
+      _startPresenceHeartbeat();
 
       try {
         final userDetails = await SecureStorage().getUserDetails();
@@ -392,6 +394,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       return true;
     } else {
       // Going offline stops background tracking, rejects proposals, and updates server
+      _presenceHeartbeatTimer?.cancel();
       state = state.copyWith(isOnline: false);
       BookingRequestManager().setOnlineStatus(false);
       await LocationTrackingService().stopTracking();
@@ -611,9 +614,29 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
     _startCountdownTimer();
   }
 
+  void _startPresenceHeartbeat() {
+    _presenceHeartbeatTimer?.cancel();
+    _presenceHeartbeatTimer = Timer.periodic(const Duration(seconds: 45), (_) async {
+      if (!state.isOnline) return;
+      try {
+        final userId = await SecureStorage().getUserId();
+        if (userId != null && userId.isNotEmpty && userId != 'BT-PARTNER') {
+          await FirestoreRestClient.upsertDocument('technician_profiles', userId, {
+            'lastLocationUpdate': DateTime.now().toUtc().toIso8601String(),
+            'updatedAt': DateTime.now().toUtc().toIso8601String(),
+            'isOnline': true,
+            'online': true,
+            'availabilityStatus': 'AVAILABLE',
+          });
+        }
+      } catch (_) {}
+    });
+  }
+
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _presenceHeartbeatTimer?.cancel();
     super.dispose();
   }
 }

@@ -1,6 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:dio/dio.dart';
-import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
 
@@ -171,23 +169,6 @@ class TechnicianProfileService {
     } catch (e) {
       debugPrint('[TechnicianProfileService] uploadProfilePhoto warning: $e');
     }
-
-    final token = await SecureStorage().getToken();
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 4),
-      receiveTimeout: const Duration(seconds: 4),
-      headers: {
-        if (token != null) 'Authorization': 'Bearer $token',
-        if (userId != null) 'x-technician-id': userId,
-      },
-    ));
-
-    for (final baseUrl in AppConfig.candidateBaseUrls) {
-      try {
-        final res = await dio.post('$baseUrl/technicians/profile/photo', data: payload);
-        if (res.statusCode == 200 || res.statusCode == 201) return true;
-      } catch (_) {}
-    }
     return false;
   }
 
@@ -209,23 +190,6 @@ class TechnicianProfileService {
       if (res.statusCode == 200 || res.statusCode == 201) return true;
     } catch (e) {
       debugPrint('[TechnicianProfileService] submitKycDocument warning: $e');
-    }
-
-    final token = await SecureStorage().getToken();
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 4),
-      receiveTimeout: const Duration(seconds: 4),
-      headers: {
-        if (token != null) 'Authorization': 'Bearer $token',
-        if (userId != null) 'x-technician-id': userId,
-      },
-    ));
-
-    for (final baseUrl in AppConfig.candidateBaseUrls) {
-      try {
-        final res = await dio.post('$baseUrl/technicians/documents', data: payload);
-        if (res.statusCode == 200 || res.statusCode == 201) return true;
-      } catch (_) {}
     }
     return false;
   }
