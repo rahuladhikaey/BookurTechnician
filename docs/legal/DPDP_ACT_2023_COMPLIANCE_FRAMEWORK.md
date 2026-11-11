@@ -110,3 +110,4 @@ Data Principals have the right to nominate another individual who, in the event 
 
 ## 7. Data Protection Board of India (DPBI) Escalation
 If a Data Principal is unsatisfied with the resolution provided by our Grievance Officer, they maintain the statutory right under Section 13(3) of the DPDP Act to file a complaint before the **Data Protection Board of India**.
+

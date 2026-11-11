@@ -208,3 +208,4 @@ Download the BookurTechnician Partner App now and take your career to the next l
 - **Physical Location Sharing:** Yes (Location is shared between customer and assigned technician to enable physical service delivery).
 - **Digital Purchases:** No digital goods sold; only physical real-world home repair services.
 - **Expected Rating:** PEGI 3 / Everyone (ESRB) / USK 0.
+

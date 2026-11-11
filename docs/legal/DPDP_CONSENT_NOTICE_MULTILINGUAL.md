@@ -123,3 +123,4 @@ BookurTechnician Technologies Private Limited ("BookurTechnician") आपके 
 [ ] मैं पुष्टि करता/करती हूँ कि मेरी आयु 18 वर्ष या उससे अधिक है।
 [ ] मैंने सेवा की शर्तें और गोपनीयता नीति पढ़ ली है और मैं सहमत हूँ।
 ```
+

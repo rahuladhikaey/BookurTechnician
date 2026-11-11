@@ -101,3 +101,4 @@ android {
    - Account Deletion URL: `https://bookurtechnician.online/delete-account`
 7. **Submit for Review:**
    - Send for review. Google Play typically reviews new apps within 24 to 72 hours.
+

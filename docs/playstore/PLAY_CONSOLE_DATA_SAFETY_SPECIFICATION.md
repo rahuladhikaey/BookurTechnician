@@ -104,3 +104,4 @@ Google Play Developer Policy requires all apps that allow account creation to pr
 2. **Web-Based Account Deletion URL:**  
    Direct Public URL: `https://bookurtechnician.online/delete-account`  
    *Requirements Satisfied:* Users can request total account and data wipe without reinstalling the app. All personal data, location history, and profile records are expunged within 30 days in strict accordance with the DPDP Act 2023.
+
