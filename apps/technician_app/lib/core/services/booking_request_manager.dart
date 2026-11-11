@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../network/firestore_rest_client.dart';
 import '../security/secure_storage.dart';
 import 'audio_alert_service.dart';
@@ -19,6 +21,7 @@ enum BookingRequestState {
 class JobProposalData {
   final String proposalId;
   final String bookingId;
+  final String serviceId;
   final String serviceType;
   final String serviceName;
   final String customerName;
@@ -33,6 +36,7 @@ class JobProposalData {
   const JobProposalData({
     required this.proposalId,
     required this.bookingId,
+    this.serviceId = '',
     required this.serviceType,
     required this.serviceName,
     required this.customerName,
@@ -50,6 +54,7 @@ class JobProposalData {
     final rawTotal = data['totalAmount'] ?? data['price'] ?? '499';
     final srvType = data['serviceName'] ?? data['serviceType'] ?? data['category'] ?? 'Service Request';
     final approxArea = data['approximateCustomerArea'] ?? data['approximateArea'] ?? data['customerAddress'] ?? data['address'] ?? 'Nearby Service Area';
+    final srvId = data['serviceId'] ?? data['service_id'] ?? '';
 
     return JobProposalData(
       proposalId: data['offerId']?.toString() ??
@@ -58,6 +63,7 @@ class JobProposalData {
           data['id']?.toString() ??
           'offer-${DateTime.now().millisecondsSinceEpoch}',
       bookingId: data['bookingId']?.toString() ?? data['id']?.toString() ?? '',
+      serviceId: srvId.toString(),
       serviceType: srvType.toString(),
       serviceName: (data['serviceName'] ?? srvType).toString(),
       customerName: (data['customerName'] ?? data['customer'] ?? 'Verified Customer').toString(),
@@ -152,6 +158,42 @@ class BookingRequestManager {
     _scheduleDeduplicationCleanup(deduplicationKey);
 
     debugPrint('🚨 [BookingRequestManager] Processing incoming request: ${proposal.proposalId} for booking: ${proposal.bookingId}');
+
+    // Layer 3 Defense: Check local skill eligibility if service info is present
+    final targetSrvId = proposal.serviceId.isNotEmpty ? proposal.serviceId : proposal.serviceName;
+    if (targetSrvId.isNotEmpty) {
+      final srvCanonical = FirestoreRestClient.resolveCanonicalServiceId(
+        targetSrvId,
+        skillName: proposal.serviceName,
+      );
+      // Verify against local cached skills
+      SharedPreferences.getInstance().then((prefs) async {
+        final userId = await SecureStorage().getUserId() ?? '';
+        final raw = prefs.getString('cached_technician_skills_$userId');
+        if (raw != null && raw.isNotEmpty) {
+          try {
+            final list = jsonDecode(raw) as List<dynamic>;
+            final hasMatch = list.any((s) {
+              if (s is Map) {
+                final v = (s['verificationStatus'] ?? s['status'])?.toString().toUpperCase() ?? 'VERIFIED';
+                final en = s['enabled'] != false && s['isActive'] != false;
+                if (v != 'VERIFIED' || !en) return false;
+                final skId = (s['canonicalServiceId'] ?? s['serviceId'] ?? s['id'])?.toString() ?? '';
+                final skName = (s['name'] ?? s['skillName'])?.toString() ?? '';
+                final c = FirestoreRestClient.resolveCanonicalServiceId(skId, skillName: skName);
+                return c == srvCanonical;
+              }
+              return false;
+            });
+            if (!hasMatch) {
+              debugPrint('⛔ [BookingRequestManager] Rejecting offer: Technician lacks verified skill for $srvCanonical');
+              AudioAlertService().stopRingtone();
+              dismissActiveDialog();
+            }
+          } catch (_) {}
+        }
+      });
+    }
 
     // 1. Play loud incoming ringtone & emergency vibration
     AudioAlertService().startJobAlertRingtone();

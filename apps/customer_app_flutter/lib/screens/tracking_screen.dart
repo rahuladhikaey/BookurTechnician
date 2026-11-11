@@ -211,7 +211,11 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
             }
           }
         }
-      } catch (_) {}
+      } catch (_) {
+        if (mounted && _technicianLocation == null) {
+          setState(() => _socketStatus = 'RECONNECTING');
+        }
+      }
     }
   }
 
@@ -484,6 +488,10 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
   void _onTechnicianLocationReceived(LatLng newLocation, double heading, double speed) {
     _technicianHeading = heading;
     _technicianSpeed = speed;
+
+    if (mounted && _socketStatus != 'CONNECTED') {
+      setState(() => _socketStatus = 'CONNECTED');
+    }
 
     final startLoc = _technicianLocation ?? newLocation;
     final endLoc = newLocation;
@@ -915,7 +923,11 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                         if (decoded is Map && decoded['message'] != null) {
                           msg = decoded['message'];
                         }
-                      } catch (_) {}
+                      } catch (_) {
+        if (mounted && _technicianLocation == null) {
+          setState(() => _socketStatus = 'RECONNECTING');
+        }
+      }
                       setState(() => _hasClaimedWarranty = true);
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -1374,14 +1386,17 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                             const Icon(Icons.verified_rounded, color: Color(0xFFF46B12), size: 16),
                                           ],
                                         ),
-                                        const SizedBox(height: 2),
-                                        Row(
+                                        const SizedBox(height: 3),
+                                        Wrap(
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          spacing: 6,
+                                          runSpacing: 2,
                                           children: [
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFFFBE4D5),
-                                                borderRadius: BorderRadius.circular(6),
+                                                borderRadius: BorderRadius.circular(5),
                                                 border: Border.all(color: const Color(0xFFFBE4D5)),
                                               ),
                                               child: Text(
@@ -1389,22 +1404,25 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                                 style: const TextStyle(
                                                   color: Color(0xFFF46B12),
                                                   fontWeight: FontWeight.w800,
-                                                  fontSize: 10.5,
-                                                  letterSpacing: 0.4,
+                                                  fontSize: 10,
+                                                  letterSpacing: 0.3,
                                                 ),
                                               ),
                                             ),
-                                            const SizedBox(width: 8),
-                                            const Icon(Icons.star_rounded, color: Color(0xFFE5A126), size: 15),
-                                            const SizedBox(width: 2),
-                                            Text(
-                                              techRating.toStringAsFixed(1),
-                                              style: const TextStyle(color: Color(0xFF222222), fontSize: 11.5, fontWeight: FontWeight.w800),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.star_rounded, color: Color(0xFFE5A126), size: 14),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  techRating.toStringAsFixed(1),
+                                                  style: const TextStyle(color: Color(0xFF222222), fontSize: 11, fontWeight: FontWeight.w800),
+                                                ),
+                                              ],
                                             ),
-                                            const SizedBox(width: 4),
                                             const Text(
-                                              '• 15km Verified',
-                                              style: TextStyle(color: Color(0xFF77716C), fontSize: 11, fontWeight: FontWeight.w600),
+                                              '• Verified',
+                                              style: TextStyle(color: Color(0xFF77716C), fontSize: 10.5, fontWeight: FontWeight.w600),
                                             ),
                                           ],
                                         ),

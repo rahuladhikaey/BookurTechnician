@@ -110,17 +110,17 @@ service cloud.firestore {
         request.resource.data.status in ['PENDING', 'SEARCHING', 'SUBMITTED', 'CONFIRMED'] &&
         (!('technicianId' in request.resource.data) || request.resource.data.technicianId == null || request.resource.data.technicianId == '');
 
-      // Clients CANNOT alter authoritative assignment, pricing, OTP, or financial records
+      // Clients CANNOT alter authoritative assignment, pricing, status, OTP, or financial records
       allow update: if isAdmin() || (
         isAuthenticated() && (
           // Customer can cancel their own pending booking
           (resource.data.customerId == request.auth.uid &&
            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancellationReason', 'cancelledAt', 'updatedAt']) &&
            request.resource.data.status == 'CANCELLED') ||
-          // Assigned technician can update transit location and completion progress
+          // Assigned technician can update transit location and live telemetry only (never status, OTP, assignment, or financials)
           (resource.data.technicianId == request.auth.uid &&
            !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-             'customerId', 'technicianId', 'totalAmount', 'grandTotal', 'price',
+             'status', 'customerId', 'technicianId', 'totalAmount', 'grandTotal', 'price',
              'basePrice', 'discountPrice', 'paymentStatus', 'advancePaid',
              'technicianPayoutAmount', 'startOtp', 'endOtp', 'bookingCharge'
            ]))
@@ -139,15 +139,26 @@ service cloud.firestore {
       );
       // Offers are created strictly by authoritative backend or admin
       allow create: if isAdmin();
-      // Assigned technician can only accept or reject an active pending offer
+      // Assigned technician can only directly REJECT an offer. ACCEPTANCE is strictly reserved for the trusted Cloud Functions transaction.
       allow update: if isAdmin() || (
         isAuthenticated() &&
         (resource.data.technicianId == request.auth.uid || resource.data.targetTechnicianUid == request.auth.uid) &&
         resource.data.status in ['SENT', 'PENDING'] &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'respondedAt', 'responseReason', 'updatedAt']) &&
-        request.resource.data.status in ['ACCEPTED', 'REJECTED']
+        request.resource.data.status == 'REJECTED'
       );
       allow delete: if isAdmin();
+    }
+
+    // 4e. Cryptographic Booking Secrets Vault (Admin SDK Only — Never exposed to any client)
+    match /booking_secrets/{bookingId} {
+      allow read, write: if false;
+    }
+
+    // 4f. Customer Private OTP Delivery Vault (Customer Owner Read Only — Never Technician)
+    match /customer_otps/{bookingId} {
+      allow read: if isAuthenticated() && (resource.data.customerId == request.auth.uid || isAdmin());
+      allow write: if false;
     }
 
     // 4c. Dispatch Sessions & State Tracking (Server-Authoritative Only)
@@ -201,6 +212,31 @@ service cloud.firestore {
     match /dispatch_audit_logs/{logId} {
       allow read: if isAdmin();
       allow write: if false;
+    }
+
+    // 8. Wallet & Withdrawals (Manual UPI Ledger)
+    match /wallet/{techId} {
+      allow read: if isOwner(techId) || isAdmin();
+      allow write: if isAdmin(); // Clients cannot directly write or modify wallet balances
+    }
+
+    match /wallet_withdrawals/{withdrawalId} {
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        resource.data.technicianId == request.auth.uid ||
+        isAdmin()
+      );
+      // Technicians can submit a withdrawal request strictly with status 'PENDING'
+      allow create: if isAuthenticated() &&
+        request.resource.data.technicianId == request.auth.uid &&
+        request.resource.data.status == 'PENDING' &&
+        request.resource.data.amount > 0 &&
+        request.resource.data.destinationUpi is string;
+      // Only verified Admin can approve, reject, or mark withdrawal as PAID with bank UTR reference
+      allow update: if isAdmin() &&
+        request.resource.data.status in ['APPROVED', 'PAID', 'REJECTED'] &&
+        (request.resource.data.status != 'PAID' || ('utrReference' in request.resource.data && request.resource.data.utrReference.size() >= 6));
+      allow delete: if isAdmin();
     }
 
     // Fallback: Deny all other unclassified access

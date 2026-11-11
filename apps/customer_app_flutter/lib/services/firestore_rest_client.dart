@@ -710,49 +710,189 @@ class FirestoreRestClient {
   }
 
   static const Map<String, String> _canonicalSkillAliases = {
+    // AC Services
     'sk_ac_installation': 'ac_install',
     'ac installation': 'ac_install',
+    'ac_install': 'ac_install',
     'sk_ac_uninstallation': 'ac_uninstall',
     'ac uninstallation': 'ac_uninstall',
+    'ac_uninstall': 'ac_uninstall',
     'sk_deep_cleaning_service': 'ac_deep_cleaning',
     'deep cleaning service': 'ac_deep_cleaning',
     'ac deep cleaning service': 'ac_deep_cleaning',
+    'ac deep cleaning': 'ac_deep_cleaning',
+    'ac_deep_cleaning': 'ac_deep_cleaning',
+    'ac_deep_clean': 'ac_deep_cleaning',
     'sk_ac_repair': 'ac_repair_general',
     'ac repair': 'ac_repair_general',
+    'ac_repair_general': 'ac_repair_general',
+    'ac_repair': 'ac_repair_general',
     'sk_ac_pcb_repair': 'ac_pcb_repair',
     'ac pcb repair': 'ac_pcb_repair',
+    'ac_pcb_repair': 'ac_pcb_repair',
     'sk_ac_relocation': 'ac_relocation',
     'ac relocation': 'ac_relocation',
+    'ac_relocation': 'ac_relocation',
     'sk_ac_general_servicing': 'ac_general_service',
     'ac general servicing': 'ac_general_service',
+    'ac general service': 'ac_general_service',
+    'sk_ac_general_service': 'ac_general_service',
+    'ac_general_service': 'ac_general_service',
     'sk_gas_refill_top_up': 'ac_gas_refill',
     'gas refill / top-up': 'ac_gas_refill',
+    'ac gas refill': 'ac_gas_refill',
+    'gas refill': 'ac_gas_refill',
+    'ac_gas_refill': 'ac_gas_refill',
+    'ac_gas_charging': 'ac_gas_refill',
+    'ac gas charging/refilling': 'ac_gas_refill',
+    'ac cooling problem': 'ac_cooling_problem',
+    'ac cooling issue': 'ac_cooling_problem',
+    'sk_ac_cooling_problem': 'ac_cooling_problem',
+    'ac_cooling_issue': 'ac_cooling_problem',
+    'ac_cooling_problem': 'ac_cooling_problem',
+    'ac compressor issue': 'ac_compressor_issue',
+    'ac compressor repair': 'ac_compressor_issue',
+    'ac_compressor_repair': 'ac_compressor_issue',
+    'ac_compressor_issue': 'ac_compressor_issue',
+    'ac water leakage repair': 'ac_water_leakage',
+    'sk_ac_water_leakage': 'ac_water_leakage',
+    'ac_water_leakage': 'ac_water_leakage',
+    'ac electrical repair': 'ac_electrical_repair',
+    'sk_ac_electrical_repair': 'ac_electrical_repair',
+    'ac_electrical_repair': 'ac_electrical_repair',
+    'ac noise/vibration issue': 'ac_noise_vibration',
+    'ac_noise_vibration': 'ac_noise_vibration',
+    'ac outdoor unit repair': 'ac_outdoor_repair',
+    'ac_outdoor_repair': 'ac_outdoor_repair',
+    'ac remote/sensor issue': 'ac_remote_sensor',
+    'ac_remote_sensor': 'ac_remote_sensor',
+    'copper pipe installation': 'copper_pipe_install',
+    'copper_pipe_install': 'copper_pipe_install',
+
+    // Electrical Services
+    'sk_ceiling_fan_installation': 'fan_ceiling_install',
+    'ceiling fan installation': 'fan_ceiling_install',
+    'fan_ceiling_install': 'fan_ceiling_install',
+    'sk_exhaust_fan': 'fan_exhaust_install',
+    'exhaust fan': 'fan_exhaust_install',
+    'exhaust fan installation': 'fan_exhaust_install',
+    'fan_exhaust_install': 'fan_exhaust_install',
+    'sk_fan_installation': 'fan_install',
+    'fan installation': 'fan_install',
+    'fan_install': 'fan_install',
+    'sk_ceiling_fan_repair': 'fan_rep',
+    'ceiling fan repair': 'fan_rep',
+    'fan repair': 'fan_rep',
+    'fan_rep': 'fan_rep',
+    'sk_fan_repair': 'fan_rep',
+    'sk_light_repair': 'light_rep',
+    'light repair': 'light_rep',
+    'light_rep': 'light_rep',
+    'sk_light_installation': 'light_install',
+    'light installation': 'light_install',
+    'light_install': 'light_install',
+    'sk_led_installation_repair': 'led_install',
+    'led installation/repair': 'led_install',
+    'led light installation': 'led_install',
+    'led_install': 'led_install',
+    'led_light_install': 'led_install',
+    'decorative light installation': 'decorative_light_install',
+    'decorative_light_install': 'decorative_light_install',
+    'sk_basic_electrician': 'elec_fault_diag',
+    'basic electrician': 'elec_fault_diag',
+    'electrical fault diagnosis': 'elec_fault_diag',
+    'elec_fault_diag': 'elec_fault_diag',
+    'sk_mcb_repair': 'mcb_rep',
+    'mcb repair': 'mcb_rep',
+    'mcb replacement': 'mcb_rep',
+    'mcb repair/replacement': 'mcb_rep',
+    'mcb_rep': 'mcb_rep',
+    'mcb_replace': 'mcb_rep',
+    'sk_fuse_repair': 'fuse_rep',
+    'fuse repair': 'fuse_rep',
+    'fuse_rep': 'fuse_rep',
+    'doorbell installation/repair': 'doorbell_svc',
+    'doorbell_svc': 'doorbell_svc',
+    'inverter installation/repair': 'inverter_rep',
+    'inverter repair': 'inverter_rep',
+    'inverter_rep': 'inverter_rep',
+    'inverter_install': 'inverter_rep',
+    'geyser electrical connection': 'geyser_connection',
+    'geyser_connection': 'geyser_connection',
+    'electrical appliance connection': 'appliance_connect',
+    'appliance_connect': 'appliance_connect',
+    'switch repair': 'switch_rep',
+    'switch replacement': 'switch_rep',
+    'switch_rep': 'switch_rep',
+    'switch_replace': 'switch_rep',
+    'socket repair': 'socket_rep',
+    'socket replacement': 'socket_rep',
+    'socket_rep': 'socket_rep',
+    'socket_replace': 'socket_rep',
+    'switchboard repair': 'switchboard_repair',
+    'switchboard_repair': 'switchboard_repair',
   };
 
+  /// Maps any raw service ID, skill ID, or display name to canonical central catalog serviceId.
+  static String resolveCanonicalServiceId(String? raw, {String? name}) {
+    if (raw != null) {
+      final clean = raw.trim().toLowerCase();
+      if (_canonicalSkillAliases.containsKey(clean)) {
+        return _canonicalSkillAliases[clean]!;
+      }
+      final norm = clean.replaceAll('sk_', '').replaceAll('_', ' ').trim();
+      if (_canonicalSkillAliases.containsKey(norm)) {
+        return _canonicalSkillAliases[norm]!;
+      }
+      if (clean.isNotEmpty) {
+        return clean;
+      }
+    }
+    if (name != null) {
+      final cleanName = name.trim().toLowerCase();
+      if (_canonicalSkillAliases.containsKey(cleanName)) {
+        return _canonicalSkillAliases[cleanName]!;
+      }
+    }
+    return '';
+  }
+
+  /// Evaluates whether a technician profile possesses the verified, enabled canonical skill
+  /// required for a booking. Parent category matching alone is strictly forbidden.
   static bool _doesTechnicianMatchService(
       Map<String, dynamic> tech, String sId, String sName) {
+    final targetCanonical = resolveCanonicalServiceId(sId, name: sName);
+    if (targetCanonical.isEmpty) return false;
+
     final rawSkills = <dynamic>[
       ...(tech['skills'] as List<dynamic>? ?? const []),
       ...(tech['selectedSkills'] as List<dynamic>? ?? const []),
     ];
-    final sIdLower = sId.toLowerCase().trim();
-    final sIdNorm = sIdLower.replaceAll('sk_', '').replaceAll('_', ' ').trim();
-    final sNameNorm = sName.toLowerCase().trim();
+
+    // If technician has no declared skills in profile, they cannot match any service.
+    // Parent category alone must NEVER qualify a technician.
+    if (rawSkills.isEmpty) return false;
 
     for (final skill in rawSkills) {
       String skillId = '';
       String canonicalId = '';
       String skillName = '';
+      String verificationStatus = 'VERIFIED';
       bool isSkillEnabled = true;
 
       if (skill is Map) {
         skillId = skill['skillId']?.toString() ?? skill['id']?.toString() ?? '';
         canonicalId = skill['canonicalServiceId']?.toString() ?? skill['serviceId']?.toString() ?? '';
         skillName = skill['name']?.toString() ?? skill['skillName']?.toString() ?? '';
+        final rawVer = (skill['verificationStatus'] ?? skill['status'])?.toString().toUpperCase().trim() ?? '';
+        if (rawVer.isNotEmpty) {
+          verificationStatus = rawVer;
+        }
         if (skill.containsKey('enabled')) {
           isSkillEnabled = skill['enabled'] == true;
-        } else if (skill.containsKey('isActive')) {
-          isSkillEnabled = skill['isActive'] == true;
+        }
+        if (skill.containsKey('isActive')) {
+          isSkillEnabled = isSkillEnabled && (skill['isActive'] == true);
         }
       } else if (skill is String) {
         skillId = skill;
@@ -760,51 +900,36 @@ class FirestoreRestClient {
         skillName = skill;
       }
 
-      if (!isSkillEnabled) continue;
+      // 1. Mandatory verification check: Must be explicitly VERIFIED.
+      // PENDING, REJECTED, UNVERIFIED, or empty status is rejected.
+      if (verificationStatus != 'VERIFIED') {
+        continue;
+      }
 
-      final skIdLower = skillId.toLowerCase().trim();
-      final canIdLower = canonicalId.toLowerCase().trim();
-      final skNameNorm = skillName.toLowerCase().trim();
-      final mappedFromId = _canonicalSkillAliases[skIdLower] ?? '';
-      final mappedFromName = _canonicalSkillAliases[skNameNorm] ?? '';
+      // 2. Mandatory active toggle check: Must be enabled and active.
+      if (!isSkillEnabled) {
+        continue;
+      }
 
-      if (skIdLower == sIdLower ||
-          canIdLower == sIdLower ||
-          mappedFromId == sIdLower ||
-          mappedFromName == sIdLower) {
+      // 3. Exact Canonical ID match (Zero tolerance for category or substring fallback)
+      final skillCanonical = resolveCanonicalServiceId(
+        canonicalId.isNotEmpty ? canonicalId : (skillId.isNotEmpty ? skillId : skillName),
+        name: skillName,
+      );
+
+      if (skillCanonical.isNotEmpty && skillCanonical == targetCanonical) {
         return true;
       }
 
-      final skIdNorm = skIdLower.replaceAll('sk_', '').replaceAll('_', ' ').trim();
-
-      if (skIdNorm == sIdNorm ||
-          (sNameNorm.isNotEmpty && skNameNorm == sNameNorm) ||
-          (skIdNorm.isNotEmpty && sIdNorm.isNotEmpty && (skIdNorm.contains(sIdNorm) || sIdNorm.contains(skIdNorm))) ||
-          (skNameNorm.isNotEmpty && sNameNorm.isNotEmpty && (skNameNorm.contains(sNameNorm) || sNameNorm.contains(skNameNorm)))) {
-        return true;
+      if (skillName.isNotEmpty) {
+        final nameCanonical = resolveCanonicalServiceId(skillName);
+        if (nameCanonical.isNotEmpty && nameCanonical == targetCanonical) {
+          return true;
+        }
       }
     }
 
-    // Category-level fallback matching
-    final techCat = (tech['category']?.toString() ?? '').toLowerCase();
-    final techCats = <String>[
-      techCat,
-      ...((tech['categories'] as List<dynamic>? ?? const []).map((e) => e.toString().toLowerCase())),
-      ...((tech['serviceCategories'] as List<dynamic>? ?? const []).map((e) => e.toString().toLowerCase())),
-    ];
-
-    bool isAcService = sIdLower.contains('ac') || sNameNorm.contains('ac ') || sNameNorm.contains('air conditioner');
-    bool isTechAc = techCats.any((c) => c.contains('ac') || c.contains('cooling'));
-    if (isAcService && isTechAc) return true;
-
-    bool isElectricalService = sIdLower.contains('fan') || sIdLower.contains('light') || sIdLower.contains('switch') || sIdLower.contains('electric') || sIdLower.contains('wiring');
-    bool isTechElectrical = techCats.any((c) => c.contains('electr'));
-    if (isElectricalService && isTechElectrical) return true;
-
-    bool isApplianceService = sIdLower.contains('fridge') || sIdLower.contains('refrigerator') || sIdLower.contains('washing') || sIdLower.contains('microwave') || sIdLower.contains('ro_');
-    bool isTechAppliance = techCats.any((c) => c.contains('appliance') || c.contains('refrigerat'));
-    if (isApplianceService && isTechAppliance) return true;
-
+    // Category-level match alone is strictly rejected.
     return false;
   }
 

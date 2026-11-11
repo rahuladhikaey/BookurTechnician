@@ -203,13 +203,20 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
         double? custLat;
         double? custLng;
 
+        double? parseCoord(dynamic v) {
+          if (v == null) return null;
+          if (v is num) return v.toDouble();
+          if (v is String) return double.tryParse(v.trim());
+          return null;
+        }
+
         if (respData is Map) {
           custPhone = respData['customerPhone']?.toString() ??
               respData['phone']?.toString() ??
               respData['customer']?['phone']?.toString() ??
               custPhone;
-          custLat = (respData['latitude'] ?? respData['customerLatitude'] ?? respData['customer']?['latitude']) as double?;
-          custLng = (respData['longitude'] ?? respData['customerLongitude'] ?? respData['customer']?['longitude']) as double?;
+          custLat = parseCoord(respData['latitude'] ?? respData['customerLatitude'] ?? respData['customer']?['latitude']);
+          custLng = parseCoord(respData['longitude'] ?? respData['customerLongitude'] ?? respData['customer']?['longitude']);
         }
 
         ScaffoldMessenger.of(context).showSnackBar(

@@ -127,8 +127,8 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
       final res = await dioClient.dio.post('/technician/jobs/$bookingId/proof', data: {
         'photoType': type,
         'photoUrl': photoUrl,
-        'latitude': widget.job['latitude'] ?? 22.5726,
-        'longitude': widget.job['longitude'] ?? 88.3639,
+        'latitude': _parseCoordinate(widget.job['latitude'] ?? widget.job['customerLatitude']) ?? 22.5726,
+        'longitude': _parseCoordinate(widget.job['longitude'] ?? widget.job['customerLongitude']) ?? 88.3639,
       });
 
       if (res.data != null && res.data['success'] == true) {
@@ -628,6 +628,26 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
     return cleanParts.join(', ');
   }
 
+  static double? _parseDouble(dynamic val) {
+    if (val == null) return null;
+    if (val is double) return (val.isNaN || val.isInfinite) ? null : val;
+    if (val is int) return val.toDouble();
+    if (val is num) return val.toDouble();
+    if (val is String) {
+      final clean = val.trim().replaceAll('₹', '').replaceAll(',', '');
+      final p = double.tryParse(clean);
+      if (p != null && !p.isNaN && !p.isInfinite) return p;
+    }
+    return null;
+  }
+
+  static double? _parseCoordinate(dynamic val) {
+    final d = _parseDouble(val);
+    if (d == null) return null;
+    if (d >= -180.0 && d <= 180.0 && d != 0.0) return d;
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final dashState = ref.watch(dashboardProvider);
@@ -638,13 +658,14 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
     final phone = widget.job['customerPhone'] ?? widget.job['phone'] ?? '';
     final timeSlot = widget.job['timeSlot'] ?? widget.job['scheduledTime'] ?? 'Scheduled Slot';
     final distance = widget.job['distance'] ?? '';
-    final custLat = (widget.job['customerLatitude'] as num?)?.toDouble() ?? (widget.job['customer_latitude'] as num?)?.toDouble();
-    final custLng = (widget.job['customerLongitude'] as num?)?.toDouble() ?? (widget.job['customer_longitude'] as num?)?.toDouble();
+    final custLat = _parseCoordinate(widget.job['customerLatitude'] ?? widget.job['customer_latitude'] ?? widget.job['latitude']);
+    final custLng = _parseCoordinate(widget.job['customerLongitude'] ?? widget.job['customer_longitude'] ?? widget.job['longitude']);
 
-    final rawPrice = (widget.job['price'] as num?)?.toDouble() ?? 
-                     (widget.job['payout'] as num?)?.toDouble() ?? 
-                     double.tryParse(widget.job['price']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '') ?? 
-                     double.tryParse(widget.job['payout']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '') ?? 149.0;
+    final rawPrice = _parseDouble(widget.job['price']) ?? 
+                     _parseDouble(widget.job['payout']) ?? 
+                     _parseDouble(widget.job['totalAmount']) ?? 
+                     _parseDouble(widget.job['grandTotal']) ?? 
+                     _parseDouble(widget.job['estimatedEarning']) ?? 0.0;
 
     const bookingFee = 49;
     final advanceService = (rawPrice * 0.30).round();

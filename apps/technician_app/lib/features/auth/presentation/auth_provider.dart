@@ -232,7 +232,26 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
     // Async Firestore profile record creation (merging with existing profile if returning technician)
     Future(() async {
-      final existing = await FirestoreRestClient.getDocument('technician_profiles', internalUid);
+      var existing = await FirestoreRestClient.getDocument('technician_profiles', internalUid);
+      if (existing == null && normalizedPhone.isNotEmpty) {
+        final digits = normalizedPhone.replaceAll(RegExp(r'\D'), '');
+        final last10 = digits.length >= 10 ? digits.substring(digits.length - 10) : digits;
+        existing = await FirestoreRestClient.getDocument('technician_profiles', 'tech_$last10');
+      }
+      final existingSkills = (existing?['selectedSkills'] is List &&
+              (existing!['selectedSkills'] as List).isNotEmpty)
+          ? existing['selectedSkills'] as List
+          : (existing?['skills'] is List
+              ? existing!['skills'] as List
+              : <dynamic>[]);
+      final existingCats = existing?['categories'] as List<dynamic>?;
+      final derivedCategory = existing?['category'] ??
+          ((existingCats != null && existingCats.isNotEmpty)
+              ? existingCats.first.toString()
+              : (existingSkills.isNotEmpty && existingSkills.first is Map
+                  ? (existingSkills.first['categoryName'] ?? existingSkills.first['category'])?.toString()
+                  : null));
+
       final nowUtc = DateTime.now().toUtc().toIso8601String();
       await FirestoreRestClient.upsertDocument('technician_profiles', internalUid, {
         'id': internalUid,
@@ -245,10 +264,19 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         'fullName': existing?['fullName'] ?? candidateName,
         'name': existing?['name'] ?? candidateName,
         'age': existing?['age'] ?? age,
-        'category': existing?['category'] ?? 'AC Services',
+        'category': derivedCategory ?? '',
+        if (existingSkills.isNotEmpty) ...{
+          'skills': existingSkills,
+          'selectedSkills': existingSkills,
+          'totalSkillsCount': existing?['totalSkillsCount'] ?? existingSkills.length,
+          'verifiedSkillsCount': existing?['verifiedSkillsCount'] ?? existingSkills.length,
+          'pendingSkillsCount': existing?['pendingSkillsCount'] ?? 0,
+        },
+        if (existing?['categories'] != null) 'categories': existing!['categories'],
+        if (existing?['serviceCategories'] != null) 'serviceCategories': existing!['serviceCategories'],
         'accountStatus': existing?['accountStatus'] ?? 'Pending_Verification',
-        'onboardingStep': existing?['onboardingStep'] ?? 'SKILL_SELECTION',
-        'onboardingCompleted': existing?['onboardingCompleted'] == true,
+        'onboardingStep': existing?['onboardingStep'] ?? (existingSkills.isNotEmpty ? 'COMPLETED' : 'SKILL_SELECTION'),
+        'onboardingCompleted': existing?['onboardingCompleted'] == true || existingSkills.isNotEmpty,
         'updatedAt': nowUtc,
         if (existing == null) 'createdAt': nowUtc,
       });
@@ -453,16 +481,28 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       final fallbackToken =
           'jwt_token_tech_${DateTime.now().millisecondsSinceEpoch}';
 
-      final existingDoc = await FirestoreRestClient.getDocument(
+      var existingDoc = await FirestoreRestClient.getDocument(
         'technician_profiles',
         internalUid,
       );
+      if (existingDoc == null && targetPhone.isNotEmpty) {
+        final digits = targetPhone.replaceAll(RegExp(r'\D'), '');
+        final last10 = digits.length >= 10 ? digits.substring(digits.length - 10) : digits;
+        existingDoc = await FirestoreRestClient.getDocument('technician_profiles', 'tech_$last10');
+      }
       final existingSkills = (existingDoc?['selectedSkills'] is List &&
               (existingDoc!['selectedSkills'] as List).isNotEmpty)
           ? existingDoc['selectedSkills'] as List
           : (existingDoc?['skills'] is List
               ? existingDoc!['skills'] as List
               : <dynamic>[]);
+      final existingDocCats = existingDoc?['categories'] as List<dynamic>?;
+      final derivedCategory = existingDoc?['category'] ??
+          ((existingDocCats != null && existingDocCats.isNotEmpty)
+              ? existingDocCats.first.toString()
+              : (existingSkills.isNotEmpty && existingSkills.first is Map
+                  ? (existingSkills.first['categoryName'] ?? existingSkills.first['category'])?.toString()
+                  : null));
       final existingStep = existingDoc?['onboardingStep']?.toString() ??
           (existingSkills.isNotEmpty ? 'COMPLETED' : 'SKILL_SELECTION');
       final existingCompleted = existingDoc?['onboardingCompleted'] == true ||
@@ -489,7 +529,16 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         'phoneNumber': targetPhone,
         'email': targetEmail,
         'age': existingDoc?['age'] ?? targetAge,
-        'category': existingDoc?['category'] ?? 'AC Services',
+        'category': derivedCategory ?? '',
+        if (existingSkills.isNotEmpty) ...{
+          'skills': existingSkills,
+          'selectedSkills': existingSkills,
+          'totalSkillsCount': existingDoc?['totalSkillsCount'] ?? existingSkills.length,
+          'verifiedSkillsCount': existingDoc?['verifiedSkillsCount'] ?? existingSkills.length,
+          'pendingSkillsCount': existingDoc?['pendingSkillsCount'] ?? 0,
+        },
+        if (existingDoc?['categories'] != null) 'categories': existingDoc!['categories'],
+        if (existingDoc?['serviceCategories'] != null) 'serviceCategories': existingDoc!['serviceCategories'],
         'kycStatus': existingDoc?['kycStatus'] ?? 'VERIFIED',
         'accountStatus': existingDoc?['accountStatus'] ?? 'Active',
         'onboardingStep': existingStep,

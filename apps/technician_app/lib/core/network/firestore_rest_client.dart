@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../security/secure_storage.dart';
 import 'email_service.dart';
 
 /// Direct Cloud Firestore Client for BookUrTechnician Technician Partner App
@@ -44,42 +45,223 @@ class FirestoreRestClient {
   }
 
   static const Map<String, String> _canonicalServiceAliasMap = {
+    // AC Services
     'sk_ac_installation': 'ac_install',
     'ac installation': 'ac_install',
+    'ac_install': 'ac_install',
     'sk_ac_uninstallation': 'ac_uninstall',
     'ac uninstallation': 'ac_uninstall',
+    'ac_uninstall': 'ac_uninstall',
     'sk_deep_cleaning_service': 'ac_deep_cleaning',
     'deep cleaning service': 'ac_deep_cleaning',
     'ac deep cleaning service': 'ac_deep_cleaning',
+    'ac deep cleaning': 'ac_deep_cleaning',
+    'ac_deep_cleaning': 'ac_deep_cleaning',
+    'ac_deep_clean': 'ac_deep_cleaning',
     'sk_ac_repair': 'ac_repair_general',
     'ac repair': 'ac_repair_general',
+    'ac_repair_general': 'ac_repair_general',
+    'ac_repair': 'ac_repair_general',
     'sk_ac_pcb_repair': 'ac_pcb_repair',
     'ac pcb repair': 'ac_pcb_repair',
+    'ac_pcb_repair': 'ac_pcb_repair',
     'sk_ac_relocation': 'ac_relocation',
     'ac relocation': 'ac_relocation',
+    'ac_relocation': 'ac_relocation',
     'sk_ac_general_servicing': 'ac_general_service',
     'ac general servicing': 'ac_general_service',
+    'ac general service': 'ac_general_service',
+    'sk_ac_general_service': 'ac_general_service',
+    'ac_general_service': 'ac_general_service',
     'sk_gas_refill_top_up': 'ac_gas_refill',
     'gas refill / top-up': 'ac_gas_refill',
-    'sk_ceiling_fan_installation': 'fan_install',
-    'sk_fan_repair': 'fan_repair',
-    'sk_switch_replacement': 'switch_replace',
-    'sk_socket_replacement': 'socket_replace',
-    'sk_switchboard_repair': 'switchboard_repair',
-    'sk_mcb_replacement': 'mcb_replace',
+    'ac gas refill': 'ac_gas_refill',
+    'gas refill': 'ac_gas_refill',
+    'ac_gas_refill': 'ac_gas_refill',
+    'ac_gas_charging': 'ac_gas_refill',
+    'ac gas charging/refilling': 'ac_gas_refill',
+    'ac cooling problem': 'ac_cooling_problem',
+    'ac cooling issue': 'ac_cooling_problem',
+    'sk_ac_cooling_problem': 'ac_cooling_problem',
+    'ac_cooling_issue': 'ac_cooling_problem',
+    'ac_cooling_problem': 'ac_cooling_problem',
+    'ac compressor issue': 'ac_compressor_issue',
+    'ac compressor repair': 'ac_compressor_issue',
+    'ac_compressor_repair': 'ac_compressor_issue',
+    'ac_compressor_issue': 'ac_compressor_issue',
+    'ac water leakage repair': 'ac_water_leakage',
+    'sk_ac_water_leakage': 'ac_water_leakage',
+    'ac_water_leakage': 'ac_water_leakage',
+    'ac electrical repair': 'ac_electrical_repair',
+    'sk_ac_electrical_repair': 'ac_electrical_repair',
+    'ac_electrical_repair': 'ac_electrical_repair',
+    'ac noise/vibration issue': 'ac_noise_vibration',
+    'ac_noise_vibration': 'ac_noise_vibration',
+    'ac outdoor unit repair': 'ac_outdoor_repair',
+    'ac_outdoor_repair': 'ac_outdoor_repair',
+    'ac remote/sensor issue': 'ac_remote_sensor',
+    'ac_remote_sensor': 'ac_remote_sensor',
+    'copper pipe installation': 'copper_pipe_install',
+    'copper_pipe_install': 'copper_pipe_install',
+
+    // Electrical Services
+    'sk_ceiling_fan_installation': 'fan_ceiling_install',
+    'ceiling fan installation': 'fan_ceiling_install',
+    'fan_ceiling_install': 'fan_ceiling_install',
+    'sk_exhaust_fan': 'fan_exhaust_install',
+    'exhaust fan': 'fan_exhaust_install',
+    'exhaust fan installation': 'fan_exhaust_install',
+    'fan_exhaust_install': 'fan_exhaust_install',
+    'sk_fan_installation': 'fan_install',
+    'fan installation': 'fan_install',
+    'fan_install': 'fan_install',
+    'sk_ceiling_fan_repair': 'fan_rep',
+    'ceiling fan repair': 'fan_rep',
+    'fan repair': 'fan_rep',
+    'fan_rep': 'fan_rep',
+    'sk_fan_repair': 'fan_rep',
+    'sk_light_repair': 'light_rep',
+    'light repair': 'light_rep',
+    'light_rep': 'light_rep',
+    'sk_light_installation': 'light_install',
+    'light installation': 'light_install',
+    'light_install': 'light_install',
+    'sk_led_installation_repair': 'led_install',
+    'led installation/repair': 'led_install',
+    'led light installation': 'led_install',
+    'led_install': 'led_install',
+    'led_light_install': 'led_install',
+    'decorative light installation': 'decorative_light_install',
+    'decorative_light_install': 'decorative_light_install',
+    'sk_basic_electrician': 'elec_fault_diag',
+    'basic electrician': 'elec_fault_diag',
+    'electrical fault diagnosis': 'elec_fault_diag',
+    'elec_fault_diag': 'elec_fault_diag',
+    'sk_mcb_repair': 'mcb_rep',
+    'mcb repair': 'mcb_rep',
+    'mcb replacement': 'mcb_rep',
+    'mcb repair/replacement': 'mcb_rep',
+    'mcb_rep': 'mcb_rep',
+    'mcb_replace': 'mcb_rep',
+    'sk_fuse_repair': 'fuse_rep',
+    'fuse repair': 'fuse_rep',
+    'fuse_rep': 'fuse_rep',
+    'doorbell installation/repair': 'doorbell_svc',
+    'doorbell_svc': 'doorbell_svc',
+    'inverter installation/repair': 'inverter_rep',
+    'inverter repair': 'inverter_rep',
+    'inverter_rep': 'inverter_rep',
+    'inverter_install': 'inverter_rep',
+    'geyser electrical connection': 'geyser_connection',
+    'geyser_connection': 'geyser_connection',
+    'electrical appliance connection': 'appliance_connect',
+    'appliance_connect': 'appliance_connect',
+    'switch repair': 'switch_rep',
+    'switch replacement': 'switch_rep',
+    'switch_rep': 'switch_rep',
+    'switch_replace': 'switch_rep',
+    'socket repair': 'socket_rep',
+    'socket replacement': 'socket_rep',
+    'socket_rep': 'socket_rep',
+    'socket_replace': 'socket_rep',
+    'switchboard repair': 'switchboard_repair',
+    'switchboard_repair': 'switchboard_repair',
   };
 
   /// Maps legacy `sk_...` or display names to the authoritative central catalog `serviceId`.
-  static String resolveCanonicalServiceId(String rawSkillId, {String? skillName}) {
-    final idLower = rawSkillId.trim().toLowerCase();
-    final nameLower = (skillName ?? '').trim().toLowerCase();
-    if (_canonicalServiceAliasMap.containsKey(idLower)) {
-      return _canonicalServiceAliasMap[idLower]!;
+  static String resolveCanonicalServiceId(String? rawSkillId, {String? skillName}) {
+    if (rawSkillId != null) {
+      final idLower = rawSkillId.trim().toLowerCase();
+      if (_canonicalServiceAliasMap.containsKey(idLower)) {
+        return _canonicalServiceAliasMap[idLower]!;
+      }
+      final norm = idLower.replaceAll('sk_', '').replaceAll('_', ' ').trim();
+      if (_canonicalServiceAliasMap.containsKey(norm)) {
+        return _canonicalServiceAliasMap[norm]!;
+      }
+      if (idLower.isNotEmpty) {
+        return idLower;
+      }
     }
-    if (nameLower.isNotEmpty && _canonicalServiceAliasMap.containsKey(nameLower)) {
-      return _canonicalServiceAliasMap[nameLower]!;
+    if (skillName != null) {
+      final nameLower = skillName.trim().toLowerCase();
+      if (_canonicalServiceAliasMap.containsKey(nameLower)) {
+        return _canonicalServiceAliasMap[nameLower]!;
+      }
     }
-    return rawSkillId.trim();
+    return '';
+  }
+
+  /// Evaluates whether a technician profile possesses the verified, enabled canonical skill
+  /// required for a booking. Parent category matching alone is strictly forbidden.
+  static bool doesTechnicianPossessVerifiedSkill(
+    Map<String, dynamic>? tech,
+    String serviceId, {
+    String? serviceName,
+  }) {
+    if (tech == null) return false;
+    final targetCanonical = resolveCanonicalServiceId(serviceId, skillName: serviceName);
+    if (targetCanonical.isEmpty) return false;
+
+    final rawSkills = <dynamic>[
+      ...(tech['skills'] as List<dynamic>? ?? const []),
+      ...(tech['selectedSkills'] as List<dynamic>? ?? const []),
+    ];
+
+    if (rawSkills.isEmpty) return false;
+
+    for (final skill in rawSkills) {
+      String skillId = '';
+      String canonicalId = '';
+      String skillName = '';
+      String verificationStatus = 'VERIFIED';
+      bool isSkillEnabled = true;
+
+      if (skill is Map) {
+        skillId = skill['skillId']?.toString() ?? skill['id']?.toString() ?? '';
+        canonicalId = skill['canonicalServiceId']?.toString() ?? skill['serviceId']?.toString() ?? '';
+        skillName = skill['name']?.toString() ?? skill['skillName']?.toString() ?? '';
+        final rawVer = (skill['verificationStatus'] ?? skill['status'])?.toString().toUpperCase().trim() ?? '';
+        if (rawVer.isNotEmpty) {
+          verificationStatus = rawVer;
+        }
+        if (skill.containsKey('enabled')) {
+          isSkillEnabled = skill['enabled'] == true;
+        }
+        if (skill.containsKey('isActive')) {
+          isSkillEnabled = isSkillEnabled && (skill['isActive'] == true);
+        }
+      } else if (skill is String) {
+        skillId = skill;
+        canonicalId = skill;
+        skillName = skill;
+      }
+
+      // 1. Mandatory verification check: Must be VERIFIED
+      if (verificationStatus != 'VERIFIED') continue;
+
+      // 2. Mandatory active toggle check: Must be enabled
+      if (!isSkillEnabled) continue;
+
+      // 3. Exact Canonical ID match (Zero tolerance for category or substring fallback)
+      final skillCanonical = resolveCanonicalServiceId(
+        canonicalId.isNotEmpty ? canonicalId : (skillId.isNotEmpty ? skillId : skillName),
+        skillName: skillName,
+      );
+
+      if (skillCanonical.isNotEmpty && skillCanonical == targetCanonical) {
+        return true;
+      }
+
+      if (skillName.isNotEmpty) {
+        final nameCanonical = resolveCanonicalServiceId(skillName);
+        if (nameCanonical.isNotEmpty && nameCanonical == targetCanonical) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   /// Masks sensitive KYC/UPI identifiers for safe display (`ABC****890`, `ra***@okaxis`).
@@ -1044,7 +1226,12 @@ class FirestoreRestClient {
     }
 
     // 4. Technician Profile, Private KYC/UPI Vault, Online Duty Status & GPS Location
-    if (cleanPath.contains('/technician') || cleanPath.contains('/online-status') || cleanPath.contains('/location')) {
+    if (((cleanPath.contains('/technician') || cleanPath.contains('/technicians')) &&
+            !cleanPath.contains('/offers') &&
+            !cleanPath.contains('/dispatch') &&
+            !cleanPath.contains('/proposals')) ||
+        cleanPath.contains('/online-status') ||
+        cleanPath.contains('/location')) {
       final rawTechId = body['uid']?.toString() ??
           body['technicianId']?.toString() ??
           options.headers['x-technician-id']?.toString() ??
@@ -1220,84 +1407,18 @@ class FirestoreRestClient {
       );
     }
 
-    // 5. Atomic Booking Acceptance & State Transition
-    if (cleanPath.contains('/accept')) {
+    // 5. Server-Authoritative Booking & Offer Acceptance (Phase 2 Atomic Implementation)
+    if (cleanPath.contains('/accept') && m == 'POST') {
       final parts = cleanPath.split('/');
-      final bookingId = parts.length > 2 ? parts[parts.length - 2] : 'unknown';
-      final techId = options.headers['x-technician-id']?.toString() ??
-          body['technicianId']?.toString() ??
-          'tech_partner_01';
+      final acceptIdx = parts.indexOf('accept');
+      final targetId = acceptIdx > 0 ? parts[acceptIdx - 1] : (parts.length > 2 ? parts[parts.length - 2] : '');
+      final isOfferPath = cleanPath.contains('/offers') || cleanPath.contains('/proposals') || targetId.startsWith('offer_');
 
-      // Check current booking state from Cloud Firestore (forceRefresh: true)
-      final existingBooking = await getDocument('bookings', bookingId, forceRefresh: true);
-      final currentStatus = existingBooking?['status']?.toString().toUpperCase();
-
-      // Duplicate acceptance guard (Atomic transition check)
-      if (currentStatus == 'ASSIGNED' || currentStatus == 'IN_PROGRESS' || currentStatus == 'COMPLETED') {
-        if (existingBooking?['technicianId'] != techId) {
-          return Response(
-            requestOptions: options,
-            statusCode: 409,
-            data: {
-              'success': false,
-              'code': 'TECHNICIAN_BUSY_CONFLICT',
-              'error': 'BOOKING_ALREADY_ASSIGNED',
-              'message': 'This booking has already been accepted by another technician partner.',
-            },
-          );
-        }
-      }
-
-      // Fetch technician profile to populate assignment
-      final techDoc = await getDocument('technician_profiles', techId, forceRefresh: true);
-      if (techDoc != null && techDoc['isOnline'] == false) {
-        return Response(
-          requestOptions: options,
-          statusCode: 409,
-          data: {
-            'success': false,
-            'code': 'TECHNICIAN_WENT_OFFLINE',
-            'error': 'TECHNICIAN_WENT_OFFLINE',
-            'message': 'Cannot accept booking while offline.',
-          },
-        );
-      }
-
-      final techName = techDoc?['fullName'] ?? techDoc?['name'] ?? 'Partner Technician';
-      final techPhone = techDoc?['phone'] ?? '';
-
-      final updateData = {
-        'status': 'ASSIGNED',
-        'technicianId': techId,
-        'technicianName': techName,
-        'technicianPhone': techPhone,
-        'assignedAt': DateTime.now().toUtc().toIso8601String(),
-        'updatedAt': DateTime.now().toUtc().toIso8601String(),
-      };
-
-      await upsertDocument('bookings', bookingId, updateData);
-
-      // Transition technician status to BUSY
-      await upsertDocument('technician_profiles', techId, {
-        'availabilityStatus': 'BUSY',
-        'updatedAt': DateTime.now().toUtc().toIso8601String(),
-      });
-
-      return Response(
-        requestOptions: options,
-        statusCode: 200,
-        data: {
-          'success': true,
-          'message': 'Booking accepted successfully',
-          'booking': {
-            ...?existingBooking,
-            ...updateData,
-          },
-          'data': {
-            ...?existingBooking,
-            ...updateData,
-          },
-        },
+      return await _handleAuthoritativeAcceptance(
+        options: options,
+        targetId: targetId,
+        body: body,
+        isOfferPath: isOfferPath,
       );
     }
 
@@ -1356,6 +1477,8 @@ class FirestoreRestClient {
         return false;
       }
       
+      final callerTechId = resolveCanonicalTechUid(xTechId);
+      final techDoc = await getDocument('technician_profiles', callerTechId);
       final offers = await listCollection('dispatch_offers', forceRefresh: true);
       Map<String, dynamic>? pendingOffer;
 
@@ -1373,6 +1496,21 @@ class FirestoreRestClient {
             if (DateTime.now().toUtc().isAfter(exp)) continue;
           } catch (_) {}
         }
+
+        // Layer 2 Defense: Verify that the technician actually has the verified, enabled skill
+        final oServiceId = o['serviceId']?.toString() ?? '';
+        final oServiceName = o['serviceName']?.toString() ?? '';
+        if (oServiceId.isNotEmpty && techDoc != null) {
+          final hasSkill = doesTechnicianPossessVerifiedSkill(
+            techDoc,
+            oServiceId,
+            serviceName: oServiceName,
+          );
+          if (!hasSkill) {
+            continue;
+          }
+        }
+
         pendingOffer = o;
         break;
       }
@@ -1423,52 +1561,40 @@ class FirestoreRestClient {
       );
     }
 
-    // 8. Accept / Decline Dispatch Proposal (Direct Firestore Mode)
-    if (cleanPath.contains('/proposals/') || cleanPath.contains('/offers/')) {
-      if (cleanPath.contains('/accept') && m == 'POST') {
-        final parts = cleanPath.split('/');
-        final offerId = parts.length >= 2 ? parts[parts.length - 2] : '';
-        if (offerId.isNotEmpty) {
-          final nowIso = DateTime.now().toUtc().toIso8601String();
-          final existingOffer = await getDocument('dispatch_offers', offerId);
-          final bookingId = existingOffer?['bookingId']?.toString();
-          await upsertDocument('dispatch_offers', offerId, {
-            'status': 'ACCEPTED',
-            'acceptedAt': nowIso,
-          });
-          if (bookingId != null && bookingId.isNotEmpty) {
-            final xTechId = options.headers['x-technician-id']?.toString() ??
-                options.headers['x-user-id']?.toString() ??
-                existingOffer?['technicianId']?.toString();
-            await upsertDocument('bookings', bookingId, {
-              'status': 'ACCEPTED',
-              if (xTechId != null && xTechId.isNotEmpty) 'technicianId': xTechId,
-              'acceptedAt': nowIso,
-              'updatedAt': nowIso,
-            });
-          }
-        }
-        return Response(
-          requestOptions: options,
-          statusCode: 200,
-          data: {'success': true, 'message': 'Proposal accepted'},
-        );
+    // 8. Decline / Reject Dispatch Proposal
+    if ((cleanPath.contains('/decline') || cleanPath.contains('/reject')) && m == 'POST') {
+      final parts = cleanPath.split('/');
+      final targetIdx = cleanPath.contains('/decline') ? parts.indexOf('decline') : parts.indexOf('reject');
+      final offerId = targetIdx > 0 ? parts[targetIdx - 1] : (parts.length >= 2 ? parts[parts.length - 2] : '');
+      if (offerId.isNotEmpty) {
+        await upsertDocument('dispatch_offers', offerId, {
+          'status': 'REJECTED',
+          'rejectedAt': DateTime.now().toUtc().toIso8601String(),
+        });
       }
-      if ((cleanPath.contains('/decline') || cleanPath.contains('/reject')) && m == 'POST') {
-        final parts = cleanPath.split('/');
-        final offerId = parts.length >= 2 ? parts[parts.length - 2] : '';
-        if (offerId.isNotEmpty) {
-          await upsertDocument('dispatch_offers', offerId, {
-            'status': 'REJECTED',
-            'rejectedAt': DateTime.now().toUtc().toIso8601String(),
-          });
-        }
-        return Response(
-          requestOptions: options,
-          statusCode: 200,
-          data: {'success': true, 'message': 'Proposal declined'},
-        );
-      }
+      return Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {'success': true, 'message': 'Proposal declined'},
+      );
+    }
+
+    // 8B. Authoritative Booking Status & OTP Transitions (Start & Completion OTP Verification)
+    if (cleanPath.contains('/status') && (m == 'PATCH' || m == 'POST')) {
+      final parts = cleanPath.split('/');
+      final statusIdx = parts.indexOf('status');
+      final bookingId = statusIdx > 0 ? parts[statusIdx - 1] : (parts.length > 2 ? parts[parts.length - 2] : '');
+      final status = (body['status']?.toString() ?? '').toUpperCase();
+      final startOtp = body['startOtp']?.toString();
+      final endOtp = body['endOtp']?.toString();
+
+      return await _handleAuthoritativeOtpVerification(
+        options: options,
+        bookingId: bookingId,
+        status: status,
+        startOtp: startOtp,
+        endOtp: endOtp,
+      );
     }
 
     // 9. Bookings & Jobs List
@@ -1491,6 +1617,536 @@ class FirestoreRestClient {
       statusCode: 200,
       data: {'success': true, 'data': {}},
     );
+  }
+
+  /// ─── SERVER-AUTHORITATIVE BOOKING & OFFER ACCEPTANCE (Phase 2) ───────────────────
+  static Future<Response> _handleAuthoritativeAcceptance({
+    required RequestOptions options,
+    required String targetId,
+    required Map<String, dynamic> body,
+    required bool isOfferPath,
+  }) async {
+    // 1. Authenticated Technician Identity Verification
+    String? rawCallerId = options.headers['x-technician-id']?.toString() ??
+        options.headers['x-user-id']?.toString() ??
+        body['technicianId']?.toString();
+    if (rawCallerId == null || rawCallerId.isEmpty || rawCallerId == 'BT-PARTNER') {
+      try {
+        rawCallerId = await SecureStorage().getUserId();
+      } catch (_) {}
+    }
+    final callerTechId = resolveCanonicalTechUid(rawCallerId);
+
+    if (callerTechId.isEmpty || callerTechId == 'uid_tech_partner' || callerTechId == 'BT-PARTNER') {
+      return Response(
+        requestOptions: options,
+        statusCode: 401,
+        data: {
+          'success': false,
+          'code': 'UNAUTHORIZED',
+          'error': 'UNAUTHORIZED',
+          'message': 'Authentication required. Technician identity not established.',
+        },
+      );
+    }
+
+    // 2. Resolve Offer & Booking Context
+    String offerId = isOfferPath ? targetId : '';
+    String bookingId = isOfferPath ? '' : targetId;
+    Map<String, dynamic>? offerDoc;
+
+    if (isOfferPath || targetId.startsWith('offer_')) {
+      offerId = targetId;
+      offerDoc = await getDocument('dispatch_offers', offerId, forceRefresh: true);
+      if (offerDoc != null) {
+        bookingId = offerDoc['bookingId']?.toString() ?? '';
+      }
+    }
+
+    if (bookingId.isEmpty && !isOfferPath) {
+      bookingId = targetId;
+    }
+
+    // Fallback: check if targetId itself is a booking
+    if (bookingId.isEmpty) {
+      final possibleBooking = await getDocument('bookings', targetId, forceRefresh: true);
+      if (possibleBooking != null) {
+        bookingId = targetId;
+      }
+    }
+
+    if (bookingId.isEmpty) {
+      return Response(
+        requestOptions: options,
+        statusCode: 404,
+        data: {
+          'success': false,
+          'code': 'OFFER_NOT_FOUND',
+          'error': 'OFFER_NOT_FOUND',
+          'message': 'Dispatch offer or booking does not exist.',
+        },
+      );
+    }
+
+    // 3. Offer Expiry and Ownership Validation
+    if (offerDoc != null) {
+      final offerTechId = resolveCanonicalTechUid(offerDoc['technicianId']?.toString());
+      if (offerTechId.isNotEmpty && offerTechId != callerTechId) {
+        return Response(
+          requestOptions: options,
+          statusCode: 403,
+          data: {
+            'success': false,
+            'code': 'UNAUTHORIZED_OFFER',
+            'error': 'UNAUTHORIZED_OFFER',
+            'message': 'This dispatch offer belongs to another technician partner.',
+          },
+        );
+      }
+
+      final expiresAtStr = offerDoc['expiresAt']?.toString();
+      final currentOfferStatus = (offerDoc['status']?.toString() ?? '').toUpperCase();
+      if (expiresAtStr != null && expiresAtStr.isNotEmpty && currentOfferStatus != 'ACCEPTED') {
+        try {
+          final exp = DateTime.parse(expiresAtStr).toUtc();
+          if (DateTime.now().toUtc().isAfter(exp)) {
+            await upsertDocument('dispatch_offers', offerId, {
+              'status': 'EXPIRED',
+              'expiredAt': DateTime.now().toUtc().toIso8601String(),
+            });
+            return Response(
+              requestOptions: options,
+              statusCode: 410,
+              data: {
+                'success': false,
+                'code': 'OFFER_EXPIRED',
+                'error': 'OFFER_EXPIRED',
+                'message': 'This job request timed out and was forwarded to another partner.',
+              },
+            );
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 4. Booking State & Concurrency Protection (Atomic Winner Rule)
+    final existingBooking = await getDocument('bookings', bookingId, forceRefresh: true);
+    if (existingBooking == null) {
+      return Response(
+        requestOptions: options,
+        statusCode: 404,
+        data: {
+          'success': false,
+          'code': 'BOOKING_NOT_FOUND',
+          'error': 'BOOKING_NOT_FOUND',
+          'message': 'Booking record not found in system.',
+        },
+      );
+    }
+
+    final currentBookingStatus = (existingBooking['status']?.toString() ?? '').toUpperCase();
+    final existingTechId = resolveCanonicalTechUid(existingBooking['technicianId']?.toString());
+
+    // Already assigned / claimed by another technician?
+    if (['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED'].contains(currentBookingStatus)) {
+      if (existingTechId.isNotEmpty && existingTechId != callerTechId) {
+        if (offerId.isNotEmpty) {
+          await upsertDocument('dispatch_offers', offerId, {
+            'status': 'CANCELLED_CLAIMED_BY_ANOTHER',
+            'updatedAt': DateTime.now().toUtc().toIso8601String(),
+          });
+        }
+        return Response(
+          requestOptions: options,
+          statusCode: 409,
+          data: {
+            'success': false,
+            'code': 'ALREADY_ASSIGNED',
+            'error': 'BOOKING_ALREADY_ASSIGNED',
+            'message': 'This booking has already been accepted by another technician partner.',
+          },
+        );
+      }
+
+      // Idempotency check: Already assigned to THIS caller (network retry / double tap)
+      if (existingTechId == callerTechId) {
+        return Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'success': true,
+            'isIdempotent': true,
+            'code': 'ACCEPTED',
+            'message': 'Booking already confirmed and assigned to you.',
+            'booking': existingBooking,
+            'data': existingBooking,
+          },
+        );
+      }
+    }
+
+    // 5. Technician Eligibility & Online Presence Verification
+    final techDoc = await getDocument('technician_profiles', callerTechId, forceRefresh: true);
+    if (techDoc != null) {
+      final isOnline = techDoc['isOnline'] == true || techDoc['online'] == true;
+      final availStatus = (techDoc['availabilityStatus']?.toString() ?? 'AVAILABLE').toUpperCase();
+      if (!isOnline || availStatus == 'OFFLINE') {
+        return Response(
+          requestOptions: options,
+          statusCode: 409,
+          data: {
+            'success': false,
+            'code': 'TECHNICIAN_OFFLINE',
+            'error': 'TECHNICIAN_OFFLINE',
+            'message': 'Cannot accept booking while offline. Please toggle duty ON first.',
+          },
+        );
+      }
+      final kyc = (techDoc['kycStatus']?.toString() ?? 'VERIFIED').toUpperCase();
+      if (kyc == 'REJECTED') {
+        return Response(
+          requestOptions: options,
+          statusCode: 403,
+          data: {
+            'success': false,
+            'code': 'KYC_REJECTED',
+            'error': 'KYC_REJECTED',
+            'message': 'Account verification required before accepting jobs.',
+          },
+        );
+      }
+
+      // 5.1 Service Skill Authorization & Exact Canonical Match Verification (Layer 4 Defense)
+      final bookingServiceId = existingBooking['serviceId']?.toString() ??
+          (offerDoc != null ? offerDoc['serviceId']?.toString() : null) ?? '';
+      final bookingServiceName = existingBooking['serviceName']?.toString() ??
+          (offerDoc != null ? offerDoc['serviceName']?.toString() : null) ?? '';
+
+      if (bookingServiceId.isNotEmpty) {
+        final isSkillAuthorized = doesTechnicianPossessVerifiedSkill(
+          techDoc,
+          bookingServiceId,
+          serviceName: bookingServiceName,
+        );
+        if (!isSkillAuthorized) {
+          return Response(
+            requestOptions: options,
+            statusCode: 403,
+            data: {
+              'success': false,
+              'code': 'SKILL_NOT_AUTHORIZED',
+              'error': 'INELIGIBLE_FOR_SERVICE',
+              'message': 'Technician is not authorized or verified for service: $bookingServiceId.',
+            },
+          );
+        }
+      }
+    }
+
+    // 6. Server-Authoritative Atomic State Commit
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+    final techName = techDoc?['fullName'] ?? techDoc?['name'] ?? 'Partner Technician';
+    final techPhone = techDoc?['phone'] ?? techDoc?['phoneNumber'] ?? '';
+    final digits = callerTechId.replaceAll(RegExp(r'\D'), '');
+    final techCode = techDoc?['technicianCode'] ??
+        'BT-${digits.length >= 6 ? digits.substring(digits.length - 6) : digits.padLeft(6, '0')}';
+
+    final updateData = {
+      'status': 'ASSIGNED',
+      'technicianId': callerTechId,
+      'technicianName': techName,
+      'technicianPhone': techPhone,
+      'technicianCode': techCode,
+      'assignedAt': nowIso,
+      'acceptedAt': nowIso,
+      'updatedAt': nowIso,
+    };
+
+    // Update authoritative booking record in Firestore
+    await upsertDocument('bookings', bookingId, updateData);
+
+    // If dispatched via offer, mark this winning offer ACCEPTED
+    if (offerId.isNotEmpty) {
+      await upsertDocument('dispatch_offers', offerId, {
+        'status': 'ACCEPTED',
+        'acceptedAt': nowIso,
+        'updatedAt': nowIso,
+      });
+    }
+
+    // Cancel competing offers for this booking so other technicians are dismissed
+    try {
+      final allOffers = await listCollection('dispatch_offers', forceRefresh: true);
+      for (final o in allOffers) {
+        final oId = o['id']?.toString() ?? o['offerId']?.toString() ?? '';
+        final bId = o['bookingId']?.toString() ?? '';
+        final st = (o['status']?.toString() ?? '').toUpperCase();
+        if (bId == bookingId && oId != offerId && (st == 'SENT' || st == 'RINGING')) {
+          await upsertDocument('dispatch_offers', oId, {
+            'status': 'CANCELLED_CLAIMED_BY_ANOTHER',
+            'updatedAt': nowIso,
+          });
+        }
+      }
+    } catch (_) {}
+
+    // Transition technician presence to BUSY (keeping lastPresenceHeartbeat separate from lastLocationUpdate!)
+    await upsertDocument('technician_profiles', callerTechId, {
+      'availabilityStatus': 'BUSY',
+      'activeBookingId': bookingId,
+      'lastPresenceHeartbeat': nowIso,
+      'updatedAt': nowIso,
+    });
+
+    final completeBooking = {
+      ...existingBooking,
+      ...updateData,
+    };
+    // Strictly sanitize: NEVER return customer OTPs to technician
+    completeBooking.remove('startOtp');
+    completeBooking.remove('endOtp');
+    completeBooking.remove('startServiceOtp');
+
+    return Response(
+      requestOptions: options,
+      statusCode: 200,
+      data: {
+        'success': true,
+        'code': 'ACCEPTED',
+        'message': 'Booking accepted successfully',
+        'booking': completeBooking,
+        'data': completeBooking,
+      },
+    );
+  }
+
+  /// ─── AUTHORITATIVE OTP VERIFICATION & LIFECYCLE TRANSITION ─────────────
+  /// Validates entered Start / End OTP, enforces attempt limits, locks out on 3 failures,
+  /// and updates booking status. Never permits client-side verification bypass.
+  static Future<Response> _handleAuthoritativeOtpVerification({
+    required RequestOptions options,
+    required String bookingId,
+    required String status,
+    String? startOtp,
+    String? endOtp,
+  }) async {
+    final callerId = options.headers['x-technician-id']?.toString() ??
+        options.headers['x-user-id']?.toString() ??
+        '';
+
+    final isStart = startOtp != null && startOtp.isNotEmpty;
+    final enteredOtp = (isStart ? startOtp : (endOtp ?? '')).trim();
+
+    // 1. Strict Format Validation
+    if (enteredOtp.length != 4 || int.tryParse(enteredOtp) == null) {
+      return Response(
+        requestOptions: options,
+        statusCode: 400,
+        data: {
+          'success': false,
+          'code': 'INVALID_OTP_FORMAT',
+          'error': 'INVALID_OTP_FORMAT',
+          'message': 'A 4-digit numeric OTP is required.',
+        },
+      );
+    }
+
+    // 2. Fetch booking record
+    final booking = await getDocument('bookings', bookingId, forceRefresh: true);
+    if (booking == null) {
+      return Response(
+        requestOptions: options,
+        statusCode: 404,
+        data: {
+          'success': false,
+          'code': 'BOOKING_NOT_FOUND',
+          'error': 'BOOKING_NOT_FOUND',
+          'message': 'Booking not found.',
+        },
+      );
+    }
+
+    // 3. Authorization check
+    final assignedTech = booking['technicianId']?.toString();
+    if (assignedTech != null && callerId.isNotEmpty && assignedTech != callerId && !assignedTech.contains(callerId)) {
+      return Response(
+        requestOptions: options,
+        statusCode: 403,
+        data: {
+          'success': false,
+          'code': 'TECHNICIAN_NOT_ASSIGNED',
+          'error': 'TECHNICIAN_NOT_ASSIGNED',
+          'message': 'You are not the assigned technician for this booking.',
+        },
+      );
+    }
+
+    // 4. State validation
+    final currentStatus = (booking['status']?.toString() ?? '').toUpperCase();
+    if (isStart && currentStatus == 'IN_PROGRESS') {
+      return Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {'success': true, 'status': 'IN_PROGRESS', 'message': 'Job is already in progress'},
+      );
+    }
+    if (!isStart && currentStatus == 'COMPLETED') {
+      return Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {'success': true, 'status': 'COMPLETED', 'message': 'Job is already completed'},
+      );
+    }
+
+    // 5. Fetch Challenge & Secrets (from booking_secrets or local challenge)
+    final secretDoc = await getDocument('booking_secrets', bookingId, forceRefresh: true);
+
+    final failedAttemptsKey = isStart ? 'failedStartAttempts' : 'failedEndAttempts';
+    final lockedOutKey = isStart ? 'startLockedOut' : 'endLockedOut';
+
+    int failedCount = 0;
+    bool isLocked = false;
+    String? salt;
+    String? expectedHash;
+
+    if (secretDoc != null) {
+      failedCount = int.tryParse(secretDoc[failedAttemptsKey]?.toString() ?? '0') ?? 0;
+      isLocked = secretDoc[lockedOutKey] == true || failedCount >= 3;
+      salt = secretDoc['salt']?.toString();
+      expectedHash = isStart ? secretDoc['startOtpHash']?.toString() : secretDoc['endOtpHash']?.toString();
+    }
+
+    if (isLocked) {
+      return Response(
+        requestOptions: options,
+        statusCode: 403,
+        data: {
+          'success': false,
+          'code': 'OTP_LOCKED_OUT',
+          'error': 'OTP_LOCKED_OUT',
+          'message': 'Maximum OTP verification attempts exceeded (3 failed attempts). Verification is locked.',
+          'remainingAttempts': 0,
+        },
+      );
+    }
+
+    // 6. Hash & Compare
+    bool isValid = false;
+    if (salt != null && expectedHash != null && expectedHash.isNotEmpty) {
+      // Check salted hash
+      final computed = sha256Hex('$salt$enteredOtp');
+      final fallbackComputed = sha256Hex(enteredOtp);
+      isValid = (computed == expectedHash) || (fallbackComputed == expectedHash);
+    }
+
+    // Fallback check against plaintext field if legacy doc
+    if (!isValid) {
+      final plainExpected = isStart ? booking['startOtp']?.toString() : booking['endOtp']?.toString();
+      if (plainExpected != null && plainExpected.isNotEmpty) {
+        isValid = plainExpected == enteredOtp;
+      }
+    }
+
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+
+    if (!isValid) {
+      failedCount++;
+      final nextLocked = failedCount >= 3;
+      final remaining = (3 - failedCount).clamp(0, 3);
+
+      if (secretDoc != null) {
+        await upsertDocument('booking_secrets', bookingId, {
+          failedAttemptsKey: failedCount,
+          lockedOutKey: nextLocked,
+          'updatedAt': nowIso,
+        });
+      }
+
+      return Response(
+        requestOptions: options,
+        statusCode: nextLocked ? 403 : 400,
+        data: {
+          'success': false,
+          'code': nextLocked ? 'OTP_LOCKED_OUT' : 'INVALID_OTP',
+          'error': nextLocked ? 'OTP_LOCKED_OUT' : 'INVALID_OTP',
+          'message': nextLocked
+              ? 'Maximum OTP attempts reached (3 failed attempts). Account locked.'
+              : 'Invalid OTP code. $remaining attempts remaining.',
+          'remainingAttempts': remaining,
+        },
+      );
+    }
+
+    // 7. Success: Commit State Transition
+    if (isStart) {
+      await upsertDocument('bookings', bookingId, {
+        'status': 'IN_PROGRESS',
+        'serviceStartedAt': nowIso,
+        'updatedAt': nowIso,
+      });
+      if (secretDoc != null) {
+        await upsertDocument('booking_secrets', bookingId, {
+          'failedStartAttempts': 0,
+          'startVerifiedAt': nowIso,
+          'updatedAt': nowIso,
+        });
+      }
+      return Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {
+          'success': true,
+          'status': 'IN_PROGRESS',
+          'message': 'Start OTP verified successfully. Work is now IN_PROGRESS.',
+        },
+      );
+    } else {
+      final totalAmount = double.tryParse(booking['totalAmount']?.toString() ??
+              booking['price']?.toString() ??
+              booking['grandTotal']?.toString() ??
+              '1039') ??
+          1039.0;
+      final payout = (totalAmount * 0.8).round();
+
+      await upsertDocument('bookings', bookingId, {
+        'status': 'COMPLETED',
+        'completedAt': nowIso,
+        'technicianPayoutAmount': payout,
+        'updatedAt': nowIso,
+      });
+
+      if (callerId.isNotEmpty) {
+        final tech = await getDocument('technician_profiles', callerId, forceRefresh: true);
+        final currentBal = int.tryParse(tech?['walletBalance']?.toString() ?? '0') ?? 0;
+        final jobsCount = int.tryParse(tech?['totalJobsCompleted']?.toString() ?? '0') ?? 0;
+        await upsertDocument('technician_profiles', callerId, {
+          'availabilityStatus': 'AVAILABLE',
+          'activeBookingId': null,
+          'walletBalance': currentBal + payout,
+          'totalJobsCompleted': jobsCount + 1,
+          'updatedAt': nowIso,
+        });
+      }
+
+      if (secretDoc != null) {
+        await upsertDocument('booking_secrets', bookingId, {
+          'failedEndAttempts': 0,
+          'endVerifiedAt': nowIso,
+          'updatedAt': nowIso,
+        });
+      }
+
+      return Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {
+          'success': true,
+          'status': 'COMPLETED',
+          'payoutAmount': payout,
+          'message': 'Service completed successfully! Earnings credited to wallet.',
+        },
+      );
+    }
   }
 }
 

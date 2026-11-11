@@ -3,6 +3,20 @@ class AppConfig {
   static const bool isFirebasePrimary = true;
   static const String firebaseProjectId = 'bookmytechnician-53d94';
 
+  // Trusted Firebase Backend Endpoints (Cloud Functions 2nd Gen)
+  static const String functionsProdUrl =
+      'https://asia-south1-bookmytechnician-53d94.cloudfunctions.net/api';
+  static const String functionsEmulatorUrl =
+      'http://10.0.2.2:5001/bookmytechnician-53d94/asia-south1/api';
+  static const String functionsWifiUrl =
+      'http://192.168.1.3:5001/bookmytechnician-53d94/asia-south1/api';
+
+  static String get functionsApiUrl {
+    const override = String.fromEnvironment('FUNCTIONS_API_URL');
+    if (override.isNotEmpty) return override;
+    return functionsProdUrl;
+  }
+
   // Live Production & Local Dev Backend Endpoints (Legacy compatibility shims)
   static const String prodApiBaseUrl = '';
   static const String renderFallbackApiUrl = '';
