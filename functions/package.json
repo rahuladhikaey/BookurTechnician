@@ -7,7 +7,7 @@
     "node": "20"
   },
   "scripts": {
-    "test": "node tests/unit_test.js"
+    "test": "node tests/unit_test.js && node tests/self_accept_dispatch_test.js && node tests/skill_save_test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

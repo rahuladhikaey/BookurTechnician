@@ -115,7 +115,11 @@ export default function TechniciansManager({
     setLoadingSkills(true);
     try {
       const res = await api.getTechnicianSkills(techId);
-      if (res?.data) {
+      if (res?.data?.skills) {
+        setTechSkillsData(res.data);
+      } else if (res?.skills) {
+        setTechSkillsData(res);
+      } else if (res?.data) {
         setTechSkillsData(res.data);
       } else {
         setTechSkillsData(null);
@@ -859,7 +863,7 @@ export default function TechniciansManager({
                 onClick={() => setDetailTab('skills')}
                 style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: detailTab === 'skills' ? '#FFFFFF' : 'transparent', fontWeight: detailTab === 'skills' ? '700' : '500', color: detailTab === 'skills' ? 'var(--primary)' : '#77716C', cursor: 'pointer', boxShadow: detailTab === 'skills' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
               >
-                🛠️ Declared Skills ({techSkillsData?.skills?.length || selectedTech.skills?.length || 0})
+                🛠️ Declared Skills ({techSkillsData?.skills?.length || techSkillsData?.selectedSkills?.length || selectedTech.skills?.length || selectedTech.selectedSkills?.length || 0})
               </button>
               <button
                 onClick={() => setDetailTab('kyc')}
@@ -970,7 +974,7 @@ export default function TechniciansManager({
 
                   {loadingSkills ? (
                     <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-secondary)' }}>Loading skills...</div>
-                  ) : !techSkillsData?.skills?.length && !selectedTech.skills?.length ? (
+                  ) : !(techSkillsData?.skills?.length || techSkillsData?.selectedSkills?.length || selectedTech.skills?.length || selectedTech.selectedSkills?.length) ? (
                     <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-secondary)' }}>
                       No skills declared yet by this technician.
                     </div>
@@ -986,7 +990,7 @@ export default function TechniciansManager({
                           </tr>
                         </thead>
                         <tbody>
-                          {(techSkillsData?.skills || selectedTech.skills || []).map((s, idx) => {
+                          {(techSkillsData?.skills || techSkillsData?.selectedSkills || selectedTech.skills || selectedTech.selectedSkills || []).map((s, idx) => {
                             const skillId = typeof s === 'object' ? (s.id || s._id || `skill-${idx}`) : `skill-${idx}`;
                             const skillName = typeof s === 'string' ? s : (s.skillName || s.name || s.title || s.serviceName || `Skill #${idx + 1}`);
                             const catName = typeof s === 'object' ? (s.categoryName || s.category || selectedTech.category || 'General') : (selectedTech.category || 'General');

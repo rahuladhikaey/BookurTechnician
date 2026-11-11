@@ -421,23 +421,13 @@ export default function LiveTransitRadarModal({ booking, onClose, onReassign, on
             {/* Quick Actions */}
             <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
               <button
-                className="btn btn-outline btn-sm"
-                style={{ flex: 1, fontSize: '11px' }}
-                onClick={() => {
-                  onClose();
-                  onReassign?.(booking);
-                }}
-              >
-                🔄 Reassign
-              </button>
-              <button
                 className="btn btn-primary btn-sm"
                 style={{ flex: 1, fontSize: '11px' }}
                 onClick={() => {
                   window.open(`https://www.google.com/maps/dir/?api=1&origin=${tech.latitude},${tech.longitude}&destination=${cust.latitude},${cust.longitude}`, '_blank');
                 }}
               >
-                🗺️ Google Maps ↗
+                🗺️ Google Maps Navigation ↗
               </button>
             </div>
 

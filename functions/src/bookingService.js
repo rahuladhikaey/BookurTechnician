@@ -85,13 +85,19 @@ async function createBooking(db, { customerId, customerName, customerPhone, serv
     createdAt: nowIso,
   });
 
+  // Server-Authoritative Dispatch: Automatically generate offers for all eligible technicians
+  const { dispatchBookingOffers } = require('./dispatchService');
+  const dispatchedOffers = await dispatchBookingOffers(db, bookingData);
+
   return {
     success: true,
-    message: 'Booking created successfully',
+    message: 'Booking created successfully and dispatched to eligible technicians',
     bookingId,
     booking: bookingData,
     startOtp,
     endOtp,
+    offersDispatched: dispatchedOffers.length,
+    offerIds: dispatchedOffers.map((o) => o.id),
   };
 }
 

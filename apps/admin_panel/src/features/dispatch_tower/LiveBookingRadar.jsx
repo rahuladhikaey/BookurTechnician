@@ -418,19 +418,21 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                             </button>
 
                             {stage.key === 'PENDING' && (
-                              <button
-                                onClick={() => setForceAssignTarget(b)}
-                                className="btn btn-sm"
+                              <div
                                 style={{
                                   width: '100%',
-                                  backgroundColor: '#F46B12',
-                                  color: '#FFFFFF',
+                                  backgroundColor: '#FFF4E0',
+                                  color: '#E5A126',
+                                  border: '1px solid #FBE4D5',
+                                  borderRadius: '4px',
                                   fontSize: '11px',
-                                  padding: '5px 8px'
+                                  padding: '5px 8px',
+                                  textAlign: 'center',
+                                  fontWeight: '700'
                                 }}
                               >
-                                ⚡ Force Assign
-                              </button>
+                                📡 Auto-Dispatching Offers...
+                              </div>
                             )}
 
                             {['ARRIVED', 'IN_PROGRESS'].includes(stage.key) && (
@@ -517,13 +519,20 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                         {status === 'PENDING' && (
-                          <button
-                            onClick={() => setForceAssignTarget(b)}
-                            className="btn btn-sm"
-                            style={{ backgroundColor: '#F46B12', color: '#FFFFFF' }}
+                          <span
+                            style={{
+                              backgroundColor: '#FFF4E0',
+                              color: '#E5A126',
+                              border: '1px solid #FBE4D5',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              padding: '4px 8px',
+                              fontWeight: '700',
+                              display: 'inline-block'
+                            }}
                           >
-                            Force Assign
-                          </button>
+                            📡 Auto-Dispatching
+                          </span>
                         )}
                         {['ARRIVED', 'IN_PROGRESS'].includes(status) && (
                           <button

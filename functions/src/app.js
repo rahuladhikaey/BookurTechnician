@@ -7,6 +7,7 @@ const { acceptBookingOffer } = require('./dispatchService');
 const { verifyStartOtp, verifyEndOtp } = require('./otpVerificationService');
 const { createBooking, resendStartOtp, resendEndOtp, getCustomerOtps } = require('./bookingService');
 const { updateTechnicianPresence } = require('./presenceService');
+const { fetchTechnicianSkills, saveTechnicianSkills, toggleTechnicianSkill } = require('./skillService');
 
 function createApp(db) {
   const app = express();
@@ -194,6 +195,90 @@ function createApp(db) {
       res.status(err.status || 500).json({ success: false, code: err.code || 'FETCH_FAILED', error: err.message });
     }
   });
+
+  // 7. Technician Skills Management (Authoritative & Canonical)
+  const handleFetchSkills = async (req, res) => {
+    try {
+      const callerUid = req.user.uid;
+      const isAdmin = req.user.admin === true || (req.user.role || '').toUpperCase() === 'ADMIN';
+      const targetTechId = req.params.technicianId || req.query.technicianId || callerUid;
+      const result = await fetchTechnicianSkills(db, { callerUid, targetTechId, isAdmin });
+      res.status(200).json({
+        success: true,
+        data: result,
+        profile: result,
+        skills: result.skills,
+        selectedSkills: result.selectedSkills,
+      });
+    } catch (err) {
+      res.status(err.status || 500).json({ success: false, code: err.code || 'FETCH_SKILLS_FAILED', error: err.message });
+    }
+  };
+
+  const handleSaveSkills = async (req, res) => {
+    try {
+      const callerUid = req.user.uid;
+      const isAdmin = req.user.admin === true || (req.user.role || '').toUpperCase() === 'ADMIN';
+      const rawSkills = Array.isArray(req.body)
+        ? req.body
+        : (req.body.skills || req.body.selectedSkills || req.body.data || []);
+      const targetTechId = req.params.technicianId || req.body.technicianId || req.body.uid;
+
+      const result = await saveTechnicianSkills(db, {
+        callerUid,
+        targetTechId,
+        skills: rawSkills,
+        isAdmin,
+      });
+      res.status(200).json({
+        success: true,
+        saveState: 'SAVED_TO_SERVER',
+        message: 'Skills saved successfully to Cloud Firestore',
+        data: result,
+        profile: result.profile,
+        skills: result.skills,
+        selectedSkills: result.selectedSkills,
+      });
+    } catch (err) {
+      res.status(err.status || 500).json({ success: false, code: err.code || 'SAVE_SKILLS_FAILED', error: err.message });
+    }
+  };
+
+  const handleToggleSkill = async (req, res) => {
+    try {
+      const callerUid = req.user.uid;
+      const isAdmin = req.user.admin === true || (req.user.role || '').toUpperCase() === 'ADMIN';
+      const skillId = req.params.skillId;
+      const targetTechId = req.params.technicianId || req.body.technicianId || req.body.uid;
+      const enabled = req.body.enabled;
+
+      const result = await toggleTechnicianSkill(db, {
+        callerUid,
+        targetTechId,
+        skillId,
+        enabled,
+        isAdmin,
+      });
+      res.status(200).json(result);
+    } catch (err) {
+      res.status(err.status || 500).json({ success: false, code: err.code || 'TOGGLE_SKILL_FAILED', error: err.message });
+    }
+  };
+
+  app.get('/api/technicians/skills', handleFetchSkills);
+  app.get('/technicians/skills', handleFetchSkills);
+  app.get('/admin/technicians/:technicianId/skills', handleFetchSkills);
+
+  app.post('/api/technicians/skills', handleSaveSkills);
+  app.post('/technicians/skills', handleSaveSkills);
+  app.post('/api/technicians/skills/bulk', handleSaveSkills);
+  app.post('/technicians/skills/bulk', handleSaveSkills);
+  app.post('/admin/technicians/:technicianId/skills', handleSaveSkills);
+
+  app.patch('/api/technicians/skills/:skillId/toggle', handleToggleSkill);
+  app.patch('/technicians/skills/:skillId/toggle', handleToggleSkill);
+  app.post('/api/technicians/skills/:skillId/toggle', handleToggleSkill);
+  app.post('/technicians/skills/:skillId/toggle', handleToggleSkill);
 
   return app;
 }

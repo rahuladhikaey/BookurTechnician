@@ -597,8 +597,18 @@ class FirestoreRestClient {
     }
 
     try {
+      String? authToken;
+      try {
+        authToken = await SecureStorage().getToken();
+      } catch (_) {}
+
+      final headers = <String, String>{
+        if (authToken != null && authToken.isNotEmpty)
+          'Authorization': 'Bearer $authToken',
+      };
+
       final uri = Uri.parse('$baseUrl/$collection/$cleanId');
-      final res = await _requestWithBackoff('GET', uri);
+      final res = await _requestWithBackoff('GET', uri, headers: headers);
       if (res.statusCode == 200) {
         totalReads += 1;
         final data = _docToPlain(jsonDecode(res.body) as Map<String, dynamic>?);
@@ -635,10 +645,21 @@ class FirestoreRestClient {
           .join('&');
       final uri = Uri.parse('$baseUrl/$collection/$cleanId?$maskParams');
 
+      String? authToken;
+      try {
+        authToken = await SecureStorage().getToken();
+      } catch (_) {}
+
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (authToken != null && authToken.isNotEmpty)
+          'Authorization': 'Bearer $authToken',
+      };
+
       final res = await _requestWithBackoff(
         'PATCH',
         uri,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({'fields': fields}),
       );
 
@@ -1119,7 +1140,6 @@ class FirestoreRestClient {
           'serviceCategories': declaredCategoryIds.toList(),
           'categories': declaredCategories.toList(),
           'category': primaryCategory,
-          'skillVerificationStatus': 'VERIFIED',
           'onboardingStep': existingDoc['onboardingCompleted'] == true ? 'ACTIVE' : 'SKILLS_SAVED',
           'onboardingCompleted': existingDoc['onboardingCompleted'] ?? true,
           'profileCompletionPercentage': (existingDoc['profileCompletionPercentage'] as num?)?.toInt() ?? 80,

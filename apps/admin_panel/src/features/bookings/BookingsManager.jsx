@@ -541,27 +541,16 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                         >
                           🛰️ Track Live GPS Transit (Zomato Map)
                         </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          style={{ width: '100%', fontSize: '11.5px', padding: '6px' }}
-                          onClick={() => setReassignTechModal(true)}
-                        >
-                          🔄 Reassign Another Technician
-                        </button>
                       </div>
                     </div>
                   ) : (
                     <div style={{ padding: '12px 0', textAlign: 'center' }}>
-                      <p style={{ fontSize: '13px', color: '#DC3545', fontWeight: '700', marginBottom: '8px' }}>
-                        ⚠️ No technician assigned yet
+                      <p style={{ fontSize: '13px', color: '#E5A126', fontWeight: '700', marginBottom: '8px' }}>
+                        ⏳ Awaiting Technician Self-Acceptance
                       </p>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        style={{ width: '100%', fontSize: '12px' }}
-                        onClick={() => setReassignTechModal(true)}
-                      >
-                        ⚡ Assign Available Technician Now
-                      </button>
+                      <div style={{ padding: '8px 12px', background: '#FFF4E0', border: '1px solid #FBE4D5', borderRadius: '6px', fontSize: '11.5px', color: '#E5A126', fontWeight: '700' }}>
+                        📡 Auto-Dispatch Active — Offers dispatched to eligible partners (Admin is monitoring-only)
+                      </div>
                     </div>
                   )}
 
@@ -654,13 +643,6 @@ export default function BookingsManager({ bookings = [], setBookings, technician
             </div>
 
             <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setReassignTechModal(true)}
-              >
-                👨‍🔧 Reassign / Assign Tech
-              </button>
               <button
                 type="button"
                 className="btn btn-outline"

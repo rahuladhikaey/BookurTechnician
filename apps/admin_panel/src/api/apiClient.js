@@ -287,6 +287,7 @@ class ApiClient {
   createTechnician(data) { return this.post('/admin/technicians', data); }
   deleteTechnician(id) { return this.delete(`/admin/technicians/${id}`); }
   clearAllTechnicians() { return this.delete('/admin/technicians'); }
+  getTechnicianSkills(id) { return this.get(`/admin/technicians/${id}/skills`); }
   getTechnicianDocuments(id) { return this.get(`/admin/technicians/${id}/documents`); }
   updateTechnicianStatus(id, status) { return this.patch(`/admin/technicians/${id}/status`, { status }); }
   updateTechnicianKyc(id, data) { return this.patch(`/admin/technicians/${id}/kyc`, data); }

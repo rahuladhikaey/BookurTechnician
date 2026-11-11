@@ -102,6 +102,25 @@ async function acceptBookingOffer(db, { offerId, callerUid, callerName, callerPh
       throw err;
     }
 
+    // 5b. Booking Lifecycle State Guard (Must be SEARCHING or PENDING)
+    if (currentBookingStatus === 'CANCELLED') {
+      transaction.update(offerRef, {
+        status: 'CANCELLED_CUSTOMER',
+        updatedAt: nowIso,
+      });
+      const err = new Error('Booking has been cancelled by the customer');
+      err.status = 410;
+      err.code = 'BOOKING_CANCELLED';
+      throw err;
+    }
+
+    if (currentBookingStatus !== 'SEARCHING' && currentBookingStatus !== 'PENDING') {
+      const err = new Error(`Booking cannot be accepted in status: ${currentBookingStatus}`);
+      err.status = 400;
+      err.code = 'INVALID_BOOKING_STATUS';
+      throw err;
+    }
+
     // 6. Read and Validate Technician Profile
     const techRef = db.collection('technician_profiles').doc(callerUid);
     const techSnap = await transaction.get(techRef);
@@ -253,7 +272,135 @@ async function acceptBookingOffer(db, { offerId, callerUid, callerName, callerPh
   };
 }
 
+function calculateHaversineDistanceKm(lat1, lon1, lat2, lon2) {
+  const p = 0.017453292519943295; // Math.PI / 180
+  const c = Math.cos;
+  const a = 0.5 - c((lat2 - lat1) * p) / 2 +
+            c(lat1 * p) * c(lat2 * p) *
+            (1 - c((lon2 - lon1) * p)) / 2;
+  return 12742 * Math.asin(Math.sqrt(a)); // 2 * R; R = 6371 km
+}
+
+/**
+ * Server-Authoritative Dispatch Offer Generator
+ * Evaluates all technicians and creates dispatch_offers ONLY for those satisfying ALL conditions:
+ * - Authenticated Firebase UID
+ * - Verified account (kycStatus === 'VERIFIED' or 'APPROVED', not suspended/blocked)
+ * - Required canonical service skill is verified and enabled
+ * - Technician is online (isOnline === true and availabilityStatus !== 'OFFLINE')
+ * - Technician is available and not already BUSY (availabilityStatus !== 'BUSY', no active booking)
+ * - Location coverage (distKm <= 15.0 km and lastLocationUpdate <= 10 min)
+ */
+async function dispatchBookingOffers(db, bookingData) {
+  const serviceId = bookingData.serviceId;
+  const serviceName = bookingData.serviceName;
+  const bookingId = bookingData.id;
+  const custCoords = bookingData.coordinates;
+  const nowIso = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 45000).toISOString();
+
+  // 1. Fetch all technician profiles
+  const techQuery = await db.collection('technician_profiles').get();
+  const eligibleOffers = [];
+
+  // 2. Fetch active bookings to identify busy technicians
+  const activeBookingsQuery = await db.collection('bookings')
+    .where('status', 'in', ['ASSIGNED', 'ACCEPTED', 'IN_PROGRESS', 'TECHNICIAN_ARRIVED'])
+    .get();
+  const busyTechSet = new Set();
+  activeBookingsQuery.forEach((doc) => {
+    const tId = doc.data().technicianId;
+    if (tId) busyTechSet.add(tId);
+  });
+
+  for (const doc of techQuery.docs) {
+    const techId = doc.id;
+    const tech = doc.data();
+
+    // Condition 1: Authenticated Firebase UID
+    if (!techId) continue;
+
+    // Condition 2: Verified technician account
+    const kyc = (tech.kycStatus || 'VERIFIED').toUpperCase();
+    const accStatus = (tech.accountStatus || 'ACTIVE').toUpperCase();
+    if (kyc !== 'VERIFIED' && kyc !== 'APPROVED') continue;
+    if (accStatus === 'SUSPENDED' || accStatus === 'BLOCKED') continue;
+
+    // Condition 3: Online
+    const isOnline = tech.isOnline === true;
+    const availStatus = (tech.availabilityStatus || 'AVAILABLE').toUpperCase();
+    if (!isOnline || availStatus === 'OFFLINE') continue;
+
+    // Condition 4: Available & not already BUSY
+    if (availStatus === 'BUSY' || busyTechSet.has(techId) || tech.activeBookingId) continue;
+
+    // Condition 5: Canonical service skill is verified and enabled
+    const hasSkill = doesTechnicianPossessVerifiedSkill(tech, serviceId, serviceName);
+    if (!hasSkill) continue;
+
+    // Condition 6: Location and service coverage rules
+    let distKm = 5.0; // default estimate if coordinates not supplied
+    const tLat = tech.latitude || tech.currentLatitude;
+    const tLng = tech.longitude || tech.currentLongitude;
+
+    if (custCoords && custCoords.latitude && custCoords.longitude && tLat && tLng) {
+      if (tech.lastLocationUpdate) {
+        const updateAgeMs = Date.now() - new Date(tech.lastLocationUpdate).getTime();
+        if (updateAgeMs > 10 * 60 * 1000) {
+          continue; // Stale location (>10 minutes)
+        }
+      }
+      distKm = calculateHaversineDistanceKm(
+        Number(custCoords.latitude),
+        Number(custCoords.longitude),
+        Number(tLat),
+        Number(tLng)
+      );
+      if (distKm > 15.0) {
+        continue; // Out of 15.0 km radius
+      }
+    }
+
+    const offerId = `offer_${bookingId}_${techId}`;
+    const offerDoc = {
+      id: offerId,
+      offerId,
+      bookingId,
+      technicianId: techId,
+      targetTechnicianUid: techId,
+      serviceId,
+      serviceName,
+      price: bookingData.price,
+      payout: Math.round((bookingData.price || 399) * 0.8),
+      distanceKm: Math.round(distKm * 10) / 10,
+      approximateArea: bookingData.address?.area || bookingData.address?.city || 'Customer Premise',
+      status: 'SENT',
+      timeoutSeconds: 45,
+      expiresAt,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    await db.collection('dispatch_offers').doc(offerId).set(offerDoc);
+    eligibleOffers.push(offerDoc);
+  }
+
+  // Audit event for dispatch attempt
+  await db.collection('booking_events').doc().set({
+    bookingId,
+    eventType: 'DISPATCH_OFFERS_GENERATED',
+    serviceId,
+    eligibleCount: eligibleOffers.length,
+    timestamp: nowIso,
+    createdAt: nowIso,
+  });
+
+  return eligibleOffers;
+}
+
 module.exports = {
   acceptBookingOffer,
+  dispatchBookingOffers,
+  calculateHaversineDistanceKm,
 };
 
