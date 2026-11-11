@@ -15,11 +15,14 @@ class AuthInterceptor extends Interceptor {
       if (token != null && token.isNotEmpty) {
         options.headers['Authorization'] = 'Bearer $token';
       }
-      // Direct 100% Firebase Cloud Firestore resolution (zero latency, no Render dependency)
-      final fbResp = await FirestoreRestClient.handleDioRequest(options);
-      return handler.resolve(fbResp);
+      final userDetails = await _storage.getUserDetails();
+      final techId = userDetails['userId'] ?? userDetails['id'];
+      if (techId != null && techId.toString().isNotEmpty) {
+        options.headers['x-technician-id'] = techId.toString();
+        options.headers['x-user-id'] = techId.toString();
+      }
     } catch (e) {
-      debugPrint('AuthInterceptor Firestore direct notice: $e');
+      debugPrint('AuthInterceptor header attach notice: $e');
     }
     handler.next(options);
   }

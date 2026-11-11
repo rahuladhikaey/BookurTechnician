@@ -1,5 +1,45 @@
 [
   {
+    "id": "aud_tech_1794390160970_e90q",
+    "adminUid": "admin_master",
+    "action": "REACTIVATE_TECHNICIAN",
+    "targetTechnicianUid": "uid_tech_9876988363",
+    "previousStatus": "SUSPENDED",
+    "updatedStatus": "ACTIVE",
+    "notes": "Account status set to ACTIVE",
+    "timestamp": "2026-11-11T09:42:40.970Z"
+  },
+  {
+    "id": "aud_tech_1794390160968_746s",
+    "adminUid": "admin_master",
+    "action": "SUSPEND_TECHNICIAN",
+    "targetTechnicianUid": "uid_tech_9876988363",
+    "previousStatus": "ACTIVE",
+    "updatedStatus": "SUSPENDED",
+    "notes": "Account status set to SUSPENDED",
+    "timestamp": "2026-11-11T09:42:40.968Z"
+  },
+  {
+    "id": "aud_tech_1794390160960_anqo",
+    "adminUid": "admin_master",
+    "action": "APPROVE_SKILL",
+    "targetTechnicianUid": "uid_tech_9876988363",
+    "previousStatus": "VERIFIED",
+    "updatedStatus": "VERIFIED",
+    "notes": "Skill ac_install marked VERIFIED",
+    "timestamp": "2026-11-11T09:42:40.960Z"
+  },
+  {
+    "id": "aud_tech_1794390160947_7b54",
+    "adminUid": "admin_master",
+    "action": "APPROVE_TECHNICIAN_KYC",
+    "targetTechnicianUid": "uid_tech_9876988363",
+    "previousStatus": "VERIFIED",
+    "updatedStatus": "VERIFIED",
+    "notes": "KYC marked VERIFIED",
+    "timestamp": "2026-11-11T09:42:40.947Z"
+  },
+  {
     "id": "aud_tech_1794110892853_97qr",
     "adminUid": "admin_master",
     "action": "REACTIVATE_TECHNICIAN",

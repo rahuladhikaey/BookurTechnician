@@ -172,7 +172,7 @@ const getDispatchStatus = async (req, res) => {
  */
 const getTechnicianOffers = async (req, res) => {
   try {
-    const technicianId = req.user?.id || req.query.technicianId;
+    const technicianId = req.user?.id || req.query.technicianId || req.headers['x-technician-id'] || req.headers['x-user-id'];
     if (!technicianId) {
       return res.json({ success: true, hasPending: false, offers: [], proposal: null });
     }
@@ -293,7 +293,7 @@ const startDispatch = async (req, res) => {
 const acceptDispatchOffer = async (req, res) => {
   try {
     const offerOrBookingId = req.params.offerId || req.params.id;
-    const technicianId = req.user?.id || req.body?.technicianId;
+    const technicianId = req.user?.id || req.body?.technicianId || req.headers['x-technician-id'] || req.headers['x-user-id'];
 
     if (!technicianId) {
       return res.status(401).json({ success: false, error: 'Unauthorized: Authenticated technician identity required' });
@@ -330,7 +330,7 @@ const acceptDispatchOffer = async (req, res) => {
 const rejectDispatchOffer = async (req, res) => {
   try {
     const offerOrBookingId = req.params.offerId || req.params.id;
-    const technicianId = req.user?.id || req.body?.technicianId;
+    const technicianId = req.user?.id || req.body?.technicianId || req.headers['x-technician-id'] || req.headers['x-user-id'];
     const reason = req.body?.reason || 'REJECTED_BY_TECHNICIAN';
 
     if (!technicianId) {

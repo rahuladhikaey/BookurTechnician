@@ -10,6 +10,7 @@ import '../../../core/security/secure_storage.dart';
 import '../../../core/services/location_tracking_service.dart';
 import '../../../core/services/gps_permission_helper.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/services/booking_request_manager.dart';
 import '../../../core/network/firestore_rest_client.dart';
 
 enum ActiveJobStep {
@@ -317,6 +318,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
         currentLatitude: lat,
         currentLongitude: lng,
       );
+      BookingRequestManager().setOnlineStatus(true);
       await LocationTrackingService().startTracking();
 
       try {
@@ -372,6 +374,7 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
     } else {
       // Going offline stops background tracking, rejects proposals, and updates server
       state = state.copyWith(isOnline: false);
+      BookingRequestManager().setOnlineStatus(false);
       await LocationTrackingService().stopTracking();
       rejectProposal();
       try {

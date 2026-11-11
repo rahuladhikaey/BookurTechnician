@@ -611,7 +611,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
     } else if (aState == ServiceAvailabilityState.networkError) {
       subtitleText = 'Unable to connect to server. Tap Reload to retry.';
     } else if (aState == ServiceAvailabilityState.quotaExceeded) {
-      subtitleText = 'High demand in area • Tap Reload to refresh live partners.';
+      subtitleText = 'High demand in area • Automated dispatch ready on booking';
     } else if (aState == ServiceAvailabilityState.locationUnavailable) {
       subtitleText = 'Please enable GPS location to detect local partners.';
     } else if (aState == ServiceAvailabilityState.checkingAvailability) {

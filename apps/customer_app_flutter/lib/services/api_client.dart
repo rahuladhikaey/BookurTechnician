@@ -20,7 +20,25 @@ class ApiClient {
   /// Active API Base URL derived from cached working base URL or AppConfig
   static String get activeBaseUrl => _cachedWorkingBaseUrl ?? AppConfig.apiBaseUrl;
 
-  static List<String> get _candidateBaseUrls => const [];
+  static List<String> get _candidateBaseUrls {
+    if (FirestoreRestClient.mockHttpHandler != null) {
+      return const [];
+    }
+    final list = <String>[activeBaseUrl];
+    for (final u in [
+      AppConfig.prodApiBaseUrl,
+      AppConfig.apiBaseUrl,
+      AppConfig.renderApiBaseUrl,
+      AppConfig.renderFallbackApiUrl,
+      AppConfig.localWifiApiBaseUrl,
+      AppConfig.localApiBaseUrl,
+    ]) {
+      if (!list.contains(u)) {
+        list.add(u);
+      }
+    }
+    return list;
+  }
 
   static void _updateWorkingBaseUrl(String url) {
     if (_cachedWorkingBaseUrl != url) {

@@ -82,6 +82,8 @@ class BookingRequestManager {
   BuildContext? _activeDialogContext;
   JobProposalData? _currentProposal;
   BookingRequestState _state = BookingRequestState.idle;
+  bool _isOnline = false;
+  Timer? _pollingTimer;
 
   // Deduplication set storing recently processed proposal/dispatch IDs
   final Set<String> _processedRequestIds = {};
@@ -89,14 +91,51 @@ class BookingRequestManager {
   BookingRequestState get state => _state;
   JobProposalData? get currentProposal => _currentProposal;
   bool get isShowingPopup => _state == BookingRequestState.showingProposal;
+  bool get isOnline => _isOnline;
 
   void setNavigatorKey(GlobalKey<NavigatorState> key) {
     _navigatorKey = key;
   }
 
+  /// Sets whether the technician is actively on duty and receiving offers
+  void setOnlineStatus(bool online) {
+    _isOnline = online;
+    debugPrint('🔔 [BookingRequestManager] Technician online status updated: $online');
+    if (online) {
+      _startPolling();
+      syncPendingRequests();
+    } else {
+      _stopPolling();
+      AudioAlertService().stopRingtone();
+      dismissActiveDialog();
+      _state = BookingRequestState.idle;
+      _currentProposal = null;
+    }
+  }
+
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (_isOnline) {
+        syncPendingRequests();
+      }
+    });
+  }
+
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
   /// Central entry point for incoming requests from WebSocket and FCM Push Notifications
   void handleIncomingRequest(Map<String, dynamic> data) {
     if (data.isEmpty) return;
+
+    // Strict Uber/Rapido constraint: OFFLINE technicians must NEVER ring or receive job popups
+    if (!_isOnline) {
+      debugPrint('ℹ️ [BookingRequestManager] Technician is OFFLINE. Rejecting incoming request without ringing.');
+      return;
+    }
 
     final proposal = JobProposalData.fromMap(data);
     if (proposal.bookingId.isEmpty && proposal.proposalId.isEmpty) return;

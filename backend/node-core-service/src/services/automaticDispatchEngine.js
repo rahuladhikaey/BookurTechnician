@@ -715,11 +715,8 @@ function evaluateTechnicianEligibility(techProfile, bookingParams, radiusKm = 3)
     }
   }
 
-  // 10. Technician has a registered valid FCM token for push notification
+  // 10. Background FCM token registration (optional for foreground online dispatch)
   const validTokens = getTechnicianValidFcmTokens(techProfile);
-  if (validTokens.length === 0) {
-    reasons.push('NO_VALID_FCM_TOKEN');
-  }
 
   const etaMinutes = distanceKm != null ? Math.max(2, Math.round((distanceKm / 25) * 60)) : null;
 
@@ -735,7 +732,7 @@ function evaluateTechnicianEligibility(techProfile, bookingParams, radiusKm = 3)
   };
 }
 
-// ─── GATHER ALL REGISTERED TECHNICIAN PROFILES (PG + IN-MEMORY) ─────────────
+// ─── GATHER ALL REGISTERED TECHNICIAN PROFILES (PG + IN-MEMORY + FIRESTORE) ─
 async function loadAllCandidateTechnicianProfiles(bookingParams, radiusKm) {
   const mergedMap = new Map();
 
@@ -743,6 +740,45 @@ async function loadAllCandidateTechnicianProfiles(bookingParams, radiusKm) {
   for (const [id, profile] of inMemoryTechProfiles.entries()) {
     mergedMap.set(id, { ...profile, id: profile.id || id, technicianId: profile.technicianId || id });
   }
+
+  // 2. Query Cloud Firestore technician_profiles
+  try {
+    const fsProfiles = await firestoreSync.listCollection('technician_profiles');
+    if (Array.isArray(fsProfiles)) {
+      for (const fp of fsProfiles) {
+        const id = fp.id || fp.technicianId || fp.uid;
+        if (!id) continue;
+        const existing = mergedMap.get(id) || {};
+        mergedMap.set(id, {
+          ...existing,
+          ...fp,
+          id,
+          technicianId: id,
+          technicianCode: fp.technicianCode || existing.technicianCode,
+          name: fp.fullName || fp.name || existing.name || existing.fullName,
+          fullName: fp.fullName || fp.name || existing.fullName || existing.name,
+          phone: fp.phone || fp.phoneNumber || existing.phone,
+          category: fp.category || fp.serviceCategory || existing.category || 'ELECTRICIAN',
+          skills: Array.isArray(fp.skills) ? fp.skills : (fp.selectedSkills || existing.skills || []),
+          kycStatus: fp.kycStatus || existing.kycStatus || 'VERIFIED',
+          accountStatus: fp.accountStatus || existing.accountStatus || 'Active',
+          isOnline: fp.isOnline === true || fp.online === true || existing.isOnline,
+          availabilityStatus: fp.availabilityStatus || existing.availabilityStatus || 'AVAILABLE',
+          latitude: fp.latitude ?? fp.currentLatitude ?? existing.latitude,
+          longitude: fp.longitude ?? fp.currentLongitude ?? existing.longitude,
+          lastLocationUpdate: fp.lastLocationUpdate || existing.lastLocationUpdate || new Date().toISOString(),
+          rating: parseFloat(fp.rating ?? existing.rating ?? 4.85),
+          totalJobsCompleted: parseInt(fp.totalJobsCompleted ?? fp.completedJobs ?? existing.totalJobsCompleted ?? 0, 10),
+          isSuspended: Boolean(fp.isSuspended || existing.isSuspended),
+          onboardingCompleted: fp.onboardingCompleted ?? existing.onboardingCompleted ?? true,
+          serviceRadiusKm: parseFloat(fp.serviceRadiusKm ?? existing.serviceRadiusKm ?? 15),
+          acceptanceRate: parseFloat(fp.acceptanceRate ?? existing.acceptanceRate ?? 95),
+          fcmToken: fp.fcmToken || fp.fcm_token || existing.fcmToken,
+          deviceTokens: fp.deviceTokens || existing.deviceTokens || [],
+        });
+      }
+    }
+  } catch (_) {}
 
   // 2. Query PostgreSQL + PostGIS if connected
   if (postgres.isPgHealthy()) {

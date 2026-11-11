@@ -51,12 +51,7 @@ class TechnicianSocketService {
   }
 
   void _attemptConnect() {
-    const candidateUrls = [
-      AppConfig.socketUrl,
-      AppConfig.prodSocketUrl,
-      'https://bookurtechnician.onrender.com',
-      'https://bookurtechnician-backend.onrender.com',
-    ];
+    const candidateUrls = AppConfig.candidateSocketUrls;
     if (candidateUrls.isEmpty) return;
 
     final url = candidateUrls[_candidateUrlIndex % candidateUrls.length];

@@ -104,7 +104,7 @@ void main() {
       );
     };
 
-    final baseTime = DateTime.utc(2026, 11, 8, 10, 0, 0);
+    final baseTime = DateTime.now().toUtc();
     const techEmail = 'ram.partner@bookurtechnician.com';
 
     // 1. Request OTP

@@ -154,7 +154,7 @@ class AppState {
       case ServiceAvailabilityState.networkError:
         return 'Connection error. Tap Reload to retry';
       case ServiceAvailabilityState.quotaExceeded:
-        return 'Database capacity reached. Retrying soon';
+        return 'High service demand nearby';
       case ServiceAvailabilityState.locationUnavailable:
         return 'Location permission required to scan';
     }
@@ -694,12 +694,13 @@ class BookingNotifier extends StateNotifier<AppState> {
         final updatedCounts = Map<String, int>.from(state.serviceAvailabilityCounts);
         final currentCount = updatedCounts[serviceId] ?? 1;
         updatedCounts[serviceId] = currentCount > 0 ? currentCount : 1;
-        updatedStates[serviceId] = ServiceAvailabilityState.available;
+        updatedStates[serviceId] = ServiceAvailabilityState.quotaExceeded;
         state = state.copyWith(
           serviceAvailabilityCounts: updatedCounts,
           serviceAvailabilityStates: updatedStates,
           isAvailabilityCached: true,
           isAvailabilityLoading: false,
+          bookingErrorCode: 'QUOTA_EXCEEDED',
         );
         return updatedCounts[serviceId];
       }

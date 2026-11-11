@@ -941,13 +941,6 @@ class FirestoreRestClient {
           'onboardingStep': existingDoc['onboardingCompleted'] == true ? 'ACTIVE' : 'SKILLS_SAVED',
           'onboardingCompleted': existingDoc['onboardingCompleted'] ?? true,
           'profileCompletionPercentage': (existingDoc['profileCompletionPercentage'] as num?)?.toInt() ?? 80,
-          'isOnline': existingDoc['isOnline'] ?? true,
-          'availabilityStatus': existingDoc['availabilityStatus'] ?? 'AVAILABLE',
-          'latitude': (existingDoc['latitude'] as num?)?.toDouble() ?? 22.5726,
-          'currentLatitude': (existingDoc['currentLatitude'] as num?)?.toDouble() ?? 22.5726,
-          'longitude': (existingDoc['longitude'] as num?)?.toDouble() ?? 88.3639,
-          'currentLongitude': (existingDoc['currentLongitude'] as num?)?.toDouble() ?? 88.3639,
-          'lastLocationUpdate': existingDoc['lastLocationUpdate'] ?? nowUtc,
           'totalSkillsCount': enrichedSkills.length,
           'verifiedSkillsCount': enrichedSkills.length,
           'pendingSkillsCount': 0,
@@ -1338,7 +1331,117 @@ class FirestoreRestClient {
       );
     }
 
-    // 7. Bookings & Jobs List
+    // 7. Dispatch Proposals & Pending Offers (Direct Firestore Mode)
+    if (cleanPath.contains('/proposals/pending') ||
+        cleanPath.contains('/technician/offers') ||
+        cleanPath.contains('/dispatch/proposals/pending') ||
+        cleanPath.contains('/technician/dispatch/pending')) {
+      final xTechId = options.headers['x-technician-id']?.toString() ??
+          options.headers['x-user-id']?.toString() ??
+          options.queryParameters['technicianId']?.toString();
+      
+      final offers = await listCollection('dispatch_offers', forceRefresh: true);
+      Map<String, dynamic>? pendingOffer;
+
+      for (final o in offers) {
+        final st = (o['status']?.toString() ?? '').toUpperCase();
+        if (st != 'SENT' && st != 'RINGING') continue;
+        final oTechId = o['technicianId']?.toString() ?? '';
+        if (xTechId != null && xTechId.isNotEmpty && oTechId.isNotEmpty && oTechId != xTechId) {
+          continue;
+        }
+        final expiresAtStr = o['expiresAt']?.toString();
+        if (expiresAtStr != null && expiresAtStr.isNotEmpty) {
+          try {
+            final exp = DateTime.parse(expiresAtStr).toUtc();
+            if (DateTime.now().toUtc().isAfter(exp)) continue;
+          } catch (_) {}
+        }
+        pendingOffer = o;
+        break;
+      }
+
+      if (pendingOffer != null) {
+        final expStr = pendingOffer['expiresAt']?.toString();
+        int remSec = 25;
+        if (expStr != null) {
+          try {
+            final exp = DateTime.parse(expStr).toUtc();
+            remSec = exp.difference(DateTime.now().toUtc()).inSeconds;
+            if (remSec < 0) remSec = 0;
+          } catch (_) {}
+        }
+
+        return Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {
+            'success': true,
+            'hasPending': true,
+            'count': 1,
+            'proposal': {
+              'proposalId': pendingOffer['id'] ?? pendingOffer['offerId'] ?? 'offer_fallback',
+              'offerId': pendingOffer['id'] ?? pendingOffer['offerId'] ?? 'offer_fallback',
+              'bookingId': pendingOffer['bookingId'] ?? '',
+              'serviceName': pendingOffer['serviceName'] ?? 'Home Service Repair',
+              'serviceType': pendingOffer['serviceName'] ?? 'Home Service Repair',
+              'approximateCustomerArea': pendingOffer['approximateArea'] ?? pendingOffer['address'] ?? 'Nearby Customer Area',
+              'customerAddress': pendingOffer['approximateArea'] ?? pendingOffer['address'] ?? 'Nearby Customer Area',
+              'customerName': pendingOffer['customerName'] ?? 'Verified Customer',
+              'distanceKm': pendingOffer['distanceKm']?.toString() ?? '1.5',
+              'expectedEarning': pendingOffer['expectedEarning']?.toString() ?? pendingOffer['payout']?.toString() ?? '350',
+              'payout': pendingOffer['expectedEarning']?.toString() ?? pendingOffer['payout']?.toString() ?? '350',
+              'totalAmount': pendingOffer['totalAmount']?.toString() ?? '499',
+              'timeoutSeconds': remSec > 0 ? remSec : 25,
+              'remainingSeconds': remSec > 0 ? remSec : 25,
+              'expiresAt': pendingOffer['expiresAt'],
+            },
+          },
+        );
+      }
+
+      return Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {'success': true, 'hasPending': false, 'offers': [], 'proposal': null},
+      );
+    }
+
+    // 8. Accept / Decline Dispatch Proposal (Direct Firestore Mode)
+    if (cleanPath.contains('/proposals/') || cleanPath.contains('/offers/')) {
+      if (cleanPath.contains('/accept') && m == 'POST') {
+        final parts = cleanPath.split('/');
+        final offerId = parts.length >= 2 ? parts[parts.length - 2] : '';
+        if (offerId.isNotEmpty) {
+          await upsertDocument('dispatch_offers', offerId, {
+            'status': 'ACCEPTED',
+            'acceptedAt': DateTime.now().toUtc().toIso8601String(),
+          });
+        }
+        return Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {'success': true, 'message': 'Proposal accepted'},
+        );
+      }
+      if ((cleanPath.contains('/decline') || cleanPath.contains('/reject')) && m == 'POST') {
+        final parts = cleanPath.split('/');
+        final offerId = parts.length >= 2 ? parts[parts.length - 2] : '';
+        if (offerId.isNotEmpty) {
+          await upsertDocument('dispatch_offers', offerId, {
+            'status': 'REJECTED',
+            'rejectedAt': DateTime.now().toUtc().toIso8601String(),
+          });
+        }
+        return Response(
+          requestOptions: options,
+          statusCode: 200,
+          data: {'success': true, 'message': 'Proposal declined'},
+        );
+      }
+    }
+
+    // 9. Bookings & Jobs List
     if (cleanPath.contains('/bookings') || cleanPath.contains('/jobs')) {
       final bookings = await listCollection('bookings');
       return Response(

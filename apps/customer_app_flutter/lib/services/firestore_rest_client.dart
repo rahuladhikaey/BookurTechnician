@@ -1401,6 +1401,28 @@ class FirestoreRestClient {
             _idempotencyBookingMap[idempotencyKey] = bookingId;
           }
 
+          // Create authoritative dispatch_offer record for immediate technician audible ringtone & alert popup
+          final offerId = 'offer_${bookingId}_$winnerId';
+          final expiresAt = DateTime.now().toUtc().add(const Duration(seconds: 30)).toIso8601String();
+          upsertDocument('dispatch_offers', offerId, {
+            'id': offerId,
+            'offerId': offerId,
+            'bookingId': bookingId,
+            'bookingCode': bookingId,
+            'technicianId': winnerId,
+            'serviceId': serviceId,
+            'serviceName': serviceName,
+            'approximateArea': body['address'] ?? body['fullAddress'] ?? 'Nearby Customer Area',
+            'distanceKm': double.parse((winner['distanceKm'] as double).toStringAsFixed(2)),
+            'expectedEarning': (((body['basePrice'] ?? body['price'] ?? 299) as num).toDouble() * 0.8).round(),
+            'payout': (((body['basePrice'] ?? body['price'] ?? 299) as num).toDouble() * 0.8).round(),
+            'totalAmount': body['grandTotal'] ?? body['totalAmount'] ?? 299,
+            'status': 'SENT',
+            'timeoutSeconds': 30,
+            'expiresAt': expiresAt,
+            'createdAt': nowIso,
+          }).catchError((_) => null);
+
           return _jsonResponse({
             'success': true,
             'booking': newBooking,

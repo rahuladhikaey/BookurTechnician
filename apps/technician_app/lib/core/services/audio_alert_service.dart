@@ -77,6 +77,9 @@ class AudioAlertService {
     }
   }
 
+  /// Alias for stopAlert
+  Future<void> stopRingtone() => stopAlert();
+
   void dispose() {
     stopAlert();
     _audioPlayer?.dispose();
