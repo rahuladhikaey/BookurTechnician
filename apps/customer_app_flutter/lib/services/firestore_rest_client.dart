@@ -14,6 +14,76 @@ class FirestoreRestClient {
       'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents:commit';
   static const String documentNamePrefix =
       'projects/$projectId/databases/(default)/documents';
+  static const String _firebaseWebApiKey = String.fromEnvironment(
+    'FIREBASE_WEB_API_KEY',
+    defaultValue: 'AIzaSyAhCvnUH_jA5bAhlGlIy3eX2lnM43gFRdE',
+  );
+
+  static String? _fbIdToken;
+  static String? _fbRefreshToken;
+  static String? _fbUid;
+  static DateTime? _fbTokenExpiresAt;
+
+  static Future<String?> _ensureFirebaseIdToken({bool forceRefresh = false}) async {
+    final now = DateTime.now().toUtc();
+    if (!forceRefresh &&
+        _fbIdToken != null &&
+        _fbTokenExpiresAt != null &&
+        _fbTokenExpiresAt!.isAfter(now.add(const Duration(seconds: 60)))) {
+      return _fbIdToken;
+    }
+
+    try {
+      if (_fbRefreshToken != null && _fbRefreshToken!.isNotEmpty) {
+        final refreshUri = Uri.parse(
+            'https://securetoken.googleapis.com/v1/token?key=$_firebaseWebApiKey');
+        final res = await http
+            .post(
+              refreshUri,
+              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+              body: 'grant_type=refresh_token&refresh_token=${Uri.encodeQueryComponent(_fbRefreshToken!)}',
+            )
+            .timeout(const Duration(seconds: 6));
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body) as Map<String, dynamic>;
+          final token = data['id_token']?.toString();
+          if (token != null && token.isNotEmpty) {
+            _fbIdToken = token;
+            _fbRefreshToken = data['refresh_token']?.toString() ?? _fbRefreshToken;
+            _fbUid = data['user_id']?.toString() ?? _fbUid;
+            final expiresIn = int.tryParse(data['expires_in']?.toString() ?? '3600') ?? 3600;
+            _fbTokenExpiresAt = now.add(Duration(seconds: expiresIn));
+            return _fbIdToken;
+          }
+        }
+      }
+
+      final signUpUri = Uri.parse(
+          'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$_firebaseWebApiKey');
+      final res = await http
+          .post(
+            signUpUri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'returnSecureToken': true}),
+          )
+          .timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final token = data['idToken']?.toString();
+        if (token != null && token.isNotEmpty) {
+          _fbIdToken = token;
+          _fbRefreshToken = data['refreshToken']?.toString();
+          _fbUid = data['localId']?.toString();
+          final expiresIn = int.tryParse(data['expiresIn']?.toString() ?? '3600') ?? 3600;
+          _fbTokenExpiresAt = now.add(Duration(seconds: expiresIn));
+          return _fbIdToken;
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ [Customer Auth] Firebase Anonymous Auth error: $e');
+    }
+    return null;
+  }
 
   /// Injectable HTTP handler for unit/integration testing of 429, network drop, and concurrency scenarios
   static Future<http.Response> Function(
@@ -147,24 +217,37 @@ class FirestoreRestClient {
     Duration timeout = const Duration(seconds: 6),
   }) async {
     int attempt = 0;
+    bool refreshedAuth = false;
     while (true) {
       attempt++;
       http.Response res;
       if (mockHttpHandler != null) {
         res = await mockHttpHandler!(method, uri, headers: headers, body: body);
       } else {
+        final effectiveHeaders = Map<String, String>.from(headers ?? const {});
+        if (!effectiveHeaders.containsKey('Authorization')) {
+          final idToken = await _ensureFirebaseIdToken(forceRefresh: refreshedAuth);
+          if (idToken != null && idToken.isNotEmpty) {
+            effectiveHeaders['Authorization'] = 'Bearer $idToken';
+          }
+        }
         switch (method.toUpperCase()) {
           case 'POST':
-            res = await http.post(uri, headers: headers, body: body).timeout(timeout);
+            res = await http.post(uri, headers: effectiveHeaders, body: body).timeout(timeout);
             break;
           case 'PATCH':
-            res = await http.patch(uri, headers: headers, body: body).timeout(timeout);
+            res = await http.patch(uri, headers: effectiveHeaders, body: body).timeout(timeout);
             break;
           case 'DELETE':
-            res = await http.delete(uri, headers: headers).timeout(timeout);
+            res = await http.delete(uri, headers: effectiveHeaders).timeout(timeout);
             break;
           default:
-            res = await http.get(uri, headers: headers).timeout(timeout);
+            res = await http.get(uri, headers: effectiveHeaders).timeout(timeout);
+        }
+        if (res.statusCode == 401 && !refreshedAuth) {
+          refreshedAuth = true;
+          _fbIdToken = null;
+          continue;
         }
       }
 

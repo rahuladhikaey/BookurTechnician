@@ -13,12 +13,162 @@ class FirestoreRestClient {
   static const String projectId = 'bookmytechnician-53d94';
   static const String baseUrl =
       'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents';
+  static const String _firebaseWebApiKey = String.fromEnvironment(
+    'FIREBASE_WEB_API_KEY',
+    defaultValue: 'AIzaSyAhCvnUH_jA5bAhlGlIy3eX2lnM43gFRdE',
+  );
+
+  static String? _cachedFbIdToken;
+  static String? _cachedFbRefreshToken;
+  static String? _cachedFbUid;
+  static DateTime? _cachedFbExpiresAt;
+
+  /// Signs in (or registers) the OTP-verified technician in Firebase Auth so
+  /// Firestore Security Rules (`isAuthenticated()` and `isOwner(techId)`) succeed.
+  static Future<Map<String, String>?> ensureTechnicianFirebaseAuth({
+    required String email,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail.isEmpty) return null;
+    final derivedPassword =
+        'BookurTech#${sha256Hex('btech:$cleanEmail').substring(0, 18)}!9';
+
+    Future<Map<String, String>?> parseAuthResponse(http.Response res) async {
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final idToken = data['idToken']?.toString() ?? '';
+      final refreshToken = data['refreshToken']?.toString() ?? '';
+      final uid = data['localId']?.toString() ?? '';
+      if (idToken.isEmpty || uid.isEmpty) return null;
+      final expiresIn =
+          int.tryParse(data['expiresIn']?.toString() ?? '3600') ?? 3600;
+      _cachedFbIdToken = idToken;
+      _cachedFbRefreshToken = refreshToken;
+      _cachedFbUid = uid;
+      _cachedFbExpiresAt =
+          DateTime.now().toUtc().add(Duration(seconds: expiresIn));
+      try {
+        await SecureStorage().saveToken(idToken);
+        if (refreshToken.isNotEmpty) {
+          await SecureStorage().saveRefreshToken(refreshToken);
+        }
+        await SecureStorage().saveUserId(uid);
+      } catch (_) {}
+      return {'uid': uid, 'idToken': idToken, 'refreshToken': refreshToken};
+    }
+
+    try {
+      final signInUri = Uri.parse(
+          'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$_firebaseWebApiKey');
+      final signInRes = await http
+          .post(
+            signInUri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': cleanEmail,
+              'password': derivedPassword,
+              'returnSecureToken': true,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+      final signedIn = await parseAuthResponse(signInRes);
+      if (signedIn != null) return signedIn;
+
+      final signUpUri = Uri.parse(
+          'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$_firebaseWebApiKey');
+      final signUpRes = await http
+          .post(
+            signUpUri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': cleanEmail,
+              'password': derivedPassword,
+              'returnSecureToken': true,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+      return await parseAuthResponse(signUpRes);
+    } catch (e) {
+      debugPrint('⚠️ [Tech Auth] Firebase Auth error: $e');
+      return null;
+    }
+  }
+
+  static Future<String?> _getValidFirebaseIdToken({
+    bool forceRefresh = false,
+  }) async {
+    final now = DateTime.now().toUtc();
+    if (!forceRefresh &&
+        _cachedFbIdToken != null &&
+        _isValidJwt(_cachedFbIdToken) &&
+        _cachedFbExpiresAt != null &&
+        _cachedFbExpiresAt!.isAfter(now.add(const Duration(seconds: 60)))) {
+      return _cachedFbIdToken;
+    }
+
+    if (!forceRefresh) {
+      try {
+        final stored = await SecureStorage().getToken();
+        if (_isValidJwt(stored)) {
+          _cachedFbIdToken = stored;
+          return stored;
+        }
+      } catch (_) {}
+    }
+
+    String? refreshTok = _cachedFbRefreshToken;
+    if (refreshTok == null || refreshTok.isEmpty) {
+      try {
+        refreshTok = await SecureStorage().getRefreshToken();
+      } catch (_) {}
+    }
+
+    if (refreshTok != null && refreshTok.isNotEmpty) {
+      try {
+        final uri = Uri.parse(
+            'https://securetoken.googleapis.com/v1/token?key=$_firebaseWebApiKey');
+        final res = await http
+            .post(
+              uri,
+              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+              body:
+                  'grant_type=refresh_token&refresh_token=${Uri.encodeQueryComponent(refreshTok)}',
+            )
+            .timeout(const Duration(seconds: 6));
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body) as Map<String, dynamic>;
+          final newToken = data['id_token']?.toString();
+          if (newToken != null && _isValidJwt(newToken)) {
+            _cachedFbIdToken = newToken;
+            _cachedFbRefreshToken =
+                data['refresh_token']?.toString() ?? refreshTok;
+            final expiresIn =
+                int.tryParse(data['expires_in']?.toString() ?? '3600') ?? 3600;
+            _cachedFbExpiresAt = now.add(Duration(seconds: expiresIn));
+            try {
+              await SecureStorage().saveToken(newToken);
+              await SecureStorage().saveRefreshToken(_cachedFbRefreshToken!);
+            } catch (_) {}
+            return newToken;
+          }
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
 
   /// Resolves any raw identifier (phone, tech_<digits>, uid_tech_<digits>) to a permanent
-  /// canonical technician UID (`uid_tech_<10digits>`). Never uses technicianCode as document ID.
+  /// canonical technician UID (`uid_tech_<10digits>`), while preserving Firebase Auth UIDs.
   static String resolveCanonicalTechUid(String? rawId, {String? phone}) {
     final clean = (rawId ?? phone ?? '').trim();
     if (clean.isEmpty || clean == 'BT-PARTNER') return 'uid_tech_partner';
+    if (clean.length >= 20 &&
+        !clean.contains('@') &&
+        !clean.startsWith('+') &&
+        !clean.startsWith('tech_') &&
+        !clean.startsWith('uid_')) {
+      return clean;
+    }
     if (clean.startsWith('uid_tech_')) return clean;
     final digits = ((phone != null && phone.isNotEmpty) ? phone : clean).replaceAll(RegExp(r'\D'), '');
     if (digits.length >= 10) {
@@ -420,24 +570,37 @@ class FirestoreRestClient {
     Duration timeout = const Duration(seconds: 6),
   }) async {
     int attempt = 0;
+    bool refreshedAuth = false;
     while (true) {
       attempt++;
       http.Response res;
       if (mockHttpHandler != null) {
         res = await mockHttpHandler!(method, uri, headers: headers, body: body);
       } else {
+        final effectiveHeaders = Map<String, String>.from(headers ?? const {});
+        if (!effectiveHeaders.containsKey('Authorization')) {
+          final idToken = await _getValidFirebaseIdToken(forceRefresh: refreshedAuth);
+          if (idToken != null && _isValidJwt(idToken)) {
+            effectiveHeaders['Authorization'] = 'Bearer $idToken';
+          }
+        }
         switch (method.toUpperCase()) {
           case 'POST':
-            res = await http.post(uri, headers: headers, body: body).timeout(timeout);
+            res = await http.post(uri, headers: effectiveHeaders, body: body).timeout(timeout);
             break;
           case 'PATCH':
-            res = await http.patch(uri, headers: headers, body: body).timeout(timeout);
+            res = await http.patch(uri, headers: effectiveHeaders, body: body).timeout(timeout);
             break;
           case 'DELETE':
-            res = await http.delete(uri, headers: headers).timeout(timeout);
+            res = await http.delete(uri, headers: effectiveHeaders).timeout(timeout);
             break;
           default:
-            res = await http.get(uri, headers: headers).timeout(timeout);
+            res = await http.get(uri, headers: effectiveHeaders).timeout(timeout);
+        }
+        if (res.statusCode == 401 && !refreshedAuth) {
+          refreshedAuth = true;
+          _cachedFbIdToken = null;
+          continue;
         }
       }
 
@@ -635,11 +798,45 @@ class FirestoreRestClient {
     try {
       final cleanId = docId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
       final fields = <String, dynamic>{};
-      final payload = {
+      final payload = <String, dynamic>{
         ...data,
         'id': cleanId,
         'updatedAt': DateTime.now().toUtc().toIso8601String(),
       };
+      if (collection == 'technician_profiles') {
+        const protectedUpdateKeys = {
+          'verifiedByAdminUid',
+          'skillVerificationStatus',
+          'isAdminApproved',
+          'kycStatus',
+          'accountStatus',
+          'walletBalance',
+          'rating',
+          'totalRatingsCount',
+          'totalJobsCompleted',
+        };
+        for (final k in protectedUpdateKeys) {
+          if (k == 'kycStatus' &&
+              (payload[k] == 'PENDING' || payload[k] == 'NOT_SUBMITTED')) {
+            continue;
+          }
+          payload.remove(k);
+        }
+      } else if (collection == 'technician_private') {
+        for (final k in const [
+          'verifiedAt',
+          'verifiedByAdminUid',
+          'voterIdVerificationStatus',
+          'aadhaarVerificationStatus',
+          'upiVerificationStatus',
+        ]) {
+          if ((k == 'upiVerificationStatus' || k == 'voterIdVerificationStatus') &&
+              (payload[k] == 'PENDING' || payload[k] == 'NOT_PROVIDED')) {
+            continue;
+          }
+          payload.remove(k);
+        }
+      }
       payload.forEach((k, v) {
         if (v != null && k != '_firestoreUpdateTime') {
           fields[k] = _toFirestoreValue(v);
@@ -1334,16 +1531,15 @@ class FirestoreRestClient {
             'kycSubmittedAt': nowUtc,
             if (docType.contains('VOTER')) ...{
               'maskedVoterId': maskSensitiveIdentifier(rawNumber, 'VOTER'),
-              'voterIdVerificationStatus': 'PENDING_VERIFICATION',
+              'voterIdVerificationStatus': 'PENDING',
             },
             if (docType.contains('AADHAAR')) ...{
               'maskedAadhaar': maskSensitiveIdentifier(rawNumber, 'AADHAAR'),
-              'aadhaarVerificationStatus': 'PENDING_VERIFICATION',
             },
             if (docType.contains('UPI')) ...{
               'upiId': rawNumber,
               'maskedUpiId': maskSensitiveIdentifier(rawNumber, 'UPI'),
-              'upiVerificationStatus': 'VERIFIED',
+              'upiVerificationStatus': 'PENDING',
             },
             'updatedAt': nowUtc,
           };
@@ -1404,11 +1600,11 @@ class FirestoreRestClient {
             if (rawUpi.isNotEmpty) ...{
               'upiId': rawUpi,
               'maskedUpiId': maskSensitiveIdentifier(rawUpi, 'UPI'),
-              'upiVerificationStatus': 'VERIFIED',
+              'upiVerificationStatus': 'PENDING',
             },
             if (rawVoter.isNotEmpty) ...{
               'maskedVoterId': maskSensitiveIdentifier(rawVoter, 'VOTER'),
-              'voterIdVerificationStatus': 'PENDING_VERIFICATION',
+              'voterIdVerificationStatus': 'PENDING',
             },
             'updatedAt': nowUtc,
           };

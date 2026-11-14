@@ -470,16 +470,29 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
     );
 
     if (verifyChallengeRes['success'] == true) {
-      final internalUid = FirestoreRestClient.resolveCanonicalTechUid(
-        targetPhone.isNotEmpty ? targetPhone : targetEmail,
-        phone: targetPhone,
-      );
+      final fbAuth = targetEmail.isNotEmpty
+          ? await FirestoreRestClient.ensureTechnicianFirebaseAuth(email: targetEmail)
+          : null;
+      final internalUid = (fbAuth != null && fbAuth['uid']?.isNotEmpty == true)
+          ? fbAuth['uid']!
+          : FirestoreRestClient.resolveCanonicalTechUid(
+              targetPhone.isNotEmpty ? targetPhone : targetEmail,
+              phone: targetPhone,
+            );
       final partnerCode = FirestoreRestClient.resolveTechnicianCode(
         internalUid,
         phone: targetPhone,
       );
-      final fallbackToken =
-          'jwt_token_tech_${DateTime.now().millisecondsSinceEpoch}';
+      final fallbackToken = (fbAuth != null && fbAuth['idToken']?.isNotEmpty == true)
+          ? fbAuth['idToken']!
+          : 'jwt_token_tech_${DateTime.now().millisecondsSinceEpoch}';
+      final fbRefreshToken = fbAuth?['refreshToken'];
+
+      await _secureStorage.saveToken(fallbackToken);
+      if (fbRefreshToken != null && fbRefreshToken.isNotEmpty) {
+        await _secureStorage.saveRefreshToken(fbRefreshToken);
+      }
+      await _secureStorage.saveUserId(internalUid);
 
       var existingDoc = await FirestoreRestClient.getDocument(
         'technician_profiles',
