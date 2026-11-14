@@ -572,20 +572,19 @@ class BookingNotifier extends StateNotifier<AppState> {
             return;
           }
 
-          // Fallback to active catalog availability so customer booking flow is never blocked
+          // Do not fabricate fake availability when quota is exceeded
           for (final cat in state.categories) {
             for (final sub in cat.subcategories) {
               for (final s in sub.services) {
-                counts[s.id] = 1;
-                states[s.id] = ServiceAvailabilityState.available;
+                states[s.id] = ServiceAvailabilityState.quotaExceeded;
               }
             }
           }
           state = state.copyWith(
-            serviceAvailabilityCounts: counts,
             serviceAvailabilityStates: states,
             isAvailabilityLoading: false,
             isAvailabilityCached: true,
+            bookingErrorCode: 'QUOTA_EXCEEDED',
           );
           return;
         }
@@ -689,8 +688,7 @@ class BookingNotifier extends StateNotifier<AppState> {
       } else if (fbResponse.statusCode == 429) {
         final updatedStates = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
         final updatedCounts = Map<String, int>.from(state.serviceAvailabilityCounts);
-        final currentCount = updatedCounts[serviceId] ?? 1;
-        updatedCounts[serviceId] = currentCount > 0 ? currentCount : 1;
+        updatedCounts[serviceId] = updatedCounts[serviceId] ?? 0;
         updatedStates[serviceId] = ServiceAvailabilityState.quotaExceeded;
         state = state.copyWith(
           serviceAvailabilityCounts: updatedCounts,

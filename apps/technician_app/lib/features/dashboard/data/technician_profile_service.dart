@@ -46,13 +46,13 @@ class TechnicianProfileData {
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       profileImageUrl: json['profileImageUrl']?.toString() ?? json['selfieImageUrl']?.toString() ?? '',
-      rating: (json['rating'] is num) ? (json['rating'] as num).toDouble() : 5.0,
+      rating: (json['rating'] is num) ? (json['rating'] as num).toDouble() : 0.0,
       totalRatingsCount: (json['totalRatingsCount'] is num) ? (json['totalRatingsCount'] as num).toInt() : 0,
       totalJobsCompleted: (json['totalJobsCompleted'] is num) ? (json['totalJobsCompleted'] as num).toInt() : 0,
-      kycStatus: json['kycStatus']?.toString().toUpperCase() ?? 'VERIFIED',
+      kycStatus: json['kycStatus']?.toString().toUpperCase() ?? 'PENDING',
       isOnline: json['isOnline'] == true || json['online'] == true,
-      upiId: json['upiId']?.toString() ?? json['upiNumber']?.toString() ?? '',
-      isUpiVerified: json['isUpiVerified'] == true || json['upiVerified'] == true || (json['upiId'] != null && json['upiId'].toString().isNotEmpty),
+      upiId: json['upiId']?.toString() ?? json['maskedUpiId']?.toString() ?? json['upiNumber']?.toString() ?? '',
+      isUpiVerified: json['isUpiVerified'] == true || json['upiVerified'] == true || (json['upiId'] != null && json['upiId'].toString().isNotEmpty) || (json['maskedUpiId'] != null && json['maskedUpiId'].toString().isNotEmpty),
     );
   }
 

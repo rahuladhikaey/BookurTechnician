@@ -37,3 +37,4 @@ void main() {
     expect(fetchedProfile.totalSkillsCount, 1);
   });
 }
+

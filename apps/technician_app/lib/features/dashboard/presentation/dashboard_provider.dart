@@ -174,8 +174,8 @@ class DashboardState {
     required this.isOnline,
     required this.banners,
     this.isLoadingBanners = false,
-    this.currentLatitude = 12.9716,
-    this.currentLongitude = 77.5946,
+    this.currentLatitude,
+    this.currentLongitude,
     this.currentLocationAddress = '',
     this.isFetchingLocation = false,
     this.todayJobsCount = 0,
@@ -309,29 +309,41 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
     var savedUserId = await SecureStorage().getUserId();
     if (savedUserId == null || savedUserId.isEmpty || savedUserId == 'BT-PARTNER') {
       final userDetails = await SecureStorage().getUserDetails();
-      final phone = userDetails['phone'];
-      final email = userDetails['email'];
-      if (phone != null && phone.isNotEmpty) {
-        savedUserId = 'tech_${phone.replaceAll(RegExp(r'\D'), '')}';
-      } else if (email != null && email.isNotEmpty) {
-        savedUserId = 'tech_${email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
-      } else {
-        savedUserId = 'tech_partner_01';
-      }
+      final phone = userDetails['phone'] ?? '';
+      final email = userDetails['email'] ?? '';
+      final seed = phone.isNotEmpty ? phone : (email.isNotEmpty ? email : 'partner');
+      savedUserId = FirestoreRestClient.resolveCanonicalTechUid(seed, phone: phone);
       await SecureStorage().saveUserId(savedUserId);
+    } else {
+      final userDetails = await SecureStorage().getUserDetails();
+      savedUserId = FirestoreRestClient.resolveCanonicalTechUid(
+        savedUserId,
+        phone: userDetails['phone'],
+      );
     }
 
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_technician_online', val);
-    } catch (_) {}
-
     if (val) {
-      // Attempt fresh GPS fix, but fallback to cached/default coords if indoors
-      await fetchAndUpdateLocation(showPromptDialogs: false);
+      // Acquire real GPS fix; prompt user if permission/GPS is off
+      await fetchAndUpdateLocation(
+        showPromptDialogs: context != null,
+        context: context,
+      );
 
-      final lat = state.currentLatitude ?? 22.5726;
-      final lng = state.currentLongitude ?? 88.3639;
+      final lat = state.currentLatitude;
+      final lng = state.currentLongitude;
+      if (lat == null || lng == null || lat == 0.0 || lng == 0.0) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('is_technician_online', false);
+        } catch (_) {}
+        state = state.copyWith(isOnline: false);
+        return false;
+      }
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('is_technician_online', true);
+      } catch (_) {}
 
       state = state.copyWith(
         isOnline: true,

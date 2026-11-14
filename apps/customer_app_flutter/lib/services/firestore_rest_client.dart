@@ -1079,6 +1079,10 @@ class FirestoreRestClient {
                       }
                     }
                     serviceCounts[sId] = matchingCount;
+                    final canonicalKey = resolveCanonicalServiceId(sId, name: sName);
+                    if (canonicalKey.isNotEmpty) {
+                      serviceCounts[canonicalKey] = matchingCount;
+                    }
                     servicesList.add({
                       'serviceId': sId,
                       'availableTechnicianCount': matchingCount,
@@ -1090,9 +1094,29 @@ class FirestoreRestClient {
           }
         }
 
-        final int targetCount = (targetServiceId != null && serviceCounts.containsKey(targetServiceId))
-            ? (serviceCounts[targetServiceId] ?? 0)
-            : candidateTechsForCatalog.length;
+        int targetCount = candidateTechsForCatalog.length;
+        if (targetServiceId != null && targetServiceId.isNotEmpty) {
+          final targetCanonical = resolveCanonicalServiceId(targetServiceId);
+          if (serviceCounts.containsKey(targetServiceId)) {
+            targetCount = serviceCounts[targetServiceId] ?? 0;
+          } else if (targetCanonical.isNotEmpty && serviceCounts.containsKey(targetCanonical)) {
+            targetCount = serviceCounts[targetCanonical] ?? 0;
+          } else {
+            int directCount = 0;
+            for (final tech in candidateTechsForCatalog) {
+              if (_doesTechnicianMatchService(tech, targetServiceId, '')) {
+                directCount++;
+              }
+            }
+            targetCount = directCount;
+          }
+          if (!servicesList.any((e) => e['serviceId'] == targetServiceId)) {
+            servicesList.add({
+              'serviceId': targetServiceId,
+              'availableTechnicianCount': targetCount,
+            });
+          }
+        }
 
         return _jsonResponse({
           'success': true,
@@ -1137,6 +1161,12 @@ class FirestoreRestClient {
           final status = (tech['availabilityStatus']?.toString() ?? '').toUpperCase();
           if (!isOnline || status == 'OFFLINE' || status == 'BUSY') continue;
 
+          if (requestedServiceId != null && requestedServiceId.isNotEmpty) {
+            if (!_doesTechnicianMatchService(tech, requestedServiceId, '')) {
+              continue;
+            }
+          }
+
           final lastUpdateStr = tech['lastLocationUpdate']?.toString();
           if (lastUpdateStr == null || lastUpdateStr.isEmpty) continue;
           DateTime? lastUpdate;
@@ -1167,12 +1197,12 @@ class FirestoreRestClient {
             'technicianId': tId,
             'technicianCode': tCode,
             'fullName': tech['fullName'] ?? tech['name'] ?? 'Service Partner',
-            'category': tech['category'] ?? 'AC Services',
+            'category': tech['category'] ?? '',
             'profileImageUrl': tech['profileImageUrl'] ?? '',
-            'experienceYears': (tech['experienceYears'] as num?)?.toInt() ?? 2,
-            'rating': (tech['rating'] as num?)?.toDouble() ?? 4.9,
-            'totalRatingsCount': (tech['totalRatingsCount'] as num?)?.toInt() ?? 12,
-            'totalJobsCompleted': (tech['totalJobsCompleted'] as num?)?.toInt() ?? 8,
+            'experienceYears': (tech['experienceYears'] as num?)?.toInt() ?? 0,
+            'rating': (tech['rating'] as num?)?.toDouble() ?? 0.0,
+            'totalRatingsCount': (tech['totalRatingsCount'] as num?)?.toInt() ?? 0,
+            'totalJobsCompleted': (tech['totalJobsCompleted'] as num?)?.toInt() ?? 0,
             'distanceKm': double.parse(distKm.toStringAsFixed(2)),
             'distanceMeters': distMeters.round(),
             'estimatedArrivalMinutes': arrivalMins,

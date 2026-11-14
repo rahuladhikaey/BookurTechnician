@@ -584,6 +584,12 @@ class FirestoreRestClient {
     }
   }
 
+  static bool _isValidJwt(String? token) {
+    if (token == null || token.isEmpty) return false;
+    return RegExp(r'^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$')
+        .hasMatch(token);
+  }
+
   static Future<Map<String, dynamic>?> getDocument(
       String collection, String docId, {bool forceRefresh = false}) async {
     final cleanId = docId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
@@ -604,7 +610,7 @@ class FirestoreRestClient {
       } catch (_) {}
 
       final headers = <String, String>{
-        if (authToken != null && authToken.isNotEmpty)
+        if (_isValidJwt(authToken))
           'Authorization': 'Bearer $authToken',
       };
 
@@ -653,7 +659,7 @@ class FirestoreRestClient {
 
       final headers = <String, String>{
         'Content-Type': 'application/json',
-        if (authToken != null && authToken.isNotEmpty)
+        if (_isValidJwt(authToken))
           'Authorization': 'Bearer $authToken',
       };
 
@@ -920,6 +926,13 @@ class FirestoreRestClient {
           ? existingDoc['selectedSkills'] as List
           : (existingDoc['skills'] is List ? existingDoc['skills'] as List : const []);
 
+      final bodyLat = body['latitude'] is num ? (body['latitude'] as num).toDouble() : null;
+      final bodyLng = body['longitude'] is num ? (body['longitude'] as num).toDouble() : null;
+      final existingLat = (existingDoc['latitude'] as num?)?.toDouble();
+      final existingLng = (existingDoc['longitude'] as num?)?.toDouble();
+      final effectiveLat = (bodyLat != null && bodyLat != 0.0) ? bodyLat : existingLat;
+      final effectiveLng = (bodyLng != null && bodyLng != 0.0) ? bodyLng : existingLng;
+
       final techDoc = <String, dynamic>{
         ...existingDoc,
         'id': internalUid,
@@ -931,22 +944,25 @@ class FirestoreRestClient {
         'phoneNumber': phone.isNotEmpty ? phone : (existingDoc['phoneNumber'] ?? existingDoc['phone'] ?? ''),
         'phone': phone.isNotEmpty ? phone : (existingDoc['phone'] ?? ''),
         'email': email.isNotEmpty ? email : (existingDoc['email'] ?? ''),
-        'category': existingDoc['category'] ?? body['category'] ?? 'Electrical Services',
+        if (existingDoc['category'] != null || body['category'] != null)
+          'category': existingDoc['category'] ?? body['category'],
         'selectedSkills': existingSkills,
         'skills': existingSkills,
-        'kycStatus': existingDoc['kycStatus'] ?? 'VERIFIED',
-        'accountStatus': existingDoc['accountStatus'] ?? 'ACTIVE',
-        'onboardingStep': existingDoc['onboardingStep'] ?? (existingSkills.isNotEmpty ? 'SKILLS_SAVED' : 'PROFILE_CREATED'),
-        'onboardingCompleted': existingDoc['onboardingCompleted'] ?? existingSkills.isNotEmpty,
-        'profileCompletionPercentage': existingDoc['profileCompletionPercentage'] ?? (existingSkills.isNotEmpty ? 65 : 40),
-        'isOnline': existingDoc['isOnline'] ?? true,
-        'availabilityStatus': existingDoc['availabilityStatus'] ?? 'AVAILABLE',
-        'latitude': (existingDoc['latitude'] as num?)?.toDouble() ?? 22.5726,
-        'currentLatitude': (existingDoc['currentLatitude'] as num?)?.toDouble() ?? 22.5726,
-        'longitude': (existingDoc['longitude'] as num?)?.toDouble() ?? 88.3639,
-        'currentLongitude': (existingDoc['currentLongitude'] as num?)?.toDouble() ?? 88.3639,
-        'lastLocationUpdate': nowUtc,
-        'rating': (existingDoc['rating'] as num?)?.toDouble() ?? 4.9,
+        'kycStatus': existingDoc['kycStatus'] ?? 'PENDING',
+        'accountStatus': existingDoc['accountStatus'] ?? 'PENDING_VERIFICATION',
+        'onboardingStep': existingDoc['onboardingStep'] ?? (existingSkills.isNotEmpty ? 'COMPLETED' : 'DOCUMENT_UPLOAD'),
+        'onboardingCompleted': existingDoc['onboardingCompleted'] == true || existingSkills.isNotEmpty,
+        'profileCompletionPercentage': existingDoc['profileCompletionPercentage'] ?? (existingSkills.isNotEmpty ? 75 : 25),
+        'isOnline': existingDoc['isOnline'] == true,
+        'availabilityStatus': existingDoc['availabilityStatus'] ?? (existingDoc['isOnline'] == true ? 'AVAILABLE' : 'OFFLINE'),
+        if (effectiveLat != null && effectiveLng != null) ...{
+          'latitude': effectiveLat,
+          'currentLatitude': effectiveLat,
+          'longitude': effectiveLng,
+          'currentLongitude': effectiveLng,
+          'lastLocationUpdate': nowUtc,
+        },
+        'rating': (existingDoc['rating'] as num?)?.toDouble() ?? 0.0,
         'walletBalance': (existingDoc['walletBalance'] as num?)?.toDouble() ?? 0.0,
         'createdAt': existingDoc['createdAt'] ?? nowUtc,
         'updatedAt': nowUtc,
@@ -1436,14 +1452,33 @@ class FirestoreRestClient {
       }
 
       final techs = await listCollection('technician_profiles');
-      final matchedTech = techs.firstWhere(
+      final matchedTech = Map<String, dynamic>.from(techs.firstWhere(
         (t) =>
             t['uid'] == techId ||
             t['id'] == techId ||
             t['technicianId'] == techId ||
             resolveCanonicalTechUid(t['id']?.toString() ?? '') == techId,
-        orElse: () => techs.isNotEmpty ? techs.first : {},
-      );
+        orElse: () => <String, dynamic>{},
+      ));
+
+      final privDoc = await getDocument('technician_private', techId);
+      if (privDoc != null) {
+        if (privDoc['upiId'] != null && privDoc['upiId'].toString().isNotEmpty) {
+          matchedTech['upiId'] = privDoc['upiId'];
+        }
+        if (privDoc['maskedUpiId'] != null) {
+          matchedTech['maskedUpiId'] = privDoc['maskedUpiId'];
+        }
+        if (privDoc['upiVerificationStatus'] != null) {
+          matchedTech['upiVerificationStatus'] = privDoc['upiVerificationStatus'];
+        }
+        if (privDoc['maskedAadhaar'] != null) {
+          matchedTech['maskedAadhaar'] = privDoc['maskedAadhaar'];
+        }
+        if (privDoc['maskedVoterId'] != null) {
+          matchedTech['maskedVoterId'] = privDoc['maskedVoterId'];
+        }
+      }
 
       return Response(
         requestOptions: options,

@@ -69,12 +69,19 @@ class _LoginPageState extends ConsumerState<LoginPage> with SingleTickerProvider
       });
 
       try {
-        if (_latitude == null || _longitude == null) {
-          _latitude = 22.5726;
-          _longitude = 88.3639;
-        }
-
         final isLogin = _selectedMode == 0;
+        if ((_latitude == null || _longitude == null) && !isLogin) {
+          try {
+            final fixResult = await GpsPermissionHelper.ensureLocationPermissionAndGps(
+              context: context,
+              showPromptDialogs: true,
+            );
+            if (fixResult.isSuccess && fixResult.position != null) {
+              _latitude = fixResult.position!.latitude;
+              _longitude = fixResult.position!.longitude;
+            }
+          } catch (_) {}
+        }
         final email = isLogin 
             ? _loginEmailController.text.trim() 
             : _regEmailController.text.trim();

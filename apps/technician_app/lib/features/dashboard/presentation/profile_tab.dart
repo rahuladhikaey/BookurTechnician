@@ -342,9 +342,9 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
         ? _profileData!.technicianCode
         : 'BT-CAPTAIN-${(authState.phone ?? "7777").substring(0, 4).toUpperCase()}';
 
-    final rating = _profileData?.rating ?? (_skillProfile?.rating ?? 4.9);
-    final totalRatings = _profileData?.totalRatingsCount ?? (_skillProfile?.totalRatingsCount ?? 18);
-    final jobsCompleted = _profileData?.totalJobsCompleted ?? (_skillProfile?.totalJobsCompleted ?? 24);
+    final rating = _profileData?.rating ?? (_skillProfile?.rating ?? 0.0);
+    final totalRatings = _profileData?.totalRatingsCount ?? (_skillProfile?.totalRatingsCount ?? 0);
+    final jobsCompleted = _profileData?.totalJobsCompleted ?? (_skillProfile?.totalJobsCompleted ?? 0);
     final kycStatus = _profileData?.kycStatus ?? 'VERIFIED';
     final isApproved = kycStatus.toUpperCase() == 'VERIFIED' || kycStatus.toUpperCase() == 'APPROVED';
 
@@ -642,7 +642,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       iconColor: const Color(0xFF198754),
                       iconBg: const Color(0xFFE8F5E9),
                       title: 'Bank & UPI Payout Details',
-                      subtitle: _profileData?.upiId.isNotEmpty == true ? _profileData!.upiId : 'Linked with 24x7 Instant Transfer',
+                      subtitle: _profileData?.upiId.isNotEmpty == true ? _profileData!.upiId : 'Tap Edit to configure UPI payout ID',
                       trailingText: 'Edit',
                       onTap: _openEditProfileDialog,
                     ),

@@ -504,19 +504,21 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
                   ? (existingSkills.first['categoryName'] ?? existingSkills.first['category'])?.toString()
                   : null));
       final existingStep = existingDoc?['onboardingStep']?.toString() ??
-          (existingSkills.isNotEmpty ? 'COMPLETED' : 'SKILL_SELECTION');
+          (existingSkills.isNotEmpty ? 'COMPLETED' : 'DOCUMENT_UPLOAD');
       final existingCompleted = existingDoc?['onboardingCompleted'] == true ||
           existingStep == 'COMPLETED';
 
       final nowUtc = DateTime.now().toUtc().toIso8601String();
-      final effectiveLat = currentLat ??
-          (existingDoc?['latitude'] is num
+      final double? effectiveLat = (currentLat != null && currentLat != 0.0)
+          ? currentLat
+          : (existingDoc?['latitude'] is num
               ? (existingDoc!['latitude'] as num).toDouble()
-              : 28.6139);
-      final effectiveLng = currentLng ??
-          (existingDoc?['longitude'] is num
+              : null);
+      final double? effectiveLng = (currentLng != null && currentLng != 0.0)
+          ? currentLng
+          : (existingDoc?['longitude'] is num
               ? (existingDoc!['longitude'] as num).toDouble()
-              : 77.2090);
+              : null);
 
       final techDoc = <String, dynamic>{
         'id': internalUid,
@@ -539,20 +541,23 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         },
         if (existingDoc?['categories'] != null) 'categories': existingDoc!['categories'],
         if (existingDoc?['serviceCategories'] != null) 'serviceCategories': existingDoc!['serviceCategories'],
-        'kycStatus': existingDoc?['kycStatus'] ?? 'VERIFIED',
-        'accountStatus': existingDoc?['accountStatus'] ?? 'Active',
+        'kycStatus': existingDoc?['kycStatus'] ?? 'PENDING',
+        'accountStatus': existingDoc?['accountStatus'] ?? 'PENDING_VERIFICATION',
         'onboardingStep': existingStep,
         'onboardingCompleted': existingCompleted,
-        'isOnline': true,
-        'online': true,
-        'availabilityStatus': 'AVAILABLE',
-        'rating': existingDoc?['rating'] ?? 4.9,
+        'isOnline': existingDoc?['isOnline'] == true,
+        'online': existingDoc?['isOnline'] == true,
+        'availabilityStatus': existingDoc?['availabilityStatus'] ??
+            (existingDoc?['isOnline'] == true ? 'AVAILABLE' : 'OFFLINE'),
+        'rating': existingDoc?['rating'] ?? 0.0,
         'walletBalance': existingDoc?['walletBalance'] ?? 0,
-        'latitude': effectiveLat,
-        'longitude': effectiveLng,
-        'currentLatitude': effectiveLat,
-        'currentLongitude': effectiveLng,
-        'lastLocationUpdate': nowUtc,
+        if (effectiveLat != null && effectiveLng != null) ...{
+          'latitude': effectiveLat,
+          'longitude': effectiveLng,
+          'currentLatitude': effectiveLat,
+          'currentLongitude': effectiveLng,
+          'lastLocationUpdate': nowUtc,
+        },
         'updatedAt': nowUtc,
       };
 
@@ -617,6 +622,10 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
     try {
       final payload = <String, dynamic>{};
+      if (state.uid != null && state.uid!.isNotEmpty) {
+        payload['uid'] = state.uid;
+        payload['technicianId'] = state.uid;
+      }
       if (fullName != null) payload['fullName'] = fullName;
       if (profileImageUrl != null) {
         payload['profileImageUrl'] = profileImageUrl;

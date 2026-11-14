@@ -60,7 +60,7 @@ export default function TechniciansManager({
     email: '',
     category: 'AC Service & Repair',
     experience: '3 years',
-    upiId: 'technician@upi',
+    upiId: '',
     aadhaarNumber: '',
     voterCardNumber: ''
   });
@@ -307,8 +307,8 @@ export default function TechniciansManager({
           email: '',
           category: 'AC Service & Repair',
           experience: '3 years',
-          upiId: 'technician@upi',
-          photo: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=400'
+          upiId: '',
+          photo: ''
         });
         alert(`✓ Technician Partner ${res.data.name} (${res.data.code}) created successfully!`);
         fetchTechs();
@@ -749,8 +749,8 @@ export default function TechniciansManager({
                           <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
                             Jobs Completed: <strong>{t.totalJobsCompleted || 0}</strong>
                           </div>
-                          <div style={{ fontSize: '11px', color: '#198754', fontWeight: '600' }}>
-                            UPI: {t.maskedUpiId || (t.upiId ? `${t.upiId.slice(0, 2)}***@${t.upiId.split('@')[1] || 'upi'}` : 'te***@upi')}
+                          <div style={{ fontSize: '11px', color: (t.maskedUpiId || t.upiId) ? '#198754' : 'var(--text-secondary)', fontWeight: '600' }}>
+                            UPI: {t.maskedUpiId || (t.upiId ? `${t.upiId.slice(0, 2)}***@${t.upiId.split('@')[1] || 'upi'}` : 'Not configured')}
                           </div>
                           <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)' }}>
                             Step: <strong>{t.onboardingStep || 'COMPLETED'}</strong>
@@ -1250,7 +1250,7 @@ export default function TechniciansManager({
                             📍 {selectedTech.latitude.toFixed(6)}, {selectedTech.longitude.toFixed(6)}
                           </div>
                           <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                            Last GPS Ping: {selectedTech.locationUpdatedAt ? new Date(selectedTech.locationUpdatedAt).toLocaleString() : 'Live'}
+                            Last GPS Ping: {selectedTech.locationUpdatedAt || selectedTech.lastLocationUpdate ? new Date(selectedTech.locationUpdatedAt || selectedTech.lastLocationUpdate).toLocaleString() : 'Live'}
                           </div>
                         </div>
                         <a
@@ -1280,8 +1280,8 @@ export default function TechniciansManager({
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
                     <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '14px', background: '#FCF9F6' }}>
                       <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase' }}>Configured UPI ID</span>
-                      <div style={{ fontSize: '15px', fontWeight: '800', marginTop: '4px', color: '#198754' }}>
-                        {selectedTech.upiId || 'technician@upi'}
+                      <div style={{ fontSize: '15px', fontWeight: '800', marginTop: '4px', color: (selectedTech.upiId || selectedTech.maskedUpiId) ? '#198754' : 'var(--text-secondary)' }}>
+                        {selectedTech.upiId || selectedTech.maskedUpiId || 'Not configured'}
                       </div>
                       <div style={{ fontSize: '11px', color: selectedTech.isUpiVerified ? '#198754' : '#E5A126', marginTop: '4px', fontWeight: '600' }}>
                         {selectedTech.isUpiVerified ? '✓ Verified UPI VPA' : '⏳ Auto-Verification Pending'}
