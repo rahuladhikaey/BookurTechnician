@@ -24,9 +24,9 @@ class TechnicianHomeScreen extends StatefulWidget {
 
 class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
   bool _isOnline = false;
-  final double _todayEarnings = 1850.0;
-  final int _completedJobs = 4;
-  final double _rating = 4.9;
+  final double _todayEarnings = 0.0;
+  final int _completedJobs = 0;
+  final double _rating = 0.0;
   Timer? _gpsStreamTimer;
   GoogleMapController? _radarMapController;
   LatLng _currentLocation = const LatLng(12.971598, 77.594566);

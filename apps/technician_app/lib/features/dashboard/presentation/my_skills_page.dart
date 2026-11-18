@@ -286,7 +286,7 @@ class _MySkillsPageState extends ConsumerState<MySkillsPage> {
                         const Icon(Icons.star_rounded, color: Color(0xFFFBE4D5), size: 18),
                         const SizedBox(width: 4),
                         Text(
-                          rating > 0 ? rating.toStringAsFixed(1) : '5.0',
+                          rating > 0 ? rating.toStringAsFixed(1) : 'New',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,

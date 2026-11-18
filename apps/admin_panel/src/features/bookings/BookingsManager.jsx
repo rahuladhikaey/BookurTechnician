@@ -376,17 +376,19 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                   </div>
 
                   {/* Open in Google Maps Link Button */}
-                  <div style={{ marginTop: '10px' }}>
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${selectedBooking.latitude || 12.9716},${selectedBooking.longitude || 77.5946}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-outline btn-sm"
-                      style={{ width: '100%', textAlign: 'center', display: 'block', textDecoration: 'none', fontSize: '11.5px', padding: '6px' }}
-                    >
-                      🗺️ Open Location in Google Maps ↗
-                    </a>
-                  </div>
+                  {selectedBooking.latitude && selectedBooking.longitude && (
+                    <div style={{ marginTop: '10px' }}>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${selectedBooking.latitude},${selectedBooking.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-outline btn-sm"
+                        style={{ width: '100%', textAlign: 'center', display: 'block', textDecoration: 'none', fontSize: '11.5px', padding: '6px' }}
+                      >
+                        🗺️ Open Location in Google Maps ↗
+                      </a>
+                    </div>
+                  )}
                 </div>
 
                 {/* Assigned Technician Profile Details */}

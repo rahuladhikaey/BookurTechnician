@@ -67,9 +67,9 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
 
   const handleOpenDisburse = (tech) => {
     setSelectedTech(tech);
-    setPayoutAmount(tech.walletBalance ? tech.walletBalance.toString() : '500');
+    setPayoutAmount(tech.walletBalance ? tech.walletBalance.toString() : '');
     setDestinationUpi(tech.upiId || '');
-    setUtrReference(`UTR${Date.now().toString(36).toUpperCase()}${Math.floor(1000 + Math.random() * 9000)}`);
+    setUtrReference('');
     setModalError(null);
     setShowDisburseModal(true);
   };
@@ -376,7 +376,7 @@ export default function FinancialSettlementPortal({ onReload, isSyncing = false 
                       <span className="badge badge-info">{tx.paymentMethod || 'UPI'}</span>
                     </td>
                     <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: '12px', color: '#222222' }}>
-                      {tx.utrReference || 'UTR-MOCK-7788'}
+                      {tx.utrReference || '—'}
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: '12px', color: '#77716C' }}>
                       {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : 'Today'}

@@ -61,7 +61,7 @@ class ServiceItem {
     this.bookingCharge = 49.0,
     this.advancePrepaymentPct = 30,
     this.technicianPayoutAmount = 0.0,
-    this.rating = 4.8,
+    this.rating = 0.0,
     this.reviewsCount = 0,
     this.durationMinutes = 45,
     this.description = '',
@@ -104,6 +104,8 @@ class ServiceItem {
       bookingCharge: rawBooking,
       advancePrepaymentPct: rawPct,
       technicianPayoutAmount: rawPayout,
+      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      reviewsCount: (json['reviewsCount'] as num?)?.toInt() ?? 0,
       durationMinutes: (json['durationMinutes'] as num?)?.toInt() ??
           (json['estimatedDurationMinutes'] as num?)?.toInt() ??
           45,

@@ -32,7 +32,22 @@ class SkillService {
       debugPrint('Direct categories warning: $e');
     }
 
-    return _getFallbackCategories();
+    try {
+      final cats = await FirestoreRestClient.listCollection('service_categories');
+      if (cats.isNotEmpty) {
+        final parsed = cats
+            .map((c) => SkillCategoryModel.fromJson(c))
+            .where((c) => c.skills.isNotEmpty)
+            .toList();
+        if (parsed.isNotEmpty) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      debugPrint('Firestore catalog categories warning: $e');
+    }
+
+    return [];
   }
 
   /// Fetch the logged in technician's configured skills and ratings
@@ -99,7 +114,7 @@ class SkillService {
             'technicianId': userId,
             'technicianCode': doc['technicianCode'] ?? FirestoreRestClient.resolveTechnicianCode(userId, phone: phone),
             'fullName': doc['fullName'] ?? doc['name'] ?? userDetails['name'] ?? 'Partner Technician',
-            'rating': doc['rating'] ?? 4.9,
+            'rating': (doc['rating'] as num?)?.toDouble() ?? 0.0,
             'totalRatingsCount': doc['totalRatingsCount'] ?? 0,
             'totalJobsCompleted': doc['totalJobsCompleted'] ?? 0,
             'skills': docSkills,
@@ -133,7 +148,7 @@ class SkillService {
       technicianId: userId,
       technicianCode: partnerCode,
       fullName: realName,
-      rating: 4.9,
+      rating: 0.0,
       totalRatingsCount: 0,
       totalJobsCompleted: 0,
       skills: fallbackSkills,
@@ -309,86 +324,5 @@ class SkillService {
       debugPrint('Error toggling skill: $e');
       return !AppConfig.hasConfiguredBackend;
     }
-  }
-
-  /// Fallback static category dataset mapped to canonical Central Catalog service IDs
-  List<SkillCategoryModel> _getFallbackCategories() {
-    SkillItemModel buildSkill(String id, String name, String catId, String catName) {
-      return SkillItemModel(
-        id: id,
-        canonicalServiceId: id,
-        categoryId: catId,
-        categoryName: catName,
-        name: name,
-        slug: name.toLowerCase().replaceAll(' ', '-').replaceAll('/', '-'),
-      );
-    }
-
-    return [
-      SkillCategoryModel(
-        id: 'ac_services',
-        name: 'AC Services',
-        slug: 'ac-services',
-        displayOrder: 1,
-        skills: [
-          buildSkill('ac_install', 'AC installation', 'ac_services', 'AC Services'),
-          buildSkill('ac_uninstall', 'AC uninstallation', 'ac_services', 'AC Services'),
-          buildSkill('ac_deep_cleaning', 'Deep cleaning service', 'ac_services', 'AC Services'),
-          buildSkill('ac_repair_general', 'AC repair', 'ac_services', 'AC Services'),
-          buildSkill('ac_pcb_repair', 'AC PCB repair', 'ac_services', 'AC Services'),
-          buildSkill('ac_relocation', 'AC relocation', 'ac_services', 'AC Services'),
-          buildSkill('ac_general_service', 'AC general servicing', 'ac_services', 'AC Services'),
-          buildSkill('ac_gas_refill', 'Gas refill / leakage fix', 'ac_services', 'AC Services'),
-          buildSkill('ac_cooling_issue', 'Cooling problem diagnosis', 'ac_services', 'AC Services'),
-          buildSkill('ac_compressor_repair', 'Compressor repair', 'ac_services', 'AC Services'),
-        ],
-      ),
-      SkillCategoryModel(
-        id: 'electrical_services',
-        name: 'Electrical Services',
-        slug: 'electrical-services',
-        displayOrder: 2,
-        skills: [
-          buildSkill('fan_install', 'Ceiling fan installation', 'electrical_services', 'Electrical Services'),
-          buildSkill('fan_repair', 'Fan repair', 'electrical_services', 'Electrical Services'),
-          buildSkill('switch_replace', 'Switch replacement', 'electrical_services', 'Electrical Services'),
-          buildSkill('socket_replace', 'Socket replacement', 'electrical_services', 'Electrical Services'),
-          buildSkill('switchboard_repair', 'Switchboard repair', 'electrical_services', 'Electrical Services'),
-          buildSkill('mcb_replace', 'MCB replacement', 'electrical_services', 'Electrical Services'),
-          buildSkill('wiring_fault_check', 'Wiring fault check', 'electrical_services', 'Electrical Services'),
-          buildSkill('inverter_install', 'Inverter installation', 'electrical_services', 'Electrical Services'),
-          buildSkill('inverter_repair', 'Inverter repair', 'electrical_services', 'Electrical Services'),
-          buildSkill('led_light_install', 'LED light installation', 'electrical_services', 'Electrical Services'),
-        ],
-      ),
-      SkillCategoryModel(
-        id: 'appliances_services',
-        name: 'Appliances Repair',
-        slug: 'appliances-services',
-        displayOrder: 3,
-        skills: [
-          buildSkill('fridge_cooling_fix', 'Refrigerator cooling issue', 'appliances_services', 'Appliances Repair'),
-          buildSkill('fridge_gas_refill', 'Refrigerator gas refill', 'appliances_services', 'Appliances Repair'),
-          buildSkill('wm_repair', 'Washing machine repair', 'appliances_services', 'Appliances Repair'),
-          buildSkill('wm_install', 'Washing machine installation', 'appliances_services', 'Appliances Repair'),
-          buildSkill('ro_service', 'Water purifier service', 'appliances_services', 'Appliances Repair'),
-          buildSkill('geyser_repair', 'Geyser repair', 'appliances_services', 'Appliances Repair'),
-          buildSkill('microwave_repair', 'Microwave repair', 'appliances_services', 'Appliances Repair'),
-        ],
-      ),
-      SkillCategoryModel(
-        id: 'computer_networking',
-        name: 'Computer & Networking',
-        slug: 'computer-networking',
-        displayOrder: 4,
-        skills: [
-          buildSkill('laptop_general_repair', 'Laptop general repair', 'computer_networking', 'Computer & Networking'),
-          buildSkill('laptop_screen_replace', 'Laptop screen replacement', 'computer_networking', 'Computer & Networking'),
-          buildSkill('os_install', 'Windows / OS installation', 'computer_networking', 'Computer & Networking'),
-          buildSkill('wifi_router_setup', 'WiFi router setup', 'computer_networking', 'Computer & Networking'),
-          buildSkill('cctv_install', 'CCTV camera installation', 'computer_networking', 'Computer & Networking'),
-        ],
-      ),
-    ];
   }
 }

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import api from '../../api/apiClient';
 
 export default function AdminLogin({ onLoginSuccess }) {
-  const [email, setEmail] = useState('admin@bookurtechnician.com');
+  const [email, setEmail] = useState('');
   const [passkey, setPasskey] = useState('');
   const [showPasskey, setShowPasskey] = useState(false);
   const [loginMode, setLoginMode] = useState('passkey'); // 'passkey' | 'otp'

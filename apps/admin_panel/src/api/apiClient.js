@@ -94,9 +94,9 @@ class ApiClient {
 
     for (const targetUrl of urlsToTry) {
       try {
-        // Allow sufficient timeout (15s) to accommodate Render free-tier cold starts
+        // Allow sufficient timeout (45s) to accommodate Render free-tier cold starts
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
         
         const response = await fetch(targetUrl, {
           ...config,

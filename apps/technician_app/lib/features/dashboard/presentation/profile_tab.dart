@@ -136,7 +136,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                         phone: authState.phone ?? '',
                         email: authState.email ?? '',
                         profileImageUrl: '',
-                        rating: 5.0,
+                        rating: 0.0,
                         totalRatingsCount: 0,
                         totalJobsCompleted: 0,
                         kycStatus: 'VERIFIED',

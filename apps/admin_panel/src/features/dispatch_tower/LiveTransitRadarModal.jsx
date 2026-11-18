@@ -44,18 +44,31 @@ export default function LiveTransitRadarModal({ booking, onClose }) {
 
     const L = window.L;
 
-    // Use liveData or fallback to booking props
-    const custLat = liveData?.customer?.latitude || booking.latitude || 12.9716;
-    const custLng = liveData?.customer?.longitude || booking.longitude || 77.5946;
-    const techLat = liveData?.technician?.latitude || (custLat + 0.012);
-    const techLng = liveData?.technician?.longitude || (custLng - 0.015);
+    const toCoord = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n !== 0 ? n : null;
+    };
+
+    const custLat = toCoord(liveData?.customer?.latitude ?? booking.latitude);
+    const custLng = toCoord(liveData?.customer?.longitude ?? booking.longitude);
+    const techLat = toCoord(liveData?.technician?.latitude);
+    const techLng = toCoord(liveData?.technician?.longitude);
+    const hasCust = custLat !== null && custLng !== null;
+    const hasTech = techLat !== null && techLng !== null;
+
+    if (!hasCust && !hasTech) {
+      return;
+    }
+
+    const centerLat = hasCust && hasTech ? (custLat + techLat) / 2 : (custLat ?? techLat);
+    const centerLng = hasCust && hasTech ? (custLng + techLng) / 2 : (custLng ?? techLng);
 
     // Initialize Map if not yet created
     if (!mapInstanceRef.current) {
       const map = L.map(mapContainerRef.current, {
         zoomControl: true,
         attributionControl: false,
-      }).setView([(custLat + techLat) / 2, (custLng + techLng) / 2], 14);
+      }).setView([centerLat, centerLng], 14);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -83,6 +96,8 @@ export default function LiveTransitRadarModal({ booking, onClose }) {
       iconAnchor: [20, 45],
     });
 
+    const etaLabel = liveData?.telemetry?.etaMinutes !== undefined ? ` • ${liveData.telemetry.etaMinutes} min` : '';
+
     // Custom Icon for Technician (Moving Vehicle / Scooter)
     const techIcon = L.divIcon({
       className: 'custom-technician-marker',
@@ -93,7 +108,7 @@ export default function LiveTransitRadarModal({ booking, onClose }) {
             🛵
           </div>
           <div style="background: #198754; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 800; white-space: nowrap; margin-top: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 2;">
-            ${liveData?.technician?.name || booking.technicianName || 'Technician'} • ${liveData?.telemetry?.etaMinutes || 8} min
+            ${liveData?.technician?.name || booking.technicianName || 'Technician'}${etaLabel}
           </div>
         </div>
       `,
@@ -102,61 +117,73 @@ export default function LiveTransitRadarModal({ booking, onClose }) {
     });
 
     // Update Customer Marker
-    if (!custMarkerRef.current) {
-      custMarkerRef.current = L.marker([custLat, custLng], { icon: customerIcon }).addTo(map);
-      custMarkerRef.current.bindPopup(`
-        <div style="font-family: sans-serif; font-size: 12px;">
-          <strong>📍 Customer Destination</strong><br/>
-          <strong>Name:</strong> ${liveData?.customer?.name || booking.customerName || 'Customer'}<br/>
-          <strong>Phone:</strong> ${liveData?.customer?.phone || booking.customerPhone || 'N/A'}<br/>
-          <strong>Address:</strong> ${liveData?.customer?.address || booking.address || 'Address provided'}
-        </div>
-      `);
-    } else {
-      custMarkerRef.current.setLatLng([custLat, custLng]);
+    if (hasCust) {
+      if (!custMarkerRef.current) {
+        custMarkerRef.current = L.marker([custLat, custLng], { icon: customerIcon }).addTo(map);
+        custMarkerRef.current.bindPopup(`
+          <div style="font-family: sans-serif; font-size: 12px;">
+            <strong>📍 Customer Destination</strong><br/>
+            <strong>Name:</strong> ${liveData?.customer?.name || booking.customerName || 'Customer'}<br/>
+            <strong>Phone:</strong> ${liveData?.customer?.phone || booking.customerPhone || 'N/A'}<br/>
+            <strong>Address:</strong> ${liveData?.customer?.address || booking.address || 'Address provided'}
+          </div>
+        `);
+      } else {
+        custMarkerRef.current.setLatLng([custLat, custLng]);
+      }
     }
 
     // Update Technician Marker
-    if (!techMarkerRef.current) {
-      techMarkerRef.current = L.marker([techLat, techLng], { icon: techIcon }).addTo(map);
-      techMarkerRef.current.bindPopup(`
-        <div style="font-family: sans-serif; font-size: 12px;">
-          <strong>👨‍🔧 Assigned Partner</strong><br/>
-          <strong>Name:</strong> ${liveData?.technician?.name || booking.technicianName || 'Technician'}<br/>
-          <strong>Phone:</strong> ${liveData?.technician?.phone || booking.technicianPhone || 'N/A'}<br/>
-          <strong>Speed:</strong> ${liveData?.technician?.speed || 24} km/h<br/>
-          <strong>Rating:</strong> ★ ${liveData?.technician?.rating || 4.9}
-        </div>
-      `);
-    } else {
-      techMarkerRef.current.setLatLng([techLat, techLng]);
+    if (hasTech) {
+      const speedText = liveData?.technician?.speed !== undefined ? `${liveData.technician.speed} km/h` : '—';
+      const ratingText = liveData?.technician?.rating > 0 ? `★ ${liveData.technician.rating}` : 'Unrated';
+      if (!techMarkerRef.current) {
+        techMarkerRef.current = L.marker([techLat, techLng], { icon: techIcon }).addTo(map);
+        techMarkerRef.current.bindPopup(`
+          <div style="font-family: sans-serif; font-size: 12px;">
+            <strong>👨‍🔧 Assigned Partner</strong><br/>
+            <strong>Name:</strong> ${liveData?.technician?.name || booking.technicianName || 'Technician'}<br/>
+            <strong>Phone:</strong> ${liveData?.technician?.phone || booking.technicianPhone || 'N/A'}<br/>
+            <strong>Speed:</strong> ${speedText}<br/>
+            <strong>Rating:</strong> ${ratingText}
+          </div>
+        `);
+      } else {
+        techMarkerRef.current.setLatLng([techLat, techLng]);
+      }
     }
 
-    // Update Polyline Route between Tech and Customer
-    const routeCoords = [
-      [techLat, techLng],
-      [custLat, custLng],
-    ];
+    // Update Polyline Route between Tech and Customer when both real coordinates exist
+    if (hasCust && hasTech) {
+      const routeCoords = [
+        [techLat, techLng],
+        [custLat, custLng],
+      ];
 
-    if (!polylineRef.current) {
-      polylineRef.current = L.polyline(routeCoords, {
-        color: '#F46B12',
-        weight: 4,
-        dashArray: '8, 8',
-        opacity: 0.85,
-      }).addTo(map);
-    } else {
-      polylineRef.current.setLatLngs(routeCoords);
+      if (!polylineRef.current) {
+        polylineRef.current = L.polyline(routeCoords, {
+          color: '#F46B12',
+          weight: 4,
+          dashArray: '8, 8',
+          opacity: 0.85,
+        }).addTo(map);
+      } else {
+        polylineRef.current.setLatLngs(routeCoords);
+      }
     }
 
     // Adjust view according to follow mode
-    if (autoFollow === 'both') {
+    if (autoFollow === 'both' && hasCust && hasTech) {
       const bounds = L.latLngBounds([custLat, custLng], [techLat, techLng]);
       map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
-    } else if (autoFollow === 'tech') {
+    } else if (autoFollow === 'tech' && hasTech) {
       map.panTo([techLat, techLng]);
-    } else if (autoFollow === 'cust') {
+    } else if (autoFollow === 'cust' && hasCust) {
       map.panTo([custLat, custLng]);
+    } else if (hasCust) {
+      map.panTo([custLat, custLng]);
+    } else if (hasTech) {
+      map.panTo([techLat, techLng]);
     }
 
   }, [liveData, autoFollow]);
@@ -182,24 +209,24 @@ export default function LiveTransitRadarModal({ booking, onClose }) {
     name: booking.customerName || booking.customer || 'Customer',
     phone: booking.customerPhone || booking.phone || '',
     address: booking.fullAddress || booking.address || 'Address provided',
-    latitude: booking.latitude || 12.9716,
-    longitude: booking.longitude || 77.5946,
+    latitude: booking.latitude ?? null,
+    longitude: booking.longitude ?? null,
   };
 
   const tech = liveData?.technician || {
     name: booking.technicianName || booking.technician || 'Assigned Technician',
     phone: booking.technicianPhone || '',
     category: booking.technicianCategory || booking.category || 'General',
-    rating: booking.technicianRating || 4.88,
-    speed: 26,
-    latitude: (booking.latitude || 12.9716) + 0.012,
-    longitude: (booking.longitude || 77.5946) - 0.015,
+    rating: booking.technicianRating ?? 0,
+    speed: null,
+    latitude: null,
+    longitude: null,
   };
 
   const telemetry = liveData?.telemetry || {
-    distanceKm: 2.8,
-    etaMinutes: 7,
-    isMoving: true,
+    distanceKm: null,
+    etaMinutes: null,
+    isMoving: false,
   };
 
   return (
@@ -253,7 +280,7 @@ export default function LiveTransitRadarModal({ booking, onClose }) {
           <div style={{ background: '#E85B08', padding: '10px 16px', color: '#FFFFFF' }}>
             <span style={{ fontSize: '11px', color: '#77716C', fontWeight: '700', textTransform: 'uppercase' }}>ESTIMATED TIME (ETA)</span>
             <div style={{ fontSize: '20px', fontWeight: '800', color: '#F46B12', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🛵</span> {telemetry.etaMinutes} mins
+              <span>🛵</span> {telemetry.etaMinutes !== null && telemetry.etaMinutes !== undefined ? `${telemetry.etaMinutes} mins` : '—'}
             </div>
           </div>
 
@@ -261,7 +288,7 @@ export default function LiveTransitRadarModal({ booking, onClose }) {
           <div style={{ background: '#E85B08', padding: '10px 16px', color: '#FFFFFF' }}>
             <span style={{ fontSize: '11px', color: '#77716C', fontWeight: '700', textTransform: 'uppercase' }}>REMAINING DISTANCE</span>
             <div style={{ fontSize: '20px', fontWeight: '800', color: '#198754', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>📏</span> {telemetry.distanceKm} km
+              <span>📏</span> {telemetry.distanceKm !== null && telemetry.distanceKm !== undefined ? `${telemetry.distanceKm} km` : '—'}
             </div>
           </div>
 
@@ -269,7 +296,7 @@ export default function LiveTransitRadarModal({ booking, onClose }) {
           <div style={{ background: '#E85B08', padding: '10px 16px', color: '#FFFFFF' }}>
             <span style={{ fontSize: '11px', color: '#77716C', fontWeight: '700', textTransform: 'uppercase' }}>VEHICLE SPEED</span>
             <div style={{ fontSize: '20px', fontWeight: '800', color: '#E5A126', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>⚡</span> {tech.speed || 24} km/h
+              <span>⚡</span> {tech.speed !== null && tech.speed !== undefined ? `${tech.speed} km/h` : '—'}
             </div>
           </div>
 
@@ -419,17 +446,19 @@ export default function LiveTransitRadarModal({ booking, onClose }) {
             </div>
 
             {/* Quick Actions */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
-              <button
-                className="btn btn-primary btn-sm"
-                style={{ flex: 1, fontSize: '11px' }}
-                onClick={() => {
-                  window.open(`https://www.google.com/maps/dir/?api=1&origin=${tech.latitude},${tech.longitude}&destination=${cust.latitude},${cust.longitude}`, '_blank');
-                }}
-              >
-                🗺️ Google Maps Navigation ↗
-              </button>
-            </div>
+            {tech.latitude && tech.longitude && cust.latitude && cust.longitude && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ flex: 1, fontSize: '11px' }}
+                  onClick={() => {
+                    window.open(`https://www.google.com/maps/dir/?api=1&origin=${tech.latitude},${tech.longitude}&destination=${cust.latitude},${cust.longitude}`, '_blank');
+                  }}
+                >
+                  🗺️ Google Maps Navigation ↗
+                </button>
+              </div>
+            )}
 
           </div>
         </div>

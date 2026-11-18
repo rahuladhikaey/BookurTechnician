@@ -1640,27 +1640,28 @@ class _BookUrServiceCard extends ConsumerWidget {
 
                   const SizedBox(height: 6),
 
-                  // Rating Row: ★ 4.8 (12.4K)
+                  // Rating Row
                   Row(
                     children: [
                       const Icon(Icons.star_rounded, color: Color(0xFFE5A126), size: 18),
                       const SizedBox(width: 4),
                       Text(
-                        '${service.rating.toStringAsFixed(1)} ',
+                        service.rating > 0 ? '${service.rating.toStringAsFixed(1)} ' : 'New ',
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: kPrimaryText,
                         ),
                       ),
-                      Text(
-                        '(${_formatReviews(service.reviewsCount > 100 ? service.reviewsCount : 12400)})',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: kSecondaryText,
-                          fontWeight: FontWeight.w500,
+                      if (service.reviewsCount > 0)
+                        Text(
+                          '(${_formatReviews(service.reviewsCount)})',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: kSecondaryText,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
                       if (service.warrantyText.isNotEmpty) ...[
                         const SizedBox(width: 8),
                         Text(

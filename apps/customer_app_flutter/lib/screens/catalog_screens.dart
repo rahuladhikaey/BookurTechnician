@@ -476,31 +476,33 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                         color: kBrandPrimary,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '₹${(service.price * 1.25).toStringAsFixed(0)}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        decoration: TextDecoration.lineThrough,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F5E9),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        '20% OFF',
+                    if (service.basePrice > service.price) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '₹${service.basePrice.toStringAsFixed(0)}',
                         style: TextStyle(
-                          color: kSuccessGreen,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          decoration: TextDecoration.lineThrough,
+                          color: Colors.grey.shade500,
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${(((service.basePrice - service.price) / service.basePrice) * 100).round()}% OFF',
+                          style: const TextStyle(
+                            color: kSuccessGreen,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -510,12 +512,12 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                   children: [
                     const Icon(Icons.star, color: Colors.amber, size: 16),
                     const SizedBox(width: 4),
-                    const Text(
-                      '4.8',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextNavy),
+                    Text(
+                      service.rating > 0 ? service.rating.toStringAsFixed(1) : 'New',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextNavy),
                     ),
                     Text(
-                      ' (120 ratings)',
+                      service.reviewsCount > 0 ? ' (${service.reviewsCount} ratings)' : ' (Verified Service)',
                       style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                     ),
                     const Spacer(),

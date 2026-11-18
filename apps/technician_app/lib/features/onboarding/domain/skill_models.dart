@@ -217,7 +217,7 @@ class TechnicianSkillProfileModel {
         .map((s) => TechnicianSkillItemModel.fromJson(s as Map<String, dynamic>))
         .toList();
 
-    double parsedRating = 4.88;
+    double parsedRating = 0.0;
     if (json['rating'] is num) {
       parsedRating = (json['rating'] as num).toDouble();
     }
