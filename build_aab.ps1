@@ -3,7 +3,17 @@
 # the Customer App (Flutter) and Technician App (Flutter).
 # It copies the built AABs to 'release_aab' and 'build_outputs' folders in the root workspace.
 
+param(
+    [string]$RenderApiUrl = $(if ($env:RENDER_API_URL) { $env:RENDER_API_URL } else { "https://bookurtechnician-21r4.onrender.com" })
+)
+
 $ErrorActionPreference = "Continue"
+$RenderApiUrl = $RenderApiUrl.Trim().TrimEnd('/')
+$DartDefineFlags = @()
+if ($RenderApiUrl) {
+    $DartDefineFlags = @("--dart-define=RENDER_API_URL=$RenderApiUrl")
+    Write-Host "Using Render Backend URL: $RenderApiUrl" -ForegroundColor Green
+}
 
 # Create output directories
 $OutputDir = Join-Path $PSScriptRoot "build_outputs"
@@ -78,7 +88,7 @@ if (Test-Path $TechAppDir) {
 
             Write-Host "Building release App Bundle (.aab)..." -ForegroundColor Gray
             $env:GRADLE_OPTS = "-Dorg.gradle.project.kotlin.incremental=false"
-            flutter build appbundle --release --no-tree-shake-icons
+            flutter build appbundle --release --no-tree-shake-icons @DartDefineFlags
 
             $BuiltTechAab = "build\app\outputs\bundle\release\app-release.aab"
             if (Test-Path $BuiltTechAab) {
@@ -109,7 +119,7 @@ if (Test-Path $CustomerAppDir) {
             flutter pub get
 
             Write-Host "Building release App Bundle (.aab)..." -ForegroundColor Gray
-            flutter build appbundle --release --no-tree-shake-icons
+            flutter build appbundle --release --no-tree-shake-icons @DartDefineFlags
 
             $BuiltCustomerAab = "build\app\outputs\bundle\release\app-release.aab"
             if (Test-Path $BuiltCustomerAab) {

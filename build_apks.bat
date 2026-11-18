@@ -7,6 +7,7 @@ echo ==================================================
 
 set "ROOT_DIR=%~dp0"
 set "OUTPUT_DIR=%ROOT_DIR%build_outputs"
+if "%RENDER_API_URL%"=="" set "RENDER_API_URL=https://bookurtechnician-21r4.onrender.com"
 
 if not exist "%OUTPUT_DIR%" (
     mkdir "%OUTPUT_DIR%"
@@ -64,7 +65,7 @@ if exist "%TECH_DIR%" (
     
     echo Building Debug APK for Technician App...
     set GRADLE_OPTS=-Dorg.gradle.project.kotlin.incremental=false
-    call flutter build apk --debug
+    call flutter build apk --debug --dart-define=RENDER_API_URL=%RENDER_API_URL%
     
     if exist "build\app\outputs\flutter-apk\app-debug.apk" (
         copy /y "build\app\outputs\flutter-apk\app-debug.apk" "%OUTPUT_DIR%\technician_app-debug.apk" >nul
@@ -94,7 +95,7 @@ if exist "%CUST_DIR%" (
     
     echo Building Debug APK for Customer App...
     set GRADLE_OPTS=-Dorg.gradle.project.kotlin.incremental=false
-    call flutter build apk --debug
+    call flutter build apk --debug --dart-define=RENDER_API_URL=%RENDER_API_URL%
     
     if exist "build\app\outputs\flutter-apk\app-debug.apk" (
         copy /y "build\app\outputs\flutter-apk\app-debug.apk" "%OUTPUT_DIR%\customer_app-debug.apk" >nul

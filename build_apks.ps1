@@ -2,7 +2,17 @@
 # This script builds APKs for both the Customer App (Flutter) and Technician App (Flutter).
 # It copies the built APKs to a 'build_outputs' folder in the root of the workspace.
 
+param(
+    [string]$RenderApiUrl = $(if ($env:RENDER_API_URL) { $env:RENDER_API_URL } else { "https://bookurtechnician-21r4.onrender.com" })
+)
+
 $ErrorActionPreference = "Continue"
+$RenderApiUrl = $RenderApiUrl.Trim().TrimEnd('/')
+$DartDefineFlags = @()
+if ($RenderApiUrl) {
+    $DartDefineFlags = @("--dart-define=RENDER_API_URL=$RenderApiUrl")
+    Write-Host "Using Render Backend URL: $RenderApiUrl" -ForegroundColor Green
+}
 
 # Create output directories
 $OutputDir = Join-Path $PSScriptRoot "build_outputs"
@@ -81,7 +91,7 @@ if (Test-Path $TechAppDir) {
 
             Write-Host "Building debug APK..." -ForegroundColor Gray
             $env:GRADLE_OPTS = "-Dorg.gradle.project.kotlin.incremental=false"
-            flutter build apk --debug
+            flutter build apk --debug @DartDefineFlags
 
             $BuiltTechApk = "build\app\outputs\flutter-apk\app-debug.apk"
             if (Test-Path $BuiltTechApk) {
@@ -92,7 +102,7 @@ if (Test-Path $TechAppDir) {
             }
 
             Write-Host "Building release APK..." -ForegroundColor Gray
-            flutter build apk --release --no-tree-shake-icons
+            flutter build apk --release --no-tree-shake-icons @DartDefineFlags
 
             $BuiltTechReleaseApk = "build\app\outputs\flutter-apk\app-release.apk"
             if (Test-Path $BuiltTechReleaseApk) {
@@ -129,7 +139,7 @@ if (Test-Path $CustomerAppDir) {
             flutter pub get
             
             Write-Host "Building debug APK..." -ForegroundColor Gray
-            flutter build apk --debug
+            flutter build apk --debug @DartDefineFlags
 
             $BuiltApk = "build\app\outputs\flutter-apk\app-debug.apk"
             if (Test-Path $BuiltApk) {
@@ -139,7 +149,7 @@ if (Test-Path $CustomerAppDir) {
                 Write-Host "Successfully built and copied Customer App (Debug) to: $TargetApk" -ForegroundColor Green
             }
             Write-Host "Building release APK..." -ForegroundColor Gray
-            flutter build apk --release --no-tree-shake-icons
+            flutter build apk --release --no-tree-shake-icons @DartDefineFlags
 
             $BuiltReleaseApk = "build\app\outputs\flutter-apk\app-release.apk"
             if (Test-Path $BuiltReleaseApk) {
