@@ -56,6 +56,9 @@ const { getFirebaseStatus } = require('./firebaseAdmin');
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://bookmytechnician-53d94.web.app',
   'https://bookmytechnician-53d94.firebaseapp.com',
+  'https://admin.bookurtechnician.online',
+  'https://bookurtechnician.online',
+  'https://www.bookurtechnician.online',
 ];
 
 function buildAllowedOrigins(extraOrigins = []) {

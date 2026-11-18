@@ -44,8 +44,8 @@ services:
         sync: false
       - key: EMAILJS_ORIGIN
         value: https://bookmytechnician-53d94.web.app
-      # Firebase Hosting domains (comma-separated)
+      # Firebase Hosting & Custom Admin domains (comma-separated)
       - key: CORS_ALLOWED_ORIGINS
-        value: https://bookmytechnician-53d94.web.app,https://bookmytechnician-53d94.firebaseapp.com
+        value: https://bookmytechnician-53d94.web.app,https://bookmytechnician-53d94.firebaseapp.com,https://admin.bookurtechnician.online,https://bookurtechnician.online
 
 
