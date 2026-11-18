@@ -436,20 +436,21 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                             )}
 
                             {['ARRIVED', 'IN_PROGRESS'].includes(stage.key) && (
-                              <button
-                                onClick={() => setOtpDisputeTarget(b)}
-                                className="btn btn-sm"
+                              <div
                                 style={{
                                   width: '100%',
-                                  backgroundColor: '#FDECEC',
-                                  color: '#DC3545',
-                                  border: '1px solid #FDECEC',
-                                  fontSize: '11px',
-                                  padding: '5px 8px'
+                                  backgroundColor: '#FCF9F6',
+                                  color: '#77716C',
+                                  border: '1px solid #EEE8E2',
+                                  borderRadius: '4px',
+                                  fontSize: '10.5px',
+                                  padding: '5px 8px',
+                                  textAlign: 'center',
+                                  fontWeight: '700'
                                 }}
                               >
-                                🔓 Bypass OTP
-                              </button>
+                                🔒 Technician OTP Enforced
+                              </div>
                             )}
                           </div>
                         </div>
@@ -535,12 +536,9 @@ export default function LiveBookingRadar({ onReload, isSyncing = false }) {
                           </span>
                         )}
                         {['ARRIVED', 'IN_PROGRESS'].includes(status) && (
-                          <button
-                            onClick={() => setOtpDisputeTarget(b)}
-                            className="btn btn-sm btn-danger"
-                          >
-                            Bypass OTP
-                          </button>
+                          <span style={{ fontSize: '11px', color: '#77716C', fontWeight: '700' }}>
+                            🔒 OTP Enforced
+                          </span>
                         )}
                       </td>
                     </tr>

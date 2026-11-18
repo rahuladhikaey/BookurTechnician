@@ -419,64 +419,19 @@ class _ServiceExecutionPageState extends ConsumerState<ServiceExecutionPage> {
                   const SizedBox(height: AppSpacing.m),
                 ],
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Additional Work & Materials', style: AppTypography.titleMedium),
-                    TextButton.icon(
-                      onPressed: () => _openAddonSheet(context),
-                      icon: const Icon(Icons.add_circle_outline, size: 16),
-                      label: const Text('Add Work'),
-                    ),
-                  ],
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSpacing.m),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: AppRadius.medium,
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: const Text(
+                    'Additional spare-part add-ons & automated reschedule requests are coming in a future release.',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
                 ),
-                if (activeJob.addOns.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: AppSpacing.s),
-                    child: Text('No additional add-ons requested yet.', style: TextStyle(color: Colors.grey)),
-                  )
-                else
-                  ...activeJob.addOns.map((addon) {
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.m),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(addon.name, style: AppTypography.titleMedium),
-                                Text('₹${addon.price.toStringAsFixed(0)}', style: AppTypography.titleMedium.copyWith(color: AppColors.primary)),
-                              ],
-                            ),
-                            Text('Reason: ${addon.reason}', style: AppTypography.bodyMedium),
-                            const SizedBox(height: AppSpacing.xs),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  addon.isApproved ? 'Approved & Paid' : 'Pending Customer Approval',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: addon.isApproved ? SemanticColors.success : SemanticColors.warning,
-                                  ),
-                                ),
-                                if (!addon.isApproved)
-                                  TextButton(
-                                    onPressed: () {
-                                      notifier.simulateCustomerAddonDecision(addon.id, true);
-                                    },
-                                    child: const Text('Simulate Approve'),
-                                  )
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
               ],
             ),
           ),
@@ -504,18 +459,6 @@ class _ServiceExecutionPageState extends ConsumerState<ServiceExecutionPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (activeJob.status == TechJobStatus.serviceStarted || activeJob.status == TechJobStatus.resumed) ...[
-                      SecondaryButton(
-                        text: 'Forward Next-Day Reschedule',
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ForwardServicePage(bookingId: activeJob.id),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: AppSpacing.s),
                       SwipeToConfirmButton(
                         key: ValueKey('swipe_end_job_$_resetSwipe'),
                         text: 'Swipe to End Job',

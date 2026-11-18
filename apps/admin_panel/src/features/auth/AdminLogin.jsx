@@ -40,12 +40,11 @@ export default function AdminLogin({ onLoginSuccess }) {
         throw new Error(response?.message || response?.error || 'Authentication failed. Invalid credentials.');
       }
 
-      const authUser = response?.user || response?.data?.user || {
-        id: 'admin-master-001',
-        email: trimmedEmail,
-        fullName: 'System Administrator',
-        role: 'SUPER_ADMIN'
-      };
+      const authUser = response?.user || response?.data?.user;
+      const verifiedRole = String(authUser?.role || '').toUpperCase();
+      if (!authUser || (verifiedRole !== 'ADMIN' && verifiedRole !== 'SUPER_ADMIN')) {
+        throw new Error('Access Denied: Verified administrator role required.');
+      }
       const refreshToken = response?.refreshToken || response?.data?.refreshToken;
 
       api.setToken(accessToken, true);
@@ -121,12 +120,11 @@ export default function AdminLogin({ onLoginSuccess }) {
         throw new Error(response?.message || response?.error || 'OTP verification failed.');
       }
 
-      const authUser = response?.user || response?.data?.user || {
-        id: 'admin-master-001',
-        email: trimmedEmail,
-        fullName: 'System Administrator',
-        role: 'SUPER_ADMIN'
-      };
+      const authUser = response?.user || response?.data?.user;
+      const verifiedRole = String(authUser?.role || '').toUpperCase();
+      if (!authUser || (verifiedRole !== 'ADMIN' && verifiedRole !== 'SUPER_ADMIN')) {
+        throw new Error('Access Denied: Verified administrator role required.');
+      }
       const refreshToken = response?.refreshToken || response?.data?.refreshToken;
 
       api.setToken(accessToken, true);

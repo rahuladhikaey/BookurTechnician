@@ -10,6 +10,7 @@ export default function PartnerVerificationView() {
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [suspensionReason, setSuspensionReason] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
@@ -67,16 +68,11 @@ export default function PartnerVerificationView() {
         setSuspensionReason('');
         loadPartners();
       } else {
-        // Fallback local update
-        setPartners(prev => prev.map(p => (p.id === partnerId || p._id === partnerId) ? { ...p, kycStatus, status: kycStatus === 'ACTIVE' ? 'Approved' : 'Suspended' } : p));
-        showToast(`Partner status successfully marked as ${kycStatus}`);
-        setSelectedPartner(null);
+        throw new Error(res?.error || 'KYC update rejected by backend');
       }
     } catch (err) {
-      console.warn('KYC update notice:', err);
-      setPartners(prev => prev.map(p => (p.id === partnerId || p._id === partnerId) ? { ...p, kycStatus, status: kycStatus === 'ACTIVE' ? 'Approved' : 'Suspended' } : p));
-      showToast(`Partner status successfully marked as ${kycStatus}`);
-      setSelectedPartner(null);
+      console.error('KYC update error:', err);
+      alert(`Failed to update partner KYC status: ${err.message}`);
     } finally {
       setSubmitting(false);
     }

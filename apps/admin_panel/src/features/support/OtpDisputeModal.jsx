@@ -20,16 +20,13 @@ export default function OtpDisputeModal({ booking, onClose, onSuccess }) {
       const nextStatus = otpType === 'START' ? 'IN_PROGRESS' : 'COMPLETED';
       const res = await api.updateBookingStatus(booking._id || booking.id, nextStatus);
       if (res && (res.success || res.status === 200)) {
-        if (onSuccess) onSuccess(res.message || `OTP bypassed: Booking set to ${nextStatus}`);
+        if (onSuccess) onSuccess(res.message || `Booking set to ${nextStatus}`);
         onClose();
       } else {
-        if (onSuccess) onSuccess(`OTP bypassed: Booking set to ${nextStatus}`);
-        onClose();
+        throw new Error('OTP bypass is disabled under monitoring-only policy.');
       }
     } catch (err) {
-      console.warn('OTP bypass fallback:', err);
-      if (onSuccess) onSuccess(`OTP bypassed: Booking status updated`);
-      onClose();
+      setError(err?.message || 'OTP bypass is disabled. Start/End OTP must be entered by the assigned technician.');
     } finally {
       setSubmitting(false);
     }

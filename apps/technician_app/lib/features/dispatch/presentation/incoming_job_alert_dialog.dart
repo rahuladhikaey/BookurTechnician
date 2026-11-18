@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../../core/network/dio_client.dart';
-import '../../../core/config/app_config.dart';
 import '../../../core/services/audio_alert_service.dart';
 import '../../dashboard/presentation/job_execution_screen.dart';
 
@@ -140,18 +139,18 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
       final targetId = widget.proposalId.isNotEmpty ? widget.proposalId : widget.bookingId;
       try {
         await dio.post(
-          '${AppConfig.apiBaseUrl}/dispatch/offers/$targetId/reject',
+          '/dispatch/offers/$targetId/reject',
           data: {'reason': 'REJECTED_BY_TECHNICIAN'},
         );
       } catch (_) {
         try {
           await dio.post(
-            '${AppConfig.apiBaseUrl}/dispatch/proposals/$targetId/decline',
+            '/dispatch/proposals/$targetId/decline',
             data: {'reason': 'DECLINED_BY_PARTNER'},
           );
         } catch (_) {
           await dio.post(
-            '${AppConfig.apiBaseUrl}/technician/dispatch/$targetId/decline',
+            '/technician/dispatch/$targetId/decline',
             data: {'reason': 'DECLINED_BY_PARTNER'},
           );
         }
@@ -179,15 +178,18 @@ class _IncomingJobAlertOverlayState extends State<IncomingJobAlertOverlay>
       
       Response? response;
       try {
-        response = await dio.post('${AppConfig.apiBaseUrl}/dispatch/offers/$targetId/accept');
+        response = await dio.post('/dispatch/offers/$targetId/accept');
       } catch (e) {
+        if (e is DioException && (e.response?.statusCode == 409 || e.response?.statusCode == 410 || e.response?.statusCode == 403 || e.response?.statusCode == 401)) {
+          rethrow;
+        }
         try {
-          response = await dio.post('${AppConfig.apiBaseUrl}/dispatch/proposals/$targetId/accept');
+          response = await dio.post('/dispatch/proposals/$targetId/accept');
         } catch (_) {
           try {
-            response = await dio.post('${AppConfig.apiBaseUrl}/technician/dispatch/$targetId/accept');
+            response = await dio.post('/technician/dispatch/$targetId/accept');
           } catch (_) {
-            response = await dio.post('${AppConfig.apiBaseUrl}/bookings/${widget.bookingId}/accept');
+            response = await dio.post('/bookings/${widget.bookingId}/accept');
           }
         }
       }

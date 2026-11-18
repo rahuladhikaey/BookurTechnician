@@ -217,30 +217,13 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        final amt = double.tryParse(_amountController.text.trim()) ?? 0;
-                        if (amt <= 0 || amt > availableBalance) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter a valid amount within your wallet balance.')),
-                          );
-                          return;
-                        }
-
-                        final success = await ref.read(dashboardProvider.notifier).withdrawToUpi(
-                              amount: amt,
-                              upiId: currentUpi,
-                            );
-
-                        if (success) {
-                          if (!context.mounted) return;
-                          Navigator.pop(modalCtx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('₹${amt.toStringAsFixed(0)} transferred instantly to $currentUpi!'),
-                              backgroundColor: SemanticColors.success,
-                            ),
-                          );
-                        }
+                      onPressed: () {
+                        Navigator.pop(modalCtx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Automated self-serve UPI withdrawals are coming soon. Settlements are tracked from your completed jobs.'),
+                          ),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF222222),
@@ -778,9 +761,8 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                 ElevatedButton(
                   onPressed: () {
                     HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TechnicianAnalyticsScreen()),
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Detailed analytics graphs are coming soon.')),
                     );
                   },
                   style: ElevatedButton.styleFrom(
@@ -789,7 +771,7 @@ class _EarningsTabState extends ConsumerState<EarningsTab> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: const Text('View Graph', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                  child: const Text('Coming Soon', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900)),
                 ),
               ],
             ),

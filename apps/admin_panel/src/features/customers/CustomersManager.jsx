@@ -168,16 +168,6 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
             </p>
           </div>
           <div className="page-actions-group" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {activeCustomerList.length > 0 && (
-              <button
-                className="btn btn-outline"
-                onClick={handleClearAllCustomers}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#DC3545', color: '#DC3545' }}
-                title="Clear all mock/test customer records for clean production slate"
-              >
-                <span>🗑️</span> Reset Test Customers
-              </button>
-            )}
             <button
               className="btn btn-outline"
               onClick={fetchLatestCustomers}
@@ -310,13 +300,6 @@ export default function CustomersManager({ customers = [], setCustomers, auditLo
                         <div style={{ display: 'inline-flex', gap: '6px' }}>
                           <button className="btn btn-primary btn-sm" onClick={() => handleOpenDetails(c)}>
                             Inspect File →
-                          </button>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleDeleteCustomer(c.id || c.customerId)}
-                            title="Delete customer permanently"
-                          >
-                            🗑️
                           </button>
                         </div>
                       </td>

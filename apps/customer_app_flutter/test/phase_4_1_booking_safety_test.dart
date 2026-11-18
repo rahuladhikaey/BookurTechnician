@@ -79,7 +79,7 @@ void main() {
         'longitude': 88.3639,
         'lastLocationUpdate': freshIso,
         'skills': [
-          {'skillId': 'ac_install', 'name': 'AC installation', 'enabled': true},
+          {'skillId': 'ac_install', 'name': 'AC installation', 'verificationStatus': 'VERIFIED', 'enabled': true},
         ],
         '_updateTime': '2026-11-08T00:00:01.000000Z',
       },

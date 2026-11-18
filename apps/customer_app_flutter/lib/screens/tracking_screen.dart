@@ -118,7 +118,6 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
     _statusSyncTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       ref.read(bookingProvider.notifier).loadBookingHistory();
       _fetchLiveBookingDetails();
-      _fetchProofAndAddons();
     });
   }
 
@@ -580,29 +579,7 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
   }
 
   Future<void> _fetchProofAndAddons() async {
-    try {
-      final pRes = await ApiClient.get('/bookings/${widget.bookingId}/proof');
-      if (pRes.statusCode >= 200 && pRes.statusCode < 300) {
-        final decodedP = jsonDecode(pRes.body);
-        if (decodedP is Map && decodedP['success'] == true && decodedP['data'] != null) {
-          setState(() => _proofOfWork = decodedP['data']);
-        }
-      }
-      final aRes = await ApiClient.get('/bookings/${widget.bookingId}/addons');
-      if (aRes.statusCode >= 200 && aRes.statusCode < 300) {
-        final decodedA = jsonDecode(aRes.body);
-        if (decodedA is Map && decodedA['success'] == true && decodedA['data'] is List) {
-          final list = List<Map<String, dynamic>>.from(decodedA['data']);
-          setState(() {
-            _pendingAddons = list;
-          });
-          final pending = list.where((a) => a['status'] == 'PENDING').toList();
-          if (pending.isNotEmpty && mounted) {
-            _showAddonApprovalDialog(pending.first);
-          }
-        }
-      }
-    } catch (_) {}
+    // Proof-of-work and spare-parts addons endpoints are scheduled post-launch; keep UI clean without failing polls.
   }
 
   Future<void> _callTechnician(String phone) async {
@@ -1430,29 +1407,25 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  // Chat Button
+                                  // Chat Button (Disabled Post-Launch)
                                   Container(
                                     width: 42,
                                     height: 42,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFFBE4D5),
+                                      color: Colors.grey.shade100,
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: const Color(0xFFFBE4D5), width: 1.2),
+                                      border: Border.all(color: Colors.grey.shade300, width: 1.2),
                                     ),
                                     child: IconButton(
-                                      icon: const Icon(Icons.chat_bubble_rounded, size: 19, color: Color(0xFFF46B12)),
+                                      icon: Icon(Icons.chat_bubble_outline_rounded, size: 19, color: Colors.grey.shade500),
                                       onPressed: () {
-                                        Navigator.pushNamed(
-                                          context,
-                                          '/chat',
-                                          arguments: {
-                                            'bookingId': widget.bookingId,
-                                            'bookingCode': booking.bookingCode,
-                                            'technicianName': techName,
-                                          },
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('In-app chat is coming soon. Please use Call Technician for direct coordination.'),
+                                          ),
                                         );
                                       },
-                                      tooltip: 'In-App Secured Chat',
+                                      tooltip: 'In-App Chat (Coming Soon)',
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -1679,141 +1652,19 @@ class _BookingTrackingScreenState extends ConsumerState<BookingTrackingScreen> w
                       ),
                       const SizedBox(height: 12),
 
-                      // Proof of Work inspection photos
+                      // Post-launch rating/warranty notice + Invoice action
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFCF9F6),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: const Color(0xFFEEE8E2)),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.verified_outlined, size: 16, color: Color(0xFFF46B12)),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Proof of Work & Inspection Photos',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF222222)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    height: 70,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFFEEE8E2)),
-                                    ),
-                                    child: _proofOfWork != null && (_proofOfWork!['before_photo_url'] != null || _proofOfWork!['beforePhotoUrl'] != null)
-                                        ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: Image.network(
-                                              _proofOfWork!['before_photo_url'] ?? _proofOfWork!['beforePhotoUrl'],
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) => const Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(Icons.photo_camera, size: 20, color: Color(0xFFF46B12)),
-                                                  SizedBox(height: 4),
-                                                  Text('Before Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFF46B12))),
-                                                ],
-                                              ),
-                                            ),
-                                          )
-                                        : const Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(Icons.photo_camera, size: 20, color: Color(0xFFF46B12)),
-                                              SizedBox(height: 4),
-                                              Text('Before Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFF46B12))),
-                                              Text('GPS Verified', style: TextStyle(fontSize: 9, color: Color(0xFF198754))),
-                                            ],
-                                          ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Container(
-                                    height: 70,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFFEEE8E2)),
-                                    ),
-                                    child: _proofOfWork != null && (_proofOfWork!['after_photo_url'] != null || _proofOfWork!['afterPhotoUrl'] != null)
-                                        ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: Image.network(
-                                              _proofOfWork!['after_photo_url'] ?? _proofOfWork!['afterPhotoUrl'],
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) => const Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(Icons.check_circle_outline, size: 20, color: Color(0xFF198754)),
-                                                  SizedBox(height: 4),
-                                                  Text('After Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF198754))),
-                                                ],
-                                              ),
-                                            ),
-                                          )
-                                        : const Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(Icons.check_circle_outline, size: 20, color: Color(0xFF198754)),
-                                              SizedBox(height: 4),
-                                              Text('After Service', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF198754))),
-                                              Text('GPS Verified', style: TextStyle(fontSize: 9, color: Color(0xFF198754))),
-                                            ],
-                                          ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        child: const Text(
+                          'Service completed via verified OTP. Partner ratings & online warranty claims are coming soon.',
+                          style: TextStyle(fontSize: 11.5, color: Color(0xFF77716C)),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Customer Actions: Rating + Warranty Revisit + Invoice
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _hasRated ? null : _showRatingModal,
-                              icon: const Icon(Icons.star_rate_rounded, size: 16, color: Color(0xFFE5A126)),
-                              label: Text(
-                                _hasRated ? 'Rated ★★★★★' : 'Rate Partner',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFFE5A126)),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _hasClaimedWarranty ? null : _claimWarrantyModal,
-                              icon: const Icon(Icons.replay_circle_filled_rounded, size: 16, color: Color(0xFF198754)),
-                              label: Text(
-                                _hasClaimedWarranty ? 'Revisit Booked' : '30-Day Warranty',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFF198754)),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 8),
                       SizedBox(

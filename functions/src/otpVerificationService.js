@@ -13,7 +13,7 @@ async function verifyStartOtp(db, { bookingId, callerUid, enteredOtp }) {
     err.code = 'MISSING_BOOKING_ID';
     throw err;
   }
-  if (!enteredOtp || String(enteredOtp).trim().length !== 4) {
+  if (!enteredOtp || !/^\d{4}$/.test(String(enteredOtp).trim())) {
     const err = new Error('A 4-digit numeric Start OTP is required');
     err.status = 400;
     err.code = 'INVALID_OTP_FORMAT';
@@ -51,7 +51,7 @@ async function verifyStartOtp(db, { bookingId, callerUid, enteredOtp }) {
       verificationOutcome = { success: true, status: 'IN_PROGRESS', isIdempotent: true };
       return;
     }
-    if (!['ASSIGNED', 'ACCEPTED', 'CONFIRMED', 'PENDING'].includes(currentStatus)) {
+    if (!['ASSIGNED', 'ACCEPTED', 'CONFIRMED', 'PENDING', 'ON_THE_WAY', 'EN_ROUTE', 'ARRIVED'].includes(currentStatus)) {
       const err = new Error(`Cannot start service: Booking is in invalid state "${currentStatus}"`);
       err.status = 400;
       err.code = 'INVALID_BOOKING_STATUS';

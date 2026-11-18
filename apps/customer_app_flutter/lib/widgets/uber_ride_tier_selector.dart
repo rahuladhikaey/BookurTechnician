@@ -96,7 +96,7 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
   BookingMode _bookingMode = BookingMode.instantDispatch;
   String _selectedDate = 'Today';
   String _selectedSlot = 'Immediate (Next Available)';
-  String _paymentMethod = 'ONLINE'; // 'ONLINE' or 'CASH'
+  String _paymentMethod = 'CASH'; // Initial launch supports Cash / UPI on visit
   bool _includeProtectionPlan = true;
   final double _protectionPlanFee = 49.0;
 
@@ -739,33 +739,40 @@ class _UberRideTierSelectorSheetState extends ConsumerState<UberRideTierSelector
           Row(
             children: [
               Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _paymentMethod = 'ONLINE'),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _paymentMethod == 'ONLINE' ? kBlack : kWhite,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _paymentMethod == 'ONLINE' ? kBlack : kBorderColor),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.bolt_rounded,
-                          size: 16,
-                          color: _paymentMethod == 'ONLINE' ? kWhite : kBlack,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Online / UPI',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                            color: _paymentMethod == 'ONLINE' ? kWhite : kBlack,
+                child: Opacity(
+                  opacity: 0.5,
+                  child: GestureDetector(
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Online pre-payment coming soon — Pay After Job selected.')),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: kWhite,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: kBorderColor),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.lock_clock_outlined,
+                            size: 16,
+                            color: kSecondaryText,
                           ),
-                        ),
-                      ],
+                          SizedBox(width: 6),
+                          Text(
+                            'Online (Soon)',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: kSecondaryText,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

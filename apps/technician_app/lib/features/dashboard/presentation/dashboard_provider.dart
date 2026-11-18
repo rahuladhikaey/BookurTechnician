@@ -6,6 +6,7 @@ import '../data/technician_banner_service.dart';
 import '../domain/technician_banner.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/security/secure_storage.dart';
 import '../../../core/services/location_tracking_service.dart';
@@ -263,9 +264,11 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
         ) {
     _initBanners();
     _restoreOnlineStatus();
-    fetchAndUpdateLocation().then((success) {
+    fetchAndUpdateLocation().then((success) async {
       if (success && state.isOnline) {
         LocationTrackingService().startTracking();
+        _startPresenceHeartbeat();
+        await _syncRecoveredPresence();
       }
     });
   }
@@ -278,7 +281,44 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
         state = state.copyWith(isOnline: true);
         BookingRequestManager().setOnlineStatus(true);
         LocationTrackingService().startTracking();
+        _startPresenceHeartbeat();
+        await _syncRecoveredPresence();
       }
+    } catch (_) {}
+  }
+
+  Future<void> _syncRecoveredPresence() async {
+    final lat = state.currentLatitude;
+    final lng = state.currentLongitude;
+    if (!state.isOnline || lat == null || lng == null || lat == 0.0 || lng == 0.0) {
+      return;
+    }
+    try {
+      final rawId = await SecureStorage().getUserId();
+      if (rawId == null || rawId.isEmpty || rawId == 'BT-PARTNER') return;
+      final savedUserId = FirestoreRestClient.resolveCanonicalTechUid(rawId);
+      final nowIso = DateTime.now().toUtc().toIso8601String();
+      await FirestoreRestClient.upsertDocument('technician_profiles', savedUserId, {
+        'id': savedUserId,
+        'technicianId': savedUserId,
+        'isOnline': true,
+        'online': true,
+        'availabilityStatus': 'AVAILABLE',
+        'latitude': lat,
+        'longitude': lng,
+        'currentLatitude': lat,
+        'currentLongitude': lng,
+        'lastLocationUpdate': nowIso,
+        'updatedAt': nowIso,
+      });
+      await FirestoreRestClient.upsertDocument('presence', savedUserId, {
+        'uid': savedUserId,
+        'status': 'ONLINE',
+        'latitude': lat,
+        'longitude': lng,
+        'lastHeartbeat': nowIso,
+        'updatedAt': nowIso,
+      });
     } catch (_) {}
   }
 
@@ -365,27 +405,35 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
         debugPrint('Socket connect on toggleOnline warning: $e');
       }
 
-      try {
-        await FirestoreRestClient.upsertDocument('technician_profiles', savedUserId, {
-          'id': savedUserId,
-          'technicianId': savedUserId,
-          'isOnline': true,
-          'online': true,
-          'availabilityStatus': 'AVAILABLE',
-          'latitude': lat,
-          'longitude': lng,
-          'currentLatitude': lat,
-          'currentLongitude': lng,
-          'lastLocationUpdate': DateTime.now().toUtc().toIso8601String(),
-          'updatedAt': DateTime.now().toUtc().toIso8601String(),
-        });
-      } catch (_) {}
-
-      try {
-        final dioClient = DioClient(SecureStorage());
-        await dioClient.dio.post(
-          '/technician/online-status',
-          data: {
+      if (AppConfig.hasConfiguredBackend) {
+        try {
+          final dioClient = DioClient(SecureStorage());
+          await dioClient.dio.post(
+            '/technician/online-status',
+            data: {
+              'isOnline': true,
+              'online': true,
+              'availabilityStatus': 'AVAILABLE',
+              'latitude': lat,
+              'longitude': lng,
+              'currentLatitude': lat,
+              'currentLongitude': lng,
+              'technicianId': savedUserId,
+              'updatedAt': DateTime.now().toIso8601String(),
+            },
+            options: Options(headers: {
+              'x-technician-id': savedUserId,
+            }),
+          );
+        } catch (e) {
+          debugPrint('Backend online status update error: $e');
+        }
+      } else {
+        try {
+          final nowIso = DateTime.now().toUtc().toIso8601String();
+          await FirestoreRestClient.upsertDocument('technician_profiles', savedUserId, {
+            'id': savedUserId,
+            'technicianId': savedUserId,
             'isOnline': true,
             'online': true,
             'availabilityStatus': 'AVAILABLE',
@@ -393,15 +441,18 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
             'longitude': lng,
             'currentLatitude': lat,
             'currentLongitude': lng,
-            'technicianId': savedUserId,
-            'updatedAt': DateTime.now().toIso8601String(),
-          },
-          options: Options(headers: {
-            'x-technician-id': savedUserId,
-          }),
-        );
-      } catch (e) {
-        debugPrint('Backend online status update error: $e');
+            'lastLocationUpdate': nowIso,
+            'updatedAt': nowIso,
+          });
+          await FirestoreRestClient.upsertDocument('presence', savedUserId, {
+            'uid': savedUserId,
+            'status': 'ONLINE',
+            'latitude': lat,
+            'longitude': lng,
+            'lastHeartbeat': nowIso,
+            'updatedAt': nowIso,
+          });
+        } catch (_) {}
       }
       return true;
     } else {
@@ -411,35 +462,44 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       BookingRequestManager().setOnlineStatus(false);
       await LocationTrackingService().stopTracking();
       rejectProposal();
-      try {
-        await FirestoreRestClient.upsertDocument('technician_profiles', savedUserId, {
-          'id': savedUserId,
-          'technicianId': savedUserId,
-          'isOnline': false,
-          'online': false,
-          'availabilityStatus': 'OFFLINE',
-          'lastLocationUpdate': DateTime.now().toUtc().toIso8601String(),
-          'updatedAt': DateTime.now().toUtc().toIso8601String(),
-        });
-      } catch (_) {}
-
-      try {
-        final dioClient = DioClient(SecureStorage());
-        await dioClient.dio.post(
-          '/technician/online-status',
-          data: {
+      if (AppConfig.hasConfiguredBackend) {
+        try {
+          final dioClient = DioClient(SecureStorage());
+          await dioClient.dio.post(
+            '/technician/online-status',
+            data: {
+              'isOnline': false,
+              'online': false,
+              'availabilityStatus': 'OFFLINE',
+              'technicianId': savedUserId,
+              'updatedAt': DateTime.now().toIso8601String(),
+            },
+            options: Options(headers: {
+              'x-technician-id': savedUserId,
+            }),
+          );
+        } catch (e) {
+          debugPrint('Backend offline status update error: $e');
+        }
+      } else {
+        try {
+          final nowIso = DateTime.now().toUtc().toIso8601String();
+          await FirestoreRestClient.upsertDocument('technician_profiles', savedUserId, {
+            'id': savedUserId,
+            'technicianId': savedUserId,
             'isOnline': false,
             'online': false,
             'availabilityStatus': 'OFFLINE',
-            'technicianId': savedUserId,
-            'updatedAt': DateTime.now().toIso8601String(),
-          },
-          options: Options(headers: {
-            'x-technician-id': savedUserId,
-          }),
-        );
-      } catch (e) {
-        debugPrint('Backend offline status update error: $e');
+            'lastLocationUpdate': nowIso,
+            'updatedAt': nowIso,
+          });
+          await FirestoreRestClient.upsertDocument('presence', savedUserId, {
+            'uid': savedUserId,
+            'status': 'OFFLINE',
+            'lastHeartbeat': nowIso,
+            'updatedAt': nowIso,
+          });
+        } catch (_) {}
       }
       return true;
     }
@@ -633,13 +693,43 @@ class DashboardNotifier extends StateNotifier<DashboardState> {
       try {
         final userId = await SecureStorage().getUserId();
         if (userId != null && userId.isNotEmpty && userId != 'BT-PARTNER') {
-          await FirestoreRestClient.upsertDocument('technician_profiles', userId, {
-            'lastLocationUpdate': DateTime.now().toUtc().toIso8601String(),
-            'updatedAt': DateTime.now().toUtc().toIso8601String(),
-            'isOnline': true,
-            'online': true,
-            'availabilityStatus': 'AVAILABLE',
-          });
+          final canonicalId = FirestoreRestClient.resolveCanonicalTechUid(userId);
+          final lat = state.currentLatitude;
+          final lng = state.currentLongitude;
+          if (AppConfig.hasConfiguredBackend) {
+            await DioClient(SecureStorage()).dio.post('/presence/heartbeat', data: {
+              'isOnline': true,
+              if (lat != null && lng != null && lat != 0.0 && lng != 0.0) ...{
+                'latitude': lat,
+                'longitude': lng,
+              },
+            });
+          } else {
+            final nowIso = DateTime.now().toUtc().toIso8601String();
+            await FirestoreRestClient.upsertDocument('technician_profiles', canonicalId, {
+              'lastLocationUpdate': nowIso,
+              'updatedAt': nowIso,
+              'isOnline': true,
+              'online': true,
+              'availabilityStatus': 'AVAILABLE',
+              if (lat != null && lng != null && lat != 0.0 && lng != 0.0) ...{
+                'latitude': lat,
+                'longitude': lng,
+                'currentLatitude': lat,
+                'currentLongitude': lng,
+              },
+            });
+            await FirestoreRestClient.upsertDocument('presence', canonicalId, {
+              'uid': canonicalId,
+              'status': 'ONLINE',
+              if (lat != null && lng != null && lat != 0.0 && lng != 0.0) ...{
+                'latitude': lat,
+                'longitude': lng,
+              },
+              'lastHeartbeat': nowIso,
+              'updatedAt': nowIso,
+            });
+          }
         }
       } catch (_) {}
     });

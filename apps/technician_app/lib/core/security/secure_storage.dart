@@ -13,97 +13,104 @@ class SecureStorage {
     ),
   );
 
+  // Render Backend HS256 Session JWT Keys
   static const String _tokenKey = 'auth_token';
   static const String _refreshTokenKey = 'refresh_token';
+  // Separate Firebase Auth Identity Toolkit Keys (never mixed with Render HS256 JWTs)
+  static const String _firebaseIdTokenKey = 'firebase_id_token';
+  static const String _firebaseRefreshTokenKey = 'firebase_refresh_token';
+  static const String _firebaseUidKey = 'firebase_uid';
+  static const String _firebaseExpiresAtMsKey = 'firebase_expires_at_ms';
+
   static const String _userIdKey = 'user_id';
   static const String _userNameKey = 'user_name';
   static const String _userAgeKey = 'user_age';
   static const String _userPhoneKey = 'user_phone';
   static const String _userEmailKey = 'user_email';
 
-  Future<void> saveToken(String token) async {
+  Future<void> _writeSafe(String key, String value) async {
     try {
-      await _storage.write(key: _tokenKey, value: token);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, token);
-    } catch (e) {
-      debugPrint('SecureStorage.saveToken error: $e');
-    }
+      await prefs.setString(key, value);
+    } catch (_) {}
+    try {
+      await _storage.write(key: key, value: value);
+    } catch (_) {}
   }
 
-  Future<String?> getToken() async {
+  Future<String?> _readSafe(String key) async {
     try {
-      final token = await _storage.read(key: _tokenKey);
-      if (token != null) return token;
+      final v = await _storage.read(key: key);
+      if (v != null && v.isNotEmpty) return v;
+    } catch (_) {}
+    try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_tokenKey);
-    } catch (e) {
-      debugPrint('SecureStorage.getToken error: $e');
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        return prefs.getString(_tokenKey);
-      } catch (_) {}
-      return null;
-    }
+      return prefs.getString(key);
+    } catch (_) {}
+    return null;
   }
 
-  Future<void> deleteToken() async {
+  Future<void> _deleteSafe(String key) async {
     try {
-      await _storage.delete(key: _tokenKey);
+      await _storage.delete(key: key);
+    } catch (_) {}
+    try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_tokenKey);
-    } catch (e) {
-      debugPrint('SecureStorage.deleteToken error: $e');
+      await prefs.remove(key);
+    } catch (_) {}
+  }
+
+  Future<void> saveToken(String token) => _writeSafe(_tokenKey, token);
+
+  Future<String?> getToken() => _readSafe(_tokenKey);
+
+  Future<void> deleteToken() => _deleteSafe(_tokenKey);
+
+  Future<void> saveRefreshToken(String refreshToken) => _writeSafe(_refreshTokenKey, refreshToken);
+
+  Future<String?> getRefreshToken() => _readSafe(_refreshTokenKey);
+
+  Future<void> deleteRefreshToken() => _deleteSafe(_refreshTokenKey);
+
+  Future<void> saveFirebaseSession({
+    required String idToken,
+    String? refreshToken,
+    String? uid,
+    int? expiresAtMs,
+  }) async {
+    await _writeSafe(_firebaseIdTokenKey, idToken);
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      await _writeSafe(_firebaseRefreshTokenKey, refreshToken);
+    }
+    if (uid != null && uid.isNotEmpty) {
+      await _writeSafe(_firebaseUidKey, uid);
+    }
+    if (expiresAtMs != null && expiresAtMs > 0) {
+      await _writeSafe(_firebaseExpiresAtMsKey, expiresAtMs.toString());
     }
   }
 
-  Future<void> saveRefreshToken(String refreshToken) async {
-    try {
-      await _storage.write(key: _refreshTokenKey, value: refreshToken);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_refreshTokenKey, refreshToken);
-    } catch (e) {
-      debugPrint('SecureStorage.saveRefreshToken error: $e');
-    }
+  Future<String?> getFirebaseIdToken() => _readSafe(_firebaseIdTokenKey);
+
+  Future<String?> getFirebaseRefreshToken() => _readSafe(_firebaseRefreshTokenKey);
+
+  Future<String?> getFirebaseUid() => _readSafe(_firebaseUidKey);
+
+  Future<int?> getFirebaseExpiresAtMs() async {
+    final raw = await _readSafe(_firebaseExpiresAtMsKey);
+    return raw != null ? int.tryParse(raw) : null;
   }
 
-  Future<String?> getRefreshToken() async {
-    try {
-      return await _storage.read(key: _refreshTokenKey);
-    } catch (e) {
-      debugPrint('SecureStorage.getRefreshToken error: $e');
-      return null;
-    }
+  Future<void> clearFirebaseSession() async {
+    await _deleteSafe(_firebaseIdTokenKey);
+    await _deleteSafe(_firebaseRefreshTokenKey);
+    await _deleteSafe(_firebaseUidKey);
+    await _deleteSafe(_firebaseExpiresAtMsKey);
   }
 
-  Future<void> deleteRefreshToken() async {
-    try {
-      await _storage.delete(key: _refreshTokenKey);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_refreshTokenKey);
-    } catch (e) {
-      debugPrint('SecureStorage.deleteRefreshToken error: $e');
-    }
-  }
+  Future<void> saveUserId(String userId) => _writeSafe(_userIdKey, userId);
 
-  Future<void> saveUserId(String userId) async {
-    try {
-      await _storage.write(key: _userIdKey, value: userId);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_userIdKey, userId);
-    } catch (e) {
-      debugPrint('SecureStorage.saveUserId error: $e');
-    }
-  }
-
-  Future<String?> getUserId() async {
-    try {
-      return await _storage.read(key: _userIdKey);
-    } catch (e) {
-      debugPrint('SecureStorage.getUserId error: $e');
-      return null;
-    }
-  }
+  Future<String?> getUserId() => _readSafe(_userIdKey);
 
   Future<void> saveUserDetails({
     String? name,
@@ -111,62 +118,43 @@ class SecureStorage {
     String? phone,
     String? email,
   }) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (name != null) {
-        await _storage.write(key: _userNameKey, value: name);
-        await prefs.setString(_userNameKey, name);
-      }
-      if (age != null) {
-        await _storage.write(key: _userAgeKey, value: age);
-        await prefs.setString(_userAgeKey, age);
-      }
-      if (phone != null) {
-        await _storage.write(key: _userPhoneKey, value: phone);
-        await prefs.setString(_userPhoneKey, phone);
-      }
-      if (email != null) {
-        await _storage.write(key: _userEmailKey, value: email);
-        await prefs.setString(_userEmailKey, email);
-      }
-    } catch (e) {
-      debugPrint('SecureStorage.saveUserDetails error: $e');
-    }
+    if (name != null) await _writeSafe(_userNameKey, name);
+    if (age != null) await _writeSafe(_userAgeKey, age);
+    if (phone != null) await _writeSafe(_userPhoneKey, phone);
+    if (email != null) await _writeSafe(_userEmailKey, email);
   }
 
   Future<Map<String, String?>> getUserDetails() async {
-    try {
-      final name = await _storage.read(key: _userNameKey);
-      final age = await _storage.read(key: _userAgeKey);
-      final phone = await _storage.read(key: _userPhoneKey);
-      final email = await _storage.read(key: _userEmailKey);
-      final userId = await getUserId();
-      return {
-        'name': name,
-        'age': age,
-        'phone': phone,
-        'email': email,
-        'userId': userId,
-        'id': userId,
-      };
-    } catch (e) {
-      debugPrint('SecureStorage.getUserDetails error: $e');
-      return {};
-    }
+    final name = await _readSafe(_userNameKey);
+    final age = await _readSafe(_userAgeKey);
+    final phone = await _readSafe(_userPhoneKey);
+    final email = await _readSafe(_userEmailKey);
+    final userId = await getUserId();
+    return {
+      'name': name,
+      'age': age,
+      'phone': phone,
+      'email': email,
+      'userId': userId,
+      'id': userId,
+    };
   }
 
   Future<void> clearAll() async {
     try {
-      await _storage.deleteAll();
       final prefs = await SharedPreferences.getInstance();
       final hasSeen = prefs.getBool('has_seen_technician_onboarding') ?? true;
-      await prefs.remove(_tokenKey);
-      await prefs.remove(_refreshTokenKey);
-      await prefs.remove(_userIdKey);
-      await prefs.remove(_userNameKey);
-      await prefs.remove(_userAgeKey);
-      await prefs.remove(_userPhoneKey);
-      await prefs.remove(_userEmailKey);
+      await _deleteSafe(_tokenKey);
+      await _deleteSafe(_refreshTokenKey);
+      await clearFirebaseSession();
+      await _deleteSafe(_userIdKey);
+      await _deleteSafe(_userNameKey);
+      await _deleteSafe(_userAgeKey);
+      await _deleteSafe(_userPhoneKey);
+      await _deleteSafe(_userEmailKey);
+      try {
+        await _storage.deleteAll();
+      } catch (_) {}
       await prefs.setBool('has_seen_technician_onboarding', hasSeen);
     } catch (e) {
       debugPrint('SecureStorage.clearAll error: $e');

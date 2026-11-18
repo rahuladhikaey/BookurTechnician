@@ -620,18 +620,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       },
                     ),
 
-                    // 2.2 Performance & Work Hours Analytics
+                    // 2.2 Performance & Work Hours Analytics (Post-Launch)
                     _buildHubCard(
                       icon: Icons.insights_rounded,
-                      iconColor: const Color(0xFFF46B12),
-                      iconBg: const Color(0xFFFBE4D5),
+                      iconColor: Colors.grey.shade600,
+                      iconBg: Colors.grey.shade200,
                       title: 'Work Hours & Income Graph',
-                      subtitle: 'View daily performance charts and incentive milestones',
-                      trailingText: 'Analytics',
+                      subtitle: 'Detailed performance analytics coming soon',
+                      trailingText: 'Soon',
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const TechnicianAnalyticsScreen()),
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Detailed performance analytics are coming soon.')),
                         );
                       },
                     ),

@@ -884,9 +884,8 @@ class _PartnerHomeScreenState extends ConsumerState<PartnerHomeScreen> with Sing
     return InkWell(
       onTap: () {
         HapticFeedback.lightImpact();
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const TechnicianAnalyticsScreen()),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Detailed tier analytics are coming soon.')),
         );
       },
       borderRadius: BorderRadius.circular(16),

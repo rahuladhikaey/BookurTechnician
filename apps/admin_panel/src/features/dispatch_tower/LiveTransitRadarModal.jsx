@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api/apiClient';
 
-export default function LiveTransitRadarModal({ booking, onClose, onReassign, onUpdateStatus }) {
+export default function LiveTransitRadarModal({ booking, onClose }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const techMarkerRef = useRef(null);

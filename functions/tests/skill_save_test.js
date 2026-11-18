@@ -354,6 +354,7 @@ async function runTests() {
     await db.collection('technician_profiles').doc(verifiedTechId).set({
       id: verifiedTechId,
       name: 'Expert AC Tech',
+      accountStatus: 'ACTIVE',
       isOnline: true,
       availabilityStatus: 'AVAILABLE',
       kycStatus: 'VERIFIED',

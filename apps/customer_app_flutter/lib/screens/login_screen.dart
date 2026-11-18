@@ -861,23 +861,46 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           } catch (_) {}
           final data = (decoded['data'] is Map<String, dynamic>) ? decoded['data'] as Map<String, dynamic> : decoded;
 
-          final accessToken = data['accessToken'] ?? data['token'] ?? decoded['token'] ?? 'jwt_session_active';
-          final refreshToken = data['refreshToken'] ?? decoded['refreshToken'] ?? 'jwt_refresh_active';
+          final accessToken = (data['accessToken'] ?? data['token'] ?? decoded['token'])?.toString();
+          final refreshToken = (data['refreshToken'] ?? decoded['refreshToken'] ?? accessToken)?.toString();
+          final firebaseCustomToken = (data['firebaseCustomToken'] ?? decoded['firebaseCustomToken'])?.toString();
           final user = (data['user'] is Map<String, dynamic>) ? data['user'] as Map<String, dynamic> : <String, dynamic>{};
 
-          if (accessToken != null && refreshToken != null) {
-            await ApiClient.saveTokens(accessToken: accessToken.toString(), refreshToken: refreshToken.toString());
+          if (firebaseCustomToken != null && firebaseCustomToken.isNotEmpty) {
+            await FirestoreRestClient.signInWithCustomToken(firebaseCustomToken);
           }
 
+          if (accessToken == null || accessToken.isEmpty || accessToken.startsWith('fb_cust_tok_')) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Authentication server did not return a valid session token. Please retry.'),
+                backgroundColor: kErrorRed,
+              ),
+            );
+            return;
+          }
+
+          await ApiClient.saveTokens(accessToken: accessToken, refreshToken: refreshToken ?? '');
+
           final resolvedName = user['fullName'] ?? user['name'] ?? (widget.fullName.trim().isNotEmpty ? widget.fullName.trim() : _formatNameFromEmail(widget.emailAddress));
+          final resolvedUid = user['uid']?.toString() ?? user['id']?.toString() ?? '';
+          if (resolvedUid.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invalid user session returned by server. Please retry.'),
+                backgroundColor: kErrorRed,
+              ),
+            );
+            return;
+          }
 
           ref.read(bookingProvider.notifier).loginUser(
             name: resolvedName.toString(),
             phone: user['phone']?.toString() ?? widget.phoneNumber,
             email: user['email']?.toString() ?? widget.emailAddress,
-            userId: user['id']?.toString() ?? 'usr_${DateTime.now().millisecondsSinceEpoch}',
-            accessToken: accessToken.toString(),
-            refreshToken: refreshToken.toString(),
+            userId: resolvedUid,
+            accessToken: accessToken,
+            refreshToken: refreshToken ?? '',
           );
 
           if (!mounted) return;
@@ -885,12 +908,15 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           return;
         }
 
-        // Backend returned non-200 status
-        String errorMsg = 'Invalid verification code. Please check the 6-digit OTP sent to your email.';
+        // Backend returned non-200 status (400, 401, 403, 429, 503 etc.)
+        String errorMsg = response.statusCode >= 500
+            ? 'Authentication server is temporarily unavailable. Please retry in a few seconds.'
+            : 'Invalid verification code. Please check the 6-digit OTP sent to your email.';
         try {
           final decoded = jsonDecode(response.body);
-          if (decoded['message'] != null) {
-            errorMsg = decoded['message'].toString();
+          final serverMsg = decoded['error']?.toString() ?? decoded['message']?.toString();
+          if (serverMsg != null && serverMsg.trim().isNotEmpty) {
+            errorMsg = serverMsg.trim();
           }
         } catch (_) {}
 
@@ -930,7 +956,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     try {
       var res = await ApiClient.post('/auth/resend-otp', resendPayload);
-      if (res.statusCode != 200) {
+      if (res.statusCode == 404) {
         res = await ApiClient.post('/auth/request-otp', resendPayload);
       }
 
@@ -946,41 +972,32 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           );
           return;
         }
-      }
-    } catch (_) {}
 
-    // Authoritative server-side OTP challenge fallback if backend unreachable (zero client-generated OTPs)
-    try {
-      final challengeRes = await FirestoreRestClient.requestOtpChallenge(
-        identifier: widget.emailAddress,
-        email: widget.emailAddress,
-        phone: widget.phoneNumber,
-        fullName: widget.fullName.isNotEmpty ? widget.fullName : _formatNameFromEmail(widget.emailAddress),
-        role: 'CUSTOMER',
-      );
-      setState(() => _isResending = false);
-      if (mounted) {
-        if (challengeRes['success'] == true) {
-          _startCountdown();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: const Color(0xFF198754),
-              content: Text('New 6-digit verification code sent to ${widget.emailAddress}!'),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: kErrorRed,
-              content: Text(challengeRes['error']?.toString() ?? 'Rate limit exceeded. Please wait before requesting a new OTP.'),
-            ),
-          );
-        }
+        String errMsg = 'Unable to resend OTP right now. Please try again shortly.';
+        try {
+          final decoded = jsonDecode(res.body);
+          errMsg = decoded['error']?.toString() ?? decoded['message']?.toString() ?? errMsg;
+        } catch (_) {}
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: kErrorRed,
+            content: Text(errMsg),
+          ),
+        );
       }
       return;
-    } catch (_) {}
-
-    setState(() => _isResending = false);
+    } catch (_) {
+      setState(() => _isResending = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: kErrorRed,
+            content: Text('Could not reach authentication server. Please check your connection and tap Resend to retry.'),
+          ),
+        );
+      }
+    }
   }
 
 

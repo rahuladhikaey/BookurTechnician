@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../network/firestore_rest_client.dart';
+import '../security/secure_storage.dart';
 
 class LocationTrackingService {
   static final LocationTrackingService _instance = LocationTrackingService._internal();
@@ -147,7 +148,14 @@ class LocationTrackingService {
         lastSyncedPos = position;
 
         final prefs = await SharedPreferences.getInstance();
-        final userId = prefs.getString('user_id');
+        final secureUserId = await SecureStorage().getUserId();
+        final rawUserId = (secureUserId != null && secureUserId.isNotEmpty)
+            ? secureUserId
+            : (prefs.getString('user_id') ??
+                prefs.getString('technician_id') ??
+                prefs.getString('uid') ??
+                '');
+        final effectiveTechId = FirestoreRestClient.resolveCanonicalTechUid(rawUserId);
         final timeStr = DateFormat('hh:mm:ss a').format(now);
 
         if (service is AndroidServiceInstance) {
@@ -172,10 +180,10 @@ class LocationTrackingService {
 
         // ─── DIRECT CLOUD FIRESTORE REAL-TIME GPS SYNC (Preserving Skills & Categories) ───
         try {
-          final effectiveTechId = (userId != null && userId.isNotEmpty && userId != 'BT-PARTNER')
-              ? userId
-              : (prefs.getString('technician_id') ?? prefs.getString('uid') ?? '');
-          if (effectiveTechId.isNotEmpty && effectiveTechId != 'tech_partner_01') {
+          if (effectiveTechId.isNotEmpty &&
+              effectiveTechId != 'uid_tech_partner' &&
+              effectiveTechId != 'tech_partner_01') {
+            final nowIso = now.toUtc().toIso8601String();
             await FirestoreRestClient.upsertDocument('technician_profiles', effectiveTechId, {
               'latitude': position.latitude,
               'longitude': position.longitude,
@@ -187,8 +195,16 @@ class LocationTrackingService {
               'isOnline': true,
               'online': true,
               'availabilityStatus': 'AVAILABLE',
-              'lastLocationUpdate': now.toUtc().toIso8601String(),
-              'updatedAt': now.toUtc().toIso8601String(),
+              'lastLocationUpdate': nowIso,
+              'updatedAt': nowIso,
+            });
+            await FirestoreRestClient.upsertDocument('presence', effectiveTechId, {
+              'uid': effectiveTechId,
+              'status': 'ONLINE',
+              'latitude': position.latitude,
+              'longitude': position.longitude,
+              'lastHeartbeat': nowIso,
+              'updatedAt': nowIso,
             });
           }
         } catch (_) {}

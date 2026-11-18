@@ -465,40 +465,46 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              // Option 1: Pay Online (Instant & Secure)
-              InkWell(
-                onTap: () {
-                  Navigator.pop(modalCtx);
-                  _startRazorpayPayment(state);
-                },
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: kBrandPrimary),
-                    borderRadius: BorderRadius.circular(14),
-                    color: kLightBlue.withValues(alpha: 0.2),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.account_balance_wallet_outlined, color: Colors.white, size: 22),
+              // Option 1: Pay Online (Disabled for Initial Release — Post-Launch)
+              Opacity(
+                opacity: 0.55,
+                child: InkWell(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Online card/Razorpay payments are coming soon. Please choose Pay After Service (Cash / UPI on Visit).'),
                       ),
-                      const SizedBox(width: 14),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Pay Online (UPI / Card / NetBanking)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kPrimaryText)),
-                            SizedBox(height: 3),
-                            Text('Instant confirmation with 100% moneyback protection', style: TextStyle(fontSize: 11.5, color: kSecondaryText)),
-                          ],
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: kBorderColor),
+                      borderRadius: BorderRadius.circular(14),
+                      color: const Color(0xFFF9FAFB),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.account_balance_wallet_outlined, color: Colors.white, size: 22),
                         ),
-                      ),
-                      const Icon(Icons.arrow_forward_ios, size: 14, color: kBrandPrimary),
-                    ],
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Pay Online (Coming Soon)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kSecondaryText)),
+                              SizedBox(height: 3),
+                              Text('Use Pay After Service (Cash / UPI on visit) below', style: TextStyle(fontSize: 11.5, color: kSecondaryText)),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.lock_clock_outlined, size: 16, color: kSecondaryText),
+                      ],
+                    ),
                   ),
                 ),
               ),

@@ -17,28 +17,101 @@ class ApiClient {
   static const String _keyUserEmail = 'bt_user_email';
   static const String _keyUserProfileJson = 'bt_user_profile_json';
 
-  /// Active API Base URL derived from cached working base URL or AppConfig
-  static String get activeBaseUrl => _cachedWorkingBaseUrl ?? AppConfig.apiBaseUrl;
+  /// Active API Base URL derived from configured Render URL or cached working base URL
+  static String get activeBaseUrl =>
+      AppConfig.hasConfiguredBackend ? AppConfig.backendBaseUrl : (_cachedWorkingBaseUrl ?? AppConfig.apiBaseUrl);
 
   static List<String> get _candidateBaseUrls {
-    if (AppConfig.isFirebasePrimary || FirestoreRestClient.mockHttpHandler != null) {
+    if (!AppConfig.hasConfiguredBackend && FirestoreRestClient.mockHttpHandler != null) {
       return const [];
     }
     final list = <String>[];
-    for (final u in [
-      activeBaseUrl,
-      AppConfig.prodApiBaseUrl,
-      AppConfig.localWifiApiBaseUrl,
-      AppConfig.localApiBaseUrl,
-    ]) {
-      if (u.isNotEmpty &&
-          !u.contains('onrender.com') &&
-          !u.contains('api.bookurtechnician.online') &&
-          !list.contains(u)) {
-        list.add(u);
+    final candidates = <String>[
+      if (AppConfig.hasConfiguredBackend) AppConfig.backendBaseUrl,
+      if (!AppConfig.isFirebasePrimary) ...[
+        activeBaseUrl,
+        AppConfig.prodApiBaseUrl,
+        AppConfig.localWifiApiBaseUrl,
+        AppConfig.localApiBaseUrl,
+      ],
+    ];
+    for (final u in candidates) {
+      final clean = u.trim().replaceAll(RegExp(r'/+$'), '');
+      if (clean.isNotEmpty &&
+          !clean.contains('cloudfunctions.net') &&
+          !list.contains(clean)) {
+        list.add(clean);
       }
     }
     return list;
+  }
+
+  @visibleForTesting
+  static http.Client? testHttpClient;
+
+  @visibleForTesting
+  static Duration? testTimeoutOverride;
+
+  static bool _isStrictAuthEndpoint(String endpoint) {
+    final clean = endpoint.split('?').first.trim().toLowerCase();
+    return clean.contains('/auth/request-otp') ||
+        clean.contains('/auth/verify-otp') ||
+        clean.contains('/auth/resend-otp') ||
+        clean.contains('/auth/send-otp') ||
+        clean.contains('/auth/login') ||
+        clean.contains('/auth/refresh-token') ||
+        clean.contains('/auth/logout');
+  }
+
+  static http.Response _backendUnavailableResponse({int statusCode = 503, String? detail}) {
+    return http.Response(
+      jsonEncode({
+        'success': false,
+        'retryable': true,
+        'code': 'BACKEND_UNAVAILABLE',
+        'error': detail ??
+            'Authentication server is starting up or temporarily unavailable. Please retry in a few seconds.',
+      }),
+      statusCode,
+      headers: {'content-type': 'application/json'},
+    );
+  }
+
+  static Future<http.Response> _sendHttp(
+    String method,
+    Uri uri, {
+    Map<String, String>? headers,
+    String? body,
+    Duration? timeout,
+  }) async {
+    final effectiveTimeout = timeout ?? testTimeoutOverride ?? _fastTimeout;
+    final client = testHttpClient;
+    if (client != null) {
+      switch (method) {
+        case 'GET':
+          return client.get(uri, headers: headers).timeout(effectiveTimeout);
+        case 'POST':
+          return client.post(uri, headers: headers, body: body).timeout(effectiveTimeout);
+        case 'PUT':
+          return client.put(uri, headers: headers, body: body).timeout(effectiveTimeout);
+        case 'PATCH':
+          return client.patch(uri, headers: headers, body: body).timeout(effectiveTimeout);
+        case 'DELETE':
+          return client.delete(uri, headers: headers).timeout(effectiveTimeout);
+      }
+    }
+    switch (method) {
+      case 'GET':
+        return http.get(uri, headers: headers).timeout(effectiveTimeout);
+      case 'POST':
+        return http.post(uri, headers: headers, body: body).timeout(effectiveTimeout);
+      case 'PUT':
+        return http.put(uri, headers: headers, body: body).timeout(effectiveTimeout);
+      case 'PATCH':
+        return http.patch(uri, headers: headers, body: body).timeout(effectiveTimeout);
+      default:
+        return http.delete(uri, headers: headers).timeout(effectiveTimeout);
+    }
   }
 
   static void _updateWorkingBaseUrl(String url) {
@@ -119,6 +192,7 @@ class ApiClient {
     await prefs.remove(_keyUserPhone);
     await prefs.remove(_keyUserEmail);
     await prefs.remove(_keyUserProfileJson);
+    await FirestoreRestClient.clearFirebaseSession();
   }
 
   static Map<String, String> _buildHeaders(String? token) {
@@ -132,7 +206,9 @@ class ApiClient {
     return headers;
   }
 
-  static const Duration _fastTimeout = Duration(milliseconds: 3500);
+  static Duration get _fastTimeout => AppConfig.hasConfiguredBackend
+      ? AppConfig.requestTimeout
+      : const Duration(milliseconds: 3500);
 
   /// Validates whether an HTTP response is an authoritative response from our application server,
   /// rather than an infrastructure 404/5xx failure or reverse proxy error.
@@ -167,17 +243,18 @@ class ApiClient {
 
   static Future<http.Response> get(String endpoint) async {
     String? token = await getAccessToken();
+    final isAuthEndpoint = _isStrictAuthEndpoint(endpoint);
 
     for (final base in _candidateBaseUrls) {
       try {
         final uri = Uri.parse('$base$endpoint');
-        var response = await http.get(uri, headers: _buildHeaders(token)).timeout(_fastTimeout);
+        var response = await _sendHttp('GET', uri, headers: _buildHeaders(token));
 
-        if (response.statusCode == 401) {
+        if (response.statusCode == 401 && !isAuthEndpoint) {
           final refreshed = await _attemptRefreshToken();
           if (refreshed) {
             token = await getAccessToken();
-            response = await http.get(uri, headers: _buildHeaders(token)).timeout(_fastTimeout);
+            response = await _sendHttp('GET', uri, headers: _buildHeaders(token));
           }
         }
         if (_isAuthoritativeResponse(response, endpoint)) {
@@ -191,31 +268,30 @@ class ApiClient {
       }
     }
 
+    if (isAuthEndpoint) {
+      return _backendUnavailableResponse();
+    }
+
     debugPrint('🔥 [ApiClient] Serving GET $endpoint directly via Firebase Cloud Firestore');
     return FirestoreRestClient.handleRequest('GET', endpoint);
   }
 
   static Future<http.Response> post(String endpoint, Map<String, dynamic> body) async {
     String? token = await getAccessToken();
+    final isAuthEndpoint = _isStrictAuthEndpoint(endpoint);
+    final encodedBody = jsonEncode(body);
+    http.Response? lastServerErrorResponse;
 
     for (final base in _candidateBaseUrls) {
       try {
         final uri = Uri.parse('$base$endpoint');
-        var response = await http.post(
-          uri,
-          headers: _buildHeaders(token),
-          body: jsonEncode(body),
-        ).timeout(_fastTimeout);
+        var response = await _sendHttp('POST', uri, headers: _buildHeaders(token), body: encodedBody);
 
-        if (response.statusCode == 401) {
+        if (response.statusCode == 401 && !isAuthEndpoint) {
           final refreshed = await _attemptRefreshToken();
           if (refreshed) {
             token = await getAccessToken();
-            response = await http.post(
-              uri,
-              headers: _buildHeaders(token),
-              body: jsonEncode(body),
-            ).timeout(_fastTimeout);
+            response = await _sendHttp('POST', uri, headers: _buildHeaders(token), body: encodedBody);
           }
         }
         if (_isAuthoritativeResponse(response, endpoint)) {
@@ -224,8 +300,28 @@ class ApiClient {
           }
           return response;
         }
+        if (response.statusCode >= 500) {
+          lastServerErrorResponse = response;
+        }
       } catch (e) {
         debugPrint('[ApiClient] POST $base$endpoint failed: $e. Retrying candidate...');
+      }
+    }
+
+    // SECURITY (Phase 4): Authentication & OTP routes must NEVER fall back to client-generated OTP
+    // on network errors, timeouts, 401, 403, or 5xx responses.
+    if (isAuthEndpoint || AppConfig.hasConfiguredBackend) {
+      if (isAuthEndpoint) {
+        if (lastServerErrorResponse != null) {
+          return _backendUnavailableResponse(
+            statusCode: lastServerErrorResponse.statusCode,
+            detail: 'Authentication server returned HTTP ${lastServerErrorResponse.statusCode}. Please try again shortly.',
+          );
+        }
+        return _backendUnavailableResponse();
+      }
+      if (lastServerErrorResponse != null) {
+        return lastServerErrorResponse;
       }
     }
 
@@ -235,25 +331,18 @@ class ApiClient {
 
   static Future<http.Response> put(String endpoint, Map<String, dynamic> body) async {
     String? token = await getAccessToken();
+    final encodedBody = jsonEncode(body);
 
     for (final base in _candidateBaseUrls) {
       try {
         final uri = Uri.parse('$base$endpoint');
-        var response = await http.put(
-          uri,
-          headers: _buildHeaders(token),
-          body: jsonEncode(body),
-        ).timeout(_fastTimeout);
+        var response = await _sendHttp('PUT', uri, headers: _buildHeaders(token), body: encodedBody);
 
         if (response.statusCode == 401) {
           final refreshed = await _attemptRefreshToken();
           if (refreshed) {
             token = await getAccessToken();
-            response = await http.put(
-              uri,
-              headers: _buildHeaders(token),
-              body: jsonEncode(body),
-            ).timeout(_fastTimeout);
+            response = await _sendHttp('PUT', uri, headers: _buildHeaders(token), body: encodedBody);
           }
         }
         if (_isAuthoritativeResponse(response, endpoint)) {
@@ -267,31 +356,28 @@ class ApiClient {
       }
     }
 
+    if (_isStrictAuthEndpoint(endpoint)) {
+      return _backendUnavailableResponse();
+    }
+
     debugPrint('🔥 [ApiClient] Serving PUT $endpoint directly via Firebase Cloud Firestore');
     return FirestoreRestClient.handleRequest('PUT', endpoint, body);
   }
 
   static Future<http.Response> patch(String endpoint, Map<String, dynamic> body) async {
     String? token = await getAccessToken();
+    final encodedBody = jsonEncode(body);
 
     for (final base in _candidateBaseUrls) {
       try {
         final uri = Uri.parse('$base$endpoint');
-        var response = await http.patch(
-          uri,
-          headers: _buildHeaders(token),
-          body: jsonEncode(body),
-        ).timeout(_fastTimeout);
+        var response = await _sendHttp('PATCH', uri, headers: _buildHeaders(token), body: encodedBody);
 
         if (response.statusCode == 401) {
           final refreshed = await _attemptRefreshToken();
           if (refreshed) {
             token = await getAccessToken();
-            response = await http.patch(
-              uri,
-              headers: _buildHeaders(token),
-              body: jsonEncode(body),
-            ).timeout(_fastTimeout);
+            response = await _sendHttp('PATCH', uri, headers: _buildHeaders(token), body: encodedBody);
           }
         }
         if (_isAuthoritativeResponse(response, endpoint)) {
@@ -305,6 +391,10 @@ class ApiClient {
       }
     }
 
+    if (_isStrictAuthEndpoint(endpoint)) {
+      return _backendUnavailableResponse();
+    }
+
     debugPrint('🔥 [ApiClient] Serving PATCH $endpoint directly via Firebase Cloud Firestore');
     return FirestoreRestClient.handleRequest('PATCH', endpoint, body);
   }
@@ -315,19 +405,13 @@ class ApiClient {
     for (final base in _candidateBaseUrls) {
       try {
         final uri = Uri.parse('$base$endpoint');
-        var response = await http.delete(
-          uri,
-          headers: _buildHeaders(token),
-        ).timeout(_fastTimeout);
+        var response = await _sendHttp('DELETE', uri, headers: _buildHeaders(token));
 
         if (response.statusCode == 401) {
           final refreshed = await _attemptRefreshToken();
           if (refreshed) {
             token = await getAccessToken();
-            response = await http.delete(
-              uri,
-              headers: _buildHeaders(token),
-            ).timeout(_fastTimeout);
+            response = await _sendHttp('DELETE', uri, headers: _buildHeaders(token));
           }
         }
         if (_isAuthoritativeResponse(response, endpoint)) {
@@ -339,6 +423,10 @@ class ApiClient {
       } catch (e) {
         debugPrint('[ApiClient] DELETE $base$endpoint failed: $e. Retrying candidate...');
       }
+    }
+
+    if (_isStrictAuthEndpoint(endpoint)) {
+      return _backendUnavailableResponse();
     }
 
     debugPrint('🔥 [ApiClient] Serving DELETE $endpoint directly via Firebase Cloud Firestore');
@@ -369,6 +457,9 @@ class ApiClient {
     }
   }
 
+  /// Exposed for session restoration & token-refresh verification.
+  static Future<bool> refreshRenderAndFirebaseSession() => _attemptRefreshToken();
+
   static Future<bool> _attemptRefreshToken() async {
     final refreshToken = await getRefreshToken();
     if (refreshToken == null || refreshToken.isEmpty) return false;
@@ -376,20 +467,29 @@ class ApiClient {
     for (final base in _candidateBaseUrls) {
       try {
         final uri = Uri.parse('$base/auth/refresh-token');
-        final res = await http.post(
+        final res = await _sendHttp(
+          'POST',
           uri,
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'refreshToken': refreshToken}),
-        ).timeout(const Duration(seconds: 8));
+          timeout: testTimeoutOverride ?? const Duration(seconds: 8),
+        );
 
         if (res.statusCode == 200) {
           final decoded = jsonDecode(res.body);
-          final data = decoded['data'];
-          if (data != null && data['accessToken'] != null) {
+          final data = (decoded is Map<String, dynamic> && decoded['data'] is Map<String, dynamic>)
+              ? decoded['data'] as Map<String, dynamic>
+              : (decoded is Map<String, dynamic> ? decoded : <String, dynamic>{});
+          final newAccess = data['accessToken']?.toString() ?? decoded['accessToken']?.toString() ?? decoded['token']?.toString();
+          if (newAccess != null && newAccess.isNotEmpty) {
             await saveTokens(
-              accessToken: data['accessToken'],
-              refreshToken: data['refreshToken'] ?? refreshToken,
+              accessToken: newAccess,
+              refreshToken: data['refreshToken']?.toString() ?? decoded['refreshToken']?.toString() ?? refreshToken,
             );
+            final customToken = data['firebaseCustomToken']?.toString() ?? decoded['firebaseCustomToken']?.toString();
+            if (customToken != null && customToken.isNotEmpty) {
+              await FirestoreRestClient.signInWithCustomToken(customToken);
+            }
             return true;
           }
         } else if (res.statusCode == 401 || res.statusCode == 403) {

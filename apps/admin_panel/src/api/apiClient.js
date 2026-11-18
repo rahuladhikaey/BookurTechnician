@@ -5,29 +5,33 @@
 
 import { handleFirestoreFallback } from './firestoreAdapter';
 
+const normalizeHost = (url) => (url ? String(url).trim().replace(/\/+$/, '') : '');
+
 const API_CANDIDATE_HOSTS = [
+  import.meta.env?.VITE_RENDER_API_URL,
   import.meta.env?.VITE_API_BASE_URL,
   import.meta.env?.VITE_API_URL,
   typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:4000/api/v1'
+    ? 'http://localhost:3000'
     : null,
-].filter(Boolean);
+]
+  .map(normalizeHost)
+  .filter((u, i, arr) => Boolean(u) && !u.includes('cloudfunctions.net') && arr.indexOf(u) === i);
 
 class ApiClient {
   constructor() {
-    const savedBaseUrl = typeof localStorage !== 'undefined' ? localStorage.getItem('bt_active_base_url') : null;
+    const savedBaseUrl = typeof localStorage !== 'undefined'
+      ? normalizeHost(localStorage.getItem('bt_active_base_url'))
+      : '';
     const baseList = [...API_CANDIDATE_HOSTS];
-    if (savedBaseUrl && !baseList.includes(savedBaseUrl)) {
-      baseList.unshift(savedBaseUrl);
-    } else if (savedBaseUrl) {
-      // Prioritize saved working base URL
+    if (savedBaseUrl && baseList.includes(savedBaseUrl)) {
       const idx = baseList.indexOf(savedBaseUrl);
       if (idx > -1) {
         baseList.splice(idx, 1);
         baseList.unshift(savedBaseUrl);
       }
     }
-    this.candidateUrls = baseList.filter(u => u && !u.includes('onrender.com') && !u.includes('api.bookurtechnician.online'));
+    this.candidateUrls = baseList;
     this.baseUrl = this.candidateUrls[0] || '';
     this.onUnauthorizedCallback = null;
   }
@@ -90,9 +94,9 @@ class ApiClient {
 
     for (const targetUrl of urlsToTry) {
       try {
-        // Fast 4.5s timeout signal per candidate attempt to prevent freezing
+        // Allow sufficient timeout (15s) to accommodate Render free-tier cold starts
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4500);
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         
         const response = await fetch(targetUrl, {
           ...config,
@@ -226,8 +230,8 @@ class ApiClient {
     });
   }
 
-  requestOtp(email, name = 'Admin', purpose = 'LOGIN') {
-    return this.post('/auth/request-otp', { email, name, purpose });
+  requestOtp(email, name = 'Admin', purpose = 'LOGIN', role = 'ADMIN') {
+    return this.post('/auth/request-otp', { email, name, purpose, role });
   }
 
   verifyOtp(email, otp, role = 'ADMIN') {
@@ -261,13 +265,17 @@ class ApiClient {
   deleteService(id) { return this.delete(`/admin/services/${id}`); }
   updatePricing(id, data) { return this.put(`/admin/pricing/${id}`, data); }
 
-  // Bookings & Dispatch Engine (Section 15 & 17)
+  // Bookings Monitoring (Read-Only: Technician Self-Accept architecture forbids admin assignment/status override)
   getBookings(params) { return this.get('/admin/bookings', params); }
-  getBookingLiveTracking(id) { return this.get(`/admin/bookings/${id}/live-tracking`); }
-  updateBookingStatus(id, status, extra = {}) { return this.patch(`/admin/bookings/${id}/status`, { status, ...extra }); }
-  assignBooking(id, data) { return this.post(`/admin/bookings/${id}/assign`, typeof data === 'object' ? data : { technicianId: data }); }
-  manualAssignDispatch(bookingId, technicianId, reason = 'ADMIN_MANUAL_ASSIGNMENT') {
-    return this.post(`/dispatch/${bookingId}/manual-assign`, { technicianId, reason });
+  getBookingLiveTracking(id) { return this.get(`/bookings/${id}/live-tracking`); }
+  updateBookingStatus() {
+    return Promise.reject(new Error('Monitoring-only policy: Admins cannot force-change booking lifecycle status.'));
+  }
+  assignBooking() {
+    return Promise.reject(new Error('Monitoring-only policy: Manual technician assignment is disabled (technician self-accept only).'));
+  }
+  manualAssignDispatch() {
+    return Promise.reject(new Error('Monitoring-only policy: Manual dispatch assignment is disabled (technician self-accept only).'));
   }
   retryBookingDispatch(bookingId) { return this.post(`/dispatch/${bookingId}/retry`, {}); }
   getLiveDispatch() { return this.get('/admin/dispatch/live'); }
@@ -284,15 +292,50 @@ class ApiClient {
 
   // Technicians & KYC
   getTechnicians(params) { return this.get('/admin/technicians', params); }
-  createTechnician(data) { return this.post('/admin/technicians', data); }
-  deleteTechnician(id) { return this.delete(`/admin/technicians/${id}`); }
-  clearAllTechnicians() { return this.delete('/admin/technicians'); }
+  createTechnician() {
+    return Promise.reject(new Error('Technician onboarding must be completed via the Partner App OTP + KYC flow.'));
+  }
+  deleteTechnician() {
+    return Promise.reject(new Error('Post-launch: Bulk/permanent technician deletion is disabled for audit safety.'));
+  }
+  clearAllTechnicians() {
+    return Promise.reject(new Error('Disabled: Production directory wipe is not allowed.'));
+  }
   getTechnicianSkills(id) { return this.get(`/admin/technicians/${id}/skills`); }
   getTechnicianDocuments(id) { return this.get(`/admin/technicians/${id}/documents`); }
-  updateTechnicianStatus(id, status) { return this.patch(`/admin/technicians/${id}/status`, { status }); }
+  verifyTechnicianSkill(technicianId, skillId, verificationStatus = 'VERIFIED', reason = '') {
+    return this.patch(`/admin/technicians/${technicianId}/skills/${encodeURIComponent(skillId)}/verify`, {
+      verificationStatus,
+      reason,
+    });
+  }
+  bulkVerifyTechnicianSkills(technicianId, verificationStatus = 'VERIFIED', reason = '') {
+    return this.post(`/admin/technicians/${technicianId}/skills/verify-bulk`, {
+      verificationStatus,
+      reason,
+    });
+  }
+  updateTechnicianStatus(id, status, reason = '') {
+    return this.patch(`/admin/technicians/${id}/status`, { accountStatus: status, status, reason });
+  }
   updateTechnicianKyc(id, data) { return this.patch(`/admin/technicians/${id}/kyc`, data); }
-  getPendingKycList() { return this.get('/admin/kyc-pending'); }
-  reviewKyc(data) { return this.post('/admin/kyc-review', data); }
+  updateKyc(id, kycStatus, reason = '') {
+    return this.patch(`/admin/technicians/${id}/kyc`, { kycStatus, reason });
+  }
+  getPendingKycList() {
+    return this.get('/admin/technicians').then((res) => {
+      const list = Array.isArray(res?.data) ? res.data : [];
+      const pending = list.filter((t) => {
+        const k = String(t.kycStatus || 'PENDING').toUpperCase();
+        return k !== 'VERIFIED' && k !== 'APPROVED';
+      });
+      return { ...res, count: pending.length, data: pending };
+    });
+  }
+  reviewKyc(data) {
+    const id = data?.technicianId || data?.id;
+    return this.patch(`/admin/technicians/${id}/kyc`, data);
+  }
 
   // Banners
   getBanners() { return this.get('/admin/banners'); }

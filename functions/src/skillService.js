@@ -13,6 +13,12 @@ async function fetchTechnicianSkills(db, { callerUid, targetTechId, isAdmin } = 
     err.code = 'UNAUTHORIZED';
     throw err;
   }
+  if (targetTechId && callerUid && targetTechId !== callerUid && !isAdmin) {
+    const err = new Error('Forbidden: Cannot read another technician\'s skills');
+    err.status = 403;
+    err.code = 'FORBIDDEN';
+    throw err;
+  }
 
   const techDoc = await db.collection('technician_profiles').doc(effectiveTechId).get();
   if (!techDoc.exists) {
@@ -99,8 +105,13 @@ async function saveTechnicianSkills(db, { callerUid, targetTechId, skills, isAdm
     seenCanonicalKeys.add(canonicalId);
 
     const prev = existingSkillMap.get(canonicalId);
-    // If previously verified by admin, keep VERIFIED. Otherwise new declarations default to VERIFIED for standard services
-    const verificationStatus = prev && prev.verificationStatus ? prev.verificationStatus : (s.verificationStatus || 'VERIFIED');
+    const existingKycApproved = ['VERIFIED', 'APPROVED'].includes(String(existing.kycStatus || '').toUpperCase());
+    // Preserve prior admin verification status; newly onboarding technicians require Admin skill verification unless KYC is already verified
+    const verificationStatus = isAdmin && s.verificationStatus
+      ? s.verificationStatus
+      : (prev && prev.verificationStatus
+          ? prev.verificationStatus
+          : (existingKycApproved ? 'VERIFIED' : 'PENDING'));
 
     const sName = rawName || canonicalId
       .replace(/^sk_/, '')
@@ -266,8 +277,177 @@ async function toggleTechnicianSkill(db, { callerUid, targetTechId, skillId, ena
   };
 }
 
+async function verifyTechnicianSkill(db, { adminUid, technicianId, skillId, verificationStatus, reason }) {
+  if (!technicianId || !skillId) {
+    const err = new Error('technicianId and skillId are required');
+    err.status = 400;
+    err.code = 'MISSING_PARAMETERS';
+    throw err;
+  }
+  const normalizedStatus = String(verificationStatus || 'VERIFIED').trim().toUpperCase();
+  if (!['VERIFIED', 'REJECTED', 'PENDING'].includes(normalizedStatus)) {
+    const err = new Error(`Invalid verificationStatus "${normalizedStatus}"`);
+    err.status = 400;
+    err.code = 'INVALID_VERIFICATION_STATUS';
+    throw err;
+  }
+
+  const techRef = db.collection('technician_profiles').doc(technicianId);
+  const techSnap = await techRef.get();
+  if (!techSnap.exists) {
+    const err = new Error('Technician profile not found');
+    err.status = 404;
+    err.code = 'TECHNICIAN_NOT_FOUND';
+    throw err;
+  }
+
+  const data = techSnap.data();
+  const baseSkills = Array.isArray(data.selectedSkills) && data.selectedSkills.length > 0
+    ? [...data.selectedSkills]
+    : (Array.isArray(data.skills) ? [...data.skills] : []);
+  const canonicalId = resolveCanonicalServiceId(skillId, skillId);
+  const nowIso = new Date().toISOString();
+  let matched = false;
+
+  const updatedSkills = baseSkills.map((s) => {
+    if (!s || typeof s !== 'object') return s;
+    const matches =
+      s.id === skillId ||
+      s.skillId === skillId ||
+      s.canonicalServiceId === skillId ||
+      (canonicalId && (s.id === canonicalId || s.skillId === canonicalId || s.canonicalServiceId === canonicalId));
+    if (!matches) return s;
+    matched = true;
+    return {
+      ...s,
+      verificationStatus: normalizedStatus,
+      verifiedByAdminUid: adminUid,
+      verifiedAt: nowIso,
+      rejectionReason: normalizedStatus === 'REJECTED' ? String(reason || '') : '',
+    };
+  });
+
+  if (!matched) {
+    const err = new Error(`Skill "${skillId}" not found for technician "${technicianId}"`);
+    err.status = 404;
+    err.code = 'SKILL_NOT_FOUND';
+    throw err;
+  }
+
+  const verifiedCount = updatedSkills.filter((s) => String(s?.verificationStatus || '').toUpperCase() === 'VERIFIED').length;
+  const pendingCount = updatedSkills.filter((s) => String(s?.verificationStatus || '').toUpperCase() === 'PENDING').length;
+
+  await techRef.set({
+    skills: updatedSkills,
+    selectedSkills: updatedSkills,
+    verifiedSkillsCount: verifiedCount,
+    pendingSkillsCount: pendingCount,
+    totalSkillsCount: updatedSkills.length,
+    verifiedByAdminUid: adminUid,
+    updatedAt: nowIso,
+  }, { merge: true });
+
+  await db.collection('audit_logs').doc().set({
+    actorUid: adminUid,
+    action: 'ADMIN_SKILL_VERIFICATION',
+    targetTechnicianUid: technicianId,
+    skillId,
+    verificationStatus: normalizedStatus,
+    reason: String(reason || ''),
+    timestamp: nowIso,
+    createdAt: nowIso,
+  });
+
+  return {
+    success: true,
+    technicianId,
+    skillId,
+    verificationStatus: normalizedStatus,
+    verifiedSkillsCount: verifiedCount,
+    pendingSkillsCount: pendingCount,
+    skills: updatedSkills,
+  };
+}
+
+async function bulkVerifyTechnicianSkills(db, { adminUid, technicianId, verificationStatus = 'VERIFIED', reason = '' }) {
+  if (!technicianId) {
+    const err = new Error('technicianId is required');
+    err.status = 400;
+    err.code = 'MISSING_TECHNICIAN_ID';
+    throw err;
+  }
+  const normalizedStatus = String(verificationStatus || 'VERIFIED').trim().toUpperCase();
+  if (!['VERIFIED', 'REJECTED', 'PENDING'].includes(normalizedStatus)) {
+    const err = new Error(`Invalid verificationStatus "${normalizedStatus}"`);
+    err.status = 400;
+    err.code = 'INVALID_VERIFICATION_STATUS';
+    throw err;
+  }
+
+  const techRef = db.collection('technician_profiles').doc(technicianId);
+  const techSnap = await techRef.get();
+  if (!techSnap.exists) {
+    const err = new Error('Technician profile not found');
+    err.status = 404;
+    err.code = 'TECHNICIAN_NOT_FOUND';
+    throw err;
+  }
+
+  const data = techSnap.data();
+  const baseSkills = Array.isArray(data.selectedSkills) && data.selectedSkills.length > 0
+    ? [...data.selectedSkills]
+    : (Array.isArray(data.skills) ? [...data.skills] : []);
+  const nowIso = new Date().toISOString();
+
+  const updatedSkills = baseSkills.map((s) => (
+    typeof s === 'object'
+      ? {
+          ...s,
+          verificationStatus: normalizedStatus,
+          verifiedByAdminUid: adminUid,
+          verifiedAt: nowIso,
+          rejectionReason: normalizedStatus === 'REJECTED' ? String(reason || '') : '',
+        }
+      : s
+  ));
+
+  const verifiedCount = updatedSkills.filter((s) => String(s?.verificationStatus || '').toUpperCase() === 'VERIFIED').length;
+  const pendingCount = updatedSkills.filter((s) => String(s?.verificationStatus || '').toUpperCase() === 'PENDING').length;
+
+  await techRef.set({
+    skills: updatedSkills,
+    selectedSkills: updatedSkills,
+    verifiedSkillsCount: verifiedCount,
+    pendingSkillsCount: pendingCount,
+    totalSkillsCount: updatedSkills.length,
+    verifiedByAdminUid: adminUid,
+    updatedAt: nowIso,
+  }, { merge: true });
+
+  await db.collection('audit_logs').doc().set({
+    actorUid: adminUid,
+    action: 'ADMIN_BULK_SKILL_VERIFICATION',
+    targetTechnicianUid: technicianId,
+    verificationStatus: normalizedStatus,
+    skillsCount: updatedSkills.length,
+    timestamp: nowIso,
+    createdAt: nowIso,
+  });
+
+  return {
+    success: true,
+    technicianId,
+    verificationStatus: normalizedStatus,
+    verifiedSkillsCount: verifiedCount,
+    pendingSkillsCount: pendingCount,
+    skills: updatedSkills,
+  };
+}
+
 module.exports = {
   fetchTechnicianSkills,
   saveTechnicianSkills,
   toggleTechnicianSkill,
+  verifyTechnicianSkill,
+  bulkVerifyTechnicianSkills,
 };

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/firestore_rest_client.dart';
 import '../../../core/security/secure_storage.dart';
@@ -168,7 +169,7 @@ class SkillService {
         'skillId': canonicalId,
         'canonicalServiceId': canonicalId,
         'skillName': sName.isNotEmpty ? sName : canonicalId,
-        'verificationStatus': (s['verificationStatus'] ?? 'VERIFIED').toString().toUpperCase(),
+        'verificationStatus': (s['verificationStatus'] ?? 'PENDING').toString().toUpperCase(),
         'enabled': s['enabled'] != false,
       };
     }).toList();
@@ -202,31 +203,34 @@ class SkillService {
     final nowUtc = DateTime.now().toUtc().toIso8601String();
     final partnerCode = FirestoreRestClient.resolveTechnicianCode(userId, phone: phone);
 
-    // 2. Direct write to Cloud Firestore with updateMask (Strictly updates skills & category only; NEVER modifies GPS coordinates, lastLocationUpdate, or online presence)
-    try {
-      await FirestoreRestClient.upsertDocument('technician_profiles', userId, {
-        'id': userId,
-        'uid': userId,
-        'technicianId': userId,
-        'technicianCode': partnerCode,
-        'fullName': realName,
-        'name': realName,
-        'phone': phone,
-        'phoneNumber': phone,
-        'email': email,
-        'selectedSkills': normalizedSkillsPayload,
-        'skills': normalizedSkillsPayload,
-        'serviceCategories': declaredCategories.toList(),
-        'categories': declaredCategories.toList(),
-        'category': primaryCategory,
-        'totalSkillsCount': normalizedSkillsPayload.length,
-        'verifiedSkillsCount': normalizedSkillsPayload.length,
-        'pendingSkillsCount': 0,
-        'updatedAt': nowUtc,
-      });
-      debugPrint('✅ [SkillService] Successfully saved ${normalizedSkillsPayload.length} canonical skills to Cloud Firestore for $userId (GPS/presence untouched)');
-    } catch (fsErr) {
-      debugPrint('⚠️ [SkillService] Firestore direct skill save notice: $fsErr');
+    // 2. When Render/trusted backend is configured, save authoritatively via backend API;
+    // otherwise persist directly to Cloud Firestore with updateMask (GPS/presence untouched).
+    if (!AppConfig.hasConfiguredBackend) {
+      try {
+        await FirestoreRestClient.upsertDocument('technician_profiles', userId, {
+          'id': userId,
+          'uid': userId,
+          'technicianId': userId,
+          'technicianCode': partnerCode,
+          'fullName': realName,
+          'name': realName,
+          'phone': phone,
+          'phoneNumber': phone,
+          'email': email,
+          'selectedSkills': normalizedSkillsPayload,
+          'skills': normalizedSkillsPayload,
+          'serviceCategories': declaredCategories.toList(),
+          'categories': declaredCategories.toList(),
+          'category': primaryCategory,
+          'totalSkillsCount': normalizedSkillsPayload.length,
+          'verifiedSkillsCount': normalizedSkillsPayload.length,
+          'pendingSkillsCount': 0,
+          'updatedAt': nowUtc,
+        });
+        debugPrint('✅ [SkillService] Successfully saved ${normalizedSkillsPayload.length} canonical skills to Cloud Firestore for $userId (GPS/presence untouched)');
+      } catch (fsErr) {
+        debugPrint('⚠️ [SkillService] Firestore direct skill save notice: $fsErr');
+      }
     }
 
     final payload = {
@@ -291,17 +295,19 @@ class SkillService {
         }
         final nowUtc = DateTime.now().toUtc().toIso8601String();
         await prefs.setString('cached_technician_skills_$userId', jsonEncode(list));
-        await FirestoreRestClient.upsertDocument('technician_profiles', userId, {
-          'selectedSkills': list,
-          'skills': list,
-          'updatedAt': nowUtc,
-        });
+        if (!AppConfig.hasConfiguredBackend) {
+          await FirestoreRestClient.upsertDocument('technician_profiles', userId, {
+            'selectedSkills': list,
+            'skills': list,
+            'updatedAt': nowUtc,
+          });
+        }
       }
       final res = await _dioClient.dio.patch('/technicians/skills/$technicianSkillId/toggle');
       return res.statusCode == 200;
     } catch (e) {
       debugPrint('Error toggling skill: $e');
-      return true; // Local state succeeded
+      return !AppConfig.hasConfiguredBackend;
     }
   }
 

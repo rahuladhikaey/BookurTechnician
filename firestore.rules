@@ -18,6 +18,58 @@ service cloud.firestore {
       );
     }
 
+    function privilegedUserKeys() {
+      return [
+        'role',
+        'admin',
+        'isAdmin',
+        'superAdmin',
+        'isSuperAdmin',
+        'verifiedAdmin',
+        'roles',
+        'privileges',
+        'permissions',
+        'customClaims'
+      ];
+    }
+
+    function technicianProtectedKeys() {
+      return [
+        'skills',
+        'selectedSkills',
+        'skillsVerificationStatus',
+        'skillVerificationStatus',
+        'verifiedSkillsCount',
+        'pendingSkillsCount',
+        'verifiedByAdminUid',
+        'verifiedAt',
+        'isAdminApproved',
+        'adminApproved',
+        'approvedByAdmin',
+        'kycStatus',
+        'kycVerified',
+        'isVerified',
+        'accountStatus',
+        'status',
+        'walletBalance',
+        'rating',
+        'totalRatingsCount',
+        'totalJobsCompleted',
+        'activeBookingId'
+      ];
+    }
+
+    function isBookingParticipant(bookingId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/bookings/$(bookingId)) && (
+          get(/databases/$(database)/documents/bookings/$(bookingId)).data.customerId == request.auth.uid ||
+          (
+            get(/databases/$(database)/documents/bookings/$(bookingId)).data.technicianId != null &&
+            get(/databases/$(database)/documents/bookings/$(bookingId)).data.technicianId == request.auth.uid
+          )
+        );
+    }
+
     // 1. Master Service Catalog & Banners (Public Read, Admin Write Only)
     match /service_categories/{categoryId} {
       allow read: if true;
@@ -34,39 +86,43 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 2. User Profiles & Addresses (Private - Owner or Admin Only)
+    // 2. User Profiles & Customers (Private - Owner Profile Only; Privilege Fields Strictly Locked)
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId) || isAdmin();
+      allow create: if isAdmin() || (
+        isOwner(userId) &&
+        !request.resource.data.keys().hasAny(privilegedUserKeys())
+      );
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(privilegedUserKeys())
+      );
+      allow delete: if isAdmin();
     }
 
     match /customers/{custId} {
       allow read: if isOwner(custId) || isAdmin();
-      allow write: if isOwner(custId) || isAdmin();
+      allow create: if isAdmin() || (
+        isOwner(custId) &&
+        !request.resource.data.keys().hasAny(privilegedUserKeys())
+      );
+      allow update: if isAdmin() || (
+        isOwner(custId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(privilegedUserKeys())
+      );
+      allow delete: if isAdmin();
     }
 
-    // 3. Technician Public Profiles (Read by Authenticated Users, Field-Guarded Write by Owner or Admin)
+    // 3. Technician Public Profiles (Read by Authenticated Users, Field-Guarded Owner/Admin Write)
     match /technician_profiles/{techId} {
       allow read: if isAuthenticated() || isAdmin();
       allow create: if isAdmin() || (
         isOwner(techId) &&
-        (!('verifiedByAdminUid' in request.resource.data)) &&
-        (!('kycStatus' in request.resource.data) || request.resource.data.kycStatus in ['NOT_SUBMITTED', 'PENDING']) &&
-        (!('skillVerificationStatus' in request.resource.data) || request.resource.data.skillVerificationStatus in ['PENDING'])
+        !request.resource.data.keys().hasAny(technicianProtectedKeys())
       );
       allow update: if isAdmin() || (
         isOwner(techId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'verifiedByAdminUid',
-          'skillVerificationStatus',
-          'isAdminApproved',
-          'kycStatus',
-          'accountStatus',
-          'walletBalance',
-          'rating',
-          'totalRatingsCount',
-          'totalJobsCompleted'
-        ])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(technicianProtectedKeys())
       );
       allow delete: if isAdmin();
     }
@@ -184,17 +240,25 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Legacy dispatch_requests collection locked down (authoritative dispatch uses dispatch_offers)
     match /dispatch_requests/{requestId} {
-      allow read, write: if isAuthenticated() && (
-        resource == null ||
-        resource.data.technicianId == request.auth.uid || 
-        isAdmin()
-      );
+      allow read, write: if false;
     }
 
-    // 5. Real-Time Chat per Booking
-    match /booking_chats/{bookingId}/messages/{messageId} {
-      allow read, write: if isAuthenticated();
+    // 5. Real-Time Chat per Booking (Booking Customer, Assigned Technician, or Admin Only)
+    match /booking_chats/{bookingId} {
+      allow read: if isAdmin() || isBookingParticipant(bookingId);
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if isAdmin() || isBookingParticipant(bookingId);
+        allow create: if isAdmin() || (
+          isBookingParticipant(bookingId) &&
+          (!('senderId' in request.resource.data) || request.resource.data.senderId == request.auth.uid) &&
+          (!('sender_id' in request.resource.data) || request.resource.data.sender_id == request.auth.uid)
+        );
+        allow update, delete: if isAdmin();
+      }
     }
 
     // 6. Presence & Live Tracking Streams
@@ -237,6 +301,15 @@ service cloud.firestore {
         request.resource.data.status in ['APPROVED', 'PAID', 'REJECTED'] &&
         (request.resource.data.status != 'PAID' || ('utrReference' in request.resource.data && request.resource.data.utrReference.size() >= 6));
       allow delete: if isAdmin();
+    }
+
+    // Backend-only Admin Allowlist & Auth OTP Vault (Admin SDK Only — Never client-accessible)
+    match /system_admins/{docId} {
+      allow read, write: if false;
+    }
+
+    match /otp_challenges/{challengeId} {
+      allow read, write: if false;
     }
 
     // Fallback: Deny all other unclassified access

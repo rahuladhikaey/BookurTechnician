@@ -122,6 +122,8 @@ void main() {
         'id': 'tech_kakali',
         'name': 'Kakali Goswami',
         'technicianCode': 'BT-637055',
+        'accountStatus': 'ACTIVE',
+        'kycStatus': 'VERIFIED',
         'isOnline': true,
         'availabilityStatus': 'AVAILABLE',
         'latitude': 23.2219,
@@ -170,6 +172,8 @@ void main() {
         'id': 'tech_kakali',
         'name': 'Kakali Goswami',
         'technicianCode': 'BT-637055',
+        'accountStatus': 'ACTIVE',
+        'kycStatus': 'VERIFIED',
         'isOnline': true,
         'availabilityStatus': 'AVAILABLE',
         'latitude': 23.2219,
@@ -210,6 +214,8 @@ void main() {
         'id': 'tech_ram',
         'name': 'Ram Sharma',
         'technicianCode': 'BT-988363',
+        'accountStatus': 'ACTIVE',
+        'kycStatus': 'VERIFIED',
         'isOnline': true,
         'availabilityStatus': 'AVAILABLE',
         'latitude': 23.2219,
@@ -248,6 +254,8 @@ void main() {
       mockTechProfiles['tech_pending'] = {
         'id': 'tech_pending',
         'name': 'Pending Tech',
+        'accountStatus': 'ACTIVE',
+        'kycStatus': 'VERIFIED',
         'isOnline': true,
         'availabilityStatus': 'AVAILABLE',
         'latitude': 23.2219,
@@ -282,6 +290,8 @@ void main() {
       mockTechProfiles['tech_rejected'] = {
         'id': 'tech_rejected',
         'name': 'Rejected Tech',
+        'accountStatus': 'ACTIVE',
+        'kycStatus': 'VERIFIED',
         'isOnline': true,
         'availabilityStatus': 'AVAILABLE',
         'latitude': 23.2219,
@@ -316,6 +326,8 @@ void main() {
       mockTechProfiles['tech_disabled'] = {
         'id': 'tech_disabled',
         'name': 'Disabled Tech',
+        'accountStatus': 'ACTIVE',
+        'kycStatus': 'VERIFIED',
         'isOnline': true,
         'availabilityStatus': 'AVAILABLE',
         'latitude': 23.2219,
@@ -350,6 +362,8 @@ void main() {
       mockTechProfiles['tech_category_only'] = {
         'id': 'tech_category_only',
         'name': 'Category Only Tech',
+        'accountStatus': 'ACTIVE',
+        'kycStatus': 'VERIFIED',
         'isOnline': true,
         'availabilityStatus': 'AVAILABLE',
         'latitude': 23.2219,
@@ -378,6 +392,8 @@ void main() {
       mockTechProfiles['tech_offline'] = {
         'id': 'tech_offline',
         'name': 'Offline Tech',
+        'accountStatus': 'ACTIVE',
+        'kycStatus': 'VERIFIED',
         'isOnline': false,
         'availabilityStatus': 'AVAILABLE',
         'latitude': 23.2219,
@@ -412,6 +428,8 @@ void main() {
       mockTechProfiles['tech_far'] = {
         'id': 'tech_far',
         'name': 'Far Tech',
+        'accountStatus': 'ACTIVE',
+        'kycStatus': 'VERIFIED',
         'isOnline': true,
         'availabilityStatus': 'AVAILABLE',
         'latitude': 23.5000, // ~31 km away

@@ -5,7 +5,26 @@ const { resolveCanonicalServiceId } = require('./canonicalServices');
  * Server-Authoritative Booking Creation & OTP Delivery Service
  */
 
-async function createBooking(db, { customerId, customerName, customerPhone, serviceId, serviceName, categoryId, address, coordinates, price, paymentMethod }) {
+async function createBooking(db, {
+  customerId,
+  customerName,
+  customerPhone,
+  serviceId,
+  serviceName,
+  categoryId,
+  address,
+  coordinates,
+  price,
+  basePrice,
+  visitFee,
+  gstTax,
+  grandTotal,
+  paymentMethod,
+  bookingCode,
+  idempotencyKey,
+  scheduleDate,
+  scheduleSlot,
+}) {
   if (!customerId) {
     const err = new Error('Authenticated customer ID required');
     err.status = 401;
@@ -21,11 +40,46 @@ async function createBooking(db, { customerId, customerName, customerPhone, serv
     throw err;
   }
 
+  if (idempotencyKey) {
+    const dupSnap = await db.collection('bookings')
+      .where('idempotencyKey', '==', String(idempotencyKey))
+      .limit(5)
+      .get();
+    const dup = dupSnap.docs.find((d) => d.data().customerId === customerId && String(d.data().status || '').toUpperCase() !== 'CANCELLED');
+    if (dup) {
+      const err = new Error('Duplicate booking request rejected');
+      err.status = 409;
+      err.code = 'DUPLICATE_BOOKING';
+      throw err;
+    }
+  }
+
+  if (serviceId) {
+    const srvSnap = await db.collection('services').doc(String(serviceId)).get();
+    if (srvSnap.exists && (srvSnap.data().isActive === false || srvSnap.data().active === false)) {
+      const err = new Error(`Service "${serviceName || serviceId}" is currently disabled`);
+      err.status = 400;
+      err.code = 'SERVICE_DISABLED';
+      throw err;
+    }
+  }
+
+  if (coordinates && typeof coordinates === 'object') {
+    const lat = Number(coordinates.latitude);
+    const lng = Number(coordinates.longitude);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+      const err = new Error('Invalid customer coordinates');
+      err.status = 400;
+      err.code = 'INVALID_COORDINATES';
+      throw err;
+    }
+  }
+
   const bookingId = `bkg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const nowIso = new Date().toISOString();
 
   // Server-Authoritative Pricing (Standard minimum pricing fallback)
-  const finalPrice = Math.max(199, Number(price) || 1039);
+  const finalPrice = Math.max(199, Number(grandTotal ?? price) || 1039);
 
   // Generate 4-digit Cryptographic OTPs
   const startOtp = generateOtp(4);
@@ -37,6 +91,8 @@ async function createBooking(db, { customerId, customerName, customerPhone, serv
   // Store Booking Document (Publicly readable by participants, NO plaintext OTP)
   const bookingData = {
     id: bookingId,
+    bookingCode: bookingCode || `BT-${String(Date.now()).slice(-8)}`,
+    ...(idempotencyKey ? { idempotencyKey: String(idempotencyKey) } : {}),
     customerId,
     customerName: customerName || 'Customer',
     customerPhone: customerPhone || '',
@@ -45,11 +101,18 @@ async function createBooking(db, { customerId, customerName, customerPhone, serv
     categoryId: categoryId || 'general',
     address: address || {},
     coordinates: coordinates || null,
+    ...(coordinates && typeof coordinates === 'object' ? { latitude: Number(coordinates.latitude), longitude: Number(coordinates.longitude) } : {}),
+    ...(scheduleDate ? { scheduleDate: String(scheduleDate) } : {}),
+    ...(scheduleSlot ? { scheduleSlot: String(scheduleSlot) } : {}),
     status: 'SEARCHING',
     paymentStatus: 'PENDING',
     paymentMethod: paymentMethod || 'CASH_ON_DELIVERY',
     price: finalPrice,
     totalAmount: finalPrice,
+    basePrice: basePrice !== undefined ? Number(basePrice) : finalPrice,
+    visitFee: visitFee !== undefined ? Number(visitFee) : 0,
+    gstTax: gstTax !== undefined ? Number(gstTax) : 0,
+    grandTotal: finalPrice,
     technicianId: null,
     technicianName: null,
     technicianPhone: null,

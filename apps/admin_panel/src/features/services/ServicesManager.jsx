@@ -9,8 +9,6 @@ export default function ServicesManager({ categories, setCategories, services, s
     setLocalRefreshing(true);
     try {
       if (onReload) await onReload();
-      await loadSkills();
-      await loadMatchingRules();
     } catch (err) {
       console.warn('Catalog refresh notice:', err);
     } finally {
@@ -198,9 +196,8 @@ export default function ServicesManager({ categories, setCategories, services, s
   };
 
   useEffect(() => {
-    loadSkills();
-    loadMatchingRules();
-  }, []);
+    setActiveTab(subTab === 'services' ? 'services' : 'categories');
+  }, [subTab]);
 
   // Modals & Form State
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -725,28 +722,13 @@ export default function ServicesManager({ categories, setCategories, services, s
 
   return (
     <div className="services-manager-view">
-      {/* ─── FLAT TABS NAVIGATION (7 TABS) ─── */}
+      {/* ─── FLAT TABS NAVIGATION (LAUNCH-READY CATALOG TABS) ─── */}
       <div className="flat-tabs">
         <div className={`flat-tab ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}>
           📂 Categories ({categories.length})
         </div>
         <div className={`flat-tab ${activeTab === 'services' ? 'active' : ''}`} onClick={() => setActiveTab('services')}>
           🛠️ Services Catalog ({services.length})
-        </div>
-        <div className={`flat-tab ${activeTab === 'skills' ? 'active' : ''}`} onClick={() => setActiveTab('skills')}>
-          🎯 Skills Directory ({skillsList.length})
-        </div>
-        <div className={`flat-tab ${activeTab === 'matching' ? 'active' : ''}`} onClick={() => setActiveTab('matching')}>
-          ⚙️ Matching Rules
-        </div>
-        <div className={`flat-tab ${activeTab === 'popular' ? 'active' : ''}`} onClick={() => setActiveTab('popular')}>
-          ⭐ Popular Services ({activePopular.length})
-        </div>
-        <div className={`flat-tab ${activeTab === 'images' ? 'active' : ''}`} onClick={() => setActiveTab('images')}>
-          🖼️ Service Images ({activeImages.length})
-        </div>
-        <div className={`flat-tab ${activeTab === 'brands' ? 'active' : ''}`} onClick={() => setActiveTab('brands')}>
-          🏷️ Brands Management ({brands.length})
         </div>
       </div>
 

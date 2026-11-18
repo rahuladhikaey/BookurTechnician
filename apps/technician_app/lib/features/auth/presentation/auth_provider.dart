@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/firestore_rest_client.dart';
 import '../../../core/security/secure_storage.dart';
@@ -78,29 +80,49 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
   late final DioClient _dioClient;
   final SecureStorage _secureStorage;
+  final Dio? _authDioOverride;
 
-  AuthNotifier({SecureStorage? storage})
+  AuthNotifier({SecureStorage? storage, Dio? authDio})
       : _secureStorage = storage ?? SecureStorage(),
+        _authDioOverride = authDio,
         super(AuthState()) {
     _dioClient = DioClient(_secureStorage);
     _checkExistingToken();
   }
 
-  void _checkExistingToken() async {
+  Dio _buildAuthDio() =>
+      _authDioOverride ??
+      Dio(BaseOptions(
+        connectTimeout: AppConfig.requestTimeout,
+        receiveTimeout: AppConfig.requestTimeout,
+        contentType: Headers.jsonContentType,
+      ));
+
+  Future<void> restoreSessionForTest() => _checkExistingToken();
+
+  Future<void> _checkExistingToken() async {
     try {
       final cachedToken = await _secureStorage.getToken();
       final userDetails = await _secureStorage.getUserDetails();
       final savedAge = int.tryParse(userDetails['age'] ?? '');
+      final restoredFirebase = await FirestoreRestClient.restoreFirebaseSession();
 
-      if (cachedToken != null && cachedToken.isNotEmpty) {
+      if ((cachedToken != null && cachedToken.isNotEmpty) || restoredFirebase != null) {
         final rawUserId = await _secureStorage.getUserId();
-        final canonicalUid = FirestoreRestClient.resolveCanonicalTechUid(
-          (rawUserId != null && rawUserId.isNotEmpty)
-              ? rawUserId
-              : (userDetails['phone'] ?? userDetails['email'] ?? ''),
-        );
+        final fbUid = restoredFirebase?['uid'];
+        final canonicalUid = (rawUserId != null && rawUserId.isNotEmpty)
+            ? rawUserId
+            : ((fbUid != null && fbUid.isNotEmpty)
+                ? fbUid
+                : FirestoreRestClient.resolveCanonicalTechUid(
+                    userDetails['phone'] ?? userDetails['email'] ?? '',
+                  ));
         if (canonicalUid.isNotEmpty && canonicalUid != rawUserId) {
           await _secureStorage.saveUserId(canonicalUid);
+        }
+        // Proactively refresh expired Firebase ID token using stored Firebase refresh token if needed
+        if (restoredFirebase != null) {
+          await FirestoreRestClient.getValidFirebaseIdToken();
         }
         final techCode = FirestoreRestClient.resolveTechnicianCode(
           canonicalUid,
@@ -127,7 +149,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
           status: AuthStatus.authenticated,
           uid: canonicalUid,
           technicianCode: techCode,
-          token: cachedToken,
+          token: cachedToken ?? restoredFirebase?['idToken'],
           fullName: userDetails['name'] ?? 'Partner Technician',
           age: savedAge,
           phone: userDetails['phone'],
@@ -213,7 +235,51 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       email: normalizedEmail,
     );
 
-    // Request OTP via authoritative server-side challenge engine (enforces 3/10m rate limit & SHA-256 hash)
+    // Use trusted Render/Node backend OTP endpoint when configured; never fall back to client OTP.
+    if (AppConfig.hasConfiguredBackend || AppConfig.candidateBaseUrls.isNotEmpty) {
+      final baseUrl = AppConfig.hasConfiguredBackend
+          ? AppConfig.backendBaseUrl
+          : AppConfig.candidateBaseUrls.first;
+      try {
+        final dio = _buildAuthDio();
+        final res = await dio.post(
+          '$baseUrl/auth/request-otp',
+          data: {
+            'email': normalizedEmail,
+            if (normalizedPhone.isNotEmpty) 'phone': normalizedPhone,
+            'fullName': candidateName,
+            'name': candidateName,
+            'role': 'TECHNICIAN',
+            'isResend': isResend,
+          },
+        );
+        if (res.statusCode == 200 && res.data is Map && res.data['success'] == true) {
+          state = state.copyWith(
+            status: AuthStatus.otpSent,
+            uid: internalUid,
+            technicianCode: partnerCode,
+            phone: normalizedPhone.isNotEmpty ? normalizedPhone : null,
+            email: normalizedEmail,
+            fullName: candidateName,
+            age: age,
+          );
+          return const ApiSuccess(true);
+        }
+        final errMsg = (res.data is Map ? (res.data['error'] ?? res.data['message'])?.toString() : null) ??
+            'Authentication server is temporarily unavailable. Please try again.';
+        state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: errMsg);
+        return ApiFailure(errMsg);
+      } catch (e) {
+        String errMsg = 'Unable to reach authentication server (it may be waking up). Please try again shortly.';
+        if (e is DioException && e.response?.data is Map) {
+          errMsg = ((e.response!.data as Map)['error'] ?? (e.response!.data as Map)['message'])?.toString() ?? errMsg;
+        }
+        state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: errMsg);
+        return ApiFailure(errMsg);
+      }
+    }
+
+    // Fallback when no backend URL is configured (pure-Firestore/emulator test mode)
     final challengeRes = await FirestoreRestClient.requestOtpChallenge(
       identifier: normalizedEmail,
       email: normalizedEmail,
@@ -344,15 +410,11 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       payload['fullName'] = targetName;
     }
 
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(milliseconds: 1500),
-      receiveTimeout: const Duration(milliseconds: 1500),
-      contentType: Headers.jsonContentType,
-    ));
+    final dio = _buildAuthDio();
 
     String? lastErrorMsg;
 
-    final routableCandidates = <String>[];
+    final routableCandidates = AppConfig.candidateBaseUrls;
 
     for (final baseUrl in routableCandidates) {
       try {
@@ -367,14 +429,28 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
                   ? resData
                   : <String, dynamic>{});
 
-          final accessToken = nestedData['accessToken']?.toString() ??
-              nestedData['token']?.toString() ??
-              resData?['accessToken']?.toString() ??
-              resData?['token']?.toString() ??
-              'jwt_token_technician_${DateTime.now().millisecondsSinceEpoch}';
+          final accessToken = (nestedData['accessToken'] ??
+                  nestedData['token'] ??
+                  resData?['accessToken'] ??
+                  resData?['token'])
+              ?.toString();
 
-          final refreshToken = nestedData['refreshToken']?.toString() ??
-              resData?['refreshToken']?.toString();
+          final refreshToken = (nestedData['refreshToken'] ??
+                  resData?['refreshToken'])
+              ?.toString();
+
+          final firebaseCustomToken = (nestedData['firebaseCustomToken'] ??
+                  resData?['firebaseCustomToken'])
+              ?.toString();
+
+          if (accessToken == null || accessToken.isEmpty) {
+            lastErrorMsg = 'Backend did not return a valid session token.';
+            continue;
+          }
+
+          if (firebaseCustomToken != null && firebaseCustomToken.isNotEmpty) {
+            await FirestoreRestClient.signInWithCustomToken(firebaseCustomToken);
+          }
 
           Map<String, dynamic>? userMap;
           if (nestedData['user'] is Map<String, dynamic>) {
@@ -384,13 +460,13 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
             userMap = resData['user'] as Map<String, dynamic>;
           }
 
-          final rawUserId = userMap?['uid']?.toString() ??
-              userMap?['id']?.toString() ??
-              (targetPhone.isNotEmpty ? targetPhone : targetEmail);
-          final userId = FirestoreRestClient.resolveCanonicalTechUid(
-            rawUserId,
-            phone: targetPhone,
-          );
+          final backendUid = (userMap?['uid'] ?? userMap?['id'])?.toString().trim() ?? '';
+          final userId = backendUid.isNotEmpty
+              ? backendUid
+              : FirestoreRestClient.resolveCanonicalTechUid(
+                  targetPhone.isNotEmpty ? targetPhone : targetEmail,
+                  phone: targetPhone,
+                );
           final partnerCode = userMap?['technicianCode']?.toString() ??
               FirestoreRestClient.resolveTechnicianCode(userId, phone: targetPhone);
           final nameFromBackend = userMap?['fullName']?.toString() ??
@@ -401,7 +477,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
               stepFromBackend == 'COMPLETED';
 
           await _secureStorage.saveToken(accessToken);
-          if (refreshToken != null) {
+          if (refreshToken != null && refreshToken.isNotEmpty) {
             await _secureStorage.saveRefreshToken(refreshToken);
           }
           await _secureStorage.saveUserId(userId);
@@ -439,10 +515,11 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
           if (currentLat != null && currentLng != null) {
             try {
-              await dio.post('$baseUrl/technician/location', data: {
-                'latitude': currentLat,
-                'longitude': currentLng,
-              });
+              await dio.post(
+                '$baseUrl/technician/location',
+                data: {'latitude': currentLat, 'longitude': currentLng},
+                options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+              );
             } catch (_) {}
           }
 
@@ -462,7 +539,15 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       }
     }
 
-    // Authoritative Server-Grade Challenge Verification (Zero '123456' backdoors)
+    // If a configured Render backend is present, do not fall back to client-side OTP challenge
+    if (AppConfig.hasConfiguredBackend || routableCandidates.isNotEmpty) {
+      final errMsg = lastErrorMsg ??
+          'Authentication server is temporarily unavailable. Please verify your OTP and retry.';
+      state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: errMsg);
+      return ApiFailure(errMsg);
+    }
+
+    // Legacy local emulator fallback ONLY when no backend URL is configured
     final identifier = targetEmail.isNotEmpty ? targetEmail : targetPhone;
     final verifyChallengeRes = await FirestoreRestClient.verifyOtpChallenge(
       identifier: identifier,
@@ -473,6 +558,12 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       final fbAuth = targetEmail.isNotEmpty
           ? await FirestoreRestClient.ensureTechnicianFirebaseAuth(email: targetEmail)
           : null;
+      final fallbackToken = fbAuth?['idToken'];
+      if (fallbackToken == null || fallbackToken.isEmpty) {
+        const errMsg = 'Trusted backend authentication is required to complete login.';
+        state = state.copyWith(status: AuthStatus.unauthenticated, errorMessage: errMsg);
+        return ApiFailure(errMsg);
+      }
       final internalUid = (fbAuth != null && fbAuth['uid']?.isNotEmpty == true)
           ? fbAuth['uid']!
           : FirestoreRestClient.resolveCanonicalTechUid(
@@ -483,15 +574,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
         internalUid,
         phone: targetPhone,
       );
-      final fallbackToken = (fbAuth != null && fbAuth['idToken']?.isNotEmpty == true)
-          ? fbAuth['idToken']!
-          : 'jwt_token_tech_${DateTime.now().millisecondsSinceEpoch}';
-      final fbRefreshToken = fbAuth?['refreshToken'];
 
-      await _secureStorage.saveToken(fallbackToken);
-      if (fbRefreshToken != null && fbRefreshToken.isNotEmpty) {
-        await _secureStorage.saveRefreshToken(fbRefreshToken);
-      }
       await _secureStorage.saveUserId(internalUid);
 
       var existingDoc = await FirestoreRestClient.getDocument(
@@ -534,6 +617,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
               : null);
 
       final techDoc = <String, dynamic>{
+        if (existingDoc == null) '_isCreate': true,
         'id': internalUid,
         'uid': internalUid,
         'technicianId': internalUid,
@@ -579,7 +663,6 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
             'technician_profiles', internalUid, techDoc);
       } catch (_) {}
 
-      await _secureStorage.saveToken(fallbackToken);
       await _secureStorage.saveUserId(internalUid);
       await _secureStorage.saveUserDetails(
         name: (existingDoc?['fullName'] ?? targetName).toString(),
@@ -653,6 +736,30 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
 
   Future<void> logout() async {
     try {
+      final currentUid = state.uid ?? await _secureStorage.getUserId();
+      if (currentUid != null && currentUid.isNotEmpty) {
+        final nowIso = DateTime.now().toUtc().toIso8601String();
+        await FirestoreRestClient.upsertDocument('technician_profiles', currentUid, {
+          'isOnline': false,
+          'online': false,
+          'availabilityStatus': 'OFFLINE',
+          'updatedAt': nowIso,
+        });
+        await FirestoreRestClient.upsertDocument('presence', currentUid, {
+          'uid': currentUid,
+          'status': 'OFFLINE',
+          'lastHeartbeat': nowIso,
+          'updatedAt': nowIso,
+        });
+      }
+    } catch (_) {}
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_technician_online', false);
+    } catch (_) {}
+
+    try {
       final refreshToken = await _secureStorage.getRefreshToken();
       if (refreshToken != null) {
         await _dioClient.dio
@@ -660,6 +767,7 @@ class AuthNotifier extends StateNotifier<AuthState> implements AuthRepository {
       }
     } catch (_) {}
 
+    await FirestoreRestClient.clearFirebaseSession();
     await _secureStorage.clearAll();
     state = AuthState(status: AuthStatus.unauthenticated);
   }

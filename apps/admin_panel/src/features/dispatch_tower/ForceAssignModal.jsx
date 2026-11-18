@@ -30,34 +30,7 @@ export default function ForceAssignModal({ booking, onClose, onSuccess }) {
   }, [booking]);
 
   const handleForceAssign = async () => {
-    if (!selectedTechId) {
-      setError('Please select a technician from the active 15 km list.');
-      return;
-    }
-    if (!reason || reason.trim().length < 5) {
-      setError('Please provide a valid override reason for the audit trail.');
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const res = await api.assignBooking(booking._id || booking.id, selectedTechId);
-      if (res && (res.success || res.status === 200)) {
-        if (onSuccess) onSuccess(res.message || 'Booking force-assigned successfully');
-        onClose();
-      } else {
-        if (onSuccess) onSuccess('Booking force-assigned to selected partner.');
-        onClose();
-      }
-    } catch (err) {
-      console.warn('Force assign fallback:', err);
-      if (onSuccess) onSuccess('Booking force-assigned to selected partner.');
-      onClose();
-    } finally {
-      setSubmitting(false);
-    }
+    setError('Manual admin assignment is disabled. Technicians must self-accept incoming dispatch offers.');
   };
 
   const filteredTechs = technicians.filter(t => 

@@ -33,8 +33,10 @@ class AuthInterceptor extends Interceptor {
     } catch (e) {
       debugPrint('AuthInterceptor header attach notice: $e');
     }
-    // Pure Firebase Architecture: Route request directly to Cloud Firestore
-    if (AppConfig.isFirebasePrimary) {
+    // Route to Render/backend HTTP API whenever a real backend URL is configured;
+    // only intercept directly into FirestoreRestClient in pure-Firestore offline mode.
+    final hasAbsoluteUrl = options.path.startsWith('http://') || options.path.startsWith('https://');
+    if (!hasAbsoluteUrl && !AppConfig.hasConfiguredBackend && AppConfig.isFirebasePrimary) {
       try {
         debugPrint('🔥 [TechnicianApp] Serving ${options.path} directly via Firebase Cloud Firestore');
         final fbResp = await FirestoreRestClient.handleDioRequest(options);
@@ -52,19 +54,84 @@ class ErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     final originalRequest = err.requestOptions;
+    final statusCode = err.response?.statusCode ?? 0;
 
-    // Direct Cloud Firestore Fallback (bookmytechnician-53d94)
-    try {
-      debugPrint('🔥 [TechnicianApp] Serving ${originalRequest.path} directly via Firebase Cloud Firestore');
-      final fbResp = await FirestoreRestClient.handleDioRequest(originalRequest);
-      return handler.resolve(fbResp);
-    } catch (e) {
-      debugPrint('🔥 [TechnicianApp] Firestore fallback notice: $e');
+    // 1. Refresh expired access token once on 401 for non-auth requests
+    if (statusCode == 401 &&
+        !originalRequest.path.contains('/auth/') &&
+        originalRequest.extra['_retriedAfterRefresh'] != true &&
+        AppConfig.hasConfiguredBackend) {
+      try {
+        final storage = SecureStorage();
+        final refreshToken = await storage.getRefreshToken();
+        if (refreshToken != null && refreshToken.isNotEmpty) {
+          final refreshDio = Dio(BaseOptions(
+            baseUrl: AppConfig.backendBaseUrl,
+            connectTimeout: AppConfig.requestTimeout,
+            receiveTimeout: AppConfig.requestTimeout,
+            contentType: Headers.jsonContentType,
+          ));
+          final refreshRes = await refreshDio.post(
+            '/auth/refresh-token',
+            data: {'refreshToken': refreshToken},
+          );
+          if (refreshRes.statusCode == 200 && refreshRes.data is Map) {
+            final resMap = refreshRes.data as Map;
+            final nested = resMap['data'] is Map ? resMap['data'] as Map : resMap;
+            final newAccess = (nested['accessToken'] ?? nested['token'] ?? resMap['accessToken'])?.toString();
+            final newRefresh = (nested['refreshToken'] ?? resMap['refreshToken'])?.toString();
+            final customTok = (nested['firebaseCustomToken'] ?? resMap['firebaseCustomToken'])?.toString();
+
+            if (newAccess != null && newAccess.isNotEmpty) {
+              await storage.saveToken(newAccess);
+              if (newRefresh != null && newRefresh.isNotEmpty) {
+                await storage.saveRefreshToken(newRefresh);
+              }
+              if (customTok != null && customTok.isNotEmpty) {
+                await FirestoreRestClient.signInWithCustomToken(customTok);
+              }
+
+              originalRequest.headers['Authorization'] = 'Bearer $newAccess';
+              originalRequest.extra['_retriedAfterRefresh'] = true;
+              final retried = await Dio(BaseOptions(
+                baseUrl: originalRequest.baseUrl.isNotEmpty
+                    ? originalRequest.baseUrl
+                    : AppConfig.backendBaseUrl,
+                connectTimeout: AppConfig.requestTimeout,
+                receiveTimeout: AppConfig.requestTimeout,
+              )).fetch(originalRequest);
+              return handler.resolve(retried);
+            }
+          }
+        }
+      } catch (refreshErr) {
+        debugPrint('⚠️ [TechnicianApp] Token refresh failed: $refreshErr');
+      }
+      return handler.next(err);
     }
 
-    if (err.response?.statusCode == 401) {
-      // Token expiration
+    // Never bypass authoritative backend 4xx rejections (e.g. 401, 403, 409, 410)
+    if (statusCode >= 400 && statusCode < 500) {
+      return handler.next(err);
     }
+
+    // Fall back to direct Cloud Firestore ONLY when no trusted Render backend is configured
+    // AND the route is not an authoritative security/OTP/accept/OTP-verification route.
+    final isAuthoritativeAction =
+        originalRequest.path.contains('/accept') ||
+        originalRequest.path.contains('verify-start-otp') ||
+        originalRequest.path.contains('verify-end-otp') ||
+        originalRequest.path.contains('/auth/');
+    if (!AppConfig.hasConfiguredBackend && !isAuthoritativeAction) {
+      try {
+        debugPrint('🔥 [TechnicianApp] Serving ${originalRequest.path} via Firebase Cloud Firestore fallback');
+        final fbResp = await FirestoreRestClient.handleDioRequest(originalRequest);
+        return handler.resolve(fbResp);
+      } catch (e) {
+        debugPrint('🔥 [TechnicianApp] Firestore fallback notice: $e');
+      }
+    }
+
     handler.next(err);
   }
 }

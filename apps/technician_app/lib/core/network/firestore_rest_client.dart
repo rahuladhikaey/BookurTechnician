@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 import '../security/secure_storage.dart';
 import 'email_service.dart';
 
@@ -23,8 +24,167 @@ class FirestoreRestClient {
   static String? _cachedFbUid;
   static DateTime? _cachedFbExpiresAt;
 
-  /// Signs in (or registers) the OTP-verified technician in Firebase Auth so
-  /// Firestore Security Rules (`isAuthenticated()` and `isOwner(techId)`) succeed.
+  @visibleForTesting
+  static Future<http.Response> Function(
+    String method,
+    Uri uri, {
+    Map<String, String>? headers,
+    String? body,
+  })? authHttpHandler;
+
+  /// Validates that [token] is a Firebase ID token and NOT a Render HS256 session JWT.
+  static bool isFirebaseIdTokenFormat(String? token) {
+    if (token == null || token.trim().isEmpty) return false;
+    final parts = token.trim().split('.');
+    if (parts.length != 3) return false;
+    try {
+      final headerJson = utf8.decode(base64Url.decode(base64Url.normalize(parts[0])));
+      final header = jsonDecode(headerJson);
+      if (header is Map && header['alg']?.toString().toUpperCase() == 'HS256') {
+        return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<http.Response> _authPost(Uri uri, Map<String, String> headers, String body) async {
+    final handler = authHttpHandler ?? mockHttpHandler;
+    if (handler != null) {
+      return handler('POST', uri, headers: headers, body: body);
+    }
+    return http.post(uri, headers: headers, body: body).timeout(const Duration(seconds: 8));
+  }
+
+  static String? _extractUidFromJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length == 3) {
+        final payload = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))) as Map<String, dynamic>;
+        return (payload['user_id'] ?? payload['sub'])?.toString();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> _persistFirebaseSession({
+    required String idToken,
+    String? refreshToken,
+    String? uid,
+    required DateTime expiresAt,
+  }) async {
+    _cachedFbIdToken = idToken;
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      _cachedFbRefreshToken = refreshToken;
+    }
+    if (uid != null && uid.isNotEmpty) {
+      _cachedFbUid = uid;
+    }
+    _cachedFbExpiresAt = expiresAt;
+    await SecureStorage().saveFirebaseSession(
+      idToken: idToken,
+      refreshToken: refreshToken,
+      uid: uid,
+      expiresAtMs: expiresAt.toUtc().millisecondsSinceEpoch,
+    );
+  }
+
+  static Future<Map<String, String>?> restoreFirebaseSession() async {
+    final storage = SecureStorage();
+    final storedToken = await storage.getFirebaseIdToken();
+    final storedRefresh = await storage.getFirebaseRefreshToken();
+    final storedUid = await storage.getFirebaseUid();
+    final storedExpMs = await storage.getFirebaseExpiresAtMs();
+
+    if (storedToken != null && isFirebaseIdTokenFormat(storedToken)) {
+      _cachedFbIdToken = storedToken;
+    } else {
+      _cachedFbIdToken = null;
+    }
+    // Firebase refresh tokens are opaque tokens, never 3-part Render HS256 JWTs
+    if (storedRefresh != null && storedRefresh.isNotEmpty && storedRefresh.split('.').length != 3) {
+      _cachedFbRefreshToken = storedRefresh;
+    } else if (storedRefresh != null && storedRefresh.split('.').length == 3) {
+      _cachedFbRefreshToken = null;
+    }
+    if (storedUid != null && storedUid.isNotEmpty) {
+      _cachedFbUid = storedUid;
+    }
+    if (storedExpMs != null && storedExpMs > 0) {
+      _cachedFbExpiresAt = DateTime.fromMillisecondsSinceEpoch(storedExpMs, isUtc: true);
+    }
+
+    if (_cachedFbIdToken != null || _cachedFbRefreshToken != null) {
+      return {
+        if (_cachedFbUid != null) 'uid': _cachedFbUid!,
+        if (_cachedFbIdToken != null) 'idToken': _cachedFbIdToken!,
+        if (_cachedFbRefreshToken != null) 'refreshToken': _cachedFbRefreshToken!,
+      };
+    }
+    return null;
+  }
+
+  static Future<void> clearFirebaseSession() async {
+    _cachedFbIdToken = null;
+    _cachedFbRefreshToken = null;
+    _cachedFbUid = null;
+    _cachedFbExpiresAt = null;
+    await SecureStorage().clearFirebaseSession();
+  }
+
+  /// Simulates an app process restart in unit tests (clears memory, preserves persistent storage).
+  @visibleForTesting
+  static void resetInMemoryFirebaseAuthForTest() {
+    _cachedFbIdToken = null;
+    _cachedFbRefreshToken = null;
+    _cachedFbUid = null;
+    _cachedFbExpiresAt = null;
+  }
+
+  static String? get currentFirebaseUid => _cachedFbUid;
+
+  /// Exchange a trusted backend-minted Firebase Custom Token for a Firebase ID Token + Refresh Token
+  /// so direct Firestore reads/telemetry run under `request.auth.uid == techUid`.
+  static Future<Map<String, String>?> signInWithCustomToken(String customToken) async {
+    if (customToken.trim().isEmpty) return null;
+    try {
+      final uri = Uri.parse(
+          'https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=$_firebaseWebApiKey');
+      final res = await _authPost(
+        uri,
+        {'Content-Type': 'application/json'},
+        jsonEncode({
+          'token': customToken.trim(),
+          'returnSecureToken': true,
+        }),
+      );
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final idToken = data['idToken']?.toString() ?? '';
+      final refreshToken = data['refreshToken']?.toString() ?? '';
+      final expiresIn = int.tryParse(data['expiresIn']?.toString() ?? '3600') ?? 3600;
+      if (!isFirebaseIdTokenFormat(idToken)) return null;
+
+      final uid = _extractUidFromJwt(idToken) ?? data['localId']?.toString() ?? '';
+      await _persistFirebaseSession(
+        idToken: idToken,
+        refreshToken: refreshToken,
+        uid: uid,
+        expiresAt: DateTime.now().toUtc().add(Duration(seconds: expiresIn)),
+      );
+      return {
+        'uid': uid,
+        'idToken': idToken,
+        'refreshToken': refreshToken,
+      };
+    } catch (e) {
+      debugPrint('⚠️ [Tech Auth] signInWithCustomToken error: $e');
+      return null;
+    }
+  }
+
+  /// Legacy non-Render helper (only used when AppConfig.hasConfiguredBackend == false)
   static Future<Map<String, String>?> ensureTechnicianFirebaseAuth({
     required String email,
   }) async {
@@ -39,54 +199,44 @@ class FirestoreRestClient {
       final idToken = data['idToken']?.toString() ?? '';
       final refreshToken = data['refreshToken']?.toString() ?? '';
       final uid = data['localId']?.toString() ?? '';
-      if (idToken.isEmpty || uid.isEmpty) return null;
+      if (!isFirebaseIdTokenFormat(idToken) || uid.isEmpty) return null;
       final expiresIn =
           int.tryParse(data['expiresIn']?.toString() ?? '3600') ?? 3600;
-      _cachedFbIdToken = idToken;
-      _cachedFbRefreshToken = refreshToken;
-      _cachedFbUid = uid;
-      _cachedFbExpiresAt =
-          DateTime.now().toUtc().add(Duration(seconds: expiresIn));
-      try {
-        await SecureStorage().saveToken(idToken);
-        if (refreshToken.isNotEmpty) {
-          await SecureStorage().saveRefreshToken(refreshToken);
-        }
-        await SecureStorage().saveUserId(uid);
-      } catch (_) {}
+      await _persistFirebaseSession(
+        idToken: idToken,
+        refreshToken: refreshToken,
+        uid: uid,
+        expiresAt: DateTime.now().toUtc().add(Duration(seconds: expiresIn)),
+      );
       return {'uid': uid, 'idToken': idToken, 'refreshToken': refreshToken};
     }
 
     try {
       final signInUri = Uri.parse(
           'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$_firebaseWebApiKey');
-      final signInRes = await http
-          .post(
-            signInUri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': cleanEmail,
-              'password': derivedPassword,
-              'returnSecureToken': true,
-            }),
-          )
-          .timeout(const Duration(seconds: 8));
+      final signInRes = await _authPost(
+        signInUri,
+        {'Content-Type': 'application/json'},
+        jsonEncode({
+          'email': cleanEmail,
+          'password': derivedPassword,
+          'returnSecureToken': true,
+        }),
+      );
       final signedIn = await parseAuthResponse(signInRes);
       if (signedIn != null) return signedIn;
 
       final signUpUri = Uri.parse(
           'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$_firebaseWebApiKey');
-      final signUpRes = await http
-          .post(
-            signUpUri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'email': cleanEmail,
-              'password': derivedPassword,
-              'returnSecureToken': true,
-            }),
-          )
-          .timeout(const Duration(seconds: 8));
+      final signUpRes = await _authPost(
+        signUpUri,
+        {'Content-Type': 'application/json'},
+        jsonEncode({
+          'email': cleanEmail,
+          'password': derivedPassword,
+          'returnSecureToken': true,
+        }),
+      );
       return await parseAuthResponse(signUpRes);
     } catch (e) {
       debugPrint('⚠️ [Tech Auth] Firebase Auth error: $e');
@@ -94,61 +244,73 @@ class FirestoreRestClient {
     }
   }
 
+  static bool _isJwtExpiredOrExpiringSoon(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+      final normalized = base64Url.normalize(parts[1]);
+      final payload = jsonDecode(utf8.decode(base64Url.decode(normalized))) as Map<String, dynamic>;
+      final exp = payload['exp'];
+      if (exp is! num) return true;
+      final expMs = exp.toInt() * 1000;
+      return expMs <= DateTime.now().toUtc().millisecondsSinceEpoch + 60000;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  static Future<String?> getValidFirebaseIdToken({
+    bool forceRefresh = false,
+  }) =>
+      _getValidFirebaseIdToken(forceRefresh: forceRefresh);
+
   static Future<String?> _getValidFirebaseIdToken({
     bool forceRefresh = false,
   }) async {
+    if (_cachedFbIdToken == null || _cachedFbRefreshToken == null) {
+      await restoreFirebaseSession();
+    }
+    if (_cachedFbIdToken != null && !isFirebaseIdTokenFormat(_cachedFbIdToken)) {
+      _cachedFbIdToken = null;
+    }
+
     final now = DateTime.now().toUtc();
     if (!forceRefresh &&
         _cachedFbIdToken != null &&
         _isValidJwt(_cachedFbIdToken) &&
-        _cachedFbExpiresAt != null &&
-        _cachedFbExpiresAt!.isAfter(now.add(const Duration(seconds: 60)))) {
+        !_isJwtExpiredOrExpiringSoon(_cachedFbIdToken!)) {
       return _cachedFbIdToken;
-    }
-
-    if (!forceRefresh) {
-      try {
-        final stored = await SecureStorage().getToken();
-        if (_isValidJwt(stored)) {
-          _cachedFbIdToken = stored;
-          return stored;
-        }
-      } catch (_) {}
     }
 
     String? refreshTok = _cachedFbRefreshToken;
     if (refreshTok == null || refreshTok.isEmpty) {
-      try {
-        refreshTok = await SecureStorage().getRefreshToken();
-      } catch (_) {}
+      refreshTok = await SecureStorage().getFirebaseRefreshToken();
     }
 
-    if (refreshTok != null && refreshTok.isNotEmpty) {
+    // Never send a Render HS256 JWT (3 dot-separated segments) to Google securetoken endpoint
+    if (refreshTok != null && refreshTok.isNotEmpty && refreshTok.split('.').length != 3) {
       try {
         final uri = Uri.parse(
             'https://securetoken.googleapis.com/v1/token?key=$_firebaseWebApiKey');
-        final res = await http
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-              body:
-                  'grant_type=refresh_token&refresh_token=${Uri.encodeQueryComponent(refreshTok)}',
-            )
-            .timeout(const Duration(seconds: 6));
+        final res = await _authPost(
+          uri,
+          {'Content-Type': 'application/x-www-form-urlencoded'},
+          'grant_type=refresh_token&refresh_token=${Uri.encodeQueryComponent(refreshTok)}',
+        );
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body) as Map<String, dynamic>;
           final newToken = data['id_token']?.toString();
-          if (newToken != null && _isValidJwt(newToken)) {
-            _cachedFbIdToken = newToken;
-            _cachedFbRefreshToken =
-                data['refresh_token']?.toString() ?? refreshTok;
+          if (newToken != null && isFirebaseIdTokenFormat(newToken)) {
+            final nextRefresh = data['refresh_token']?.toString() ?? refreshTok;
+            final nextUid = data['user_id']?.toString() ?? _cachedFbUid ?? _extractUidFromJwt(newToken) ?? '';
             final expiresIn =
                 int.tryParse(data['expires_in']?.toString() ?? '3600') ?? 3600;
-            _cachedFbExpiresAt = now.add(Duration(seconds: expiresIn));
-            try {
-              await SecureStorage().saveToken(newToken);
-              await SecureStorage().saveRefreshToken(_cachedFbRefreshToken!);
-            } catch (_) {}
+            await _persistFirebaseSession(
+              idToken: newToken,
+              refreshToken: nextRefresh,
+              uid: nextUid,
+              expiresAt: now.add(Duration(seconds: expiresIn)),
+            );
             return newToken;
           }
         }
@@ -578,7 +740,7 @@ class FirestoreRestClient {
         res = await mockHttpHandler!(method, uri, headers: headers, body: body);
       } else {
         final effectiveHeaders = Map<String, String>.from(headers ?? const {});
-        if (!effectiveHeaders.containsKey('Authorization')) {
+        if (refreshedAuth || !effectiveHeaders.containsKey('Authorization')) {
           final idToken = await _getValidFirebaseIdToken(forceRefresh: refreshedAuth);
           if (idToken != null && _isValidJwt(idToken)) {
             effectiveHeaders['Authorization'] = 'Bearer $idToken';
@@ -767,11 +929,7 @@ class FirestoreRestClient {
     }
 
     try {
-      String? authToken;
-      try {
-        authToken = await SecureStorage().getToken();
-      } catch (_) {}
-
+      String? authToken = await _getValidFirebaseIdToken();
       final headers = <String, String>{
         if (_isValidJwt(authToken))
           'Authorization': 'Bearer $authToken',
@@ -797,12 +955,14 @@ class FirestoreRestClient {
       String collection, String docId, Map<String, dynamic> data) async {
     try {
       final cleanId = docId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+      final isCreate = data['_isCreate'] == true;
       final fields = <String, dynamic>{};
       final payload = <String, dynamic>{
         ...data,
         'id': cleanId,
         'updatedAt': DateTime.now().toUtc().toIso8601String(),
       };
+      payload.remove('_isCreate');
       if (collection == 'technician_profiles') {
         const protectedUpdateKeys = {
           'verifiedByAdminUid',
@@ -818,6 +978,9 @@ class FirestoreRestClient {
         for (final k in protectedUpdateKeys) {
           if (k == 'kycStatus' &&
               (payload[k] == 'PENDING' || payload[k] == 'NOT_SUBMITTED')) {
+            continue;
+          }
+          if (isCreate && k == 'accountStatus') {
             continue;
           }
           payload.remove(k);
@@ -849,11 +1012,7 @@ class FirestoreRestClient {
           .join('&');
       final uri = Uri.parse('$baseUrl/$collection/$cleanId?$maskParams');
 
-      String? authToken;
-      try {
-        authToken = await SecureStorage().getToken();
-      } catch (_) {}
-
+      String? authToken = await _getValidFirebaseIdToken();
       final headers = <String, String>{
         'Content-Type': 'application/json',
         if (_isValidJwt(authToken))
@@ -1071,7 +1230,20 @@ class FirestoreRestClient {
       } catch (_) {}
     }
 
-    // 1. Auth OTP Request & Verify (Using Server-Grade Challenge Engine)
+    // 1. Auth OTP Request & Verify
+    // Disabled whenever Render/trusted backend is configured.
+    if (AppConfig.hasConfiguredBackend && cleanPath.contains('/auth/')) {
+      return Response(
+        requestOptions: options,
+        statusCode: 503,
+        data: {
+          'success': false,
+          'retryable': true,
+          'code': 'BACKEND_REQUIRED',
+          'error': 'Authentication requires the trusted backend server.',
+        },
+      );
+    }
     if (cleanPath.contains('/auth/request-otp') ||
         cleanPath.contains('/auth/send-otp') ||
         cleanPath.contains('/auth/resend-otp')) {
@@ -1131,6 +1303,7 @@ class FirestoreRestClient {
       final effectiveLng = (bodyLng != null && bodyLng != 0.0) ? bodyLng : existingLng;
 
       final techDoc = <String, dynamic>{
+        if (existingDoc.isEmpty) '_isCreate': true,
         ...existingDoc,
         'id': internalUid,
         'uid': internalUid,

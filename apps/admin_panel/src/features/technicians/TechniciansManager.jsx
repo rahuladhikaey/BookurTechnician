@@ -163,15 +163,15 @@ export default function TechniciansManager({
 
   // ─── VERIFY / REJECT INDIVIDUAL SKILL ───
   const handleVerifySkill = async (skillItem, newStatus, reason = '') => {
+    if (!selectedTech?.id) return;
     try {
-      await api.verifyTechnicianSkill(skillItem.id, newStatus, reason);
+      const targetSkillId = skillItem.canonicalServiceId || skillItem.skillId || skillItem.id;
+      await api.verifyTechnicianSkill(selectedTech.id, targetSkillId, newStatus, reason);
       auditLogAction?.(
         'Technicians',
         `${newStatus === 'VERIFIED' ? 'Approved' : 'Rejected'} skill "${skillItem.skillName}" for technician ${selectedTech?.name || selectedTech?.fullName}.`
       );
-      if (selectedTech) {
-        await loadTechSkills(selectedTech.id);
-      }
+      await loadTechSkills(selectedTech.id);
       fetchTechs();
     } catch (err) {
       alert('Failed to update skill verification status: ' + err.message);
@@ -256,22 +256,24 @@ export default function TechniciansManager({
 
   // ─── SUSPEND / REACTIVATE ACCOUNT ───
   const handleSuspendTech = async (tech) => {
-    const nextState = tech.status === 'Suspended' ? 'Active' : 'Suspended';
+    const isCurrentlySuspended = String(tech.accountStatus || tech.status || '').toUpperCase() === 'SUSPENDED';
+    const nextState = isCurrentlySuspended ? 'Active' : 'Suspended';
     try {
       await api.updateTechnicianStatus(tech.id, nextState);
       if (setTechnicians) {
         setTechnicians(prev => prev.map(t => t.id === tech.id ? {
           ...t,
-          status: nextState
+          status: nextState,
+          accountStatus: nextState.toUpperCase(),
         } : t));
       }
       if (selectedTech && selectedTech.id === tech.id) {
-        setSelectedTech(prev => ({ ...prev, status: nextState }));
+        setSelectedTech(prev => ({ ...prev, status: nextState, accountStatus: nextState.toUpperCase() }));
       }
 
       auditLogAction?.(
         'Technicians',
-        `Changed account status of ${tech.name} (${tech.code || tech.id}) to ${nextState}`
+        `Changed account status of ${tech.name || tech.fullName} (${tech.code || tech.id}) to ${nextState}`
       );
       fetchTechs();
     } catch (err) {
@@ -422,16 +424,6 @@ export default function TechniciansManager({
           </p>
         </div>
         <div className="page-actions-group" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {technicians.length > 0 && (
-            <button
-              className="btn btn-outline"
-              onClick={handleClearAllTechs}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#DC3545', color: '#DC3545' }}
-              title="Clear all mock/test technician records for clean production slate"
-            >
-              <span>🗑️</span> Reset Test Data
-            </button>
-          )}
           <button
             className="btn btn-outline"
             onClick={fetchTechs}
@@ -440,13 +432,6 @@ export default function TechniciansManager({
           >
             <span className={isSpinning ? 'spin-icon' : ''}>🔄</span>
             <span>{isSpinning ? 'Refreshing...' : 'Refresh Directory'}</span>
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => setShowAddModal(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}
-          >
-            <span>+</span> Register New Partner
           </button>
         </div>
       </div>
@@ -783,19 +768,11 @@ export default function TechniciansManager({
                             🪪 ID
                           </button>
                           <button
-                            className={`btn btn-sm ${t.status === 'Suspended' ? 'btn-primary' : 'btn-danger'}`}
+                            className={`btn btn-sm ${String(t.accountStatus || t.status || '').toUpperCase() === 'SUSPENDED' ? 'btn-primary' : 'btn-danger'}`}
                             style={{ fontSize: '11.5px', padding: '4px 8px' }}
                             onClick={() => handleSuspendTech(t)}
                           >
-                            {t.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
-                          </button>
-                          <button
-                            className="btn btn-outline btn-sm"
-                            style={{ borderColor: '#DC3545', color: '#DC3545', fontSize: '11.5px', padding: '4px 7px' }}
-                            title="Delete Technician"
-                            onClick={() => handleDeleteTech(t)}
-                          >
-                            🗑️
+                            {String(t.accountStatus || t.status || '').toUpperCase() === 'SUSPENDED' ? 'Reactivate' : 'Suspend'}
                           </button>
                         </div>
                       </td>

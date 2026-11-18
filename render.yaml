@@ -1,72 +1,51 @@
 services:
-  # ─── 1. NODE.JS CORE API GATEWAY & SOCKET.IO BACKEND ─────────────────────────
+  # ─── BOOKURTECHNICIAN TRUSTED NODE.JS BACKEND (RENDER FREE + FIREBASE SPARK) ───
+  # Uses Cloud Firestore & Firebase Auth directly via Firebase Admin SDK.
+  # MongoDB, PostgreSQL, Redis, and Kafka are NOT required or provisioned.
   - type: web
     name: bookurtechnician-backend
     runtime: node
-    rootDir: backend/node-core-service
+    rootDir: functions
     plan: free
     region: singapore
     branch: main
-    autoDeploy: true
-    buildCommand: npm install
+    autoDeploy: false
+    buildCommand: npm ci --omit=dev
     startCommand: npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 4000
-      - key: DATABASE_URL
-        fromDatabase:
-          name: bookurtechnician-db
-          property: connectionString
-      - key: MONGO_URI
+      # Render injects PORT automatically (default 10000); app binds 0.0.0.0:$PORT
+      - key: FIREBASE_PROJECT_ID
+        value: bookmytechnician-53d94
+      - key: FIREBASE_STORAGE_BUCKET
+        value: bookmytechnician-53d94.firebasestorage.app
+      # Paste full service account JSON (or base64) in Render Dashboard -> Environment
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: REFRESH_TOKEN_SECRET
         generateValue: true
+      # Admin Portal credentials (must be set in Render Dashboard; never committed)
+      - key: ADMIN_EMAIL
+        sync: false
       - key: ADMIN_SECRET_KEY
-        value: BookurAdminMaster2026#Secure!
-      - key: RAZORPAY_KEY_ID
         sync: false
-      - key: RAZORPAY_KEY_SECRET
-        sync: false
+      # EmailJS credentials must be entered securely in Render Dashboard (never committed)
       - key: EMAILJS_PUBLIC_KEY
-        value: hn2znBkgIi2lY8faY
+        sync: false
       - key: EMAILJS_PRIVATE_KEY
-        value: DLj-DDHXaRY55ww2xu6Jg
+        sync: false
       - key: EMAILJS_SERVICE_ID
-        value: service_u5wyepn
+        sync: false
       - key: EMAILJS_TEMPLATE_ID
-        value: template_gl8uwjj
-      - key: ALLOW_TEST_OTP
-        value: "true"
+        sync: false
+      - key: EMAILJS_ORIGIN
+        value: https://bookmytechnician-53d94.web.app
+      # Firebase Hosting domains (comma-separated)
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://bookmytechnician-53d94.web.app,https://bookmytechnician-53d94.firebaseapp.com
 
-  # ─── 2. REACT VITE ADMIN PANEL (STATIC SITE) ─────────────────────────────────
-  - type: web
-    name: bookurtechnician-admin
-    runtime: static
-    rootDir: apps/admin_panel
-    branch: main
-    autoDeploy: true
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://bookurtechnician-backend.onrender.com/api/v1
-      - key: VITE_API_URL
-        value: https://bookurtechnician-backend.onrender.com/api/v1
-
-databases:
-  # ─── 3. FREE MANAGED POSTGRESQL DATABASE ─────────────────────────────────────
-  - name: bookurtechnician-db
-    databaseName: bookurtechnician
-    user: bookurtechnician
-    plan: free
-    region: singapore
 

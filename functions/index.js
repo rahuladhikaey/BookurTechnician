@@ -1,17 +1,16 @@
-const admin = require('firebase-admin');
 const { onRequest } = require('firebase-functions/v2/https');
+const { initFirebaseAdmin, getFirestoreDb, getFirebaseStatus, verifyFirestoreConnection } = require('./src/firebaseAdmin');
 const { createApp } = require('./src/app');
 
-// Initialize Firebase Admin SDK
-if (!admin.apps.length) {
-  admin.initializeApp();
-}
-
-const db = admin.firestore();
-const app = createApp(db);
+initFirebaseAdmin();
+const db = getFirestoreDb();
+const app = createApp(db, {
+  getFirebaseStatus,
+  verifyFirestoreConnection,
+});
 
 /**
- * 2nd Generation Cloud Functions HTTP API
+ * 2nd Generation Cloud Functions HTTP API (kept compatible alongside standalone Render server.js)
  * Region: asia-south1
  */
 exports.api = onRequest(

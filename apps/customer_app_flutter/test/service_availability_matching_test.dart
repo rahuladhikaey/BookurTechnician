@@ -41,6 +41,8 @@ void main() {
           'id': {'stringValue': 'tech_fan_only'},
           'technicianId': {'stringValue': 'tech_fan_only'},
           'fullName': {'stringValue': 'Fan Specialist'},
+          'accountStatus': {'stringValue': 'ACTIVE'},
+          'kycStatus': {'stringValue': 'VERIFIED'},
           'isOnline': {'booleanValue': true},
           'availabilityStatus': {'stringValue': 'AVAILABLE'},
           'latitude': {'doubleValue': 22.5726},

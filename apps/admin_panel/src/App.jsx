@@ -29,13 +29,8 @@ import FinancialSettlementPortal from './features/payouts/FinancialSettlementPor
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeSubTab, setActiveSubTab] = useState('');
-  const [currentRole, setCurrentRole] = useState('SUPER_ADMIN');
-  const [adminUser, setAdminUser] = useState({
-    id: 'admin-master-001',
-    email: 'admin@bookurtechnician.com',
-    fullName: 'System Administrator',
-    role: 'SUPER_ADMIN'
-  });
+  const [currentRole, setCurrentRole] = useState(null);
+  const [adminUser, setAdminUser] = useState(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
@@ -131,7 +126,6 @@ export default function App() {
             try { localStorage.setItem('bt_cache_services', JSON.stringify(list)); } catch (_) {}
           }
         }),
-        api.getSupportTickets().then(res => { if (res?.data) setSupportTickets(res.data); }),
         api.getAuditLogs().then(res => { if (res?.data) setAuditLogs(res.data); }),
       ]);
     } catch (err) {
@@ -156,13 +150,16 @@ export default function App() {
       api.getAdminMe()
         .then(res => {
           const authUser = res?.user || res?.data;
-          if (authUser) {
+          const verifiedRole = String(authUser?.role || '').toUpperCase();
+          if (authUser && (verifiedRole === 'ADMIN' || verifiedRole === 'SUPER_ADMIN')) {
             setAdminUser(authUser);
+            setCurrentRole(verifiedRole);
             setIsAuthenticated(true);
           } else {
             api.clearToken();
             setIsAuthenticated(false);
             setAdminUser(null);
+            setCurrentRole(null);
           }
         })
         .catch(err => {
@@ -241,7 +238,10 @@ export default function App() {
       <AdminLogin
         onLoginSuccess={(user) => {
           setIsAuthenticated(true);
-          if (user) setAdminUser(user);
+          if (user) {
+            setAdminUser(user);
+            setCurrentRole(String(user.role || '').toUpperCase());
+          }
           loadAllAdminData();
         }}
       />
@@ -334,87 +334,42 @@ export default function App() {
             </div>
           </div>
 
-          <div className={`nav-item ${activeTab === 'availability' ? 'active' : ''}`} onClick={() => selectView('availability')}>
+          <div className="nav-item" style={{ opacity: 0.48, cursor: 'not-allowed' }} title="Post-launch feature">
             <div className="nav-item-content">
               <span className="nav-icon">🗓️</span>
-              <span>Availability Management</span>
+              <span>Availability Slots</span>
             </div>
+            <span className="nav-badge">SOON</span>
           </div>
 
           <div className={`nav-item ${activeTab === 'service_areas' ? 'active' : ''}`} onClick={() => selectView('service_areas')}>
             <div className="nav-item-content">
               <span className="nav-icon">📍</span>
-              <span>Service Areas</span>
+              <span>Dispatch Monitor</span>
             </div>
           </div>
 
-          <div className="nav-section-title">FINANCE &amp; SETTLEMENT</div>
+          <div className="nav-section-title">FINANCE &amp; GROWTH (POST-LAUNCH)</div>
 
-          <div className={`nav-item ${activeTab === 'payments' ? 'active' : ''}`} onClick={() => selectView('payments', 'transactions')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">💳</span>
-              <span>Payments</span>
+          {[
+            { icon: '💳', label: 'Payments' },
+            { icon: '↩️', label: 'Refunds' },
+            { icon: '💰', label: 'Technician Earnings' },
+            { icon: '🏦', label: 'Withdrawals' },
+            { icon: '⭐', label: 'Reviews' },
+            { icon: '🎧', label: 'Support Tickets' },
+            { icon: '🎁', label: 'Promotions' },
+            { icon: '🔔', label: 'Notifications' },
+            { icon: '📊', label: 'Reports & Analytics' },
+          ].map((item) => (
+            <div key={item.label} className="nav-item" style={{ opacity: 0.48, cursor: 'not-allowed' }} title="Post-launch module — disabled for initial release">
+              <div className="nav-item-content">
+                <span className="nav-icon">{item.icon}</span>
+                <span>{item.label}</span>
+              </div>
+              <span className="nav-badge">SOON</span>
             </div>
-          </div>
-
-          <div className={`nav-item ${activeTab === 'refunds' ? 'active' : ''}`} onClick={() => selectView('refunds')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">↩️</span>
-              <span>Refunds</span>
-            </div>
-          </div>
-
-          <div className={`nav-item ${activeTab === 'settlements' && activeSubTab !== 'withdrawals' ? 'active' : ''}`} onClick={() => selectView('settlements', 'earnings')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">💰</span>
-              <span>Technician Earnings</span>
-            </div>
-          </div>
-
-          <div className={`nav-item ${activeTab === 'settlements' && activeSubTab === 'withdrawals' ? 'active' : ''}`} onClick={() => selectView('settlements', 'withdrawals')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">🏦</span>
-              <span>Withdrawals</span>
-            </div>
-          </div>
-
-          <div className="nav-section-title">SUPPORT, GROWTH &amp; GOVERNANCE</div>
-
-          <div className={`nav-item ${activeTab === 'reviews' ? 'active' : ''}`} onClick={() => selectView('reviews')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">⭐</span>
-              <span>Reviews</span>
-            </div>
-          </div>
-
-          <div className={`nav-item ${activeTab === 'support' ? 'active' : ''}`} onClick={() => selectView('support')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">🎧</span>
-              <span>Support Tickets</span>
-            </div>
-            <span className="nav-badge nav-badge-royal">{supportTickets.length}</span>
-          </div>
-
-          <div className={`nav-item ${activeTab === 'banners' ? 'active' : ''}`} onClick={() => selectView('banners')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">🎁</span>
-              <span>Promotions</span>
-            </div>
-          </div>
-
-          <div className={`nav-item ${activeTab === 'ai_assistant' ? 'active' : ''}`} onClick={() => selectView('ai_assistant')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">🔔</span>
-              <span>Notifications</span>
-            </div>
-          </div>
-
-          <div className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => selectView('reports')}>
-            <div className="nav-item-content">
-              <span className="nav-icon">📊</span>
-              <span>Reports &amp; Analytics</span>
-            </div>
-          </div>
+          ))}
 
           <div className={`nav-item ${activeTab === 'audit_logs' && activeSubTab !== 'settings' ? 'active' : ''}`} onClick={() => selectView('audit_logs', 'audit')}>
             <div className="nav-item-content">

@@ -353,7 +353,10 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(bookingProvider.notifier).fetchSingleServiceAvailability(widget.serviceId);
+      ref.read(bookingProvider.notifier).fetchSingleServiceAvailability(
+        widget.serviceId,
+        forceRefresh: true,
+      );
     });
   }
 
@@ -603,7 +606,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
     final availText = state.getServiceAvailabilityText(service.id);
     final isRefreshing = state.isServiceRefreshing(service.id);
 
-    String subtitleText = 'No partners online in 15 km with matching skills right now.';
+    String subtitleText = 'No technicians currently available for this service in your area.';
     if (hasTechs && state.isAvailabilityCached) {
       subtitleText = 'High demand in area • Nearest partner assigned live on booking';
     } else if (hasTechs) {
@@ -1736,100 +1739,31 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                         ),
                         const SizedBox(height: 10),
 
-                        // Pay Online (Razorpay / UPI / Card)
-                        ElevatedButton(
-                          onPressed: isProcessing
-                              ? null
-                              : () async {
-                                  final currentCount = ref.read(bookingProvider).getServiceAvailabilityCount(service.id);
-                                  final aState = ref.read(bookingProvider).getServiceAvailabilityState(service.id);
-                                  if (currentCount == 0 &&
-                                      aState != ServiceAvailabilityState.quotaExceeded &&
-                                      aState != ServiceAvailabilityState.checkingAvailability) {
-                                    _showNoTechnicianDialog(context, service.name);
-                                    return;
-                                  }
-                                  setModalState(() => isProcessing = true);
-                                  final code = 'BT-${10000000 + Random().nextInt(90000000)}';
-                                  final bkgId = 'bkg_${DateTime.now().millisecondsSinceEpoch}';
-
-                                  final booked = await ref.read(bookingProvider.notifier).confirmDirectServiceBooking(
-                                        service: service,
-                                        date: selectedDate,
-                                        slot: selectedSlot,
-                                        paymentMethod: 'ONLINE_RAZORPAY',
-                                        customBookingCode: code,
-                                        customBookingId: bkgId,
-                                      );
-
-                                  if (!ctx.mounted) return;
-                                  setModalState(() => isProcessing = false);
-
-                                  if (booked == null) {
-                                    final errState = ref.read(bookingProvider);
-                                    final errCode = errState.bookingErrorCode ?? 'BOOKING_REJECTED';
-                                    final errMsg = errState.bookingError ?? 'Unable to assign a verified technician right now.';
-                                    Navigator.pop(modalCtx);
-                                    if (!context.mounted) return;
-                                    showDialog(
-                                      context: context,
-                                      builder: (dCtx) => AlertDialog(
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                        title: Row(
-                                          children: [
-                                            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC3545)),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                'Booking Not Confirmed ($errCode)',
-                                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        content: Text(
-                                          errMsg,
-                                          style: const TextStyle(fontSize: 13, color: kSecondaryText, height: 1.4),
-                                        ),
-                                        actions: [
-                                          ElevatedButton(
-                                            onPressed: () => Navigator.pop(dCtx),
-                                            style: ElevatedButton.styleFrom(backgroundColor: kBlack, foregroundColor: Colors.white),
-                                            child: const Text('OK'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    return;
-                                  }
-
-                                  Navigator.pop(modalCtx); // Close sheet
-                                  if (!context.mounted) return;
-
-                                  // Direct Dispatch to Live Tracking Page (100% Real GPS & PostGIS Stream)
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => BookingTrackingScreen(
-                                        bookingId: booked.id,
-                                      ),
-                                    ),
-                                  );
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF46B12),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.payment_rounded, size: 18, color: Colors.white),
-                              SizedBox(width: 8),
-                              Text('Pay Online (Razorpay / UPI / Card)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                            ],
+                        // Pay Online (Disabled for Initial Release — Post-Launch)
+                        Opacity(
+                          opacity: 0.55,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Online pre-payment is coming soon. Please choose Pay After Service (Cash / UPI).'),
+                                ),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.grey.shade400),
+                              foregroundColor: kSecondaryText,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.lock_clock_outlined, size: 18),
+                                SizedBox(width: 8),
+                                Text('Pay Online (Coming Soon)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 10),

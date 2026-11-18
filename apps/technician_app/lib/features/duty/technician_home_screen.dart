@@ -138,10 +138,9 @@ class _TechnicianHomeScreenState extends State<TechnicianHomeScreen> {
                   ),
                   IconButton(
                     onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => WalletScreen(userId: widget.userId),
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Self-serve wallet withdrawals are coming soon.'),
                         ),
                       );
                     },

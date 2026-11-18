@@ -89,7 +89,7 @@ async function runTests() {
   await test('4. POST /createBooking creates booking and isolates OTP secrets', async () => {
     const res = await request('/createBooking', {
       method: 'POST',
-      headers: { 'x-mock-user-id': 'customer_test_01' },
+      headers: { 'x-mock-user-id': 'customer_test_01', 'x-mock-role': 'CUSTOMER' },
       body: {
         customerName: 'Rahul Customer',
         customerPhone: '+919876543210',
@@ -124,6 +124,7 @@ async function runTests() {
   await db.collection('technician_profiles').doc('tech_electrician_only').set({
     id: 'tech_electrician_only',
     name: 'Kakali Goswami',
+    accountStatus: 'ACTIVE',
     isOnline: true,
     availabilityStatus: 'AVAILABLE',
     kycStatus: 'VERIFIED',
@@ -138,6 +139,7 @@ async function runTests() {
   await db.collection('technician_profiles').doc('tech_ac_specialist').set({
     id: 'tech_ac_specialist',
     name: 'Subhashish AC Pro',
+    accountStatus: 'ACTIVE',
     isOnline: true,
     availabilityStatus: 'AVAILABLE',
     kycStatus: 'VERIFIED',
@@ -151,6 +153,7 @@ async function runTests() {
   await db.collection('technician_profiles').doc('tech_ac_disabled').set({
     id: 'tech_ac_disabled',
     name: 'Sunil Disabled AC',
+    accountStatus: 'ACTIVE',
     isOnline: true,
     availabilityStatus: 'AVAILABLE',
     kycStatus: 'VERIFIED',
@@ -164,6 +167,7 @@ async function runTests() {
   await db.collection('technician_profiles').doc('tech_ac_competitor').set({
     id: 'tech_ac_competitor',
     name: 'Ramesh Competitor',
+    accountStatus: 'ACTIVE',
     isOnline: true,
     availabilityStatus: 'AVAILABLE',
     kycStatus: 'VERIFIED',
@@ -360,7 +364,7 @@ async function runTests() {
     // Create quick secondary booking for lockout test
     const bkgRes = await request('/createBooking', {
       method: 'POST',
-      headers: { 'x-mock-user-id': 'customer_test_01' },
+      headers: { 'x-mock-user-id': 'customer_test_01', 'x-mock-role': 'CUSTOMER' },
       body: {
         serviceId: 'sk_ac_installation',
         serviceName: 'AC installation',
@@ -444,7 +448,7 @@ async function runTests() {
   await test('17. Customer OTP retrieval allows customer but blocks technician', async () => {
     // Customer retrieval
     const cRes = await request(`/bookings/${testBookingId}/customer-otps`, {
-      headers: { 'x-mock-user-id': 'customer_test_01' },
+      headers: { 'x-mock-user-id': 'customer_test_01', 'x-mock-role': 'CUSTOMER' },
     });
     assert.strictEqual(cRes.status, 200);
     assert.strictEqual(cRes.data.startOtp, testStartOtp);

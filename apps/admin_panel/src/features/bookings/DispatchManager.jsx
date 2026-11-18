@@ -92,37 +92,7 @@ export default function DispatchManager({ bookings = [], setBookings, technician
     }
   };
 
-  const handleManualAssign = async (tech) => {
-    if (!selectedBookingId) {
-      alert('Please select a booking first from the left panel.');
-      return;
-    }
-
-    try {
-      await api.manualAssignDispatch(selectedBookingId, tech.id || tech.technicianId, 'ADMIN_MANUAL_ASSIGNMENT');
-      await api.assignBooking(selectedBookingId, { technicianId: tech.id || tech.technicianId, technicianName: tech.name });
-
-      if (setBookings) {
-        setBookings(prev => prev.map(b => {
-          if (b.id === selectedBookingId) {
-            return {
-              ...b,
-              technicianId: tech.id || tech.technicianId,
-              technician: tech.name,
-              technicianName: tech.name,
-              status: 'ASSIGNED',
-            };
-          }
-          return b;
-        }));
-      }
-
-      auditLogAction?.('Manual Dispatch', `Manually assigned technician ${tech.name} (${tech.code || tech.id}) to Booking ${selectedBookingId}`);
-      loadLiveDispatch();
-    } catch (err) {
-      alert('Failed to assign technician: ' + err.message);
-    }
-  };
+  // Monitoring-only policy: manual booking assignment is disabled (technicians self-accept).
 
   const handleRetryDispatch = async (bookingId) => {
     try {
@@ -136,77 +106,19 @@ export default function DispatchManager({ bookings = [], setBookings, technician
 
   return (
     <div className="dispatch-manager">
-      {/* Top Dispatch Engine Configuration & Auto-Dispatch Bar */}
+        {/* Right-top read-only monitoring status banner */}
       <div className="panel m-b-20" style={{ padding: '16px 20px' }}>
-        <div className="flex-between" style={{ flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+        <div className="flex-between" style={{ flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h3 style={{ fontSize: '16px', margin: 0 }}>Automatic Sequential Dispatch Engine Control</h3>
+            <h3 style={{ fontSize: '16px', margin: 0 }}>Automatic Self-Accept Dispatch Monitor (Read-Only)</h3>
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              PostGIS Radial Search (3 km → 5 km → 10 km → 15 km), Multi-Factor AI Ranking & Sequential Offer Cascade
+              15 km Haversine Eligibility Filter • Technician Self-Accept Transaction • Monitoring-Only Policy (No Manual Assignment)
             </p>
           </div>
           <div className="flex-gap">
-            <span style={{ fontSize: '12px', fontWeight: '700' }}>Auto-Dispatch Engine:</span>
-            <button
-              className={`btn btn-sm ${config.autoDispatchEnabled ? 'btn-primary' : 'btn-outline'}`}
-              onClick={async () => {
-                const nextState = !config.autoDispatchEnabled;
-                setConfig(prev => ({ ...prev, autoDispatchEnabled: nextState }));
-                try {
-                  await api.updateDispatchConfig({ autoDispatchEnabled: nextState });
-                  auditLogAction?.('Dispatch Config', `Set Auto-Dispatch to ${nextState}`);
-                } catch (_) {}
-              }}
-            >
-              {config.autoDispatchEnabled ? 'ACTIVE (SEQUENTIAL AUTO)' : 'PAUSED (MANUAL OVERRIDE)'}
-            </button>
-          </div>
-        </div>
-
-        {/* Configurable Radii, Offer Timeout & Max Attempts */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', alignItems: 'end' }}>
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-              Search Radii Tiers (km)
-            </label>
-            <input
-              type="text"
-              className="form-control"
-              value={radiiInput}
-              onChange={e => setRadiiInput(e.target.value)}
-              placeholder="3, 5, 10, 15"
-            />
-          </div>
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-              Offer Timeout (15–20 sec)
-            </label>
-            <input
-              type="number"
-              className="form-control"
-              min={5}
-              max={60}
-              value={config.offerTimeoutSeconds}
-              onChange={e => setConfig(prev => ({ ...prev, offerTimeoutSeconds: Number(e.target.value) }))}
-            />
-          </div>
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: '700', display: 'block', marginBottom: '4px' }}>
-              Max Dispatch Attempts
-            </label>
-            <input
-              type="number"
-              className="form-control"
-              min={1}
-              max={30}
-              value={config.maxTotalAttempts}
-              onChange={e => setConfig(prev => ({ ...prev, maxTotalAttempts: Number(e.target.value) }))}
-            />
-          </div>
-          <div>
-            <button className="btn btn-primary btn-sm" onClick={handleSaveConfig} disabled={savingConfig}>
-              {savingConfig ? 'Saving...' : 'Save Dispatch Config'}
-            </button>
+            <span className="badge badge-completed" style={{ fontSize: '11px', fontWeight: '700' }}>
+              MONITORING ACTIVE
+            </span>
           </div>
         </div>
       </div>
@@ -241,18 +153,6 @@ export default function DispatchManager({ bookings = [], setBookings, technician
                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
                   <strong>Customer:</strong> {b.customer?.fullName || b.customerName || b.customer || 'Customer'} | <strong>Tech:</strong> {b.technicianName || b.technician || 'Searching...'}
                 </div>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    style={{ fontSize: '11px', padding: '3px 8px' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRetryDispatch(b.id);
-                    }}
-                  >
-                    🔄 Retry Auto-Dispatch
-                  </button>
-                </div>
               </div>
             ))}
           </div>
@@ -272,10 +172,10 @@ export default function DispatchManager({ bookings = [], setBookings, technician
           )}
         </div>
 
-        {/* Right Side: Available Verified Technicians for Manual Assign / Reassign */}
+        {/* Right Side: Online Verified Technicians Monitor (Read-Only — Self-Accept Enforced) */}
         <div className="dispatch-panel panel" style={{ margin: 0 }}>
           <h4 style={{ fontSize: '14px', borderBottom: '1px solid var(--border-glass)', paddingBottom: '8px' }}>
-            Verified Online Technicians ({activeTechnicians.length})
+            Verified Online Technicians ({activeTechnicians.length}) — Monitoring Only
           </h4>
           <div className="dispatch-list" style={{ maxHeight: '420px', overflowY: 'auto' }}>
             {activeTechnicians.map(t => (
@@ -290,14 +190,8 @@ export default function DispatchManager({ bookings = [], setBookings, technician
                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                   Rating: ★ {t.rating || 4.9} | Phone: {t.phone}
                 </div>
-                <div style={{ marginTop: '8px', textAlign: 'right' }}>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    disabled={!selectedBookingId}
-                    onClick={() => handleManualAssign(t)}
-                  >
-                    Assign / Reassign Selected Booking →
-                  </button>
+                <div style={{ marginTop: '8px', textAlign: 'right', fontSize: '11px', color: '#77716C', fontWeight: '600' }}>
+                  📡 Receives auto-dispatched offers within 15 km
                 </div>
               </div>
             ))}

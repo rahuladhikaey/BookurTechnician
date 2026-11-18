@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/semantic_colors.dart';
 import '../../../shared/widgets/primary_button.dart';
@@ -236,7 +237,7 @@ class _DocumentUploadOnboardingPageState
       }
 
       // 1. Submit Selfie / Live Photo
-      await _profileService.submitKycDocument(
+      final selfieSubmitted = await _profileService.submitKycDocument(
         documentType: 'SELFIE',
         fileUrl: selfieUrl,
         maskedNumber: 'LIVE_SELFIE',
@@ -244,7 +245,7 @@ class _DocumentUploadOnboardingPageState
       await _profileService.uploadProfilePhoto(selfieUrl);
 
       // 2. Submit Aadhaar Card Document
-      await _profileService.submitKycDocument(
+      final aadhaarSubmitted = await _profileService.submitKycDocument(
         documentType: 'AADHAAR',
         fileUrl: aadhaarUrl,
         maskedNumber: aadhaarNum,
@@ -260,14 +261,17 @@ class _DocumentUploadOnboardingPageState
       }
 
       // 4. Update UPI Payout ID
-      await _profileService.updateProfile(upiId: upiId, profileImageUrl: selfieUrl);
+      final updatedProfile = await _profileService.updateProfile(upiId: upiId, profileImageUrl: selfieUrl);
+      if (AppConfig.hasConfiguredBackend && (!selfieSubmitted || !aadhaarSubmitted || updatedProfile == null)) {
+        throw Exception('Could not persist KYC documents & profile to server. Please check connection and retry.');
+      }
 
       if (mounted) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: SemanticColors.success,
-            content: Text('Saved to server! Documents & UPI verified. Next, select your skills.'),
+            content: Text('KYC documents & UPI submitted! Pending admin review. Next, select your skills.'),
           ),
         );
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint, kReleaseMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -150,7 +151,7 @@ class AppState {
         final count = getServiceAvailabilityCount(serviceId);
         return count == 1 ? '1 technician online nearby' : '$count technicians online nearby';
       case ServiceAvailabilityState.noTechniciansAvailable:
-        return 'Currently no technician available';
+        return 'No technicians currently available for this service in your area.';
       case ServiceAvailabilityState.networkError:
         return 'Connection error. Tap Reload to retry';
       case ServiceAvailabilityState.quotaExceeded:
@@ -287,6 +288,8 @@ class BookingNotifier extends StateNotifier<AppState> {
     initAppSession();
   }
 
+  Timer? _availabilityRefreshTimer;
+
   /// Initialize application session: restore persisted login state & real GPS location
   Future<void> initAppSession() async {
     await restoreSession();
@@ -297,6 +300,18 @@ class BookingNotifier extends StateNotifier<AppState> {
     loadBookingHistory();
     autoAcquireGpsLocation();
     _initSocketListener();
+    _startAvailabilityPolling();
+  }
+
+  void _startAvailabilityPolling() {
+    _availabilityRefreshTimer?.cancel();
+    _availabilityRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      final lat = state.selectedLatitude ?? state.lastAvailabilityLatitude ?? state.profile.primaryAddress?.latitude;
+      final lng = state.selectedLongitude ?? state.lastAvailabilityLongitude ?? state.profile.primaryAddress?.longitude;
+      if (lat != null && lng != null) {
+        fetchNearbyAvailability(lat: lat, lng: lng, forceRefresh: true);
+      }
+    });
   }
 
   /// Restore cached categories and availability from SharedPreferences on app restart,
@@ -425,8 +440,14 @@ class BookingNotifier extends StateNotifier<AppState> {
     }
   }
 
-  /// Candidate URLs for availability discovery (empty in pure Firebase mode to prioritize Firestore)
+  /// Candidate URLs for availability discovery (uses Render/backend URL when configured; otherwise Firebase-first)
   List<String> get _availabilityCandidates {
+    if (FirestoreRestClient.mockHttpHandler != null) {
+      return const [];
+    }
+    if (AppConfig.hasConfiguredBackend) {
+      return [AppConfig.backendBaseUrl];
+    }
     if (AppConfig.isFirebasePrimary) {
       return const [];
     }
@@ -451,8 +472,21 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   /// Real 15 KM Nearby Technician Spatial Availability API Client
   Future<void> fetchNearbyAvailability({double? lat, double? lng, bool forceRefresh = false}) async {
-    final targetLat = lat ?? state.selectedLatitude ?? 22.5726;
-    final targetLng = lng ?? state.selectedLongitude ?? 88.3639;
+    final targetLat = lat ?? state.selectedLatitude ?? state.lastAvailabilityLatitude ?? state.profile.primaryAddress?.latitude;
+    final targetLng = lng ?? state.selectedLongitude ?? state.lastAvailabilityLongitude ?? state.profile.primaryAddress?.longitude;
+
+    if (targetLat == null || targetLng == null || targetLat == 0.0 || targetLng == 0.0) {
+      final states = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
+      for (final cat in state.categories) {
+        for (final sub in cat.subcategories) {
+          for (final s in sub.services) {
+            states[s.id] = ServiceAvailabilityState.locationUnavailable;
+          }
+        }
+      }
+      state = state.copyWith(isAvailabilityLoading: false, serviceAvailabilityStates: states);
+      return;
+    }
 
     // ⚡ Quota Protection: Cooldown threshold (15s) prevents rapid consecutive collection scans
     final lastFetch = state.lastAvailabilityFetchTime;
@@ -478,7 +512,9 @@ class BookingNotifier extends StateNotifier<AppState> {
           final response = await http.get(
             Uri.parse(fullUrl),
             headers: {'Content-Type': 'application/json'},
-          ).timeout(const Duration(milliseconds: 1200));
+          ).timeout(AppConfig.hasConfiguredBackend
+              ? AppConfig.requestTimeout
+              : const Duration(milliseconds: 1200));
 
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
@@ -609,8 +645,14 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   /// Real 15 KM Single Service Availability Fetcher
   Future<int?> fetchSingleServiceAvailability(String serviceId, {double? lat, double? lng, bool forceRefresh = false}) async {
-    final targetLat = lat ?? state.selectedLatitude ?? 22.5726;
-    final targetLng = lng ?? state.selectedLongitude ?? 88.3639;
+    final targetLat = lat ?? state.selectedLatitude ?? state.lastAvailabilityLatitude ?? state.profile.primaryAddress?.latitude;
+    final targetLng = lng ?? state.selectedLongitude ?? state.lastAvailabilityLongitude ?? state.profile.primaryAddress?.longitude;
+    if (targetLat == null || targetLng == null || targetLat == 0.0 || targetLng == 0.0) {
+      final updatedStates = Map<String, ServiceAvailabilityState>.from(state.serviceAvailabilityStates);
+      updatedStates[serviceId] = ServiceAvailabilityState.locationUnavailable;
+      state = state.copyWith(serviceAvailabilityStates: updatedStates);
+      return null;
+    }
     final forceQuery = forceRefresh ? '&forceRefresh=true' : '';
 
     for (final base in _availabilityCandidates) {
@@ -619,7 +661,9 @@ class BookingNotifier extends StateNotifier<AppState> {
         final response = await http.get(
           Uri.parse(fullUrl),
           headers: {'Content-Type': 'application/json'},
-        ).timeout(const Duration(milliseconds: 1200));
+        ).timeout(AppConfig.hasConfiguredBackend
+            ? AppConfig.requestTimeout
+            : const Duration(milliseconds: 1200));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -743,9 +787,9 @@ class BookingNotifier extends StateNotifier<AppState> {
       final lng = state.selectedLongitude;
 
       if (lat != null && lng != null) {
-        final count = await fetchSingleServiceAvailability(serviceId, lat: lat, lng: lng);
+        final count = await fetchSingleServiceAvailability(serviceId, lat: lat, lng: lng, forceRefresh: true);
         // Also refresh overall catalog availability in background
-        fetchNearbyAvailability(lat: lat, lng: lng);
+        fetchNearbyAvailability(lat: lat, lng: lng, forceRefresh: true);
         return count;
       }
     } catch (e) {
@@ -786,7 +830,9 @@ class BookingNotifier extends StateNotifier<AppState> {
         final response = await http.get(
           uri,
           headers: {'Content-Type': 'application/json'},
-        ).timeout(const Duration(seconds: 5));
+        ).timeout(AppConfig.hasConfiguredBackend
+            ? AppConfig.requestTimeout
+            : const Duration(seconds: 5));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -835,9 +881,13 @@ class BookingNotifier extends StateNotifier<AppState> {
       final userId = session['userId'];
       final profileJson = session['profileJson'];
 
-      final hasSession = (token != null && token.isNotEmpty) || (userId != null && userId.isNotEmpty) || (phone != null && phone.isNotEmpty) || (email != null && email.isNotEmpty);
+      final hasSession = (token != null && token.isNotEmpty && !token.startsWith('fb_cust_tok_')) ||
+          (userId != null && userId.isNotEmpty);
 
       if (hasSession) {
+        await FirestoreRestClient.restoreFirebaseSession();
+        // Ensure Firebase ID token is refreshed cleanly on restart (never silently falls back to Anonymous Auth)
+        await FirestoreRestClient.getValidFirebaseIdToken(allowAnonymousFallback: false);
         CustomerProfile restoredProfile;
 
         if (profileJson != null && profileJson.isNotEmpty) {
@@ -995,10 +1045,10 @@ class BookingNotifier extends StateNotifier<AppState> {
 
       // Keep locally saved session in sync
       final currentSession = await ApiClient.getUserSession();
-      final activeToken = currentSession['accessToken'] ?? 'sess_jwt_${DateTime.now().millisecondsSinceEpoch}';
+      final activeToken = currentSession['accessToken'] ?? '';
       await ApiClient.saveUserSession(
         accessToken: activeToken,
-        refreshToken: currentSession['refreshToken'] ?? activeToken,
+        refreshToken: currentSession['refreshToken'] ?? '',
         userId: updatedUserId,
         name: updatedName,
         phone: updatedPhone,
@@ -1102,6 +1152,7 @@ class BookingNotifier extends StateNotifier<AppState> {
           final title = suburb.isNotEmpty ? suburb : city;
           final formattedAddr = displayName ?? '$title, $city';
 
+          if (!mounted) return;
           state = state.copyWith(
             selectedLatitude: lat,
             selectedLongitude: lng,
@@ -1130,13 +1181,14 @@ class BookingNotifier extends StateNotifier<AppState> {
             );
             addCustomerAddress(autoAddress);
           }
-          fetchNearbyAvailability(lat: lat, lng: lng);
+          fetchNearbyAvailability(lat: lat, lng: lng, forceRefresh: true);
           return;
         }
       } catch (e) {
         debugPrint('Reverse geocoding lookup warning: $e');
       }
 
+      if (!mounted) return;
       state = state.copyWith(
         selectedLatitude: lat,
         selectedLongitude: lng,
@@ -1144,9 +1196,10 @@ class BookingNotifier extends StateNotifier<AppState> {
         address: 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}',
         isAcquiringLocation: false,
       );
-      fetchNearbyAvailability(lat: lat, lng: lng);
+      fetchNearbyAvailability(lat: lat, lng: lng, forceRefresh: true);
     } catch (e) {
       debugPrint('Auto GPS error: $e');
+      if (!mounted) return;
       state = state.copyWith(
         isAcquiringLocation: false,
         selectedAddressTitle: 'Select Location',
@@ -1169,11 +1222,15 @@ class BookingNotifier extends StateNotifier<AppState> {
     String? refreshToken,
   }) async {
     final cleanPhone = phone.startsWith('+91') ? phone : '+91 $phone';
-    final uid = userId ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
-    final token = accessToken ?? 'bt_jwt_${DateTime.now().millisecondsSinceEpoch}';
-    final rToken = refreshToken ?? token;
+    final uid = (userId ?? '').trim();
+    final token = (accessToken ?? '').trim();
+    final rToken = (refreshToken ?? '').trim();
 
-    // Persist credentials locally
+    if (uid.isEmpty || token.isEmpty || token.startsWith('fb_cust_tok_')) {
+      throw StateError('Valid authenticated backend userId and session token are required');
+    }
+
+    // Persist credentials locally (Firebase tokens are stored separately by FirestoreRestClient)
     await ApiClient.saveUserSession(
       accessToken: token,
       refreshToken: rToken,
@@ -1268,12 +1325,12 @@ class BookingNotifier extends StateNotifier<AppState> {
 
     state = state.copyWith(profile: updated);
 
-    // Persist to session locally
+    // Persist to session locally without synthesizing fake JWTs
     final session = await ApiClient.getUserSession();
-    final token = session['accessToken'] ?? 'sess_jwt_${DateTime.now().millisecondsSinceEpoch}';
+    final token = session['accessToken'] ?? '';
     await ApiClient.saveUserSession(
       accessToken: token,
-      refreshToken: session['refreshToken'] ?? token,
+      refreshToken: session['refreshToken'] ?? '',
       userId: state.profile.userId,
       name: updated.fullName,
       phone: updated.phone,
@@ -1493,7 +1550,7 @@ class BookingNotifier extends StateNotifier<AppState> {
     addCustomerAddress(addr);
 
     if (finalLat != null && finalLng != null) {
-      fetchNearbyAvailability(lat: finalLat, lng: finalLng);
+      fetchNearbyAvailability(lat: finalLat, lng: finalLng, forceRefresh: true);
     }
   }
 
@@ -2273,6 +2330,13 @@ class BookingNotifier extends StateNotifier<AppState> {
 
   void clearPaymentStatus() {
     state = state.copyWith(paymentStatus: PaymentStatus.idle, clearPaymentError: true);
+  }
+
+  @override
+  void dispose() {
+    _availabilityRefreshTimer?.cancel();
+    _notificationSocket?.dispose();
+    super.dispose();
   }
 }
 

@@ -2,11 +2,12 @@
   "name": "functions",
   "description": "BookurTechnician Trusted Firebase Backend Cloud Functions (2nd Gen)",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "engines": {
     "node": "20"
   },
   "scripts": {
+    "start": "node server.js",
     "test": "node tests/unit_test.js && node tests/self_accept_dispatch_test.js && node tests/skill_save_test.js"
   },
   "dependencies": {

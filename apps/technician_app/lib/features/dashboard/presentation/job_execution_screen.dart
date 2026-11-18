@@ -1210,101 +1210,43 @@ class _JobExecutionScreenState extends ConsumerState<JobExecutionScreen> {
 
             const SizedBox(height: 20),
 
-            // ─── ACTION BUTTONS: PROOF + DUAL-OTP + ADD-ONS ───
+            // ─── LAUNCH ACTION BUTTONS: DUAL-OTP EXECUTION (ADD-ONS & PHOTO PROOF POST-LAUNCH) ───
             if (!isInProgress && !isCompleted) ...[
-              if (_beforePhotoUrl == null)
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: _isUploadingPhoto ? null : () => _captureProofOfWork('BEFORE'),
-                    icon: _isUploadingPhoto
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.camera_alt, size: 22),
-                    label: const Text(
-                      '1. Capture Before Photo (Mandatory)',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF46B12),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _showStartOtpDialog,
-                    icon: const Icon(Icons.play_arrow_rounded, size: 24),
-                    label: const Text(
-                      '2. Start Service (Verify Start OTP)',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF46B12),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                ),
-            ] else if (isInProgress) ...[
-              // Addon Button
               SizedBox(
                 width: double.infinity,
-                height: 44,
-                child: OutlinedButton.icon(
-                  onPressed: _showAddonRequestDialog,
-                  icon: const Icon(Icons.add_shopping_cart, size: 18),
-                  label: const Text('+ Request Add-on Spare Parts / Extra Work', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFE5A126),
-                    side: const BorderSide(color: Color(0xFFE5A126)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _showStartOtpDialog,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 24),
+                  label: const Text(
+                    'Start Service (Verify Start OTP)',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF46B12),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              if (_afterPhotoUrl == null)
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: _isUploadingPhoto ? null : () => _captureProofOfWork('AFTER'),
-                    icon: _isUploadingPhoto
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.camera_alt, size: 22),
-                    label: const Text(
-                      '3. Capture Completed Work Photo',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF46B12),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
+            ] else if (isInProgress) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _showEndOtpDialog,
+                  icon: const Icon(Icons.check_circle_outline_rounded, size: 24),
+                  label: const Text(
+                    'Complete Service (Enter End OTP)',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
                   ),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _showEndOtpDialog,
-                    icon: const Icon(Icons.check_circle_outline_rounded, size: 24),
-                    label: const Text(
-                      '4. Complete Service (Enter End OTP)',
-                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14.5),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF198754),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF198754),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
+              ),
             ] else ...[
               // Completed State
               Container(

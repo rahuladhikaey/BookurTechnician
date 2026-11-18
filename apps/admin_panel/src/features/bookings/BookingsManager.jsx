@@ -20,8 +20,6 @@ export default function BookingsManager({ bookings = [], setBookings, technician
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [paymentFilter, setPaymentFilter] = useState('ALL');
   const [serviceFilter, setServiceFilter] = useState('ALL');
-  const [reassignTechModal, setReassignTechModal] = useState(false);
-  const [selectedNewTech, setSelectedNewTech] = useState('');
   const [copiedField, setCopiedField] = useState('');
   const [localRefreshing, setLocalRefreshing] = useState(false);
 
@@ -80,72 +78,6 @@ export default function BookingsManager({ bookings = [], setBookings, technician
     setTimeout(() => setCopiedField(''), 2000);
   };
 
-  const handleUpdateStatus = async (bookingId, newStatus) => {
-    try {
-      await api.updateBookingStatus(bookingId, newStatus);
-      const old = bookings.find(b => b.id === bookingId || b.bookingCode === bookingId);
-      setBookings(prev => prev.map(b => (b.id === bookingId || b.bookingCode === bookingId) ? { ...b, status: newStatus } : b));
-      auditLogAction?.('Bookings', `Updated status of ${bookingId} from ${old?.status} to ${newStatus}`);
-      if (selectedBooking && (selectedBooking.id === bookingId || selectedBooking.bookingCode === bookingId)) {
-        setSelectedBooking(prev => ({ ...prev, status: newStatus }));
-      }
-      onReload?.();
-    } catch (err) {
-      alert('Failed to update booking status: ' + err.message);
-    }
-  };
-
-  const handleReassignTechnician = async (bookingId) => {
-    if (!selectedNewTech) return;
-    const techObj = technicians.find(t => t.id === selectedNewTech || t.technicianId === selectedNewTech || t.name === selectedNewTech || t.fullName === selectedNewTech);
-    const techId = techObj ? (techObj.id || techObj.technicianId) : selectedNewTech;
-    const techName = techObj ? (techObj.fullName || techObj.name) : selectedNewTech;
-    const techPhone = techObj ? techObj.phone : '+91 98765 43210';
-    const techCat = techObj ? techObj.category : 'Certified Expert';
-    const techRating = techObj ? (techObj.rating || 4.85) : 4.85;
-    const techAvatar = techObj ? techObj.avatar : '';
-
-    try {
-      await api.assignBooking(bookingId, {
-        technicianId: techId,
-        technicianName: techName,
-        technicianPhone: techPhone,
-        technicianCategory: techCat,
-        technicianRating: techRating,
-        technicianAvatar: techAvatar,
-      });
-
-      setBookings(prev => prev.map(b => (b.id === bookingId || b.bookingCode === bookingId) ? {
-        ...b,
-        technicianId: techId,
-        technician: techName,
-        technicianName: techName,
-        technicianPhone: techPhone,
-        technicianCategory: techCat,
-        technicianRating: techRating,
-        status: 'TECHNICIAN_ASSIGNED'
-      } : b));
-
-      auditLogAction?.('Bookings', `Assigned technician ${techName} (${techPhone}) to booking #${bookingId}`);
-      setReassignTechModal(false);
-      if (selectedBooking) {
-        setSelectedBooking(prev => ({
-          ...prev,
-          technicianId: techId,
-          technician: techName,
-          technicianName: techName,
-          technicianPhone: techPhone,
-          technicianCategory: techCat,
-          technicianRating: techRating,
-          status: 'TECHNICIAN_ASSIGNED'
-        }));
-      }
-      onReload?.();
-    } catch (err) {
-      alert('Failed to assign technician: ' + err.message);
-    }
-  };
-
   const handleCancelBooking = async (bookingId) => {
     if (!window.confirm(`Are you sure you want to cancel booking #${bookingId}?`)) return;
 
@@ -181,29 +113,12 @@ export default function BookingsManager({ bookings = [], setBookings, technician
       }
       onReload?.();
     } catch (err) {
-      // If server returned 404 or in standalone mode, still remove locally
-      setBookings(prev => prev.filter(b => b.id !== bookingId && b.bookingCode !== bookingId));
-      if (selectedBooking && (selectedBooking.id === bookingId || selectedBooking.bookingCode === bookingId)) {
-        setSelectedBooking(null);
-      }
-      auditLogAction?.('Bookings', `Deleted booking #${bookingId}`);
+      alert('Delete booking is disabled for audit safety: ' + err.message);
     }
   };
 
   const handleClearAllBookings = async () => {
-    if (!window.confirm('⚠️ Are you sure you want to permanently DELETE ALL bookings? This will clear all test and fake records.')) return;
-
-    try {
-      await api.clearAllBookings();
-      setBookings([]);
-      setSelectedBooking(null);
-      auditLogAction?.('Bookings', 'Permanently cleared all booking records');
-      onReload?.();
-    } catch (err) {
-      setBookings([]);
-      setSelectedBooking(null);
-      auditLogAction?.('Bookings', 'Cleared all booking records');
-    }
+    alert('Bulk clearing bookings is disabled for audit safety.');
   };
 
   return (
@@ -215,15 +130,6 @@ export default function BookingsManager({ bookings = [], setBookings, technician
             <p className="page-subtitle">Track customer orders, origin GPS location, assigned technician details, OTPs, and invoices</p>
           </div>
           <div className="page-actions-group" style={{ display: 'flex', gap: '8px' }}>
-            {bookings.length > 0 && (
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={handleClearAllBookings}
-                title="Delete all current bookings"
-              >
-                🗑️ Clear All Bookings
-              </button>
-            )}
             <button
               className="btn btn-outline"
               onClick={handleRefreshBookings}
@@ -621,22 +527,26 @@ export default function BookingsManager({ bookings = [], setBookings, technician
                 </div>
               </div>
 
-              {/* 4. Live Lifecycle Status Switcher */}
+              {/* 4. Read-Only Booking Lifecycle Progress (Monitoring Only — Verified by OTP & Technician Self-Accept) */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontSize: '12px', fontWeight: '700' }}>
-                  ⚡ Update Real-time Booking Lifecycle Status
+                  📡 Booking Lifecycle Stage (Monitoring Only)
                 </label>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {STATUS_LIFECYCLE.map(st => (
-                    <button
+                    <span
                       key={st}
-                      type="button"
-                      className={`btn btn-sm ${selectedBooking.status === st ? 'btn-primary' : 'btn-outline'}`}
-                      style={{ fontSize: '11px', padding: '4px 8px' }}
-                      onClick={() => handleUpdateStatus(selectedBooking.id || selectedBooking.bookingCode, st)}
+                      className={`badge ${selectedBooking.status === st ? 'badge-confirmed' : ''}`}
+                      style={{
+                        fontSize: '11px',
+                        padding: '4px 8px',
+                        border: '1px solid #EEE8E2',
+                        backgroundColor: selectedBooking.status === st ? undefined : '#FCF9F6',
+                        color: selectedBooking.status === st ? undefined : '#77716C',
+                      }}
                     >
                       {st}
-                    </button>
+                    </span>
                   ))}
                 </div>
               </div>
@@ -664,54 +574,11 @@ export default function BookingsManager({ bookings = [], setBookings, technician
         </div>
       )}
 
-      {/* ─── REASSIGN TECH MODAL ─── */}
-      {reassignTechModal && (
-        <div className="modal-overlay" onClick={() => setReassignTechModal(false)}>
-          <div className="modal-dialog" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Assign Technician to #{selectedBooking?.bookingCode || selectedBooking?.id}</h3>
-              <button className="modal-close-btn" onClick={() => setReassignTechModal(false)}>×</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label className="form-label">Select Verified Technician for this vertical</label>
-                <select
-                  className="form-control"
-                  value={selectedNewTech}
-                  onChange={e => setSelectedNewTech(e.target.value)}
-                >
-                  <option value="">-- Choose Verified Partner --</option>
-                  {technicians.map(t => (
-                    <option key={t.id || t.technicianId} value={t.id || t.technicianId}>
-                      {t.fullName || t.name} ({t.category} • ⭐ {t.rating || 4.88} • {t.phone})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-outline" onClick={() => setReassignTechModal(false)}>Cancel</button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => handleReassignTechnician(selectedBooking?.id || selectedBooking?.bookingCode)}
-              >
-                Confirm Dispatch
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Real-time Live Transit GPS Radar (Zomato / Blinkit Map) */}
+      {/* Real-time Live Transit GPS Radar (Monitoring Only) */}
       {liveTransitBooking && (
         <LiveTransitRadarModal
           booking={liveTransitBooking}
           onClose={() => setLiveTransitBooking(null)}
-          onReassign={(b) => {
-            setSelectedBooking(b);
-            setReassignTechModal(true);
-          }}
         />
       )}
     </div>

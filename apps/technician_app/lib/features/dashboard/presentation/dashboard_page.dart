@@ -952,22 +952,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TechnicianChatScreen(
-                          bookingId: job.id,
-                          customerName: job.customerName,
-                          serviceName: job.serviceTitle,
-                        ),
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('In-app chat is coming soon. Please use Call to reach your customer.'),
                       ),
                     );
                   },
-                  icon: const Icon(Icons.chat_bubble_outline, size: 14),
-                  label: const Text('CHAT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  icon: Icon(Icons.chat_bubble_outline, size: 14, color: Colors.grey.shade600),
+                  label: Text('CHAT (SOON)', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFF46B12),
-                    side: const BorderSide(color: Color(0xFFF46B12)),
+                    foregroundColor: Colors.grey.shade600,
+                    side: BorderSide(color: Colors.grey.shade300),
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),

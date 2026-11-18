@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 import 'email_service.dart';
 
 /// Direct Cloud Firestore Client for BookUrTechnician Customer App
@@ -19,12 +21,174 @@ class FirestoreRestClient {
     defaultValue: 'AIzaSyAhCvnUH_jA5bAhlGlIy3eX2lnM43gFRdE',
   );
 
+  // Persistent SharedPreferences keys for Firebase Auth tokens ONLY
+  // Strictly isolated from Render HS256 JWT keys (`bt_access_token`, `bt_refresh_token`)
+  static const String _keyFbIdToken = 'bt_firebase_id_token';
+  static const String _keyFbRefreshToken = 'bt_firebase_refresh_token';
+  static const String _keyFbUid = 'bt_firebase_uid';
+  static const String _keyFbExpiresAtMs = 'bt_firebase_expires_at_ms';
+  static const String _keyCustomerSessionUid = 'bt_user_id';
+  static const String _keyCustomerRenderToken = 'bt_access_token';
+
   static String? _fbIdToken;
   static String? _fbRefreshToken;
   static String? _fbUid;
   static DateTime? _fbTokenExpiresAt;
 
-  static Future<String?> _ensureFirebaseIdToken({bool forceRefresh = false}) async {
+  @visibleForTesting
+  static Future<http.Response> Function(
+    String method,
+    Uri uri, {
+    Map<String, String>? headers,
+    String? body,
+  })? authHttpHandler;
+
+  /// Ensure a token is a Firebase ID token (never a Render HS256 backend JWT).
+  static bool isFirebaseIdTokenFormat(String? token) {
+    if (token == null || token.trim().isEmpty) return false;
+    final parts = token.trim().split('.');
+    if (parts.length != 3) return false;
+    try {
+      final headerJson = utf8.decode(base64Url.decode(base64Url.normalize(parts[0])));
+      final header = jsonDecode(headerJson);
+      if (header is Map && header['alg']?.toString().toUpperCase() == 'HS256') {
+        return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<http.Response> _authPost(Uri uri, Map<String, String> headers, String body) async {
+    final handler = authHttpHandler ?? mockHttpHandler;
+    if (handler != null) {
+      return handler('POST', uri, headers: headers, body: body);
+    }
+    return http.post(uri, headers: headers, body: body).timeout(const Duration(seconds: 8));
+  }
+
+  static Future<void> _persistFirebaseSession({
+    required String idToken,
+    required String refreshToken,
+    required String uid,
+    required DateTime expiresAt,
+  }) async {
+    _fbIdToken = idToken;
+    _fbRefreshToken = refreshToken;
+    _fbUid = uid;
+    _fbTokenExpiresAt = expiresAt;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyFbIdToken, idToken);
+      if (refreshToken.isNotEmpty) {
+        await prefs.setString(_keyFbRefreshToken, refreshToken);
+      }
+      if (uid.isNotEmpty) {
+        await prefs.setString(_keyFbUid, uid);
+      }
+      await prefs.setInt(_keyFbExpiresAtMs, expiresAt.toUtc().millisecondsSinceEpoch);
+    } catch (_) {}
+  }
+
+  static Future<Map<String, String>?> restoreFirebaseSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedToken = prefs.getString(_keyFbIdToken);
+      final storedRefresh = prefs.getString(_keyFbRefreshToken);
+      final storedUid = prefs.getString(_keyFbUid);
+      final storedExpMs = prefs.getInt(_keyFbExpiresAtMs);
+
+      if (storedToken != null && isFirebaseIdTokenFormat(storedToken)) {
+        _fbIdToken = storedToken;
+      } else {
+        _fbIdToken = null;
+      }
+      if (storedRefresh != null && storedRefresh.isNotEmpty && storedRefresh.split('.').length != 3) {
+        // Firebase refresh tokens are opaque strings, never 3-part Render HS256 JWTs
+        _fbRefreshToken = storedRefresh;
+      } else if (storedRefresh != null && storedRefresh.split('.').length == 3) {
+        _fbRefreshToken = null;
+      }
+      if (storedUid != null && storedUid.isNotEmpty) {
+        _fbUid = storedUid;
+      }
+      if (storedExpMs != null && storedExpMs > 0) {
+        _fbTokenExpiresAt = DateTime.fromMillisecondsSinceEpoch(storedExpMs, isUtc: true);
+      }
+
+      if (_fbIdToken != null || _fbRefreshToken != null) {
+        return {
+          if (_fbUid != null) 'uid': _fbUid!,
+          if (_fbIdToken != null) 'idToken': _fbIdToken!,
+          if (_fbRefreshToken != null) 'refreshToken': _fbRefreshToken!,
+        };
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> clearFirebaseSession() async {
+    _fbIdToken = null;
+    _fbRefreshToken = null;
+    _fbUid = null;
+    _fbTokenExpiresAt = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_keyFbIdToken);
+      await prefs.remove(_keyFbRefreshToken);
+      await prefs.remove(_keyFbUid);
+      await prefs.remove(_keyFbExpiresAtMs);
+    } catch (_) {}
+  }
+
+  /// Simulates an app process restart in unit tests (clears memory, preserves SharedPreferences).
+  @visibleForTesting
+  static void resetInMemoryFirebaseAuthForTest() {
+    _fbIdToken = null;
+    _fbRefreshToken = null;
+    _fbUid = null;
+    _fbTokenExpiresAt = null;
+  }
+
+  static String? get currentFirebaseUid => _fbUid;
+
+  static Future<bool> _hasAuthenticatedCustomerSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString(_keyCustomerSessionUid);
+      final renderToken = prefs.getString(_keyCustomerRenderToken);
+      final fbRefresh = prefs.getString(_keyFbRefreshToken);
+      return (uid != null && uid.isNotEmpty) ||
+          (renderToken != null && renderToken.isNotEmpty) ||
+          (fbRefresh != null && fbRefresh.isNotEmpty) ||
+          (_fbRefreshToken != null && _fbRefreshToken!.isNotEmpty);
+    } catch (_) {
+      return _fbRefreshToken != null && _fbRefreshToken!.isNotEmpty;
+    }
+  }
+
+  /// Exposed for authenticated Firestore operations (e.g. post-restart token refresh verification).
+  static Future<String?> getValidFirebaseIdToken({
+    bool forceRefresh = false,
+    bool allowAnonymousFallback = false,
+  }) =>
+      _ensureFirebaseIdToken(
+        forceRefresh: forceRefresh,
+        allowAnonymousFallback: allowAnonymousFallback,
+      );
+
+  static Future<String?> _ensureFirebaseIdToken({
+    bool forceRefresh = false,
+    bool allowAnonymousFallback = false,
+  }) async {
+    if (_fbIdToken == null || _fbRefreshToken == null) {
+      await restoreFirebaseSession();
+    }
+    if (_fbIdToken != null && !isFirebaseIdTokenFormat(_fbIdToken)) {
+      _fbIdToken = null;
+    }
+
     final now = DateTime.now().toUtc();
     if (!forceRefresh &&
         _fbIdToken != null &&
@@ -34,53 +198,117 @@ class FirestoreRestClient {
     }
 
     try {
-      if (_fbRefreshToken != null && _fbRefreshToken!.isNotEmpty) {
+      if (_fbRefreshToken != null &&
+          _fbRefreshToken!.isNotEmpty &&
+          _fbRefreshToken!.split('.').length != 3) {
         final refreshUri = Uri.parse(
             'https://securetoken.googleapis.com/v1/token?key=$_firebaseWebApiKey');
-        final res = await http
-            .post(
-              refreshUri,
-              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-              body: 'grant_type=refresh_token&refresh_token=${Uri.encodeQueryComponent(_fbRefreshToken!)}',
-            )
-            .timeout(const Duration(seconds: 6));
+        final res = await _authPost(
+          refreshUri,
+          {'Content-Type': 'application/x-www-form-urlencoded'},
+          'grant_type=refresh_token&refresh_token=${Uri.encodeQueryComponent(_fbRefreshToken!)}',
+        );
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body) as Map<String, dynamic>;
           final token = data['id_token']?.toString();
-          if (token != null && token.isNotEmpty) {
-            _fbIdToken = token;
-            _fbRefreshToken = data['refresh_token']?.toString() ?? _fbRefreshToken;
-            _fbUid = data['user_id']?.toString() ?? _fbUid;
+          if (token != null && isFirebaseIdTokenFormat(token)) {
+            final nextRefresh = data['refresh_token']?.toString() ?? _fbRefreshToken!;
+            final nextUid = data['user_id']?.toString() ?? _fbUid ?? _extractUidFromJwt(token) ?? '';
             final expiresIn = int.tryParse(data['expires_in']?.toString() ?? '3600') ?? 3600;
-            _fbTokenExpiresAt = now.add(Duration(seconds: expiresIn));
+            await _persistFirebaseSession(
+              idToken: token,
+              refreshToken: nextRefresh,
+              uid: nextUid,
+              expiresAt: now.add(Duration(seconds: expiresIn)),
+            );
             return _fbIdToken;
           }
         }
       }
 
+      // SECURITY: Never silently fall back to Anonymous Auth when an authenticated customer session exists
+      // or when caller requires an authenticated Firebase user.
+      final hasAuthSession = await _hasAuthenticatedCustomerSession();
+      if (hasAuthSession || !allowAnonymousFallback) {
+        return null;
+      }
+
       final signUpUri = Uri.parse(
           'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$_firebaseWebApiKey');
-      final res = await http
-          .post(
-            signUpUri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'returnSecureToken': true}),
-          )
-          .timeout(const Duration(seconds: 6));
+      final res = await _authPost(
+        signUpUri,
+        {'Content-Type': 'application/json'},
+        jsonEncode({'returnSecureToken': true}),
+      );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         final token = data['idToken']?.toString();
-        if (token != null && token.isNotEmpty) {
-          _fbIdToken = token;
-          _fbRefreshToken = data['refreshToken']?.toString();
-          _fbUid = data['localId']?.toString();
+        if (token != null && isFirebaseIdTokenFormat(token)) {
+          final anonUid = data['localId']?.toString() ?? '';
+          final anonRefresh = data['refreshToken']?.toString() ?? '';
           final expiresIn = int.tryParse(data['expiresIn']?.toString() ?? '3600') ?? 3600;
-          _fbTokenExpiresAt = now.add(Duration(seconds: expiresIn));
+          await _persistFirebaseSession(
+            idToken: token,
+            refreshToken: anonRefresh,
+            uid: anonUid,
+            expiresAt: now.add(Duration(seconds: expiresIn)),
+          );
           return _fbIdToken;
         }
       }
     } catch (e) {
-      debugPrint('⚠️ [Customer Auth] Firebase Anonymous Auth error: $e');
+      debugPrint('⚠️ [Customer Auth] Firebase Auth error: $e');
+    }
+    return null;
+  }
+
+  static String? _extractUidFromJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length == 3) {
+        final payload = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))) as Map<String, dynamic>;
+        return (payload['user_id'] ?? payload['sub'])?.toString();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Exchange backend-minted Firebase Custom Token for a real authenticated Firebase ID Token + Refresh Token
+  static Future<Map<String, String>?> signInWithCustomToken(String customToken) async {
+    if (customToken.trim().isEmpty) return null;
+    try {
+      final uri = Uri.parse(
+          'https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=$_firebaseWebApiKey');
+      final res = await _authPost(
+        uri,
+        {'Content-Type': 'application/json'},
+        jsonEncode({
+          'token': customToken.trim(),
+          'returnSecureToken': true,
+        }),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final idToken = data['idToken']?.toString() ?? '';
+        final refreshToken = data['refreshToken']?.toString() ?? '';
+        final expiresIn = int.tryParse(data['expiresIn']?.toString() ?? '3600') ?? 3600;
+        if (isFirebaseIdTokenFormat(idToken)) {
+          final uid = _extractUidFromJwt(idToken) ?? data['localId']?.toString() ?? '';
+          await _persistFirebaseSession(
+            idToken: idToken,
+            refreshToken: refreshToken,
+            uid: uid,
+            expiresAt: DateTime.now().toUtc().add(Duration(seconds: expiresIn)),
+          );
+          return {
+            'uid': uid,
+            'idToken': idToken,
+            'refreshToken': refreshToken,
+          };
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ [Customer Auth] signInWithCustomToken error: $e');
     }
     return null;
   }
@@ -947,30 +1175,44 @@ class FirestoreRestClient {
     final targetCanonical = resolveCanonicalServiceId(sId, name: sName);
     if (targetCanonical.isEmpty) return false;
 
-    final rawSkills = <dynamic>[
-      ...(tech['skills'] as List<dynamic>? ?? const []),
-      ...(tech['selectedSkills'] as List<dynamic>? ?? const []),
-    ];
+    final primarySkills = tech['skills'] as List<dynamic>? ?? const [];
+    final selectedSkills = tech['selectedSkills'] as List<dynamic>? ?? const [];
+    if (primarySkills.isEmpty && selectedSkills.isEmpty) return false;
 
-    // If technician has no declared skills in profile, they cannot match any service.
-    // Parent category alone must NEVER qualify a technician.
-    if (rawSkills.isEmpty) return false;
+    // Deduplicate by canonical service ID, letting `skills` override `selectedSkills`
+    final Map<String, dynamic> mergedByCanonical = {};
+    for (final skill in [...selectedSkills, ...primarySkills]) {
+      String rawId = '';
+      String rawName = '';
+      if (skill is Map) {
+        rawId = skill['canonicalServiceId']?.toString() ??
+            skill['serviceId']?.toString() ??
+            skill['skillId']?.toString() ??
+            skill['id']?.toString() ??
+            '';
+        rawName = skill['name']?.toString() ?? skill['skillName']?.toString() ?? '';
+      } else if (skill is String) {
+        rawId = skill;
+        rawName = skill;
+      }
+      final key = resolveCanonicalServiceId(rawId, name: rawName);
+      final mapKey = key.isNotEmpty ? key : '$rawId:$rawName';
+      if (mapKey.isNotEmpty) mergedByCanonical[mapKey] = skill;
+    }
 
-    for (final skill in rawSkills) {
+    for (final skill in mergedByCanonical.values) {
       String skillId = '';
       String canonicalId = '';
       String skillName = '';
-      String verificationStatus = 'VERIFIED';
+      String verificationStatus = '';
       bool isSkillEnabled = true;
 
       if (skill is Map) {
         skillId = skill['skillId']?.toString() ?? skill['id']?.toString() ?? '';
         canonicalId = skill['canonicalServiceId']?.toString() ?? skill['serviceId']?.toString() ?? '';
         skillName = skill['name']?.toString() ?? skill['skillName']?.toString() ?? '';
-        final rawVer = (skill['verificationStatus'] ?? skill['status'])?.toString().toUpperCase().trim() ?? '';
-        if (rawVer.isNotEmpty) {
-          verificationStatus = rawVer;
-        }
+        verificationStatus =
+            (skill['verificationStatus'] ?? skill['status'])?.toString().toUpperCase().trim() ?? '';
         if (skill.containsKey('enabled')) {
           isSkillEnabled = skill['enabled'] == true;
         }
@@ -978,13 +1220,11 @@ class FirestoreRestClient {
           isSkillEnabled = isSkillEnabled && (skill['isActive'] == true);
         }
       } else if (skill is String) {
-        skillId = skill;
-        canonicalId = skill;
-        skillName = skill;
+        // Bare strings lack explicit verification metadata; reject as unverified
+        continue;
       }
 
       // 1. Mandatory verification check: Must be explicitly VERIFIED.
-      // PENDING, REJECTED, UNVERIFIED, or empty status is rejected.
       if (verificationStatus != 'VERIFIED') {
         continue;
       }
@@ -1014,6 +1254,109 @@ class FirestoreRestClient {
 
     // Category-level match alone is strictly rejected.
     return false;
+  }
+
+  static bool _isValidCoordinatePair(double? lat, double? lng) {
+    return lat != null &&
+        lng != null &&
+        lat.isFinite &&
+        lng.isFinite &&
+        lat >= -90.0 &&
+        lat <= 90.0 &&
+        lng >= -180.0 &&
+        lng <= 180.0 &&
+        !(lat == 0.0 && lng == 0.0);
+  }
+
+  /// Single authoritative technician eligibility check matching backend `eligibilityService.js`.
+  static Map<String, dynamic> evaluateTechnicianEligibility(
+    Map<String, dynamic> tech, {
+    String? serviceId,
+    String? serviceName,
+    double? customerLat,
+    double? customerLng,
+    double radiusKm = 15.0,
+    int maxLocationAgeSeconds = 600,
+    Set<String>? busyTechIds,
+    bool checkSkill = true,
+  }) {
+    final tId = (tech['uid'] ?? tech['technicianId'] ?? tech['id'])?.toString().trim() ?? '';
+    if (tId.isEmpty) {
+      return {'eligible': false, 'reason': 'UNAUTHENTICATED_TECHNICIAN'};
+    }
+
+    // 1. Account must be explicitly ACTIVE
+    final accStatus = (tech['accountStatus']?.toString() ?? '').toUpperCase().trim();
+    if (accStatus != 'ACTIVE') {
+      return {'eligible': false, 'reason': 'ACCOUNT_NOT_ACTIVE'};
+    }
+
+    // 2. KYC must be explicitly VERIFIED or APPROVED
+    final kycStatus = (tech['kycStatus']?.toString() ?? '').toUpperCase().trim();
+    if (kycStatus != 'VERIFIED' && kycStatus != 'APPROVED') {
+      return {'eligible': false, 'reason': 'KYC_NOT_VERIFIED'};
+    }
+
+    // 3. Technician must be strictly online
+    final isOnline = tech['isOnline'] == true;
+    final availStatus = (tech['availabilityStatus']?.toString() ?? 'AVAILABLE').toUpperCase().trim();
+    if (!isOnline || availStatus == 'OFFLINE') {
+      return {'eligible': false, 'reason': 'TECHNICIAN_WENT_OFFLINE'};
+    }
+
+    // 4. Availability must not be BUSY & no conflicting active booking
+    final activeBookingId = tech['activeBookingId']?.toString().trim() ?? '';
+    if (availStatus == 'BUSY' ||
+        activeBookingId.isNotEmpty ||
+        (busyTechIds != null && busyTechIds.contains(tId)) ||
+        _activeTechnicianLocks.contains(tId)) {
+      return {'eligible': false, 'reason': 'TECHNICIAN_BUSY_CONFLICT'};
+    }
+
+    // 5. Location must be valid and recent (<= 10 minutes)
+    final double? tLat = ((tech['latitude'] ?? tech['currentLatitude']) as num?)?.toDouble();
+    final double? tLng = ((tech['longitude'] ?? tech['currentLongitude']) as num?)?.toDouble();
+    if (!_isValidCoordinatePair(tLat, tLng)) {
+      return {'eligible': false, 'reason': 'STALE_LOCATION'};
+    }
+
+    final lastUpdateStr = tech['lastLocationUpdate']?.toString();
+    if (lastUpdateStr == null || lastUpdateStr.isEmpty) {
+      return {'eligible': false, 'reason': 'STALE_LOCATION'};
+    }
+    DateTime? lastUpdate;
+    try {
+      lastUpdate = DateTime.parse(lastUpdateStr).toUtc();
+    } catch (_) {
+      return {'eligible': false, 'reason': 'STALE_LOCATION'};
+    }
+    final ageSeconds = DateTime.now().toUtc().difference(lastUpdate).inSeconds;
+    if (ageSeconds > maxLocationAgeSeconds || ageSeconds < -120) {
+      return {'eligible': false, 'reason': 'STALE_LOCATION'};
+    }
+
+    // 6. Customer coverage check (strict <= radiusKm, no global out-of-radius fallback)
+    if (!_isValidCoordinatePair(customerLat, customerLng)) {
+      return {'eligible': false, 'reason': 'LOCATION_UNAVAILABLE'};
+    }
+    final distKm = _calculateDistanceKm(customerLat!, customerLng!, tLat!, tLng!);
+    if (distKm > radiusKm) {
+      return {'eligible': false, 'reason': 'OUT_OF_RADIUS', 'distanceKm': distKm};
+    }
+
+    // 7. Verified & enabled canonical skill check
+    if (checkSkill && ((serviceId != null && serviceId.isNotEmpty) || (serviceName != null && serviceName.isNotEmpty))) {
+      if (!_doesTechnicianMatchService(tech, serviceId ?? '', serviceName ?? '')) {
+        return {'eligible': false, 'reason': 'SKILL_MISMATCH', 'distanceKm': distKm};
+      }
+    }
+
+    return {
+      'eligible': true,
+      'reason': null,
+      'distanceKm': distKm,
+      'ageMinutes': (ageSeconds / 60).floor().abs(),
+    };
   }
 
   /// Fallback API handler that serves Customer App endpoints directly from Cloud Firestore
@@ -1068,55 +1411,26 @@ class FirestoreRestClient {
           }, 503);
         }
 
-        // Strict presence verification:
-        // 1. isOnline == true
-        // 2. availabilityStatus == 'AVAILABLE' (not BUSY or OFFLINE)
-        // 3. locationFresh: lastLocationUpdate heartbeat within 10 minutes
-        final onlineTechs = <Map<String, dynamic>>[];
-        for (final t in allTechs) {
-          final isOnline = t['isOnline'] == true || t['online'] == true;
-          final status = (t['availabilityStatus']?.toString() ?? '').toUpperCase();
-          if (!isOnline || status == 'OFFLINE' || status == 'BUSY') continue;
-
-          final lastUpdateStr = t['lastLocationUpdate']?.toString();
-          if (lastUpdateStr == null || lastUpdateStr.isEmpty) continue;
-          DateTime? lastUpdate;
-          try {
-            lastUpdate = DateTime.parse(lastUpdateStr).toUtc();
-          } catch (_) {
-            continue;
-          }
-
-          final ageMinutes = DateTime.now().toUtc().difference(lastUpdate).inMinutes.abs();
-          if (ageMinutes > 10) {
-            // Heartbeat older than 10 minutes is stale; do not treat as live
-            continue;
-          }
-
-          final double? tLat = (t['latitude'] ?? t['currentLatitude'] as num?)?.toDouble();
-          final double? tLng = (t['longitude'] ?? t['currentLongitude'] as num?)?.toDouble();
-          if (tLat == null || tLng == null || tLat == 0.0 || tLng == 0.0) continue;
-
-          onlineTechs.add({
-            ...t,
-            'locationFresh': true,
-            'lastHeartbeatMinutesAgo': ageMinutes,
-          });
-        }
-
-        // Strict Geo-Radius Scan with Adaptive Regional Online Fallback
+        // Authoritative 10-condition eligibility evaluation + Strict Geo-Radius Scan (Zero Out-Of-Radius Fallback)
         final reachableTechs = <Map<String, dynamic>>[];
-        final allOnlineTechsList = <Map<String, dynamic>>[];
-        for (final t in onlineTechs) {
-          final double tLat = (t['latitude'] ?? t['currentLatitude'] as num).toDouble();
-          final double tLng = (t['longitude'] ?? t['currentLongitude'] as num).toDouble();
-          final dist = _calculateDistanceKm(targetLat, targetLng, tLat, tLng);
-          final techMap = {
+        for (final t in allTechs) {
+          final eval = evaluateTechnicianEligibility(
+            t,
+            customerLat: targetLat,
+            customerLng: targetLng,
+            radiusKm: radiusKm,
+            checkSkill: false,
+          );
+          if (eval['eligible'] != true) continue;
+
+          final dist = (eval['distanceKm'] as num).toDouble();
+          reachableTechs.add({
+            ...t,
             'id': t['id'],
             'technicianId': t['technicianId'] ?? t['id'],
             'technicianCode': t['technicianCode'] ?? 'BT-TECH',
             'fullName': t['fullName'] ?? 'Partner Technician',
-            'rating': (t['rating'] as num?)?.toDouble() ?? 4.9,
+            'rating': (t['rating'] as num?)?.toDouble() ?? 0.0,
             'category': t['category'] ?? '',
             'categories': t['categories'] ?? [],
             'skills': t['skills'] ?? [],
@@ -1125,13 +1439,9 @@ class FirestoreRestClient {
             'locationFresh': true,
             'isOnline': true,
             'availabilityStatus': 'AVAILABLE',
-          };
-          allOnlineTechsList.add(techMap);
-          if (dist <= radiusKm) {
-            reachableTechs.add(techMap);
-          }
+          });
         }
-        final candidateTechsForCatalog = reachableTechs.isNotEmpty ? reachableTechs : allOnlineTechsList;
+        final candidateTechsForCatalog = reachableTechs;
 
         final categories = await listCollection('service_categories');
         final List<Map<String, dynamic>> servicesList = [];
@@ -1227,7 +1537,7 @@ class FirestoreRestClient {
         final requestedCatId = queryParams['categoryId'] ?? (body != null ? body['categoryId']?.toString() : null);
         final radiusKm = double.tryParse(queryParams['radiusKm'] ?? '') ?? 15.0;
 
-        final allTechs = await listCollection('technician_profiles');
+        final allTechs = await listCollection('technician_profiles', forceRefresh: true);
         if (isLastRequestQuotaExceeded) {
           return _jsonResponse({
             'success': false,
@@ -1240,33 +1550,16 @@ class FirestoreRestClient {
 
         final nearbyList = <Map<String, dynamic>>[];
         for (final tech in allTechs) {
-          final isOnline = tech['isOnline'] == true || tech['online'] == true;
-          final status = (tech['availabilityStatus']?.toString() ?? '').toUpperCase();
-          if (!isOnline || status == 'OFFLINE' || status == 'BUSY') continue;
+          final eval = evaluateTechnicianEligibility(
+            tech,
+            serviceId: requestedServiceId,
+            customerLat: targetLat,
+            customerLng: targetLng,
+            radiusKm: radiusKm,
+          );
+          if (eval['eligible'] != true) continue;
 
-          if (requestedServiceId != null && requestedServiceId.isNotEmpty) {
-            if (!_doesTechnicianMatchService(tech, requestedServiceId, '')) {
-              continue;
-            }
-          }
-
-          final lastUpdateStr = tech['lastLocationUpdate']?.toString();
-          if (lastUpdateStr == null || lastUpdateStr.isEmpty) continue;
-          DateTime? lastUpdate;
-          try {
-            lastUpdate = DateTime.parse(lastUpdateStr).toUtc();
-          } catch (_) {
-            continue;
-          }
-          if (DateTime.now().toUtc().difference(lastUpdate).inMinutes.abs() > 10) continue;
-
-          final double? tLat = (tech['latitude'] ?? tech['currentLatitude'] as num?)?.toDouble();
-          final double? tLng = (tech['longitude'] ?? tech['currentLongitude'] as num?)?.toDouble();
-          if (tLat == null || tLng == null || tLat == 0.0 || tLng == 0.0) continue;
-
-          final distKm = _calculateDistanceKm(targetLat, targetLng, tLat, tLng);
-          if (distKm > radiusKm) continue;
-
+          final distKm = (eval['distanceKm'] as num).toDouble();
           final distMeters = distKm * 1000;
           final arrivalMins = max(8, (distKm * 3.5).round());
 
@@ -1330,66 +1623,23 @@ class FirestoreRestClient {
         });
       }
 
-      // 4. Auth Request OTP / Verify OTP (Using Server-Grade Challenge Engine)
-      if (cleanPath.contains('/auth/request-otp') ||
-          cleanPath.contains('/auth/send-otp') ||
-          cleanPath.contains('/auth/resend-otp')) {
-        final email = body?['email']?.toString().trim().toLowerCase() ?? '';
-        final phone = body?['phone']?.toString().trim() ?? '';
-        final identifier = email.isNotEmpty ? email : phone;
-        final name = body?['fullName']?.toString() ?? body?['name']?.toString();
-        final res = await requestOtpChallenge(
-          identifier: identifier,
-          email: email,
-          phone: phone,
-          fullName: name,
-          role: body?['role']?.toString() ?? 'CUSTOMER',
-        );
-        return _jsonResponse(res, (res['statusCode'] as int?) ?? 200);
-      }
-
-      if (cleanPath.contains('/auth/verify-otp') ||
-          cleanPath.contains('/auth/login')) {
-        final phone = body?['phone']?.toString().trim() ?? '';
-        final email = body?['email']?.toString().trim().toLowerCase() ?? '';
-        final identifier = email.isNotEmpty ? email : phone;
-        final otp = body?['otp']?.toString().trim() ?? '';
-
-        final verifyRes = await verifyOtpChallenge(identifier: identifier, code: otp);
-        if (verifyRes['success'] != true) {
-          return _jsonResponse(verifyRes, (verifyRes['statusCode'] as int?) ?? 400);
+      // 4. Auth Request OTP / Verify OTP
+      // Strictly disabled when trusted backend is configured; never mint fake client tokens.
+      if (cleanPath.contains('/auth/')) {
+        if (AppConfig.hasConfiguredBackend) {
+          return _jsonResponse({
+            'success': false,
+            'retryable': true,
+            'code': 'BACKEND_REQUIRED',
+            'error': 'Authentication requires the trusted backend server. Client fallback is disabled.',
+          }, 503);
         }
-
-        final name = body?['name']?.toString() ??
-            body?['fullName']?.toString() ??
-            'Customer';
-        final digits = phone.replaceAll(RegExp(r'\D'), '');
-        final userId =
-            'uid_cust_${digits.isNotEmpty ? digits : email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}';
-        final userDoc = {
-          'id': userId,
-          'uid': userId,
-          'customerId': userId,
-          'fullName': name,
-          'name': name,
-          'phone': phone,
-          'email': email,
-          'role': 'CUSTOMER',
-          'status': 'ACTIVE',
-        };
-        await upsertDocument('customers', userId, userDoc);
-        final token = 'fb_cust_tok_${DateTime.now().millisecondsSinceEpoch}';
         return _jsonResponse({
-          'success': true,
-          'accessToken': token,
-          'refreshToken': token,
-          'user': userDoc,
-          'data': {
-            'accessToken': token,
-            'refreshToken': token,
-            'user': userDoc,
-          },
-        });
+          'success': false,
+          'retryable': true,
+          'code': 'BACKEND_REQUIRED',
+          'error': 'Authentication server is required for OTP verification.',
+        }, 503);
       }
 
       // 5. FCM Push Token Registration
@@ -1502,9 +1752,9 @@ class FirestoreRestClient {
           bool sawSkillMismatch = false;
           bool sawOutOfRadius = false;
           bool sawBusyConflict = false;
+          bool sawUnverifiedAccountOrKyc = false;
 
           final eligibleCandidates = <Map<String, dynamic>>[];
-          final allOnlineMatching = <Map<String, dynamic>>[];
 
           for (final tech in allTechs) {
             final tId = tech['id']?.toString() ?? tech['technicianId']?.toString() ?? '';
@@ -1513,72 +1763,45 @@ class FirestoreRestClient {
               continue;
             }
 
-            // (a) Verify technician authentication / account status
-            final kyc = (tech['kycStatus']?.toString() ?? 'VERIFIED').toUpperCase();
-            final accStatus = (tech['accountStatus']?.toString() ?? 'ACTIVE').toUpperCase();
-            if (kyc == 'REJECTED' || accStatus == 'SUSPENDED' || accStatus == 'BLOCKED') {
+            final eval = evaluateTechnicianEligibility(
+              tech,
+              serviceId: serviceId,
+              serviceName: serviceName,
+              customerLat: custLat,
+              customerLng: custLng,
+              radiusKm: 15.0,
+              busyTechIds: busyTechIds,
+            );
+            if (eval['eligible'] != true) {
+              switch (eval['reason']) {
+                case 'TECHNICIAN_BUSY_CONFLICT':
+                  sawBusyConflict = true;
+                  break;
+                case 'TECHNICIAN_WENT_OFFLINE':
+                  sawOfflineTech = true;
+                  break;
+                case 'STALE_LOCATION':
+                  sawStaleLocation = true;
+                  break;
+                case 'OUT_OF_RADIUS':
+                  sawOutOfRadius = true;
+                  break;
+                case 'SKILL_MISMATCH':
+                  sawSkillMismatch = true;
+                  break;
+                case 'ACCOUNT_NOT_ACTIVE':
+                case 'KYC_NOT_VERIFIED':
+                  sawUnverifiedAccountOrKyc = true;
+                  break;
+              }
               continue;
             }
 
-            // (b) Verify online state
-            final isOnline = tech['isOnline'] == true || tech['online'] == true;
-            final availStatus = (tech['availabilityStatus']?.toString() ?? 'AVAILABLE').toUpperCase();
-            if (!isOnline || availStatus == 'OFFLINE') {
-              sawOfflineTech = true;
-              continue;
-            }
-
-            // (c) Verify no conflicting active booking
-            if (availStatus == 'BUSY' || busyTechIds.contains(tId) || _activeTechnicianLocks.contains(tId)) {
-              sawBusyConflict = true;
-              continue;
-            }
-
-            // (d) Verify fresh GPS presence (<= 10 minutes)
-            final lastUpdateStr = tech['lastLocationUpdate']?.toString();
-            if (lastUpdateStr == null || lastUpdateStr.isEmpty) {
-              sawStaleLocation = true;
-              continue;
-            }
-            DateTime? lastUpdate;
-            try {
-              lastUpdate = DateTime.parse(lastUpdateStr).toUtc();
-            } catch (_) {
-              sawStaleLocation = true;
-              continue;
-            }
-            final ageMins = DateTime.now().toUtc().difference(lastUpdate).inMinutes.abs();
-            if (ageMins > 10) {
-              sawStaleLocation = true;
-              continue;
-            }
-
-            // (e) Verify service radius (<= 15.0 km Haversine)
-            final double? tLat = (tech['latitude'] ?? tech['currentLatitude'] as num?)?.toDouble();
-            final double? tLng = (tech['longitude'] ?? tech['currentLongitude'] as num?)?.toDouble();
-            if (tLat == null || tLng == null || tLat == 0.0 || tLng == 0.0) {
-              sawStaleLocation = true;
-              continue;
-            }
-            final distKm = _calculateDistanceKm(custLat, custLng, tLat, tLng);
-
-            // (f) Verify required service skill
-            if (serviceId.isNotEmpty && !_doesTechnicianMatchService(tech, serviceId, serviceName)) {
-              sawSkillMismatch = true;
-              continue;
-            }
-
-            final candidate = {
+            eligibleCandidates.add({
               ...tech,
               'id': tId,
-              'distanceKm': distKm,
-            };
-            allOnlineMatching.add(candidate);
-            if (distKm <= 15.0) {
-              eligibleCandidates.add(candidate);
-            } else {
-              sawOutOfRadius = true;
-            }
+              'distanceKm': (eval['distanceKm'] as num).toDouble(),
+            });
           }
 
           final candidatesToPickFrom = eligibleCandidates;
@@ -1600,6 +1823,9 @@ class FirestoreRestClient {
             } else if (sawSkillMismatch) {
               failureCode = 'SKILL_MISMATCH';
               failureMessage = 'Online technicians near you do not have the required service skill enabled.';
+            } else if (sawUnverifiedAccountOrKyc) {
+              failureCode = 'TECHNICIAN_NOT_VERIFIED';
+              failureMessage = 'No active, KYC-verified technician is currently available for this service.';
             }
 
             return _jsonResponse({

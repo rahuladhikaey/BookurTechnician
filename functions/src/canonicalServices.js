@@ -159,28 +159,34 @@ function doesTechnicianPossessVerifiedSkill(techDoc, serviceId, serviceName) {
   const targetCanonical = resolveCanonicalServiceId(serviceId, serviceName);
   if (!targetCanonical) return false;
 
-  const rawSkills = [
-    ...(Array.isArray(techDoc.skills) ? techDoc.skills : []),
-    ...(Array.isArray(techDoc.selectedSkills) ? techDoc.selectedSkills : []),
-  ];
+  const primarySkills = Array.isArray(techDoc.skills) ? techDoc.skills : [];
+  const selectedSkills = Array.isArray(techDoc.selectedSkills) ? techDoc.selectedSkills : [];
+  if (primarySkills.length === 0 && selectedSkills.length === 0) return false;
 
-  if (rawSkills.length === 0) return false;
+  const mergedByCanonical = new Map();
+  for (const skill of [...selectedSkills, ...primarySkills]) {
+    let rawId = '';
+    let rawName = '';
+    if (skill && typeof skill === 'object') {
+      rawId = skill.canonicalServiceId || skill.serviceId || skill.skillId || skill.id || '';
+      rawName = skill.name || skill.skillName || '';
+    }
+    const key = resolveCanonicalServiceId(rawId, rawName) || `${rawId}:${rawName}`;
+    if (key) mergedByCanonical.set(key, skill);
+  }
 
-  for (const skill of rawSkills) {
+  for (const skill of mergedByCanonical.values()) {
     let skillId = '';
     let canonicalId = '';
     let skillName = '';
-    let verificationStatus = 'VERIFIED';
+    let verificationStatus = '';
     let isSkillEnabled = true;
 
     if (skill && typeof skill === 'object') {
       skillId = skill.skillId || skill.id || '';
       canonicalId = skill.canonicalServiceId || skill.serviceId || '';
       skillName = skill.name || skill.skillName || '';
-      const rawVer = (skill.verificationStatus || skill.status || '').toUpperCase().trim();
-      if (rawVer) {
-        verificationStatus = rawVer;
-      }
+      verificationStatus = (skill.verificationStatus || skill.status || '').toUpperCase().trim();
       if ('enabled' in skill) {
         isSkillEnabled = skill.enabled === true;
       }
@@ -188,9 +194,7 @@ function doesTechnicianPossessVerifiedSkill(techDoc, serviceId, serviceName) {
         isSkillEnabled = isSkillEnabled && skill.isActive === true;
       }
     } else if (typeof skill === 'string') {
-      skillId = skill;
-      canonicalId = skill;
-      skillName = skill;
+      continue;
     }
 
     // 1. Mandatory verification check: Must be VERIFIED
